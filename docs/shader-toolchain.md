@@ -182,7 +182,8 @@ version adds a migration step and keeps every older one.
 `presetUniforms` returns only `sensitivity`, `param0` to `param2`, `accent`, `motion`,
 `palette` and `trailDecay`. The host writes the time, audio, `presentation0`, `presentation1`
 and `safeRect` uniforms itself, so no preset reaches the flash limiter's or the overlay's
-inputs. `presetMapping` returns the mapping fields the host applies to the core: `releaseSeconds`
+inputs. `presentation1.y` is a detail reduction in `[0, 1]` that a host raises to hold its
+frame rate; nebula reads it and runs 12 volume shells at 0 down to 6 at 1. `presetMapping` returns the mapping fields the host applies to the core: `releaseSeconds`
 and `dbFloor` are `MappingConfig` fields (`release_seconds`, `db_floor`), and `levelSource` goes
 through `oscillux_mapping_set_level_source`.
 `conformance/presets/` holds the vectors and the adversarial set that `make shader-test`

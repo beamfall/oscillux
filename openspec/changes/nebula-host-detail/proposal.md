@@ -14,11 +14,10 @@ holds about 54 fps and alternates between its two lowest levels.
 
 ## What Changes
 
-- `shaders/library.glsl` gains `presentationDetail(u)`, `1 - clamp(presentation1.y, 0, 1)`,
-  beside `presentationIntensity`.
-- Nebula runs `6 + round(6 * detail)` shells, 12 at detail 1 and 6 at detail 0, and scales each
+- Nebula reads `detail = 1 - clamp(presentation1.y, 0, 1)` and runs `6 + round(6 * detail)` shells, 12 at detail 1 and 6 at detail 0, and scales each
   shell's alpha by `12 / shells` so the cloud keeps its overall density.
-- At reduction 0 every emitted nebula output is unchanged. No other visual changes.
+- At reduction 0 nebula renders as before. The shared library is untouched, so no other
+  visual's emitted bytes change.
 
 Measured on the live viewer (visual pass only, nebula, 20 draws): 14.2 ms to 7.6 ms at
 1920 x 1080 with reduction 1; 24.5 ms to 16.9 ms at 2560 x 1440 with reduction 0.6; 52.6 ms

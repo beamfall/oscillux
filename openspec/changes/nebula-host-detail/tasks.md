@@ -3,13 +3,12 @@
 
 ## 1. Shader
 
-- [ ] 1.1 `presentationDetail` in `shaders/library.glsl`
-- [ ] 1.2 Shell count and alpha weight in `shaders/visuals/nebula.glsl`
+- [x] 1.1 Shell count and alpha weight in `shaders/visuals/nebula.glsl`
 
 ## 2. Checks and docs
 
-- [ ] 2.1 `make shader-test`, byte check of the other visuals' outputs
-- [ ] 2.2 `docs/shader-toolchain.md` and `CHANGELOG.md`
+- [x] 2.1 `make shader-test`, byte check that only nebula's outputs change; repin the android-gles source digest
+- [x] 2.2 `docs/shader-toolchain.md` and `CHANGELOG.md`
 
 ## 3. Close
 

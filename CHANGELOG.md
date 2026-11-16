@@ -10,6 +10,12 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- Nebula follows the host's detail reduction (`presentation1.y`): 12 volume shells at 0, down
+  to 6 at 1, each weighted so the cloud keeps its density. Its output at reduction 0 is
+  unchanged, and no other emitted shader changed (CORE-2220).
+
 ## [0.2.1] - 2026-11-16
 
 ### Added
