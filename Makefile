@@ -109,6 +109,7 @@ shader-test:
 	node tools/shader/test-governor.mjs
 	node tools/shader/test-preset.mjs
 	node tools/shader/test-karaoke-zip.mjs
+	node tools/shader/test-android-gles.mjs
 
 gate: shader-test
 
