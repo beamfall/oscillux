@@ -2,7 +2,7 @@
 
 **Visuals that hear the music.** Oscillux is the audio-reactive visual engine behind
 [Beamfall](https://github.com/beamfall): it listens to a stream of audio, finds the beat, and
-drives 84 visuals and 30 transitions that move with it, on every screen your app runs on.
+drives 61 visuals and 30 transitions that move with it, on every screen your app runs on.
 
 [![Licence: AGPL-3.0-only](https://img.shields.io/badge/licence-AGPL--3.0--only-blue)](LICENSE)
 [![Rust MSRV 1.85](https://img.shields.io/badge/rust-1.85%2B-orange)](Cargo.toml)
@@ -32,10 +32,11 @@ reproduce them. No platform-specific floating-point shortcuts, no "close enough 
 analyzer and a GPU frame flash limiter ship in the box, alongside overlay regions that hold the
 contrast of your captions and controls over any visual.
 
-**A catalogue, not a demo.** 84 visuals across tunnels, flights, sky and space, light and glass,
+**A catalogue, not a demo.** 61 visuals across tunnels, flights, sky and space, light and glass,
 liquid, scopes and meters, photo and dancers, from calm to intense, plus 30 switch transitions.
 Each is written once in portable GLSL and translated by a pinned toolchain for WebGL2, Vulkan,
-Metal and HLSL.
+Metal and HLSL. Another 23, a calmer set, are already written in `shaders/originals/` and on their
+way into the catalogue.
 
 **Built to be embedded.** One C header, opaque handles, caller-owned buffers and plain status
 codes. The per-frame path never allocates, locks or touches I/O, and a panic never crosses the
@@ -70,7 +71,8 @@ host's responsibility. Read [conformance/limiter/README.md](conformance/limiter/
 | macOS, iOS, tvOS | `oscillux-xcframework.zip` (XCFramework) | arm64 devices and simulators; Intel Macs are not supported |
 | Android | `oscillux.aar` | C libraries for arm64-v8a and armeabi-v7a, JNI bindings, minSdk 21 |
 | Web | `oscillux-wasm.tgz` (npm package `@oscillux/core`) | wasm-bindgen ES modules with TypeScript types, at most 100 KiB gzip |
-| Windows | `oscillux-windows.zip` | x64 and ARM64, built on a Windows host only |
+| Any GPU host | `oscillux-msl.zip`, `oscillux-glsl300.zip` | the Metal and GLSL ES 3.00 shader legs with a SHA-256 index, for hosts that compile shaders themselves |
+| Windows | `oscillux-windows.zip` | x64 and ARM64, built on a Windows host only; not yet attached to releases, so build it with `make artifacts` |
 | Linux | crates only | checked by the gate; no packaged library |
 
 `make artifacts` builds them with the pinned toolchain and writes `dist/manifest.json` with each
