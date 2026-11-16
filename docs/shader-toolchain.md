@@ -5,8 +5,9 @@
 backend compiles: GLSL ES 3.00 (WebGL2/GLES), Vulkan GLSL 450, and, through SPIR-V,
 Metal Shading Language and HLSL Shader Model 5.0 (D3D11). It also checks the native
 outputs with the pinned compilers, validates declarative pass lists, and renders
-visuals headlessly, once or on every change. The host owns the visuals; it passes
-them in as a manifest, and nothing in this tool names a product, catalog or palette.
+visuals headlessly, once or on every change. The visuals are described by a manifest
+(`shaders/manifest.json` for the release set). Descriptive catalog metadata lives there and
+ships as the legs' `catalog.json`; hosts own selection, gating and defaults on top of it.
 
 ## Inputs
 
