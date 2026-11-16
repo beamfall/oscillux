@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oscillux:conformance/passes/pass-list.schema.json",
+  "title": "Oscillux pass list",
+  "description": "A declarative, host-agnostic list of render passes for one frame. Hosts execute it; Oscillux only defines and validates it. tools/shader/passes.mjs adds the checks JSON Schema cannot express (references, ordering, uniform names). See docs/shader-toolchain.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "targets", "passes"],
+  "properties": {
+    "version": { "const": 1 },
+    "description": { "type": "string" },
+    "targets": {
+      "description": "Offscreen render targets. The host's output surface is the reserved output name \"screen\" and is not listed.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/target" }
+    },
+    "passes": {
+      "description": "Passes in execution order.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/pass" }
+    }
+  },
+  "definitions": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "format"],
+      "properties": {
+        "id": {
+          "description": "Target name. \"image\" and \"screen\" are reserved.",
+          "$ref": "#/definitions/name"
+        },
+        "format": { "enum": ["rgba8", "rgba16f", "rgba32f"] },
+        "scale": {
+          "description": "Size relative to the output surface, per axis. Default 1.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "filter": {
+          "description": "Sampling filter when the target is read. Default linear; reads clamp to edge.",
+          "enum": ["linear", "nearest"]
+        },
+        "feedback": {
+          "description": "Double-buffered: passes may read <id>.previous, the target's contents at the end of the previous frame. Default false.",
+          "type": "boolean"
+        },
+        "clear": {
+          "description": "Linear RGBA the target holds before the first frame (feedback) or before its first write each frame (otherwise). Default [0, 0, 0, 1].",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "pass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "shader", "inputs", "output"],
+      "properties": {
+        "id": { "$ref": "#/definitions/name" },
+        "shader": {
+          "description": "A manifest visual (wrapped by tools/shader/wrap.mjs, slots image and prev) or a host post-process shader, named here and supplied by the host.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["visual"],
+              "properties": { "visual": { "$ref": "#/definitions/name" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["post"],
+              "properties": { "post": { "$ref": "#/definitions/name" } }
+            }
+          ]
+        },
+        "inputs": {
+          "description": "Shader slot to source: \"image\" (the host's image input), \"<target>\" (its contents so far this frame) or \"<target>.previous\" (a feedback target's previous frame).",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(image|[a-z][a-z0-9-]*(\\.previous)?)$"
+          }
+        },
+        "output": {
+          "description": "A target id, or \"screen\" for the host's output surface.",
+          "$ref": "#/definitions/name"
+        },
+        "blend": {
+          "description": "How the pass combines with the output's contents. Default replace.",
+          "enum": ["replace", "add", "alpha", "premultiplied", "max"]
+        },
+        "uniforms": {
+          "description": "Per-pass values for host-sourced VisualUniforms members, by name in conformance/packing/visual-uniforms.schema.json: a number for float, an array for vec2 or vec4. Array members cannot be set.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 4,
+                "items": { "type": "number" }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

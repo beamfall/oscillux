@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[workspace]
+resolver = "2"
+members = ["crates/oscillux-core", "crates/oscillux-ffi", "packaging/wasm"]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.85"
+license = "AGPL-3.0-only"
+repository = "https://github.com/beamfall/oscillux"
+
+[profile.release]
+# Measured against "z": 1.3x faster per frame on aarch64-apple-darwin, 2.3x on x86_64 and wasm32,
+# bit-identical outputs, no size regression (`make bench`).
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = "debuginfo"

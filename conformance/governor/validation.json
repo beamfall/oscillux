@@ -1,0 +1,50 @@
+{
+  "description": "Hysteresis validation, which the pinned TypeScript reference does not perform. Each promote threshold (targetFrameMs times the factor) must sit strictly below the demote threshold (targetFrameMs times demoteFactor), or create is refused. Omitted keys take the defaults.",
+  "cases": [
+    {
+      "name": "defaults",
+      "config": {},
+      "valid": true
+    },
+    {
+      "name": "promote-target-just-below-demote",
+      "config": { "promoteTargetFactor": 1.2499999999999998 },
+      "valid": true
+    },
+    {
+      "name": "promote-refresh-just-below-demote",
+      "config": { "promoteRefreshFactor": 1.2499999999999998 },
+      "valid": true
+    },
+    {
+      "name": "promote-target-equals-demote",
+      "config": { "promoteTargetFactor": 1.25 },
+      "valid": false
+    },
+    {
+      "name": "promote-refresh-equals-demote",
+      "config": { "promoteRefreshFactor": 1.25 },
+      "valid": false
+    },
+    {
+      "name": "promote-target-above-demote",
+      "config": { "promoteTargetFactor": 2.0 },
+      "valid": false
+    },
+    {
+      "name": "promote-refresh-above-demote",
+      "config": { "promoteRefreshFactor": 1.5 },
+      "valid": false
+    },
+    {
+      "name": "demote-lowered-under-default-promote",
+      "config": { "demoteFactor": 1.05 },
+      "valid": false
+    },
+    {
+      "name": "subnormal-target-collapses-band",
+      "config": { "targetFrameMs": 5e-324, "refreshFloorMs": 5e-324 },
+      "valid": false
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "oscillux-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+oscillux-core = { path = "../../crates/oscillux-core" }
+oscillux-ffi = { path = "../../crates/oscillux-ffi" }
+wasm-bindgen = "=0.2.130"

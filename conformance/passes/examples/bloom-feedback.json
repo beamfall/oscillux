@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "description": "Bloom over the feedback ping-pong: a threshold pass and a separable blur at half resolution, composited with the full-resolution scene and tonemapped to the output surface.",
+  "targets": [
+    { "id": "scene", "format": "rgba16f", "feedback": true },
+    { "id": "bright", "format": "rgba16f", "scale": 0.5 },
+    { "id": "blur-h", "format": "rgba16f", "scale": 0.5 },
+    { "id": "bloom", "format": "rgba16f", "scale": 0.5 }
+  ],
+  "passes": [
+    {
+      "id": "scene",
+      "shader": { "visual": "image-ripple" },
+      "inputs": { "image": "image", "prev": "scene.previous" },
+      "output": "scene"
+    },
+    {
+      "id": "threshold",
+      "shader": { "post": "bloom-threshold" },
+      "inputs": { "source": "scene" },
+      "output": "bright",
+      "uniforms": { "param0": 1.0 }
+    },
+    {
+      "id": "blur-horizontal",
+      "shader": { "post": "gaussian-blur" },
+      "inputs": { "source": "bright" },
+      "output": "blur-h",
+      "uniforms": { "param0": 1, "param1": 0 }
+    },
+    {
+      "id": "blur-vertical",
+      "shader": { "post": "gaussian-blur" },
+      "inputs": { "source": "blur-h" },
+      "output": "bloom",
+      "uniforms": { "param0": 0, "param1": 1 }
+    },
+    {
+      "id": "composite",
+      "shader": { "post": "bloom-composite" },
+      "inputs": { "source": "scene", "bloom": "bloom" },
+      "output": "screen",
+      "uniforms": { "param0": 0.6 }
+    }
+  ]
+}

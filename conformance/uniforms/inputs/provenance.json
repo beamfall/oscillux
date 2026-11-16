@@ -1,0 +1,18 @@
+{
+  "description": "AudioFrame v1 frame goldens vendored read-only as inputs to the visual-uniforms.v1 goldens. Byte-identical copies; never edit them here.",
+  "repository": "core",
+  "commit": "aeee8c5dfdf6b35c7808d9e283fdbb102f933870",
+  "last_changed_commit": "4b62fe25da35e3902102f95f102c83d83729369f",
+  "files": [
+    {
+      "name": "sine-440.frames.golden.json",
+      "source": "internal/conformance/testdata/visualsync/sine-440.frames.golden.json",
+      "sha256": "4d2af1199d8ff922985feeb64ef297ef5e4507a0624dbaf3a2ca8b8ef602c745"
+    },
+    {
+      "name": "gap-stall-latency.frames.golden.json",
+      "source": "internal/conformance/testdata/visualsync/gap-stall-latency.frames.golden.json",
+      "sha256": "f2f1243a595032e218b18188198d285ef1b6bec240ed58b629207ec41eac6db5"
+    }
+  ]
+}

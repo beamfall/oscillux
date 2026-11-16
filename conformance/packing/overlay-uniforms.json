@@ -1,0 +1,1287 @@
+{
+ "description": "OverlayUniforms packing and flash-mask vectors (OSC-OVERLAY). Written by tools/overlay-uniforms-vectors.py from overlay-uniforms.schema.json; bytes are the 320-byte little-endian std140 block, hex.",
+ "size": 320,
+ "pack": [
+  {
+   "name": "default-empty",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "bytes": "0000000085a13b3e6a4d333e00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f00008744000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "menu-and-caption",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.03,
+     "y": 0.05,
+     "width": 0.28,
+     "height": 0.6,
+     "corner_radius": 0.02,
+     "feather": 0.015,
+     "strength": 0.8,
+     "mode": 61,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000004085a13b3e6a4d333e00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f0000874400000000000000008fc2f53ccdcc4c3d295c8f3e9a99193fcdcccc3d85eb513fcdcc4c3f8fc2f53d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7a33c8fc2753ccdcc4c3f000074420ad7233c0ad7233c0000803f00000442000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "dark-text-card",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 7.0,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.6,
+     "y": 0.1,
+     "width": 0.35,
+     "height": 0.2,
+     "corner_radius": 0.03,
+     "feather": 0.0,
+     "strength": 0.5,
+     "mode": 6,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f5f98cc3db5a6993e00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f0000874400000000000000009a99193fcdcccc3d3333b33ecdcc4c3e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008fc2f53c000000000000003f0000c04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "reduced-motion-30hz",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 0.8,
+    "frame_interval_ms": 33.333333333333336,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": true,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f85a13b3e6a4d333e00007f43cdcccc3e9a99193f0ad7233d000000006666663f0ad7233ca69b443c398ee33f0000803f000087440000803f00000000cdcccc3d85eb513fcdcc4c3f8fc2f53d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7233c0ad7233c0000803f0000044200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "reduced-motion-120hz",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 8.333333333333334,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": true,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.03,
+     "y": 0.05,
+     "width": 0.28,
+     "height": 0.6,
+     "corner_radius": 0.02,
+     "feather": 0.015,
+     "strength": 0.8,
+     "mode": 61,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f85a13b3e6a4d333e00007f430000003fcdcc4c3f0ad7a33c000000003333733f0ad7a33ba69b443c398ee33f0000803f000087440000803f000000008fc2f53ccdcc4c3d295c8f3e9a99193f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7a33c8fc2753ccdcc4c3f0000744200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "float-target-premultiplied",
+   "config": {
+    "viewport_width": 1080.0,
+    "viewport_height": 1920.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 0.75,
+    "output_levels": 0,
+    "reduced_motion": false,
+    "premultiplied_alpha": true
+   },
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.6,
+     "y": 0.1,
+     "width": 0.35,
+     "height": 0.2,
+     "corner_radius": 0.03,
+     "feather": 0.0,
+     "strength": 0.5,
+     "mode": 6,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000004085a13b3e6a4d333e000000000000803f000000000000803f0000803f6666663f0ad7233ca69b443c0000103f0000403f0000f0440000000000000000cdcccc3d85eb513fcdcc4c3f8fc2f53d9a99193fcdcccc3d3333b33ecdcc4c3e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7233c0ad7233c0000803f000004428fc2f53c000000000000003f0000c040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "ten-bit-wcag-aaa",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 7.0,
+    "intensity": 0.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 1023,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f5f98cc3db5a6993e00c07f4400000000000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f000087440000000000000000cdcccc3d85eb513fcdcc4c3f8fc2f53d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7233c0ad7233c0000803f0000044200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "eight-regions",
+   "config": {
+    "viewport_width": 480.0,
+    "viewport_height": 270.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 0.0,
+     "mode": 2,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.05,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.005,
+     "feather": 0.001,
+     "strength": 0.125,
+     "mode": 5,
+     "reserved": 0
+    },
+    {
+     "x": 0.2,
+     "y": 0.1,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.01,
+     "feather": 0.002,
+     "strength": 0.25,
+     "mode": 10,
+     "reserved": 0
+    },
+    {
+     "x": 0.30000000000000004,
+     "y": 0.15000000000000002,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.015,
+     "feather": 0.003,
+     "strength": 0.375,
+     "mode": 13,
+     "reserved": 0
+    },
+    {
+     "x": 0.4,
+     "y": 0.2,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.02,
+     "feather": 0.004,
+     "strength": 0.5,
+     "mode": 18,
+     "reserved": 0
+    },
+    {
+     "x": 0.5,
+     "y": 0.25,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.025,
+     "feather": 0.005,
+     "strength": 0.625,
+     "mode": 21,
+     "reserved": 0
+    },
+    {
+     "x": 0.6000000000000001,
+     "y": 0.30000000000000004,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.03,
+     "feather": 0.006,
+     "strength": 0.75,
+     "mode": 26,
+     "reserved": 0
+    },
+    {
+     "x": 0.7000000000000001,
+     "y": 0.35000000000000003,
+     "width": 0.1,
+     "height": 0.05,
+     "corner_radius": 0.035,
+     "feather": 0.007,
+     "strength": 0.875,
+     "mode": 29,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000004185a13b3e6a4d333e00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f0000874300000000000000000000000000000000cdcccc3dcdcc4c3dcdcccc3dcdcc4c3dcdcccc3dcdcc4c3dcdcc4c3ecdcccc3dcdcccc3dcdcc4c3d9a99993e9a99193ecdcccc3dcdcc4c3dcdcccc3ecdcc4c3ecdcccc3dcdcc4c3d0000003f0000803ecdcccc3dcdcc4c3d9a99193f9a99993ecdcccc3dcdcc4c3d3333333f3333b33ecdcccc3dcdcc4c3d000000000000000000000000000000400ad7a33b6f12833a0000003e0000a0400ad7233c6f12033b0000803e000020418fc2753ca69b443b0000c03e000050410ad7a33c6f12833b0000003f00009041cdcccc3c0ad7a33b0000203f0000a8418fc2f53ca69bc43b0000403f0000d041295c0f3d4260e53b0000603f0000e841"
+  },
+  {
+   "name": "zero-size-region",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.5,
+     "y": 0.5,
+     "width": 0.0,
+     "height": 0.0,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 0.0,
+     "mode": 0,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f85a13b3e6a4d333e00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f0000874400000000000000000000003f0000003f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "contrast-one",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 1.0,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f72f97f3f17b7d13800007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f000087440000000000000000cdcccc3d85eb513fcdcc4c3f8fc2f53d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ad7233c0ad7233c0000803f0000044200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "contrast-twenty-one",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 21.0,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.6,
+     "y": 0.1,
+     "width": 0.35,
+     "height": 0.2,
+     "corner_radius": 0.03,
+     "feather": 0.0,
+     "strength": 0.5,
+     "mode": 6,
+     "reserved": 0
+    }
+   ],
+   "bytes": "0000803f17b7d1b84703803f00007f430000803f000000000000803f000000006666663f0ad7233ca69b443c398ee33f0000803f0000874400000000000000009a99193fcdcccc3d3333b33ecdcc4c3e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008fc2f53c000000000000003f0000c04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+   "name": "refuse-viewport",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 0.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "Viewport"
+  },
+  {
+   "name": "refuse-contrast",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 0.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "ContrastRatio"
+  },
+  {
+   "name": "refuse-intensity",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.5,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "Intensity"
+  },
+  {
+   "name": "refuse-interval",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 0.0,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "FrameInterval"
+  },
+  {
+   "name": "refuse-alpha",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": -0.1,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "Alpha"
+  },
+  {
+   "name": "refuse-levels",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 1,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [],
+   "refused": "OutputLevels"
+  },
+  {
+   "name": "refuse-count",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionCount"
+  },
+  {
+   "name": "refuse-rect",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": -0.1,
+     "height": 0.1,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 1,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionRect"
+  },
+  {
+   "name": "refuse-shape",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.1,
+     "corner_radius": 1.5,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 1,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionShape"
+  },
+  {
+   "name": "refuse-strength",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.1,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 2.0,
+     "mode": 1,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionStrength"
+  },
+  {
+   "name": "refuse-both-text-modes",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.1,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 3,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionMode"
+  },
+  {
+   "name": "refuse-unknown-mode",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.1,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 64,
+     "reserved": 0
+    }
+   ],
+   "refused": "RegionMode"
+  },
+  {
+   "name": "refuse-reserved",
+   "config": {
+    "viewport_width": 1920.0,
+    "viewport_height": 1080.0,
+    "contrast_ratio": 4.5,
+    "intensity": 1.0,
+    "frame_interval_ms": 16.666666666666668,
+    "alpha": 1.0,
+    "output_levels": 255,
+    "reduced_motion": false,
+    "premultiplied_alpha": false
+   },
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 0.1,
+     "height": 0.1,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 1,
+     "reserved": 1
+    }
+   ],
+   "refused": "RegionMode"
+  }
+ ],
+ "flashMask": [
+  {
+   "name": "caption-4x4",
+   "regions": [
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "columns": 4,
+   "rows": 4,
+   "mask": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "menu-caption-8x6",
+   "regions": [
+    {
+     "x": 0.03,
+     "y": 0.05,
+     "width": 0.28,
+     "height": 0.6,
+     "corner_radius": 0.02,
+     "feather": 0.015,
+     "strength": 0.8,
+     "mode": 61,
+     "reserved": 0
+    },
+    {
+     "x": 0.1,
+     "y": 0.82,
+     "width": 0.8,
+     "height": 0.12,
+     "corner_radius": 0.01,
+     "feather": 0.01,
+     "strength": 1.0,
+     "mode": 33,
+     "reserved": 0
+    }
+   ],
+   "columns": 8,
+   "rows": 6,
+   "mask": [
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "no-damp-flash",
+   "regions": [
+    {
+     "x": 0.6,
+     "y": 0.1,
+     "width": 0.35,
+     "height": 0.2,
+     "corner_radius": 0.03,
+     "feather": 0.0,
+     "strength": 0.5,
+     "mode": 6,
+     "reserved": 0
+    }
+   ],
+   "columns": 4,
+   "rows": 4,
+   "mask": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "zero-strength",
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 0.0,
+     "mode": 32,
+     "reserved": 0
+    }
+   ],
+   "columns": 3,
+   "rows": 3,
+   "mask": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "edge-touch-excluded",
+   "regions": [
+    {
+     "x": 0.5,
+     "y": 0.0,
+     "width": 0.5,
+     "height": 0.5,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 32,
+     "reserved": 0
+    }
+   ],
+   "columns": 2,
+   "rows": 2,
+   "mask": [
+    0,
+    1,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "feather-reaches",
+   "regions": [
+    {
+     "x": 0.55,
+     "y": 0.55,
+     "width": 0.2,
+     "height": 0.2,
+     "corner_radius": 0.0,
+     "feather": 0.1,
+     "strength": 1.0,
+     "mode": 32,
+     "reserved": 0
+    }
+   ],
+   "columns": 2,
+   "rows": 2,
+   "mask": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "full-16x16",
+   "regions": [
+    {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0,
+     "corner_radius": 0.0,
+     "feather": 0.0,
+     "strength": 1.0,
+     "mode": 34,
+     "reserved": 0
+    }
+   ],
+   "columns": 16,
+   "rows": 16,
+   "mask": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ]
+  }
+ ]
+}

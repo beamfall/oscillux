@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "oscillux-ffi"
+description = "C interface to the Oscillux core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "oscillux"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+oscillux-core = { path = "../oscillux-core" }
+
+# Per-frame budget check run by `make bench` (and so `make gate`); method in benches/frame_budget.rs.
+[[bench]]
+name = "frame_budget"
+harness = false

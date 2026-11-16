@@ -1,0 +1,20 @@
+/target
+/dist
+/out
+/tools/shader/node_modules
+/hosts/apple/OscilluxHost.xcodeproj
+
+# Generated OpenSpec agent commands (openspec update)
+.claude/commands/opsx/
+.claude/skills/openspec-*/
+.agents/skills/openspec-*/
+
+# Corvint local state
+.context-corvint/
+.corvint/self-observations.jsonl
+.corvint/unplanned-reads.jsonl
+.corvint/unplanned-reads.enabled
+
+# Local ticket store and agent evidence (not published)
+.taskman/
+.agent-evidence/

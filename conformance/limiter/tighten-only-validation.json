@@ -1,0 +1,63 @@
+{
+  "description": "Tighten-only cases for the red-flash budget, which the reference validator does not have. A looser value is refused, never clamped.",
+  "cases": [
+    {
+      "name": "red-budget-zero",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 0,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "red-budget-default",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "red-budget-four-looser",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 4,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "looser:maxRedFlashes"
+    },
+    {
+      "name": "strobe-allowed-checked-before-red-budget",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 4,
+        "strobeBanned": false
+      },
+      "valid": false,
+      "error": "strobe-not-banned"
+    },
+    {
+      "name": "red-budget-checked-after-numeric-ceilings",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.5,
+        "maxRedFlashes": 4,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "looser:maxFlashArea"
+    }
+  ]
+}

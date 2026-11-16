@@ -1,0 +1,4290 @@
+{
+  "revision": "7caa4d1",
+  "tolerance": 1e-06,
+  "cases": [
+    {
+      "source": "01-beat-heavy.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "01-beat-heavy.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "02-quiet.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "02-quiet.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "02-quiet.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "02-quiet.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "02-quiet.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "02-quiet.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "02-quiet.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "02-quiet.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "02-quiet.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "02-quiet.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "02-quiet.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "03-silence.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "03-silence.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "03-silence.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "03-silence.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "03-silence.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "03-silence.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "03-silence.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "03-silence.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "03-silence.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "03-silence.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "03-silence.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "04-low-confidence-beatgrid.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "05-beatgrid-arrives-mid.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "06-absent-sync-lanes.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "07-misaligned-sync-lanes.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "08-variable-tempo.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "09-ambient-non-rhythmic.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "10-seek-mid-phrase.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "11-pause-resume.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "11-pause-resume.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "11-pause-resume.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "11-pause-resume.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "11-pause-resume.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "11-pause-resume.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "11-pause-resume.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "11-pause-resume.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "11-pause-resume.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "11-pause-resume.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "11-pause-resume.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "12-track-change.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "12-track-change.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "12-track-change.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "12-track-change.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "12-track-change.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "12-track-change.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "12-track-change.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "12-track-change.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "12-track-change.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "12-track-change.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "12-track-change.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "13-reduced-motion-off.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "14-reduced-motion-on.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "15-overlay-safe.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "16-adversarial-strobe.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "17-over-budget.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "17-over-budget.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "17-over-budget.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "17-over-budget.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "17-over-budget.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "17-over-budget.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "17-over-budget.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "17-over-budget.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "17-over-budget.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "17-over-budget.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "17-over-budget.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "18-audioframe-gap.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "19-bluetooth-latency.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "20-transition-cadence.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "21-hold-override.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "21-hold-override.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "21-hold-override.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "21-hold-override.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "21-hold-override.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "21-hold-override.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "21-hold-override.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "21-hold-override.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "21-hold-override.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "21-hold-override.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "21-hold-override.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:0",
+      "curve": {
+        "kind": "constant",
+        "value": 0.3,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.3,
+      "reference_want": 0.3,
+      "swift_want": 0.3
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:1",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 0.5
+      },
+      "want": 0.125,
+      "reference_want": 0.125,
+      "swift_want": 0.125
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:2",
+      "curve": {
+        "kind": "easing",
+        "from": 0,
+        "to": 1,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.875,
+      "reference_want": 0.875,
+      "swift_want": 0.875
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:3",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 0.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:4",
+      "curve": {
+        "kind": "envelope",
+        "value": 1,
+        "unit": "seconds",
+        "attack": 0.5,
+        "release": 0.5,
+        "releaseAt": 1
+      },
+      "input": {
+        "elapsedSeconds": 1.25
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:5",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 1
+      },
+      "want": 1,
+      "reference_want": 1,
+      "swift_want": 1
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:6",
+      "curve": {
+        "kind": "lfo",
+        "unit": "beats",
+        "shape": "sine",
+        "period": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {
+        "elapsedBeats": 3
+      },
+      "want": 0,
+      "reference_want": 0,
+      "swift_want": 0
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:7",
+      "curve": {
+        "kind": "lfo",
+        "unit": "seconds",
+        "shape": "triangle",
+        "period": 8,
+        "min": 0.2,
+        "max": 0.8
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:8",
+      "curve": {
+        "kind": "easing",
+        "from": 0.1,
+        "to": 0.9,
+        "duration": 4,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:9",
+      "curve": {
+        "kind": "constant",
+        "value": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 0.5,
+      "reference_want": 0.5,
+      "swift_want": 0.5
+    },
+    {
+      "source": "22-hold-release-on-clamp.fixture.json:10",
+      "curve": {
+        "kind": "envelope",
+        "value": 0.8,
+        "unit": "seconds",
+        "attack": 1,
+        "release": 2,
+        "releaseAt": 3
+      },
+      "input": {
+        "elapsedSeconds": 2
+      },
+      "want": 0.8,
+      "reference_want": 0.8,
+      "swift_want": 0.8
+    },
+    {
+      "source": "TS-boundary:negative-half",
+      "curve": {
+        "kind": "constant",
+        "value": -1.5e-06
+      },
+      "input": {},
+      "want": -1e-06,
+      "negativeZero": false,
+      "swift_want": -2e-06
+    },
+    {
+      "source": "TS-boundary:negative-zero",
+      "curve": {
+        "kind": "constant",
+        "value": -5e-07
+      },
+      "input": {},
+      "want": 0,
+      "negativeZero": true,
+      "swift_want": -1e-06
+    },
+    {
+      "source": "TS-boundary:constant-wrap-negative",
+      "curve": {
+        "kind": "constant",
+        "value": -0.25,
+        "min": 0,
+        "max": 1,
+        "wrap": true
+      },
+      "input": {},
+      "want": 0.75,
+      "negativeZero": false,
+      "swift_want": 0.75
+    },
+    {
+      "source": "TS-boundary:constant-clamp",
+      "curve": {
+        "kind": "constant",
+        "value": 4,
+        "min": 0,
+        "max": 1
+      },
+      "input": {},
+      "want": 1,
+      "negativeZero": false,
+      "swift_want": 1
+    },
+    {
+      "source": "TS-boundary:one-bound-ignored",
+      "curve": {
+        "kind": "constant",
+        "value": 4,
+        "max": 1
+      },
+      "input": {},
+      "want": 4,
+      "negativeZero": false,
+      "swift_want": 4
+    },
+    {
+      "source": "TS-boundary:smoothing-after-clamp",
+      "curve": {
+        "kind": "constant",
+        "value": 4,
+        "min": 0,
+        "max": 1,
+        "smoothingSeconds": 1
+      },
+      "input": {
+        "hasPrevious": true,
+        "previousValue": -2,
+        "deltaSeconds": 0.25
+      },
+      "want": -1.336402,
+      "negativeZero": false,
+      "swift_want": -1.336402
+    },
+    {
+      "source": "TS-boundary:envelope-negative-time",
+      "curve": {
+        "kind": "envelope",
+        "attack": 1,
+        "release": 2,
+        "unit": "seconds"
+      },
+      "input": {
+        "elapsedSeconds": -1
+      },
+      "want": -1,
+      "negativeZero": false,
+      "swift_want": -1
+    },
+    {
+      "source": "TS-boundary:envelope-default-peak",
+      "curve": {
+        "kind": "envelope",
+        "attack": 0,
+        "release": 2,
+        "unit": "seconds"
+      },
+      "input": {},
+      "want": 1,
+      "negativeZero": false,
+      "swift_want": 1
+    },
+    {
+      "source": "TS-boundary:ease-linear",
+      "curve": {
+        "kind": "easing",
+        "from": -1,
+        "to": 2,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "linear"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 1.25,
+      "negativeZero": false,
+      "swift_want": 1.25
+    },
+    {
+      "source": "TS-boundary:ease-easeIn",
+      "curve": {
+        "kind": "easing",
+        "from": -1,
+        "to": 2,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeIn"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 0.6875,
+      "negativeZero": false,
+      "swift_want": 0.6875
+    },
+    {
+      "source": "TS-boundary:ease-easeOut",
+      "curve": {
+        "kind": "easing",
+        "from": -1,
+        "to": 2,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 1.8125,
+      "negativeZero": false,
+      "swift_want": 1.8125
+    },
+    {
+      "source": "TS-boundary:ease-easeInOut",
+      "curve": {
+        "kind": "easing",
+        "from": -1,
+        "to": 2,
+        "duration": 2,
+        "unit": "seconds",
+        "easing": "easeInOut"
+      },
+      "input": {
+        "elapsedSeconds": 1.5
+      },
+      "want": 1.625,
+      "negativeZero": false,
+      "swift_want": 1.625
+    },
+    {
+      "source": "TS-boundary:lfo-sine--0.25",
+      "curve": {
+        "kind": "lfo",
+        "shape": "sine",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": -0.25,
+        "beatPhase": 0.25
+      },
+      "want": 0.707107,
+      "negativeZero": false,
+      "swift_want": 0.707107
+    },
+    {
+      "source": "TS-boundary:lfo-sine-0.5",
+      "curve": {
+        "kind": "lfo",
+        "shape": "sine",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 0.5,
+        "beatPhase": 0.25
+      },
+      "want": -0.707107,
+      "negativeZero": false,
+      "swift_want": -0.707107
+    },
+    {
+      "source": "TS-boundary:lfo-sine-1",
+      "curve": {
+        "kind": "lfo",
+        "shape": "sine",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 1,
+        "beatPhase": 0.25
+      },
+      "want": 0.707107,
+      "negativeZero": false,
+      "swift_want": 0.707107
+    },
+    {
+      "source": "TS-boundary:lfo-triangle--0.25",
+      "curve": {
+        "kind": "lfo",
+        "shape": "triangle",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": -0.25,
+        "beatPhase": 0.25
+      },
+      "want": -0.5,
+      "negativeZero": false,
+      "swift_want": -0.5
+    },
+    {
+      "source": "TS-boundary:lfo-triangle-0.5",
+      "curve": {
+        "kind": "lfo",
+        "shape": "triangle",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 0.5,
+        "beatPhase": 0.25
+      },
+      "want": -0.5,
+      "negativeZero": false,
+      "swift_want": -0.5
+    },
+    {
+      "source": "TS-boundary:lfo-triangle-1",
+      "curve": {
+        "kind": "lfo",
+        "shape": "triangle",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 1,
+        "beatPhase": 0.25
+      },
+      "want": 0.5,
+      "negativeZero": false,
+      "swift_want": 0.5
+    },
+    {
+      "source": "TS-boundary:lfo-square--0.25",
+      "curve": {
+        "kind": "lfo",
+        "shape": "square",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": -0.25,
+        "beatPhase": 0.25
+      },
+      "want": 1,
+      "negativeZero": false,
+      "swift_want": 1
+    },
+    {
+      "source": "TS-boundary:lfo-square-0.5",
+      "curve": {
+        "kind": "lfo",
+        "shape": "square",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 0.5,
+        "beatPhase": 0.25
+      },
+      "want": -1,
+      "negativeZero": false,
+      "swift_want": -1
+    },
+    {
+      "source": "TS-boundary:lfo-square-1",
+      "curve": {
+        "kind": "lfo",
+        "shape": "square",
+        "period": 1,
+        "min": -1,
+        "max": 1,
+        "unit": "beats",
+        "phase": 0.125
+      },
+      "input": {
+        "elapsedBeats": 1,
+        "beatPhase": 0.25
+      },
+      "want": 1,
+      "negativeZero": false,
+      "swift_want": 1
+    }
+  ]
+}

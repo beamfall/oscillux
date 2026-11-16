@@ -1,0 +1,830 @@
+{
+  "description": "Timeline discontinuities and refused frames. A step is a frame with its expected output (and error, for a refused frame), or a reset. Inputs are full-screen general and red flashes, or dark frames with no signal. Expected values are derived by hand from the rules in this directory's README.",
+  "tolerance": 0,
+  "cases": [
+    {
+      "name": "reset-keeps-flash-history",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 100,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 100,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 250,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 250,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 250,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          },
+          "output": {
+            "timeMs": 250,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "input": {
+            "timeMs": 500,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          },
+          "output": {
+            "timeMs": 500,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "input": {
+            "timeMs": 750,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          },
+          "output": {
+            "timeMs": 750,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "input": {
+            "timeMs": 1000,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 1000,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "reset-every-frame-keeps-the-budget",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "gaps-over-250ms-credit-no-time",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 100,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 100,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 250,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 250,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 1250,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 1250,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 2250,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 2250,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 1000000000000.0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 1000000000000.0,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "gaps-of-250ms-are-credited",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 100,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 100,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 250,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 250,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 500,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 500,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 750,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 750,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 0.4,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 1000,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 1000,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "gaps-over-250ms-keep-the-strobe-ban",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 300,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 300,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 600,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 600,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 1,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "strobe-across-a-discontinuity",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 100,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          },
+          "output": {
+            "timeMs": 100,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "input": {
+            "timeMs": 400,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 400,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 700,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 700,
+            "broadband": 0.4,
+            "low": 0.4,
+            "mid": 0.4,
+            "high": 0.4,
+            "red": 1,
+            "area": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "refused-frames-write-the-fail-safe-frame",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "steps": [
+        {
+          "input": {
+            "timeMs": 1000,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 1000,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "error": "decreasing-time",
+          "output": {
+            "timeMs": 0,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "input": {
+            "timeMs": 1000,
+            "broadband": 1.5,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "error": "invalid-scalar",
+          "output": {
+            "timeMs": 1000,
+            "broadband": 0,
+            "low": 0,
+            "mid": 0,
+            "high": 0,
+            "red": 0,
+            "area": 0
+          }
+        },
+        {
+          "reset": true
+        },
+        {
+          "input": {
+            "timeMs": 0,
+            "broadband": 1,
+            "low": 1,
+            "mid": 1,
+            "high": 1,
+            "red": 1,
+            "area": 1
+          },
+          "output": {
+            "timeMs": 0,
+            "broadband": 0.8,
+            "low": 0.8,
+            "mid": 0.8,
+            "high": 0.8,
+            "red": 1,
+            "area": 1
+          }
+        }
+      ]
+    }
+  ]
+}

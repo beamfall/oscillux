@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "description": "The feedback ping-pong of tools/shader/render.mjs: the visual reads its own previous frame from a double-buffered RGBA16F target, then a tonemap pass writes the output surface.",
+  "targets": [
+    { "id": "scene", "format": "rgba16f", "scale": 1, "filter": "linear", "feedback": true, "clear": [0, 0, 0, 1] }
+  ],
+  "passes": [
+    {
+      "id": "scene",
+      "shader": { "visual": "spectrum-rings" },
+      "inputs": { "image": "image", "prev": "scene.previous" },
+      "output": "scene",
+      "blend": "replace"
+    },
+    {
+      "id": "tonemap",
+      "shader": { "post": "tonemap" },
+      "inputs": { "source": "scene" },
+      "output": "screen"
+    }
+  ]
+}

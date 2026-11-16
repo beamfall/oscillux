@@ -1,0 +1,1 @@
+{"profile":"corvint-test-commands/0","go":{"env":{},"flags":["-count=1","-timeout","30m"]},"languages":{"rust":["cargo","test","--workspace"],"typescript":["make","shader-test"],"swift":["make","karaoke-zip-swift"],"cfamily":{"none":"C ffi header and bench have no suite; ABI is checked by make abi-check"}}}

@@ -1,0 +1,30 @@
+{
+  "description": "Adversarial presets (OSC-TUNE-PARAM-SCHEMA). tools/shader/test-preset.mjs resolves every case against every visual of the shipped manifests, with $visual replaced by the visual id and, in `input`, the `$params` value given to every param control of the visual. `expect` is accept or refuse; an accepted preset must yield exactly the tunable uniforms, each inside its range, and a mapping inside its range.",
+  "cases": [
+    {"name": "largest-doubles", "expect": "accept", "input": {"schemaVersion": 1, "visual": "$visual", "$params": 1.7976931348623157e308,
+      "sensitivity": 1.7976931348623157e308, "accent": [1e308, 1e308, 1e308, 1e308], "motion": [1e308, 1e308, 1e308, 1e308],
+      "palette": {"index": 9007199254740991, "phase": 1e308}, "trailDecay": 1e308,
+      "mapping": {"levelSource": "relative", "releaseSeconds": 1e308, "dbFloor": 1e308}}},
+    {"name": "most-negative-doubles", "expect": "accept", "input": {"schemaVersion": 1, "visual": "$visual", "$params": -1.7976931348623157e308,
+      "sensitivity": -1e308, "accent": [-1e308, -1e308, -1e308, -1e308], "motion": [-1e308, -1e308, -1e308, -1e308],
+      "palette": {"index": -9007199254740991, "phase": -1e308}, "trailDecay": -1e308,
+      "mapping": {"releaseSeconds": -1e308, "dbFloor": -1e308}}},
+    {"name": "subnormals", "expect": "accept", "input": {"schemaVersion": 1, "visual": "$visual", "$params": 5e-324,
+      "sensitivity": 5e-324, "accent": [5e-324, -5e-324, 5e-324, -5e-324], "motion": [-5e-324, 5e-324, -5e-324, 5e-324],
+      "trailDecay": -5e-324, "mapping": {"releaseSeconds": 5e-324, "dbFloor": -5e-324}}},
+    {"name": "positional-v0-extremes", "expect": "accept", "input": {"schemaVersion": 0, "visual": "$visual", "params": [1e308, -1e308, 2]}},
+    {"name": "presentation-injection", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "presentation0": [0, 0, 0, 0], "presentation1": [0, 0, 0, 0]}},
+    {"name": "safe-rect-injection", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "safeRect": [0, 0, 0, 0]}},
+    {"name": "audio-uniform-injection", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "beat": 1, "spectrum": [1, 1, 1, 1]}},
+    {"name": "uniforms-object", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "uniforms": {"presentation0": [0, 0, 0, 0]}}},
+    {"name": "mapping-config-injection", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "mapping": {"hopSeconds": 0}}},
+    {"name": "proto-pollution", "expect": "refuse", "text": "{\"schemaVersion\":1,\"visual\":\"$visual\",\"__proto__\":{\"safeRect\":[0,0,0,0]}}"},
+    {"name": "constructor-pollution", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "constructor": {"prototype": {"safeRect": [0, 0, 0, 0]}}}},
+    {"name": "params-proto-pollution", "expect": "refuse", "text": "{\"schemaVersion\":1,\"visual\":\"$visual\",\"params\":{\"__proto__\":{\"x\":1}}}"},
+    {"name": "infinite-sensitivity", "expect": "refuse", "text": "{\"schemaVersion\":1,\"visual\":\"$visual\",\"sensitivity\":1e999}"},
+    {"name": "infinite-v0-param", "expect": "refuse", "text": "{\"schemaVersion\":0,\"visual\":\"$visual\",\"params\":[-1e999,0,0]}"},
+    {"name": "boolean-trail", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "trailDecay": true}},
+    {"name": "huge-version", "expect": "refuse", "input": {"schemaVersion": 1e308, "visual": "$visual"}},
+    {"name": "fractional-palette", "expect": "refuse", "input": {"schemaVersion": 1, "visual": "$visual", "palette": {"index": 0.5}}}
+  ]
+}

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "oscillux-core"
+description = "Portable audio-reactive visual core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# Pure-software maths, so every target computes bit-identical results.
+libm = { version = "0.2.16", default-features = false }

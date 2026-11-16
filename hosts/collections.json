@@ -1,0 +1,29 @@
+{
+  "collections": [
+    {
+      "id": "calm",
+      "label": "Calm",
+      "labelKey": "collection.calm",
+      "visuals": [
+        "moonlit-tide",
+        "lantern-drift",
+        "cloud-sea",
+        "ember-glow",
+        "still-pond",
+        "dusk-hills",
+        "soft-bokeh",
+        "silk-veil",
+        "starlit-haze",
+        "pastel-drift",
+        "sunlit-shallows",
+        "snowfall",
+        "falling-beams"
+      ],
+      "transitions": [
+        "dissolve",
+        "heat-haze",
+        "smoke"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1100 @@
+{
+  "description": "Flash sequences exported from the reference implementation's tests, with its analysis before and after the clamp and its clamped frames. Reference frames carry no red or area signal, so red is 0 and area is 1 (a full-screen change).",
+  "tolerance": 0,
+  "cases": [
+    {
+      "name": "gentle-onsets-under-ceiling",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.35,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 100,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0.34,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 300,
+          "broadband": 0.25,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0.22,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 700,
+          "broadband": 0.18,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 800,
+          "broadband": 0.15,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 900,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.28,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1100,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.34,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "exceeds": false,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 100,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0.34,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 300,
+          "broadband": 0.25,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0.22,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 700,
+          "broadband": 0.18,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 800,
+          "broadband": 0.15,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 900,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.28,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1100,
+          "broadband": 0.2,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.34,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "8hz-strobe-over-ceiling",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.35,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.98,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.97,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.99,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.96,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.98,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 625,
+          "broadband": 0.97,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 750,
+          "broadband": 0.99,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 875,
+          "broadband": 0.96,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.98,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 8,
+        "peakLuminanceDelta": 0.99,
+        "strobeDetected": true,
+        "peakRedFlashes": 0
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 625,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 750,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 875,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.35,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "regular-triplet-third-flash-blocked",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 3,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": true,
+        "peakRedFlashes": 0
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.4,
+          "low": 0,
+          "mid": 0,
+          "high": 0.4,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 2,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "steady-beat-then-regular-flash-tail",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 750,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1250,
+          "broadband": 0.86,
+          "low": 0,
+          "mid": 0,
+          "high": 0.86,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1500,
+          "broadband": 0.86,
+          "low": 0,
+          "mid": 0,
+          "high": 0.86,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1750,
+          "broadband": 0.86,
+          "low": 0,
+          "mid": 0,
+          "high": 0.86,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 3,
+        "peakLuminanceDelta": 0.86,
+        "strobeDetected": true,
+        "peakRedFlashes": 0
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 750,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.3,
+          "low": 0,
+          "mid": 0,
+          "high": 0.3,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1500,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0.8,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1750,
+          "broadband": 0.4,
+          "low": 0,
+          "mid": 0,
+          "high": 0.4,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 2,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "10hz-adversarial-under-safe-profile",
+      "policy": {
+        "maxFlashHz": 1,
+        "maxLuminanceDelta": 0.35,
+        "maxFlashArea": 0.1,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 100,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 300,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 700,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 800,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 900,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1100,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1200,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1300,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1400,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1500,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1600,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1700,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1800,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1900,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 2000,
+          "broadband": 0.95,
+          "low": 0,
+          "mid": 0,
+          "high": 0.95,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 10,
+        "peakLuminanceDelta": 0.95,
+        "strobeDetected": true,
+        "peakRedFlashes": 0
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 100,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 300,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 700,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 800,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 900,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1000,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1100,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1200,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1300,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1400,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1500,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1600,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1700,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1800,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 1900,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        },
+        {
+          "timeMs": 2000,
+          "broadband": 0.35,
+          "low": 0,
+          "mid": 0,
+          "high": 0.35,
+          "red": 0,
+          "area": 1
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.35,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    }
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "revision": "7caa4d1",
+  "tolerance": 1e-12,
+  "cases": [
+    {
+      "source": "TS-source-test:starts-at-top",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": []
+    },
+    {
+      "source": "TS-source-test:sustained-not-isolated",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 10,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            16.7
+          ],
+          "count": 200,
+          "want": {
+            "emaMs": 16.70000001178198,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 400,
+          "want": {
+            "emaMs": 33.39999999999996,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 0
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:vsync-jitter",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            16.2,
+            17.3
+          ],
+          "count": 2000,
+          "want": {
+            "emaMs": 16.778947368421044,
+            "refreshEstimateMs": 16.2324,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:60hz-recovery",
+      "config": {
+        "initialLevel": 1
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 1
+      },
+      "steps": [
+        {
+          "samples": [
+            16.7
+          ],
+          "count": 800,
+          "want": {
+            "emaMs": 16.7,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:120hz-headroom",
+      "config": {
+        "initialLevel": 2
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 2
+      },
+      "steps": [
+        {
+          "samples": [
+            11.1
+          ],
+          "count": 400,
+          "want": {
+            "emaMs": 11.1,
+            "refreshEstimateMs": 11.1,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:hysteresis-hold",
+      "config": {
+        "initialLevel": 1,
+        "promoteFrames": 100
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 1
+      },
+      "steps": [
+        {
+          "samples": [
+            19.5
+          ],
+          "count": 2000,
+          "want": {
+            "emaMs": 19.5,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 1
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:pause-gaps",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            16.7
+          ],
+          "count": 100,
+          "want": {
+            "emaMs": 16.7,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            1000
+          ],
+          "count": 300,
+          "want": {
+            "emaMs": 16.7,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            900
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 16.7,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:outlier-clamp",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            16.7
+          ],
+          "count": 100,
+          "want": {
+            "emaMs": 16.7,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            240
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 21.696666666666665,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:floor",
+      "config": {
+        "initialLevel": 0,
+        "demoteFrames": 1,
+        "settleFrames": 0
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 0
+      },
+      "steps": [
+        {
+          "samples": [
+            100
+          ],
+          "count": 200,
+          "want": {
+            "emaMs": 66.66666666666667,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 0
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:ceiling",
+      "config": {
+        "initialLevel": 3,
+        "promoteFrames": 1,
+        "settleFrames": 0
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            8.3
+          ],
+          "count": 200,
+          "want": {
+            "emaMs": 8.3,
+            "refreshEstimateMs": 8.3,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:settle-boundaries",
+      "config": {
+        "demoteFrames": 2,
+        "settleFrames": 3
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 2
+          }
+        },
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 3,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 2
+          }
+        },
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 2
+          }
+        },
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 1
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:exact-demotion-threshold",
+      "config": {
+        "emaAlpha": 1,
+        "demoteFrames": 1,
+        "settleFrames": 0
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            20.833333333333336
+          ],
+          "count": 2,
+          "want": {
+            "emaMs": 20.833333333333336,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            20.833333334333336
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 20.833333334333336,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 2
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:pause-boundary",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            249.999
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 66.66666666666667,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            250
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 66.66666666666667,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:swift-shared-isolated-hitch",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            16.666666666666668
+          ],
+          "count": 30,
+          "want": {
+            "emaMs": 16.666666666666668,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            500
+          ],
+          "count": 1,
+          "want": {
+            "emaMs": 16.666666666666668,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        },
+        {
+          "samples": [
+            16.666666666666668
+          ],
+          "count": 30,
+          "want": {
+            "emaMs": 16.666666666666668,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:swift-shared-sustained-overload",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            33.333333333333336
+          ],
+          "count": 200,
+          "want": {
+            "emaMs": 33.333333333333336,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 0
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:swift-shared-promotion-ceiling",
+      "config": {
+        "initialLevel": 1
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 1
+      },
+      "steps": [
+        {
+          "samples": [
+            5
+          ],
+          "count": 5000,
+          "want": {
+            "emaMs": 5,
+            "refreshEstimateMs": 5,
+            "level": 3
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:swift-headroom-divergence",
+      "config": {
+        "initialLevel": 1
+      },
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 1
+      },
+      "steps": [
+        {
+          "samples": [
+            6.666666666666668
+          ],
+          "count": 400,
+          "want": {
+            "emaMs": 6.666666666666668,
+            "refreshEstimateMs": 6.666666666666668,
+            "level": 2
+          }
+        }
+      ]
+    },
+    {
+      "source": "TS-source-test:reset",
+      "config": {},
+      "initial": {
+        "emaMs": null,
+        "refreshEstimateMs": 16.666666666666668,
+        "level": 3
+      },
+      "steps": [
+        {
+          "samples": [
+            33.4
+          ],
+          "count": 100,
+          "want": {
+            "emaMs": 33.4,
+            "refreshEstimateMs": 16.666666666666668,
+            "level": 2
+          }
+        }
+      ],
+      "reset": {
+        "level": 1,
+        "want": {
+          "emaMs": null,
+          "refreshEstimateMs": 16.666666666666668,
+          "level": 1
+        }
+      }
+    }
+  ]
+}

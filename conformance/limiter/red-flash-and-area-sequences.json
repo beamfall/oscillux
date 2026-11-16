@@ -1,0 +1,452 @@
+{
+  "description": "Red-flash budget and flash-area threshold cases. These rules have no reference counterpart; expected values are derived by hand from the rules stated in docs/evidence.",
+  "tolerance": 0,
+  "cases": [
+    {
+      "name": "red-budget-zero-blocks-every-red-flash",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 0,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.1,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.1,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.85,
+          "area": 1.0
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.1,
+        "strobeDetected": false,
+        "peakRedFlashes": 2
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.1,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.4,
+          "area": 1.0
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.1,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.4,
+          "area": 1.0
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.1,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "default-red-budget-allows-three-per-second",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0,
+        "strobeDetected": false,
+        "peakRedFlashes": 4
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 200,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 400,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 1.0
+        },
+        {
+          "timeMs": 600,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.4,
+          "area": 1.0
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0,
+        "strobeDetected": false,
+        "peakRedFlashes": 3
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "flashes-at-or-below-area-threshold-do-not-count",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "exceeds": false,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "tightened-area-threshold-counts-the-same-flashes",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.1,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 5,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": true,
+        "peakRedFlashes": 0
+      },
+      "exceeds": true,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 125,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 250,
+          "broadband": 0.4,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 375,
+          "broadband": 0.8,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        },
+        {
+          "timeMs": 500,
+          "broadband": 0.4,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0,
+          "area": 0.2
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 3,
+        "peakLuminanceDelta": 0.8,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    },
+    {
+      "name": "small-area-red-change-under-zero-budget-passes",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 0,
+        "strobeBanned": true
+      },
+      "input": [
+        {
+          "timeMs": 0,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 0.2
+        }
+      ],
+      "analysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "exceeds": false,
+      "clamped": [
+        {
+          "timeMs": 0,
+          "broadband": 0,
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "red": 0.9,
+          "area": 0.2
+        }
+      ],
+      "clampedAnalysis": {
+        "peakFlashHz": 0,
+        "peakLuminanceDelta": 0,
+        "strobeDetected": false,
+        "peakRedFlashes": 0
+      },
+      "clampedExceeds": false
+    }
+  ]
+}

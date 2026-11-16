@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# XcodeGen spec for the SwiftUI reference host (macOS + iOS). `make host-mac` /
+# `make host-ios` bundle the visuals, generate the project and build it.
+name: OscilluxHost
+options:
+  bundleIdPrefix: org.oscillux
+  deploymentTarget:
+    iOS: "18.0"
+    macOS: "15.0"
+targets:
+  OscilluxHost:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Sources
+      - path: ../../out/hosts/visuals.json
+        buildPhase: resources
+        optional: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.oscillux.host
+        PRODUCT_NAME: OscilluxHost
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Oscillux Host
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "The visuals react to the sound around you; the microphone is analysed on this device and never recorded or played back."
+        # Every platform links the Oscillux static library: on macOS the host build
+        # (`make host-mac`), on iOS the device and simulator slices the XCFramework
+        # packs (`make host-ios`, `make host-ios-device`).
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Oscillux-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../../ffi/include
+        "OTHER_LDFLAGS[sdk=macosx*]": $(SRCROOT)/../../target/release/liboscillux.a
+        "OTHER_LDFLAGS[sdk=iphoneos*]": $(SRCROOT)/../../target/aarch64-apple-ios/release/liboscillux.a
+        "OTHER_LDFLAGS[sdk=iphonesimulator*]": $(SRCROOT)/../../target/aarch64-apple-ios-sim/release/liboscillux.a
+        # Apple platforms are arm64 only: no Intel Macs, no x86_64 simulator
+        ARCHS: arm64

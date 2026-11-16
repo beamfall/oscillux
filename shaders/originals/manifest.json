@@ -1,0 +1,5453 @@
+{
+  "prelude": [
+    "../library.glsl",
+    "common.glsl"
+  ],
+  "visuals": [
+    {
+      "id": "fractal-flight",
+      "body": "visuals/fractal-flight.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Fractal flight: raymarched flight through an endless Apollonian fractal.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight-speed",
+          "uniform": "param0",
+          "label": "Flight Speed",
+          "labelKey": "visual.fractal-flight.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "banking",
+          "uniform": "param1",
+          "label": "Banking",
+          "labelKey": "visual.fractal-flight.banking",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "glow",
+          "uniform": "param2",
+          "label": "Glow",
+          "labelKey": "visual.fractal-flight.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "neon-run",
+      "body": "visuals/neon-run.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Neon run: a fast run down a curving street between neon towers.",
+      "palette": [
+        27,
+        0,
+        27,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight-speed",
+          "uniform": "param0",
+          "label": "Flight Speed",
+          "labelKey": "visual.neon-run.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "banking",
+          "uniform": "param1",
+          "label": "Banking",
+          "labelKey": "visual.neon-run.banking",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "neon-intensity",
+          "uniform": "param2",
+          "label": "Neon Intensity",
+          "labelKey": "visual.neon-run.neon-intensity",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "space-flight",
+      "body": "visuals/space-flight.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Space flight: through an asteroid field past a ringed planet and a nebula.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight-speed",
+          "uniform": "param0",
+          "label": "Flight Speed",
+          "labelKey": "visual.space-flight.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "banking",
+          "uniform": "param1",
+          "label": "Banking",
+          "labelKey": "visual.space-flight.banking",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "nebula-density",
+          "uniform": "param2",
+          "label": "Nebula Density",
+          "labelKey": "visual.space-flight.nebula-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "ocean-glide",
+      "body": "visuals/ocean-glide.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Ocean glide: a low glide over a sunset ocean toward sea mountains.",
+      "palette": [
+        11,
+        0,
+        11,
+        0
+      ],
+      "params": [
+        {
+          "id": "glide-speed",
+          "uniform": "param0",
+          "label": "Glide Speed",
+          "labelKey": "visual.ocean-glide.glide-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "banking",
+          "uniform": "param1",
+          "label": "Banking",
+          "labelKey": "visual.ocean-glide.banking",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "wave-height",
+          "uniform": "param2",
+          "label": "Wave Height",
+          "labelKey": "visual.ocean-glide.wave-height",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "aurora",
+      "body": "visuals/aurora.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Aurora: Sky-filling aurora curtains mirrored in a mountain lake.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "curtains",
+          "uniform": "param0",
+          "label": "Curtains",
+          "labelKey": "visual.aurora.curtains",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.aurora.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "altitude",
+          "uniform": "param2",
+          "label": "Altitude",
+          "labelKey": "visual.aurora.altitude",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.54,
+      "overrides": true
+    },
+    {
+      "id": "bloom",
+      "body": "visuals/bloom.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Bloom: a storm of backlit petals streaming from a giant flower of light toward the camera.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "flow",
+          "uniform": "param0",
+          "label": "Flow",
+          "labelKey": "visual.bloom.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "color-spread",
+          "uniform": "param1",
+          "label": "Color Spread",
+          "labelKey": "visual.bloom.color-spread",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "veins",
+          "uniform": "param2",
+          "label": "Veins",
+          "labelKey": "visual.bloom.veins",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5,
+      "overrides": true
+    },
+    {
+      "id": "braid",
+      "body": "visuals/braid.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Braid: A flight down the inside of a woven sleeve of satin cords over black, a warm family and its cool cyan complement braiding over and under around the camera and trading the lead every four beats; light packets race along the fibres and each beat sends a cyan hoop down the tunnel.",
+      "palette": [
+        4,
+        0,
+        4,
+        0
+      ],
+      "params": [
+        {
+          "id": "twist",
+          "uniform": "param0",
+          "label": "Twist",
+          "labelKey": "visual.braid.twist",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "core-heat",
+          "uniform": "param1",
+          "label": "Core Heat",
+          "labelKey": "visual.braid.core-heat",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sparks",
+          "uniform": "param2",
+          "label": "Sparks",
+          "labelKey": "visual.braid.sparks",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "chrome",
+      "body": "visuals/chrome.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Chrome: Liquid-chrome bodies merging over a neon glass floor in a lit studio, mirroring the rig, the floor and each other.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "blob-count",
+          "uniform": "param0",
+          "label": "Blob Count",
+          "labelKey": "visual.chrome.blob-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param1",
+          "label": "Reflection",
+          "labelKey": "visual.chrome.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "surface-ripple",
+          "uniform": "param2",
+          "label": "Surface Ripple",
+          "labelKey": "visual.chrome.surface-ripple",
+          "min": 0,
+          "max": 1,
+          "default": 0.3,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.42,
+      "overrides": true
+    },
+    {
+      "id": "circuit",
+      "body": "visuals/circuit.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Circuit: a fly-over of a glowing circuit-board city whose traces light up on the beat.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "scale",
+          "uniform": "param0",
+          "label": "Scale",
+          "labelKey": "visual.circuit.scale",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "pulse-speed",
+          "uniform": "param1",
+          "label": "Pulse Speed",
+          "labelKey": "visual.circuit.pulse-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "trace-brightness",
+          "uniform": "param2",
+          "label": "Trace Brightness",
+          "labelKey": "visual.circuit.trace-brightness",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.72,
+      "overrides": true
+    },
+    {
+      "id": "comets",
+      "body": "visuals/comets.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Comets: A meteor storm over a dark planet's glowing limb: long motion-blurred streaks cross the whole frame at the speed of the music.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "count",
+          "uniform": "param0",
+          "label": "Count",
+          "labelKey": "visual.comets.count",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spread",
+          "uniform": "param1",
+          "label": "Spread",
+          "labelKey": "visual.comets.spread",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "tail-length",
+          "uniform": "param2",
+          "label": "Tail Length",
+          "labelKey": "visual.comets.tail-length",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "constellation",
+      "body": "visuals/constellation.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Constellation: Drifting through a deep star cluster; every beat draws new constellation lines between the stars, sparks racing ahead of them.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "drift-speed",
+          "uniform": "param0",
+          "label": "Drift Speed",
+          "labelKey": "visual.constellation.drift-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "link-density",
+          "uniform": "param1",
+          "label": "Link Density",
+          "labelKey": "visual.constellation.link-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "pulse",
+          "uniform": "param2",
+          "label": "Pulse",
+          "labelKey": "visual.constellation.pulse",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "crystal",
+      "body": "visuals/crystal.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Crystal: a brilliant-cut gem in a lit studio, throwing rainbow caustics; fractures glow on transients.",
+      "palette": [
+        13,
+        0,
+        13,
+        0
+      ],
+      "params": [
+        {
+          "id": "facet-count",
+          "uniform": "param0",
+          "label": "Facet Count",
+          "labelKey": "visual.crystal.facet-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.166667,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "dispersion",
+          "uniform": "param1",
+          "label": "Dispersion",
+          "labelKey": "visual.crystal.dispersion",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "fracture",
+          "uniform": "param2",
+          "label": "Fracture",
+          "labelKey": "visual.crystal.fracture",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5,
+      "overrides": true
+    },
+    {
+      "id": "cymatics-prism",
+      "body": "visuals/cymatics-prism.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Cymatics/Prism: A Chladni plate under a prism: quartz sand on a black vibrating plate gathers into a new nodal figure every eight beats, hopping off the antinodes with the spectrum, while a low raking beam split into a spectrum burns each ridge a different hue.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "mode-order",
+          "uniform": "param0",
+          "label": "Mode Order",
+          "labelKey": "visual.cymatics-prism.mode-order",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sand",
+          "uniform": "param1",
+          "label": "Sand",
+          "labelKey": "visual.cymatics-prism.sand",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "prism",
+          "uniform": "param2",
+          "label": "Prism",
+          "labelKey": "visual.cymatics-prism.prism",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "disco-floor",
+      "body": "visuals/disco-floor.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Disco Floor: Rim-lit dancers sway their hips out on every beat and change moves every eight on a flashing LED floor, under a mirror ball that throws its spots across the room and moving heads that sweep coloured beams through the haze.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.disco-floor.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.7,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.disco-floor.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sparkle",
+          "uniform": "param2",
+          "label": "Sparkle",
+          "labelKey": "visual.disco-floor.sparkle",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "velvet-blinds",
+      "body": "visuals/velvet-blinds.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Velvet Blinds: A nude woman dances alone in bars of light thrown through venetian blinds, seen only in shadow, rim light and the bars across her; the bars bend round her curves and pump on the kick, and every eight beats they change hue and move a new way.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.velvet-blinds.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.velvet-blinds.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "smoke",
+          "uniform": "param2",
+          "label": "Smoke",
+          "labelKey": "visual.velvet-blinds.smoke",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "neon-kiss",
+      "body": "visuals/neon-kiss.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Neon Kiss: An animated neon sign of a woman dancing flips a frame a beat on a brick wall above a lacquered bar, neon lips beside her blowing a kiss and a heart on each downbeat while out-of-focus bar lights swell on the highs.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.neon-kiss.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.neon-kiss.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "bokeh",
+          "uniform": "param2",
+          "label": "Bokeh",
+          "labelKey": "visual.neon-kiss.bokeh",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "shoji-shadows",
+      "body": "visuals/shoji-shadows.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Shoji Shadows: A nude couple dance behind a paper screen, seen only as their shadows: a lantern and a cooler second light throw two shadows with coloured fringes, the lantern flares on the kick to swell and sharpen them, and through each bar the two drift together until their shadows run into one on the downbeat.",
+      "palette": [
+        11,
+        0,
+        11,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.shoji-shadows.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.shoji-shadows.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "paper",
+          "uniform": "param2",
+          "label": "Paper",
+          "labelKey": "visual.shoji-shadows.paper",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "liquid-chrome",
+      "body": "visuals/liquid-chrome.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Liquid Chrome: A nude woman dances on a glossy club floor turned to liquid chrome, nothing drawn of her but her outline rounded into a mirror: the club's rings of light jump round on every beat and slide over her curves, a ripple of bass runs out from her hips on each kick, and her reflection lies on the floor beneath her.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.liquid-chrome.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.liquid-chrome.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "liquid",
+          "uniform": "param2",
+          "label": "Liquid",
+          "labelKey": "visual.liquid-chrome.liquid",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "gold-zoetrope",
+      "body": "visuals/gold-zoetrope.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Gold Zoetrope: A black lacquer zoetrope turns under a warm light with gold art-deco reliefs of a nude woman round its far wall, nothing drawn of her but her raised outline: each relief steps to its next frame every half beat, the dancers move in unison or in canon by turns, her legs show through the slits in the near wall, and the gold flares on the kick.",
+      "palette": [
+        12,
+        0,
+        12,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.gold-zoetrope.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.gold-zoetrope.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "deco",
+          "uniform": "param2",
+          "label": "Deco",
+          "labelKey": "visual.gold-zoetrope.deco",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5
+    },
+    {
+      "id": "drift",
+      "body": "visuals/drift.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Drift: Liquid-glass droplets drift over a crisp caustic pool in the dark, magnifying and splitting its light nets; a ripple ring runs out every bar; artwork becomes a low-frequency tint.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "flow",
+          "uniform": "param0",
+          "label": "Flow",
+          "labelKey": "visual.drift.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "lens-pulse",
+          "uniform": "param1",
+          "label": "Lens Pulse",
+          "labelKey": "visual.drift.lens-pulse",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        },
+        {
+          "id": "edge-spectra",
+          "uniform": "param2",
+          "label": "Edge Spectra",
+          "labelKey": "visual.drift.edge-spectra",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "dunes",
+      "body": "visuals/dunes.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Dunes: Low sunset skim over sharp-crested dunes with heat haze and burning crests.",
+      "palette": [
+        17,
+        0,
+        17,
+        0
+      ],
+      "params": [
+        {
+          "id": "speed",
+          "uniform": "param0",
+          "label": "Speed",
+          "labelKey": "visual.dunes.speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.48,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "height",
+          "uniform": "param1",
+          "label": "Height",
+          "labelKey": "visual.dunes.height",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "dune-density",
+          "uniform": "param2",
+          "label": "Dune Density",
+          "labelKey": "visual.dunes.dune-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "event-horizon",
+      "body": "visuals/event-horizon.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Event Horizon: A slow orbit around a black hole whose lensed accretion disc wraps over and under its shadow; azure-and-crimson Doppler disc, orbiting hot spots, twin jets, photon ring, bent star field.",
+      "palette": [
+        12,
+        0,
+        12,
+        0
+      ],
+      "params": [
+        {
+          "id": "pull",
+          "uniform": "param0",
+          "label": "Pull",
+          "labelKey": "visual.event-horizon.pull",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spin",
+          "uniform": "param1",
+          "label": "Spin",
+          "labelKey": "visual.event-horizon.spin",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "disk-detail",
+          "uniform": "param2",
+          "label": "Disk Detail",
+          "labelKey": "visual.event-horizon.disk-detail",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.86,
+      "overrides": true
+    },
+    {
+      "id": "filament",
+      "body": "visuals/filament.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Filament: A macro product shot of a showcase bulb: one coiled tungsten filament strung in a clear glass tube, its axis plucked by the music while its temperature runs from smouldering red to white-hot, with softbox highlights sliding over the glass and cool hexagonal bokeh behind.",
+      "palette": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "params": [
+        {
+          "id": "tension",
+          "uniform": "param0",
+          "label": "Tension",
+          "labelKey": "visual.filament.tension",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "glow",
+          "uniform": "param1",
+          "label": "Glow",
+          "labelKey": "visual.filament.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "heat",
+          "uniform": "param2",
+          "label": "Heat",
+          "labelKey": "visual.filament.heat",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.62,
+      "overrides": true
+    },
+    {
+      "id": "glyph",
+      "body": "visuals/glyph.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Glyph: Extruded spectral sigil of machined rings, backlit by its warm core in volumetric shafts against cool glowing inlays.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "rings",
+          "uniform": "param0",
+          "label": "Rings",
+          "labelKey": "visual.glyph.rings",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "rotation",
+          "uniform": "param1",
+          "label": "Rotation",
+          "labelKey": "visual.glyph.rotation",
+          "min": 0,
+          "max": 1,
+          "default": 0.42,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "glyph-density",
+          "uniform": "param2",
+          "label": "Glyph Density",
+          "labelKey": "visual.glyph.glyph-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.84,
+      "overrides": true
+    },
+    {
+      "id": "helix",
+      "body": "visuals/helix.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Helix: A flight down an avenue of double helices drawn in light over black, cyan and magenta backbones strung with beads and base-pair rungs that play the spectrum; each beat a wave of orange light runs down the helices, and streaks fly out of the vanishing point as the flight surges.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "twist",
+          "uniform": "param0",
+          "label": "Twist",
+          "labelKey": "visual.helix.twist",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "depth",
+          "uniform": "param1",
+          "label": "Depth",
+          "labelKey": "visual.helix.depth",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sparkle",
+          "uniform": "param2",
+          "label": "Sparkle",
+          "labelKey": "visual.helix.sparkle",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.84,
+      "overrides": true
+    },
+    {
+      "id": "ink",
+      "body": "visuals/ink.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Ink: Luminous ink in dark water: kicks launch warm plumes that mushroom upward, onsets burst dye open, treble draws a second cool ink in fraying wisps; the feedback buffer is the fluid.",
+      "palette": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "params": [
+        {
+          "id": "flow",
+          "uniform": "param0",
+          "label": "Flow",
+          "labelKey": "visual.ink.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "ink-budget",
+          "uniform": "param1",
+          "label": "Ink Budget",
+          "labelKey": "visual.ink.ink-budget",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "buoyancy",
+          "uniform": "param2",
+          "label": "Buoyancy",
+          "labelKey": "visual.ink.buoyancy",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "interference",
+      "body": "visuals/interference.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Interference: Three orbs for bass, mid and treble hover over black liquid, each radiating its band's wavefronts; the rings interfere, catch the orbs' reflections and burn hot where crests align, while the camera circles the pool.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "ring-density",
+          "uniform": "param0",
+          "label": "Ring Density",
+          "labelKey": "visual.interference.ring-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "drift",
+          "uniform": "param1",
+          "label": "Drift",
+          "labelKey": "visual.interference.drift",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "heat",
+          "uniform": "param2",
+          "label": "Heat",
+          "labelKey": "visual.interference.heat",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "kaleidoscope",
+      "body": "visuals/kaleidoscope.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Kaleidoscope: a mirror tube of tumbling 3D glass pieces, flowing toward you.",
+      "palette": [
+        19,
+        0,
+        19,
+        0
+      ],
+      "params": [
+        {
+          "id": "segments",
+          "uniform": "param0",
+          "label": "Segments",
+          "labelKey": "visual.kaleidoscope.segments",
+          "min": 0,
+          "max": 1,
+          "default": 0.29,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spin",
+          "uniform": "param1",
+          "label": "Spin",
+          "labelKey": "visual.kaleidoscope.spin",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "vortex",
+          "uniform": "param2",
+          "label": "Vortex",
+          "labelKey": "visual.kaleidoscope.vortex",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5,
+      "overrides": true
+    },
+    {
+      "id": "laser-tunnel",
+      "body": "visuals/laser-tunnel.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Laser Tunnel: Flight down a hazed black-glass shaft rigged like a laser show: wall fixtures throw leaning, sweeping laser planes (smoky liquid-sky sheets in a warm family, cool beam fans) that scribe lines on the mirrored glass, re-patch every eight beats and chase fixture to fixture on the beat, on the shared cruise/build/burst/brake/drift speed profile.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "speed",
+          "uniform": "param0",
+          "label": "Speed",
+          "labelKey": "visual.laser-tunnel.speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sides",
+          "uniform": "param1",
+          "label": "Sides",
+          "labelKey": "visual.laser-tunnel.sides",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "rail-glow",
+          "uniform": "param2",
+          "label": "Rail Glow",
+          "labelKey": "visual.laser-tunnel.rail-glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.84,
+      "overrides": true
+    },
+    {
+      "id": "lattice",
+      "body": "visuals/lattice.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Lattice: a flight through an endless braced crystal lattice where nested cymatic shells of prismatic light ripple through the struts.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "contour-density",
+          "uniform": "param0",
+          "label": "Contour Density",
+          "labelKey": "visual.lattice.contour-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.64,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "height",
+          "uniform": "param1",
+          "label": "Height",
+          "labelKey": "visual.lattice.height",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param2",
+          "label": "Reflection",
+          "labelKey": "visual.lattice.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0.46,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0.84,
+      "overrides": true
+    },
+    {
+      "id": "lens",
+      "body": "visuals/lens.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Lens: Sound as mass: three band-sized bodies bend a bright nebula, star field and spiral galaxies into arcs and Einstein rings as the field streams past; sustained energy inspirals them into one.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "gravity",
+          "uniform": "param0",
+          "label": "Gravity",
+          "labelKey": "visual.lens.gravity",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "merge-eagerness",
+          "uniform": "param1",
+          "label": "Merge Eagerness",
+          "labelKey": "visual.lens.merge-eagerness",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "background-richness",
+          "uniform": "param2",
+          "label": "Background Richness",
+          "labelKey": "visual.lens.background-richness",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "liquid-optics",
+      "body": "visuals/liquid-optics.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Liquid Optics: A macro shot through flowing liquid glass: a spectrum-lit neon ring and streaming ribbons bend into spectral loops, caustics and studio highlights; beats drop ripples.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "refraction",
+          "uniform": "param0",
+          "label": "Refraction",
+          "labelKey": "visual.liquid-optics.refraction",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "caustics",
+          "uniform": "param1",
+          "label": "Caustics",
+          "labelKey": "visual.liquid-optics.caustics",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "flow",
+          "uniform": "param2",
+          "label": "Flow",
+          "labelKey": "visual.liquid-optics.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        }
+      ],
+      "tunables": [
+        "trailDecay",
+        "palette"
+      ],
+      "trailDecay": 0.3,
+      "overrides": true
+    },
+    {
+      "id": "loom",
+      "body": "visuals/loom.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Loom: A night glide down an endless loom: spectrum-lit warp threads rise through the shed to a fog-bright vanishing point, the shuttle lays hot weft that cools into twill, and heddle-wire bays along both sides glow as level meters.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "weave-density",
+          "uniform": "param0",
+          "label": "Weave Density",
+          "labelKey": "visual.loom.weave-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "flight-speed",
+          "uniform": "param1",
+          "label": "Flight Speed",
+          "labelKey": "visual.loom.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "ripple",
+          "uniform": "param2",
+          "label": "Ripple",
+          "labelKey": "visual.loom.ripple",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "lumen-field",
+      "body": "visuals/lumen-field.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Lumen Field: a low glide down a lamp-lit aisle through rows of glowing light stems under an aurora, over a wet mirror floor, with a ring of light racing out across the field on every beat.",
+      "palette": [
+        5,
+        0,
+        5,
+        0
+      ],
+      "params": [
+        {
+          "id": "stem-density",
+          "uniform": "param0",
+          "label": "Stem Density",
+          "labelKey": "visual.lumen-field.stem-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "bloom",
+          "uniform": "param1",
+          "label": "Bloom",
+          "labelKey": "visual.lumen-field.bloom",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sway",
+          "uniform": "param2",
+          "label": "Sway",
+          "labelKey": "visual.lumen-field.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.6,
+      "overrides": true
+    },
+    {
+      "id": "memory-tunnel",
+      "body": "visuals/memory-tunnel.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Memory Tunnel: A flight down a dark gallery hall of staggered backlit photo prints that develop from palette duotones into full colour as they approach, spilling light onto the walls, a polished mirror floor and drifting dust.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight",
+          "uniform": "param0",
+          "label": "Flight",
+          "labelKey": "visual.memory-tunnel.flight",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "depth",
+          "uniform": "param1",
+          "label": "Depth",
+          "labelKey": "visual.memory-tunnel.depth",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "pulse",
+          "uniform": "param2",
+          "label": "Pulse",
+          "labelKey": "visual.memory-tunnel.pulse",
+          "min": 0,
+          "max": 1,
+          "default": 0.56,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "mirror-bloom",
+      "body": "visuals/mirror-bloom.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Mirror Bloom: A kinetic facade of hinged chrome sequins over black felt whose mirrored tilt field draws petals, butterfly, twin spiral and iris figures that swell with the spectrum; each tilted disc flashes crisp slivers of coloured softboxes and point keys, beat waves catch a gold or teal ring light and treble scatters glitter.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "bloom-size",
+          "uniform": "param0",
+          "label": "Bloom Size",
+          "labelKey": "visual.mirror-bloom.bloom-size",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "tilt",
+          "uniform": "param1",
+          "label": "Tilt",
+          "labelKey": "visual.mirror-bloom.tilt",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "flutter",
+          "uniform": "param2",
+          "label": "Flutter",
+          "labelKey": "visual.mirror-bloom.flutter",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "murmuration",
+      "body": "visuals/murmuration.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Murmuration: A vast starling flock folds and wheels across a blue-hour sky over a reed marsh, packing into dark fold bands where its sheet turns edge-on; a bass-driven banking wave rolls through it each bar, treble lights golden glints.",
+      "palette": [
+        11,
+        0,
+        11,
+        0
+      ],
+      "params": [
+        {
+          "id": "flock-spread",
+          "uniform": "param0",
+          "label": "Flock Spread",
+          "labelKey": "visual.murmuration.flock-spread",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "wave-strength",
+          "uniform": "param1",
+          "label": "Wave Strength",
+          "labelKey": "visual.murmuration.wave-strength",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "wind",
+          "uniform": "param2",
+          "label": "Wind",
+          "labelKey": "visual.murmuration.wind",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.88,
+      "overrides": true
+    },
+    {
+      "id": "nebula",
+      "body": "visuals/nebula.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Nebula: A slow push through layered emission gas toward a blazing star-cluster core; ionisation rims, spectrum light shafts and spiked stars.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "density",
+          "uniform": "param0",
+          "label": "Density",
+          "labelKey": "visual.nebula.density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "swirl",
+          "uniform": "param1",
+          "label": "Swirl",
+          "labelKey": "visual.nebula.swirl",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "emission",
+          "uniform": "param2",
+          "label": "Emission",
+          "labelKey": "visual.nebula.emission",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.87,
+      "overrides": true
+    },
+    {
+      "id": "oscillo-ring",
+      "body": "visuals/oscillo-ring.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Oscillo Ring: A long-exposure light-painting session in a wet concrete hall: a swung LED ring paints a lattice of spectrum-wobbled oscilloscope rings stroke by stroke, while two pixel sticks sweep twisting warm ribbons round it every two beats, steel-wool sparks bounce in the puddles and the painting alone lights the haze, floor and columns.",
+      "palette": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "params": [
+        {
+          "id": "orb-size",
+          "uniform": "param0",
+          "label": "Orb Size",
+          "labelKey": "visual.oscillo-ring.orb-size",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "trace-swing",
+          "uniform": "param1",
+          "label": "Trace Swing",
+          "labelKey": "visual.oscillo-ring.trace-swing",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sparks",
+          "uniform": "param2",
+          "label": "Sparks",
+          "labelKey": "visual.oscillo-ring.sparks",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "particles",
+      "body": "visuals/particles.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Particles: A rising vortex of embers round a molten light column above a black mirror floor; embers cool from gold to pink and cyan as they climb, each beat sends a white-hot ignition front up the swarm, and depth of field turns near and far embers into bokeh.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "density",
+          "uniform": "param0",
+          "label": "Density",
+          "labelKey": "visual.particles.density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "burst",
+          "uniform": "param1",
+          "label": "Burst",
+          "labelKey": "visual.particles.burst",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        },
+        {
+          "id": "trail-length",
+          "uniform": "param2",
+          "label": "Trail Length",
+          "labelKey": "visual.particles.trail-length",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.94,
+      "overrides": true
+    },
+    {
+      "id": "petals",
+      "body": "visuals/petals.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Petals: A huge flower held against a drifting lamp in a dark room, its petals each their own shape and lit from behind so the light glows through the tissue, picking out darker veins, a deep blotch at each base and lensing dew drops; the inner rings overlap like an iris, the rings slide against each other with parallax and lift as each beat's ring of light runs out, the shot reframes every eight beats and waves of loose petals tumble past out of focus.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "petal-count",
+          "uniform": "param0",
+          "label": "Petal Count",
+          "labelKey": "visual.petals.petal-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "bloom",
+          "uniform": "param1",
+          "label": "Bloom",
+          "labelKey": "visual.petals.bloom",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "detail",
+          "uniform": "param2",
+          "label": "Detail",
+          "labelKey": "visual.petals.detail",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "motion",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "phosphor-scope",
+      "body": "visuals/phosphor-scope.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Phosphor Scope: Macro shot of a vector CRT: a beat-speed beam writes a tumbling 3D Lissajous figure that flashes cyan-white, then settles into an amber or violet afterglow that alternates with each new figure, with kick ripples in an accent colour, softbox glass reflections, halation and shallow depth of field.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "persistence",
+          "uniform": "param0",
+          "label": "Persistence",
+          "labelKey": "visual.phosphor-scope.persistence",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "figure-complexity",
+          "uniform": "param1",
+          "label": "Figure Complexity",
+          "labelKey": "visual.phosphor-scope.figure-complexity",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "beam-fuzz",
+          "uniform": "param2",
+          "label": "Beam Fuzz",
+          "labelKey": "visual.phosphor-scope.beam-fuzz",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.9,
+      "overrides": true
+    },
+    {
+      "id": "photo-curtain",
+      "body": "visuals/photo-curtain.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Curtain: The photo printed across a kinetic curtain of glossy vertical slats that twist in spectral waves, backlit through the gaps.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "columns",
+          "uniform": "param0",
+          "label": "Columns",
+          "labelKey": "visual.photo-curtain.columns",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.photo-curtain.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.52,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "depth",
+          "uniform": "param2",
+          "label": "Depth",
+          "labelKey": "visual.photo-curtain.depth",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "motion",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-gallery",
+      "body": "visuals/photo-gallery.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo gallery: A tracking shot past floating holographic photo cards in a dark hall of fog and mirrored floor.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "cards",
+          "uniform": "param0",
+          "label": "Cards",
+          "labelKey": "visual.photo-gallery.cards",
+          "min": 0,
+          "max": 1,
+          "default": 0.56,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "drift",
+          "uniform": "param1",
+          "label": "Drift",
+          "labelKey": "visual.photo-gallery.drift",
+          "min": 0,
+          "max": 1,
+          "default": 0.48,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "edges",
+          "uniform": "param2",
+          "label": "Edges",
+          "labelKey": "visual.photo-gallery.edges",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "motion",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-glass",
+      "body": "visuals/photo-glass.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Glass: Glass towers rise with the spectrum on a black mirror floor, refracting the photo behind them with prismatic fringes.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "towers",
+          "uniform": "param0",
+          "label": "Towers",
+          "labelKey": "visual.photo-glass.towers",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "height",
+          "uniform": "param1",
+          "label": "Height",
+          "labelKey": "visual.photo-glass.height",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param2",
+          "label": "Reflection",
+          "labelKey": "visual.photo-glass.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0.52,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "motion",
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-lens",
+      "body": "visuals/photo-lens.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Lens: The photo folded into kaleidoscope shards inside a faceted crystal lens, with spectral dispersion, bokeh and glints.",
+      "palette": [
+        11,
+        0,
+        11,
+        0
+      ],
+      "params": [
+        {
+          "id": "segments",
+          "uniform": "param0",
+          "label": "Segments",
+          "labelKey": "visual.photo-lens.segments",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spin",
+          "uniform": "param1",
+          "label": "Spin",
+          "labelKey": "visual.photo-lens.spin",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "glints",
+          "uniform": "param2",
+          "label": "Glints",
+          "labelKey": "visual.photo-lens.glints",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-liquid",
+      "body": "visuals/photo-liquid.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Liquid: Glossy liquid-glass drops slide over the melting photo, magnifying it, with caustics and neon ink veins.",
+      "palette": [
+        21,
+        0,
+        21,
+        0
+      ],
+      "params": [
+        {
+          "id": "flow",
+          "uniform": "param0",
+          "label": "Flow",
+          "labelKey": "visual.photo-liquid.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "ink",
+          "uniform": "param1",
+          "label": "Ink",
+          "labelKey": "visual.photo-liquid.ink",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "bloom",
+          "uniform": "param2",
+          "label": "Bloom",
+          "labelKey": "visual.photo-liquid.bloom",
+          "min": 0,
+          "max": 1,
+          "default": 0.52,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-particles",
+      "body": "visuals/photo-particles.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Particles: The photo as a wall of glossy beads that dissolves and streams toward the camera as chromatic particles.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "particle-size",
+          "uniform": "param0",
+          "label": "Particle Size",
+          "labelKey": "visual.photo-particles.particle-size",
+          "min": 0,
+          "max": 1,
+          "default": 0.52,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "scatter",
+          "uniform": "param1",
+          "label": "Scatter",
+          "labelKey": "visual.photo-particles.scatter",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "color",
+          "uniform": "param2",
+          "label": "Color",
+          "labelKey": "visual.photo-particles.color",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-prism",
+      "body": "visuals/photo-prism.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Prism: A glass iris of turning wedge prisms splits the photo into dispersed copies around a clear lens and a circular waveform ring.",
+      "palette": [
+        31,
+        0,
+        31,
+        0
+      ],
+      "params": [
+        {
+          "id": "shard-spin",
+          "uniform": "param0",
+          "label": "Shard Spin",
+          "labelKey": "visual.photo-prism.shard-spin",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "refraction",
+          "uniform": "param1",
+          "label": "Refraction",
+          "labelKey": "visual.photo-prism.refraction",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "glow",
+          "uniform": "param2",
+          "label": "Glow",
+          "labelKey": "visual.photo-prism.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-topo",
+      "body": "visuals/photo-topo.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Topography: A dusk flight over relief raised from the photo, traced by glowing spectrum contour lines above a mirror lake.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "speed",
+          "uniform": "param0",
+          "label": "Speed",
+          "labelKey": "visual.photo-topo.speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "height",
+          "uniform": "param1",
+          "label": "Height",
+          "labelKey": "visual.photo-topo.height",
+          "min": 0,
+          "max": 1,
+          "default": 0.58,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "contours",
+          "uniform": "param2",
+          "label": "Contours",
+          "labelKey": "visual.photo-topo.contours",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "photo-veil",
+      "body": "visuals/photo-veil.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Photo Veil: The photo printed on billowing sheer silk in 3D, with glowing aurora chiffon veils hanging in the dark behind it.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "ribbons",
+          "uniform": "param0",
+          "label": "Ribbons",
+          "labelKey": "visual.photo-veil.ribbons",
+          "min": 0,
+          "max": 1,
+          "default": 0.56,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.photo-veil.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "texture",
+          "uniform": "param2",
+          "label": "Texture",
+          "labelKey": "visual.photo-veil.texture",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "plasma",
+      "body": "visuals/plasma.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Plasma: Smooth domain-warped plasma lit as a glossy relief over black: hot palette lobes outlined by clean complementary contour lines that creep outward and stream charge, a crisp discharge line sweeps the gas on each beat lighting the contours it crosses, and the gas runs hotter through bursts.",
+      "palette": [
+        4,
+        0,
+        4,
+        0
+      ],
+      "params": [
+        {
+          "id": "scale",
+          "uniform": "param0",
+          "label": "Scale",
+          "labelKey": "visual.plasma.scale",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "turbulence",
+          "uniform": "param1",
+          "label": "Turbulence",
+          "labelKey": "visual.plasma.turbulence",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "filaments",
+          "uniform": "param2",
+          "label": "Filaments",
+          "labelKey": "visual.plasma.filaments",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "motion",
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "prism-room",
+      "body": "visuals/prism-room.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Prism Room: a slow drift through a triangular mirror room that repeats as a receding kaleidoscope lattice, where a white beam strikes a glass prism and fans into a spectrum across walls of light bars.",
+      "palette": [
+        6,
+        0,
+        6,
+        0
+      ],
+      "params": [
+        {
+          "id": "facets",
+          "uniform": "param0",
+          "label": "Facets",
+          "labelKey": "visual.prism-room.facets",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "sweep",
+          "uniform": "param1",
+          "label": "Sweep",
+          "labelKey": "visual.prism-room.sweep",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "edge-glow",
+          "uniform": "param2",
+          "label": "Edge Glow",
+          "labelKey": "visual.prism-room.edge-glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.72,
+      "overrides": true
+    },
+    {
+      "id": "pulse",
+      "body": "visuals/pulse.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Pulse: A kinetic light installation: a field of glass orbs on winched wires re-forms into a new wave every eight beats while each beat rings a pulse through it, lifting and recolouring the orbs warm and cool in turn, over a mirror floor.",
+      "palette": [
+        4,
+        0,
+        4,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.pulse.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.7,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "impact",
+          "uniform": "param1",
+          "label": "Impact",
+          "labelKey": "visual.pulse.impact",
+          "min": 0,
+          "max": 1,
+          "default": 0.65,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        },
+        {
+          "id": "wave-count",
+          "uniform": "param2",
+          "label": "Wave Count",
+          "labelKey": "visual.pulse.wave-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.55,
+      "overrides": true
+    },
+    {
+      "id": "rain",
+      "body": "visuals/rain.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Rain: A rain-soaked neon street at night: spectrum tubes, mirror puddles, splashing drops.",
+      "palette": [
+        3,
+        0,
+        3,
+        0
+      ],
+      "params": [
+        {
+          "id": "density",
+          "uniform": "param0",
+          "label": "Density",
+          "labelKey": "visual.rain.density",
+          "min": 0,
+          "max": 1,
+          "default": 0.62,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "fall-speed",
+          "uniform": "param1",
+          "label": "Fall Speed",
+          "labelKey": "visual.rain.fall-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param2",
+          "label": "Reflection",
+          "labelKey": "visual.rain.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.8,
+      "overrides": true
+    },
+    {
+      "id": "reactor",
+      "body": "visuals/reactor.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Reactor: Slow orbit around a white-hot fusion core in a gimbal of containment rings, with spectrum arcs, heat shimmer, streaking sparks and a glowing chamber haze.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "core",
+          "uniform": "param0",
+          "label": "Core",
+          "labelKey": "visual.reactor.core",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "orbit-count",
+          "uniform": "param1",
+          "label": "Orbit Count",
+          "labelKey": "visual.reactor.orbit-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sparks",
+          "uniform": "param2",
+          "label": "Sparks",
+          "labelKey": "visual.reactor.sparks",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.88,
+      "overrides": true
+    },
+    {
+      "id": "ribbons",
+      "body": "visuals/ribbons.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Ribbons: A sheaf of foil ribbons in purple, hot pink, coral, gold and teal is cinched through a glowing gold ring and fans out to both edges; the ring is the key light, the foil shifts hue as each ribbon twists, the bass opens the ring and every beat the ring fires light packets outward along a new set of ribbons.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "flow",
+          "uniform": "param0",
+          "label": "Flow",
+          "labelKey": "visual.ribbons.flow",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "width",
+          "uniform": "param1",
+          "label": "Width",
+          "labelKey": "visual.ribbons.width",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "layers",
+          "uniform": "param2",
+          "label": "Layers",
+          "labelKey": "visual.ribbons.layers",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.142857,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.76,
+      "overrides": true
+    },
+    {
+      "id": "ripple",
+      "body": "visuals/ripple.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Ripple: High-speed drop photography in motion: a drop strikes a black mirror of liquid on every beat, splashing a crown and throwing up a jet that pinches off a bead, while the rings bend two coloured gels, a softbox and a string of spectrum lamps into bands of warm and cool.",
+      "palette": [
+        21,
+        0,
+        21,
+        0
+      ],
+      "params": [
+        {
+          "id": "ring-width",
+          "uniform": "param0",
+          "label": "Ring Width",
+          "labelKey": "visual.ripple.ring-width",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "expansion",
+          "uniform": "param1",
+          "label": "Expansion",
+          "labelKey": "visual.ripple.expansion",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "persistence",
+          "uniform": "param2",
+          "label": "Persistence",
+          "labelKey": "visual.ripple.persistence",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.55,
+      "overrides": true
+    },
+    {
+      "id": "seismograph",
+      "body": "visuals/seismograph.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Seismograph: a low flight over a landscape drawn in glowing seismic traces, where every beat sends a quake rippling through the lines.",
+      "palette": [
+        4,
+        0,
+        4,
+        0
+      ],
+      "params": [
+        {
+          "id": "scroll-speed",
+          "uniform": "param0",
+          "label": "Scroll Speed",
+          "labelKey": "visual.seismograph.scroll-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "pen-gain",
+          "uniform": "param1",
+          "label": "Pen Gain",
+          "labelKey": "visual.seismograph.pen-gain",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        },
+        {
+          "id": "ink-bleed",
+          "uniform": "param2",
+          "label": "Ink Bleed",
+          "labelKey": "visual.seismograph.ink-bleed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "spectral-city",
+      "body": "visuals/spectral-city.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Spectral City: A dawn flight above the clouds between glass spires whose light columns fill with the spectrum.",
+      "palette": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "params": [
+        {
+          "id": "density",
+          "uniform": "param0",
+          "label": "Density",
+          "labelKey": "visual.spectral-city.density",
+          "min": 0,
+          "max": 1,
+          "default": 0.62,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "speed",
+          "uniform": "param1",
+          "label": "Speed",
+          "labelKey": "visual.spectral-city.speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param2",
+          "label": "Reflection",
+          "labelKey": "visual.spectral-city.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.8,
+      "overrides": true
+    },
+    {
+      "id": "spectrum",
+      "body": "visuals/spectrum.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Spectrum: A spectrum analyser as an endless row of glossy emissive glass columns on a mirror floor, backlit through haze, with floating peak caps, tracked by a slow camera.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "perspective",
+          "uniform": "param0",
+          "label": "Perspective",
+          "labelKey": "visual.spectrum.perspective",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "column-glass",
+          "uniform": "param1",
+          "label": "Column Glass",
+          "labelKey": "visual.spectrum.column-glass",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "reflection",
+          "uniform": "param2",
+          "label": "Reflection",
+          "labelKey": "visual.spectrum.reflection",
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.78,
+      "overrides": true
+    },
+    {
+      "id": "starfield",
+      "body": "visuals/starfield.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Starfield: A hyperspace jump; warp streaks stretch and shrink with the beat-locked speed through a streaming gas tunnel.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "warp-speed",
+          "uniform": "param0",
+          "label": "Warp Speed",
+          "labelKey": "visual.starfield.warp-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "density",
+          "uniform": "param1",
+          "label": "Density",
+          "labelKey": "visual.starfield.density",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "streak-length",
+          "uniform": "param2",
+          "label": "Streak Length",
+          "labelKey": "visual.starfield.streak-length",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "strata-ridge",
+      "body": "visuals/strata-ridge.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Strata Ridge: Blue-hour mountain ranges stacked under a rising moon, each crest a glowing spectrum trace above mist-filled valleys.",
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "ridge-count",
+          "uniform": "param0",
+          "label": "Ridge Count",
+          "labelKey": "visual.strata-ridge.ridge-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.166667,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "peak-drama",
+          "uniform": "param1",
+          "label": "Peak Drama",
+          "labelKey": "visual.strata-ridge.peak-drama",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "afterglow",
+          "uniform": "param2",
+          "label": "Afterglow",
+          "labelKey": "visual.strata-ridge.afterglow",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.5,
+      "overrides": true
+    },
+    {
+      "id": "terrain",
+      "body": "visuals/terrain.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Terrain: A low flight down a canyon of glowing pillars whose depth rows rise with the spectrum.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight-speed",
+          "uniform": "param0",
+          "label": "Flight Speed",
+          "labelKey": "visual.terrain.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "relief",
+          "uniform": "param1",
+          "label": "Relief",
+          "labelKey": "visual.terrain.relief",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "glow",
+          "uniform": "param2",
+          "label": "Glow",
+          "labelKey": "visual.terrain.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.52,
+      "overrides": true
+    },
+    {
+      "id": "tunnel",
+      "body": "visuals/tunnel.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Tunnel: Flight down a curving tube of pleated, backlit paper, like the inside of a vast lantern: coloured light strips wind round outside and glow through the chevron folds, the dark lantern frame shows in silhouette, packets of light travel along the strips, pleat columns light with the spectrum and a hot packet races away behind the paper on each beat.",
+      "palette": [
+        2,
+        0,
+        2,
+        0
+      ],
+      "params": [
+        {
+          "id": "flight-speed",
+          "uniform": "param0",
+          "label": "Flight Speed",
+          "labelKey": "visual.tunnel.flight-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "twist",
+          "uniform": "param1",
+          "label": "Twist",
+          "labelKey": "visual.tunnel.twist",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "pleat-count",
+          "uniform": "param2",
+          "label": "Pleat Count",
+          "labelKey": "visual.tunnel.pleat-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.95,
+      "overrides": true
+    },
+    {
+      "id": "vault",
+      "body": "visuals/vault.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Vault: A projection-mapping show inside a night cathedral: graphic light mapped onto ribs, webbing and piers changes every two beats with a wipe down the nave, warm and cool swap each beat, a neon outline blazes in bursts and only the stained glass glows in breakdowns, all mirrored in the polished floor.",
+      "palette": [
+        12,
+        0,
+        12,
+        0
+      ],
+      "params": [
+        {
+          "id": "grandeur",
+          "uniform": "param0",
+          "label": "Grandeur",
+          "labelKey": "visual.vault.grandeur",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "ornament",
+          "uniform": "param1",
+          "label": "Ornament",
+          "labelKey": "visual.vault.ornament",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "walk-speed",
+          "uniform": "param2",
+          "label": "Walk Speed",
+          "labelKey": "visual.vault.walk-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "overrides": true
+    },
+    {
+      "id": "vinyl",
+      "body": "visuals/vinyl.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Vinyl: Macro shot of a spinning record; spectrum-lit groove sheen, a beat light sweep and a sparking stylus over studio bokeh.",
+      "palette": [
+        30,
+        0,
+        30,
+        0
+      ],
+      "params": [
+        {
+          "id": "groove-count",
+          "uniform": "param0",
+          "label": "Groove Count",
+          "labelKey": "visual.vinyl.groove-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spin",
+          "uniform": "param1",
+          "label": "Spin",
+          "labelKey": "visual.vinyl.spin",
+          "min": 0,
+          "max": 1,
+          "default": 0.35,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "needle",
+          "uniform": "param2",
+          "label": "Needle",
+          "labelKey": "visual.vinyl.needle",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.68,
+      "overrides": true
+    },
+    {
+      "id": "volumetric-light",
+      "body": "visuals/volumetric-light.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Volumetric Light: a slow dolly down a hazy hall where warm shafts from tall windows cross cold shafts from high round windows, and dust drifts through the beams.",
+      "palette": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "params": [
+        {
+          "id": "haze",
+          "uniform": "param0",
+          "label": "Haze",
+          "labelKey": "visual.volumetric-light.haze",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "beam-count",
+          "uniform": "param1",
+          "label": "Beam Count",
+          "labelKey": "visual.volumetric-light.beam-count",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "dust",
+          "uniform": "param2",
+          "label": "Dust",
+          "labelKey": "visual.volumetric-light.dust",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.55,
+      "overrides": true
+    },
+    {
+      "id": "wave-cascade",
+      "body": "visuals/wave-cascade.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Wave Cascade: A live glass ribbon of the spectrum runs along the lip of a waterfall of falling light strands; each beat shears off a glossy sheet that tears into rivulets and settles on a mirror pool, and every bass hit sends a torrent plunging down the falls into a crown of spray, mist and a ring.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "fall-speed",
+          "uniform": "param0",
+          "label": "Fall Speed",
+          "labelKey": "visual.wave-cascade.fall-speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sheet-life",
+          "uniform": "param1",
+          "label": "Sheet Life",
+          "labelKey": "visual.wave-cascade.sheet-life",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "spray",
+          "uniform": "param2",
+          "label": "Spray",
+          "labelKey": "visual.wave-cascade.spray",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "wave-tunnel",
+      "body": "visuals/wave-tunnel.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Wave Tunnel: Flight through open space along a corridor of waveform rings: every ring is a slice of the trace with an echo trace and lit ribbon inside it, beads stream along the peaks, stars streak with speed through a violet nebula, onsets flare the nearest ring.",
+      "palette": [
+        23,
+        0,
+        23,
+        0
+      ],
+      "params": [
+        {
+          "id": "velocity",
+          "uniform": "param0",
+          "label": "Velocity",
+          "labelKey": "visual.wave-tunnel.velocity",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "ring-density",
+          "uniform": "param1",
+          "label": "Ring Density",
+          "labelKey": "visual.wave-tunnel.ring-density",
+          "min": 0,
+          "max": 1,
+          "default": 0.55,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "wall-turbulence",
+          "uniform": "param2",
+          "label": "Wall Turbulence",
+          "labelKey": "visual.wave-tunnel.wall-turbulence",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        }
+      ],
+      "tunables": [
+        "accent",
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "waveform",
+      "body": "visuals/waveform.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Waveform: A night drone light show over a city lake: a thousand drones draw the live waveform in rows of LEDs, re-forming every eight beats from a receding sheet of traces to a rolling tube to a wall of spectrum bars, mirrored as streaks in the rippled water under a sodium-lit skyline.",
+      "palette": [
+        5,
+        0,
+        5,
+        0
+      ],
+      "params": [
+        {
+          "id": "thickness",
+          "uniform": "param0",
+          "label": "Thickness",
+          "labelKey": "visual.waveform.thickness",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "trail-length",
+          "uniform": "param1",
+          "label": "Trail Length",
+          "labelKey": "visual.waveform.trail-length",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "trace-stack",
+          "uniform": "param2",
+          "label": "Trace Stack",
+          "labelKey": "visual.waveform.trace-stack",
+          "min": 0,
+          "max": 1,
+          "default": 0.2,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0.82,
+      "overrides": true
+    },
+    {
+      "id": "moonlit-tide",
+      "body": "visuals/moonlit-tide.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Moonlit tide: a low moon over open night water, its glint path breathing on the kick while slow swells roll toward the shore.",
+      "palette": [
+        9,
+        0,
+        9,
+        0
+      ],
+      "params": [
+        {
+          "id": "swell",
+          "uniform": "param0",
+          "label": "Swell",
+          "labelKey": "visual.moonlit-tide.swell",
+          "min": 0,
+          "max": 1,
+          "default": 0.45,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "drift",
+          "uniform": "param1",
+          "label": "Drift",
+          "labelKey": "visual.moonlit-tide.drift",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "moon",
+          "uniform": "param2",
+          "label": "Moon",
+          "labelKey": "visual.moonlit-tide.moon",
+          "min": 0,
+          "max": 1,
+          "default": 0.7,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "lantern-drift",
+      "body": "visuals/lantern-drift.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Lantern drift: paper sky lanterns rise slowly through a dusk sky above dark hills, their glow breathing with the bass.",
+      "palette": [
+        17,
+        0,
+        17,
+        0
+      ],
+      "params": [
+        {
+          "id": "lanterns",
+          "uniform": "param0",
+          "label": "Lanterns",
+          "labelKey": "visual.lantern-drift.lanterns",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "rise",
+          "uniform": "param1",
+          "label": "Rise",
+          "labelKey": "visual.lantern-drift.rise",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "warmth",
+          "uniform": "param2",
+          "label": "Warmth",
+          "labelKey": "visual.lantern-drift.warmth",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "silk-veil",
+      "body": "visuals/silk-veil.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Silk veil: sheer silk sheets lift on a slow draught above and below a clear centre, a soft sheen sliding along their folds.",
+      "palette": [
+        14,
+        0,
+        14,
+        0
+      ],
+      "params": [
+        {
+          "id": "sheets",
+          "uniform": "param0",
+          "label": "Sheets",
+          "labelKey": "visual.silk-veil.sheets",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "draught",
+          "uniform": "param1",
+          "label": "Draught",
+          "labelKey": "visual.silk-veil.draught",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sheen",
+          "uniform": "param2",
+          "label": "Sheen",
+          "labelKey": "visual.silk-veil.sheen",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "dusk-hills",
+      "body": "visuals/dusk-hills.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Dusk hills: layered ridges fade into evening mist under a low sun whose glow swells gently with the kick.",
+      "palette": [
+        11,
+        0,
+        11,
+        0
+      ],
+      "params": [
+        {
+          "id": "ridges",
+          "uniform": "param0",
+          "label": "Ridges",
+          "labelKey": "visual.dusk-hills.ridges",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "drift",
+          "uniform": "param1",
+          "label": "Drift",
+          "labelKey": "visual.dusk-hills.drift",
+          "min": 0,
+          "max": 1,
+          "default": 0.35,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sun",
+          "uniform": "param2",
+          "label": "Sun",
+          "labelKey": "visual.dusk-hills.sun",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "still-pond",
+      "body": "visuals/still-pond.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Still pond: a dark garden pond mirrors the evening sky; one soft ring opens per bar and lily pads rest at its edge.",
+      "palette": [
+        16,
+        0,
+        16,
+        0
+      ],
+      "params": [
+        {
+          "id": "pads",
+          "uniform": "param0",
+          "label": "Pads",
+          "labelKey": "visual.still-pond.pads",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "rings",
+          "uniform": "param1",
+          "label": "Rings",
+          "labelKey": "visual.still-pond.rings",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "reaction"
+        },
+        {
+          "id": "sky",
+          "uniform": "param2",
+          "label": "Sky",
+          "labelKey": "visual.still-pond.sky",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "soft-bokeh",
+      "body": "visuals/soft-bokeh.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Soft bokeh: out-of-focus lights drift past in overlapping pastel discs that swell softly on the kick.",
+      "palette": [
+        10,
+        0,
+        10,
+        0
+      ],
+      "params": [
+        {
+          "id": "lights",
+          "uniform": "param0",
+          "label": "Lights",
+          "labelKey": "visual.soft-bokeh.lights",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "pan",
+          "uniform": "param1",
+          "label": "Pan",
+          "labelKey": "visual.soft-bokeh.pan",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "size",
+          "uniform": "param2",
+          "label": "Size",
+          "labelKey": "visual.soft-bokeh.size",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "sunlit-shallows",
+      "body": "visuals/sunlit-shallows.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Sunlit shallows: shafts of light sway down through clear shallow water onto a sand floor laced with slow caustics.",
+      "palette": [
+        21,
+        0,
+        21,
+        0
+      ],
+      "params": [
+        {
+          "id": "shafts",
+          "uniform": "param0",
+          "label": "Shafts",
+          "labelKey": "visual.sunlit-shallows.shafts",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "current",
+          "uniform": "param1",
+          "label": "Current",
+          "labelKey": "visual.sunlit-shallows.current",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "depth",
+          "uniform": "param2",
+          "label": "Depth",
+          "labelKey": "visual.sunlit-shallows.depth",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "starlit-haze",
+      "body": "visuals/starlit-haze.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Starlit haze: the galaxy arcs across a moonless sky over a dark treeline, its core glowing softly with the bass.",
+      "palette": [
+        25,
+        0,
+        25,
+        0
+      ],
+      "params": [
+        {
+          "id": "stars",
+          "uniform": "param0",
+          "label": "Stars",
+          "labelKey": "visual.starlit-haze.stars",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "turn",
+          "uniform": "param1",
+          "label": "Turn",
+          "labelKey": "visual.starlit-haze.turn",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "glow",
+          "uniform": "param2",
+          "label": "Glow",
+          "labelKey": "visual.starlit-haze.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "cloud-sea",
+      "body": "visuals/cloud-sea.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Cloud sea: dawn above a slowly rolling sea of cloud, gold rims facing the low sun and warming with the kick.",
+      "palette": [
+        13,
+        0,
+        13,
+        0
+      ],
+      "params": [
+        {
+          "id": "heaps",
+          "uniform": "param0",
+          "label": "Heaps",
+          "labelKey": "visual.cloud-sea.heaps",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "drift",
+          "uniform": "param1",
+          "label": "Drift",
+          "labelKey": "visual.cloud-sea.drift",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sun",
+          "uniform": "param2",
+          "label": "Sun",
+          "labelKey": "visual.cloud-sea.sun",
+          "min": 0,
+          "max": 1,
+          "default": 0.35,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "ember-glow",
+      "body": "visuals/ember-glow.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Ember glow: a low bed of embers breathes along the bottom of the dark while smoke curls up and a few sparks drift away.",
+      "palette": [
+        12,
+        0,
+        12,
+        0
+      ],
+      "params": [
+        {
+          "id": "sparks",
+          "uniform": "param0",
+          "label": "Sparks",
+          "labelKey": "visual.ember-glow.sparks",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "rise",
+          "uniform": "param1",
+          "label": "Rise",
+          "labelKey": "visual.ember-glow.rise",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "heat",
+          "uniform": "param2",
+          "label": "Heat",
+          "labelKey": "visual.ember-glow.heat",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "pastel-drift",
+      "body": "visuals/pastel-drift.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Pastel drift: broad pools of pastel light wander and blend like dye in still water, with no edges or flashes.",
+      "palette": [
+        19,
+        0,
+        19,
+        0
+      ],
+      "params": [
+        {
+          "id": "pools",
+          "uniform": "param0",
+          "label": "Pools",
+          "labelKey": "visual.pastel-drift.pools",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "wander",
+          "uniform": "param1",
+          "label": "Wander",
+          "labelKey": "visual.pastel-drift.wander",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "tone",
+          "uniform": "param2",
+          "label": "Tone",
+          "labelKey": "visual.pastel-drift.tone",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "snowfall",
+      "body": "visuals/snowfall.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Snowfall: snow falls at three depths on a windless night, warming where it passes through an old street lamp's glow.",
+      "palette": [
+        13,
+        0,
+        13,
+        0
+      ],
+      "params": [
+        {
+          "id": "snow",
+          "uniform": "param0",
+          "label": "Snow",
+          "labelKey": "visual.snowfall.snow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        },
+        {
+          "id": "fall",
+          "uniform": "param1",
+          "label": "Fall",
+          "labelKey": "visual.snowfall.fall",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "lamp",
+          "uniform": "param2",
+          "label": "Lamp",
+          "labelKey": "visual.snowfall.lamp",
+          "min": 0,
+          "max": 1,
+          "default": 0.25,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    },
+    {
+      "id": "falling-beams",
+      "body": "visuals/falling-beams.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Falling beams: soft shafts of light fall through dust in a dark room; Fill lights them one after another and warms them.",
+      "palette": [
+        7,
+        0,
+        7,
+        0
+      ],
+      "params": [
+        {
+          "id": "fill",
+          "uniform": "param0",
+          "label": "Fill",
+          "labelKey": "visual.falling-beams.fill",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "tilt",
+          "uniform": "param1",
+          "label": "Tilt",
+          "labelKey": "visual.falling-beams.tilt",
+          "min": 0,
+          "max": 1,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "dust",
+          "uniform": "param2",
+          "label": "Dust",
+          "labelKey": "visual.falling-beams.dust",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "sensitivity",
+        "palette"
+      ],
+      "trailDecay": 0
+    }
+  ],
+  "transitions": [
+    {
+      "id": "dissolve",
+      "body": "transitions/dissolve.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Dissolve: bright features of the new visual come through first in flowing veils, lined with an iridescent sheen and drifting bokeh motes."
+    },
+    {
+      "id": "burn",
+      "body": "transitions/burn.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Burn: the old frame burns away like paper, with a charred glowing edge, embers and heat shimmer."
+    },
+    {
+      "id": "ink-bleed",
+      "body": "transitions/ink-bleed.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Ink Bleed: the new frame blooms in through flowing ink tendrils with a glowing wet edge."
+    },
+    {
+      "id": "iris",
+      "body": "transitions/iris.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Iris: curved lens blades close on the old frame and open on the new, with bokeh and a chromatic rim."
+    },
+    {
+      "id": "light-sweep",
+      "body": "transitions/light-sweep.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Light Sweep: an anamorphic light band sweeps across, refracting and dispersing into the new frame."
+    },
+    {
+      "id": "page-curl",
+      "body": "transitions/page-curl.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Page Curl: the old frame peels away as a lit 3D page curl, revealing the new one beneath."
+    },
+    {
+      "id": "pixel-sort",
+      "body": "transitions/pixel-sort.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Pixel Sort: columns of the old frame sort into luminous streaks and resolve into the new."
+    },
+    {
+      "id": "portal",
+      "body": "transitions/portal.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Portal: a vortex swallows the old frame and opens onto the new behind an energy rim."
+    },
+    {
+      "id": "raindrop",
+      "body": "transitions/raindrop.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Raindrop: a falling drop sends a refracting ring wave with caustics that carries in the new frame."
+    },
+    {
+      "id": "shatter",
+      "body": "transitions/shatter.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Shatter: the old frame cracks into lit glass shards that tilt and fall away into depth."
+    },
+    {
+      "id": "warp-speed",
+      "body": "transitions/warp-speed.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Warp Speed: the old frame stretches into radial light streaks and the new one resolves out of them."
+    },
+    {
+      "id": "blinds",
+      "body": "transitions/blinds.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Blinds: lit 3D slats turn in a wave, the old frame on their fronts and the new one on their backs."
+    },
+    {
+      "id": "chromatic-split",
+      "body": "transitions/chromatic-split.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Chromatic Split: the old frame fans out into its spectrum like light through a lens, and a dispersed front swaps in the new one before the colours close up."
+    },
+    {
+      "id": "cube-turn",
+      "body": "transitions/cube-turn.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Cube Turn: the old frame is the face of a glossy box cut into layers that part and turn one after another, like a puzzle cube, to show the new one."
+    },
+    {
+      "id": "heat-haze",
+      "body": "transitions/heat-haze.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Heat Haze: rising heat shimmer refracts the old frame and carries the new one up through glowing plumes."
+    },
+    {
+      "id": "hex-reveal",
+      "body": "transitions/hex-reveal.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Hex Reveal: a honeycomb force field sweeps over the old frame, its glassy cells lighting and collapsing to show the new one."
+    },
+    {
+      "id": "kaleido-fold",
+      "body": "transitions/kaleido-fold.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Kaleido Fold: a kaleidoscope of the old frame blooms out behind a glassy rim, its facets turn over to the new one's, and it unfolds into the new frame."
+    },
+    {
+      "id": "liquid-melt",
+      "body": "transitions/liquid-melt.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Liquid Melt: the old frame melts into glossy liquid that runs down in drips, uncovering the new one."
+    },
+    {
+      "id": "mosaic-flip",
+      "body": "transitions/mosaic-flip.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Mosaic Flip: a mosaic of tiles of mixed sizes sinks and flips over in a wave, showing the new frame on their backs."
+    },
+    {
+      "id": "prism-sweep",
+      "body": "transitions/prism-sweep.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Prism Sweep: a row of glass prism columns turns in a sweep, carrying the old frame round to the new one."
+    },
+    {
+      "id": "zoom-through",
+      "body": "transitions/zoom-through.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Zoom Through: the camera dives into the old frame's brightest feature, through which the new frame opens up."
+    },
+    {
+      "id": "aurora-veil",
+      "body": "transitions/aurora-veil.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Aurora Veil: a folded curtain of aurora light is drawn down over the old frame, and the new one is seen through its rays."
+    },
+    {
+      "id": "circuit-trace",
+      "body": "transitions/circuit-trace.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Circuit Trace: pulses race along chamfered circuit traces and the new frame floods across the board close behind them."
+    },
+    {
+      "id": "crystal-grow",
+      "body": "transitions/crystal-grow.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Crystal Grow: frost ferns grow over the old frame and harden into faceted crystal that refracts the new one, then clears."
+    },
+    {
+      "id": "lens-flare-sweep",
+      "body": "transitions/lens-flare-sweep.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Lens Flare Sweep: a light source crosses the lens, its anamorphic streak and ghosts carrying the new frame in behind it."
+    },
+    {
+      "id": "origami-fold",
+      "body": "transitions/origami-fold.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Origami Fold: the old frame pleats into a lit paper accordion that gathers to one side and lifts away."
+    },
+    {
+      "id": "particle-dust",
+      "body": "transitions/particle-dust.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Particle Dust: the old frame disintegrates into lit, depth-sorted motes that drift away on a curling wind."
+    },
+    {
+      "id": "shockwave",
+      "body": "transitions/shockwave.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Shockwave: a beat-timed pressure ring bursts from a seeded point, refracting both frames with a chromatic edge and carrying the new frame in behind it."
+    },
+    {
+      "id": "smoke",
+      "body": "transitions/smoke.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Smoke: three depths of lit, billowing smoke roll across the screen in parallax and clear to the new frame."
+    },
+    {
+      "id": "wormhole",
+      "body": "transitions/wormhole.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "header": "// Wormhole: a lensing throat opens in the old frame and the camera glides through it into the new one."
+    }
+  ]
+}

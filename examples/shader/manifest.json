@@ -1,0 +1,31 @@
+{
+  "prelude": "prelude.glsl",
+  "visuals": [
+    {
+      "id": "spectrum-rings",
+      "body": "visuals/spectrum-rings.glsl",
+      "targets": ["web", "vulkan", "msl", "hlsl"],
+      "header": "// spectrum-rings - example",
+      "palette": [-1, 0, 0.6, 0],
+      "params": [
+        {"id": "trail-zoom", "uniform": "param0", "label": "Trail Zoom",
+         "labelKey": "visual.spectrum-rings.trail-zoom", "min": 0, "max": 1, "default": 0.7,
+         "step": 0.01, "curve": "linear", "group": "shape"}
+      ],
+      "tunables": ["trailDecay", "accent", "palette"]
+    },
+    {
+      "id": "image-ripple",
+      "body": "visuals/image-ripple.glsl",
+      "targets": ["web", "vulkan", "msl", "hlsl"],
+      "imageInput": true,
+      "header": "// image-ripple - example",
+      "params": [
+        {"id": "ripple-depth", "uniform": "param1", "label": "Ripple Depth",
+         "labelKey": "visual.image-ripple.ripple-depth", "min": 0, "max": 1, "default": 0.8,
+         "step": 0.01, "curve": "linear", "group": "detail"}
+      ],
+      "tunables": ["trailDecay"]
+    }
+  ]
+}

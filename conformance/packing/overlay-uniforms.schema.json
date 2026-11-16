@@ -1,0 +1,16 @@
+{
+  "struct": "OverlayUniforms",
+  "block": "OverlayUniformBlock",
+  "layout": "std140",
+  "size": 320,
+  "maxRegions": 8,
+  "fields": [
+    { "name": "overlay0", "type": "vec4", "offset": 0, "components": ["regionCount", "luminanceCeiling", "luminanceFloor", "outputLevels"] },
+    { "name": "overlay1", "type": "vec4", "offset": 16, "components": ["presentationIntensity", "temporalKeep", "maxLuminanceStep", "premultipliedAlpha"] },
+    { "name": "overlay2", "type": "vec4", "offset": 32, "components": ["regionTemporalKeep", "regionMaxLuminanceStep", "blurRadius", "aspect"] },
+    { "name": "overlay3", "type": "vec4", "offset": 48, "components": ["outputAlpha", "viewportHeightPx", "reducedMotion", "reserved"] },
+    { "name": "regionRect", "type": "vec4", "offset": 64, "count": 8, "components": ["x", "y", "width", "height"] },
+    { "name": "regionShape", "type": "vec4", "offset": 192, "count": 8, "components": ["cornerRadius", "feather", "strength", "mode"] }
+  ],
+  "modes": { "lightText": 1, "darkText": 2, "desaturate": 4, "blur": 8, "dampMotion": 16, "dampFlash": 32 }
+}

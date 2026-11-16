@@ -1,0 +1,29 @@
+{
+  "revision": "ce290a3",
+  "cases": [
+    {
+      "name": "isolated-hitch",
+      "level": 3
+    },
+    {
+      "name": "sustained-overload",
+      "level": 0
+    },
+    {
+      "name": "promotion-ceiling",
+      "level": 3
+    },
+    {
+      "name": "headroom-divergence",
+      "level": 3
+    },
+    {
+      "name": "60hz-recovery-divergence",
+      "level": 1
+    },
+    {
+      "name": "pause-gaps-divergence",
+      "level": 0
+    }
+  ]
+}

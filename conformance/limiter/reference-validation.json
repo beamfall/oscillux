@@ -1,0 +1,180 @@
+{
+  "description": "Policies run through the reference validator, with its verdict. The reference has no red-flash field, so maxRedFlashes is the default 3.",
+  "cases": [
+    {
+      "name": "compliant-manifest",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.35,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "over-ceiling-manifest",
+      "policy": {
+        "maxFlashHz": 8,
+        "maxLuminanceDelta": 0.95,
+        "maxFlashArea": 0.5,
+        "maxRedFlashes": 3,
+        "strobeBanned": false
+      },
+      "valid": false,
+      "error": "strobe-not-banned"
+    },
+    {
+      "name": "over-ceiling-strobe-flag-unset",
+      "policy": {
+        "maxFlashHz": 8,
+        "maxLuminanceDelta": 0.95,
+        "maxFlashArea": 0.5,
+        "maxRedFlashes": 3,
+        "strobeBanned": false
+      },
+      "valid": false,
+      "error": "strobe-not-banned"
+    },
+    {
+      "name": "missing-bounds-zero-value",
+      "policy": {
+        "maxFlashHz": 0,
+        "maxLuminanceDelta": 0,
+        "maxFlashArea": 0,
+        "maxRedFlashes": 3,
+        "strobeBanned": false
+      },
+      "valid": false,
+      "error": "strobe-not-banned"
+    },
+    {
+      "name": "runtime-clamp-bounds",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.2,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "safe-mode-profile",
+      "policy": {
+        "maxFlashHz": 1,
+        "maxLuminanceDelta": 0.35,
+        "maxFlashArea": 0.1,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "hard-maxima",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    },
+    {
+      "name": "flash-hz-above-maximum",
+      "policy": {
+        "maxFlashHz": 3.000001,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "looser:maxFlashHz"
+    },
+    {
+      "name": "luminance-above-maximum",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.800001,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "looser:maxLuminanceDelta"
+    },
+    {
+      "name": "area-above-maximum",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.250001,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "looser:maxFlashArea"
+    },
+    {
+      "name": "flash-hz-zero",
+      "policy": {
+        "maxFlashHz": 0,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "non-positive:maxFlashHz"
+    },
+    {
+      "name": "luminance-negative",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": -0.1,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "non-positive:maxLuminanceDelta"
+    },
+    {
+      "name": "area-zero",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": false,
+      "error": "non-positive:maxFlashArea"
+    },
+    {
+      "name": "strobe-allowed-otherwise-default",
+      "policy": {
+        "maxFlashHz": 3,
+        "maxLuminanceDelta": 0.8,
+        "maxFlashArea": 0.25,
+        "maxRedFlashes": 3,
+        "strobeBanned": false
+      },
+      "valid": false,
+      "error": "strobe-not-banned"
+    },
+    {
+      "name": "tightened-all-axes",
+      "policy": {
+        "maxFlashHz": 0.5,
+        "maxLuminanceDelta": 0.1,
+        "maxFlashArea": 0.01,
+        "maxRedFlashes": 3,
+        "strobeBanned": true
+      },
+      "valid": true
+    }
+  ]
+}

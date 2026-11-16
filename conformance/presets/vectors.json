@@ -1,0 +1,525 @@
+{
+  "description": "Preset schema vectors (tools/shader/preset.mjs). Each case resolves `input` (a JSON value) or `text` (JSON text) against `catalog` and must match `expect` exactly: the uniforms presetUniforms returns, the mapping presetMapping returns, the clamped paths in order and migratedFrom; or the refusal's path and code.",
+  "schemaVersion": 1,
+  "catalog": [
+    {
+      "id": "glow",
+      "palette": [3, 0, 1.5, 0],
+      "trailDecay": 0.82,
+      "params": [0.7, 0.5, 0.5],
+      "controls": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.glow.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.7,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "segments",
+          "uniform": "param2",
+          "label": "Segments",
+          "labelKey": "visual.glow.segments",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.166667,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ]
+    },
+    {
+      "id": "free",
+      "palette": [-1, 0, 0.6, 0],
+      "trailDecay": 0,
+      "params": [0.5, 0.4, 0.5],
+      "controls": [
+        {
+          "id": "depth",
+          "uniform": "param1",
+          "label": "Depth",
+          "labelKey": "visual.free.depth",
+          "min": 0.2,
+          "max": 0.8,
+          "default": 0.4,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "kind": "accept",
+      "name": "defaults-only",
+      "input": {"schemaVersion": 1, "visual": "glow"},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.7,
+          "param1": 0.5,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [3, 0, 1.5, 0],
+          "trailDecay": 0.82
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": [],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "accept",
+      "name": "full-in-range",
+      "input": {
+        "schemaVersion": 1,
+        "visual": "glow",
+        "params": {"glow": 0.25, "segments": 1},
+        "sensitivity": 1.5,
+        "accent": [1, 0, 0.5, 1],
+        "motion": [0.5, 0.1, -0.1, 0.2],
+        "palette": {"index": -1, "phase": 12.5},
+        "trailDecay": 0.5,
+        "mapping": {"levelSource": "relative", "releaseSeconds": 0.5, "dbFloor": -48}
+      },
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1.5,
+          "param0": 0.25,
+          "param1": 0.5,
+          "param2": 1,
+          "accent": [1, 0, 0.5, 1],
+          "motion": [0.5, 0.1, -0.1, 0.2],
+          "palette": [-1, 0, 12.5, 0],
+          "trailDecay": 0.5
+        },
+        "mapping": {"levelSource": "relative", "releaseSeconds": 0.5, "dbFloor": -48},
+        "clamped": [],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "accept",
+      "name": "range-edges",
+      "input": {
+        "schemaVersion": 1,
+        "visual": "free",
+        "params": {"depth": 0.8},
+        "sensitivity": 0,
+        "trailDecay": 0.96,
+        "palette": {"index": 31, "phase": 32},
+        "mapping": {"releaseSeconds": 0.02, "dbFloor": -12}
+      },
+      "expect": {
+        "uniforms": {
+          "sensitivity": 0,
+          "param0": 0.5,
+          "param1": 0.8,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [31, 0, 32, 0],
+          "trailDecay": 0.96
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.02, "dbFloor": -12},
+        "clamped": [],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "accept",
+      "name": "json-text",
+      "text": "{\"schemaVersion\":1,\"visual\":\"free\"}",
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.5,
+          "param1": 0.4,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [-1, 0, 0.6, 0],
+          "trailDecay": 0
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": [],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "clamp",
+      "name": "all-high",
+      "input": {
+        "schemaVersion": 1,
+        "visual": "glow",
+        "params": {"glow": 7, "segments": 1.0001},
+        "sensitivity": 100,
+        "accent": [2, 2, 2, 2],
+        "motion": [10, 1, 1, 1],
+        "palette": {"index": 40, "phase": 99},
+        "trailDecay": 1,
+        "mapping": {"releaseSeconds": 60, "dbFloor": 0}
+      },
+      "expect": {
+        "uniforms": {
+          "sensitivity": 2,
+          "param0": 1,
+          "param1": 0.5,
+          "param2": 1,
+          "accent": [1, 1, 1, 1],
+          "motion": [3.141592653589793, 0.25, 0.25, 0.25],
+          "palette": [31, 0, 32, 0],
+          "trailDecay": 0.96
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 2, "dbFloor": -12},
+        "clamped": [
+          "preset.params.glow",
+          "preset.params.segments",
+          "preset.sensitivity",
+          "preset.accent[0]",
+          "preset.accent[1]",
+          "preset.accent[2]",
+          "preset.accent[3]",
+          "preset.motion[0]",
+          "preset.motion[1]",
+          "preset.motion[2]",
+          "preset.motion[3]",
+          "preset.palette.index",
+          "preset.palette.phase",
+          "preset.trailDecay",
+          "preset.mapping.releaseSeconds",
+          "preset.mapping.dbFloor"
+        ],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "clamp",
+      "name": "all-low",
+      "input": {
+        "schemaVersion": 1,
+        "visual": "free",
+        "params": {"depth": 0},
+        "sensitivity": -1,
+        "accent": [-1, -1, -1, -1],
+        "motion": [-10, -1, -1, -1],
+        "palette": {"index": -5, "phase": -1},
+        "trailDecay": -0.5,
+        "mapping": {"releaseSeconds": 0, "dbFloor": -1e+308}
+      },
+      "expect": {
+        "uniforms": {
+          "sensitivity": 0,
+          "param0": 0.5,
+          "param1": 0.2,
+          "param2": 0.5,
+          "accent": [0, 0, 0, 0],
+          "motion": [-3.141592653589793, -0.25, -0.25, -0.25],
+          "palette": [-1, 0, 0, 0],
+          "trailDecay": 0
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.02, "dbFloor": -96},
+        "clamped": [
+          "preset.params.depth",
+          "preset.sensitivity",
+          "preset.accent[0]",
+          "preset.accent[1]",
+          "preset.accent[2]",
+          "preset.accent[3]",
+          "preset.motion[0]",
+          "preset.motion[1]",
+          "preset.motion[2]",
+          "preset.motion[3]",
+          "preset.palette.index",
+          "preset.palette.phase",
+          "preset.trailDecay",
+          "preset.mapping.releaseSeconds",
+          "preset.mapping.dbFloor"
+        ],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "clamp",
+      "name": "largest-double",
+      "input": {"schemaVersion": 1, "visual": "glow", "params": {"glow": 1.7976931348623157e+308}},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 1,
+          "param1": 0.5,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [3, 0, 1.5, 0],
+          "trailDecay": 0.82
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": ["preset.params.glow"],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "clamp",
+      "name": "below-control-min",
+      "input": {"schemaVersion": 1, "visual": "free", "params": {"depth": 0.1}},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.5,
+          "param1": 0.2,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [-1, 0, 0.6, 0],
+          "trailDecay": 0
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": ["preset.params.depth"],
+        "migratedFrom": null
+      }
+    },
+    {
+      "kind": "refuse",
+      "name": "presentation-key",
+      "input": {"schemaVersion": 1, "visual": "glow", "presentation0": [0, 1, 0, 0]},
+      "expect": {"refuse": {"path": "preset.presentation0", "code": "unknown-key"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "safe-rect-key",
+      "input": {"schemaVersion": 1, "visual": "glow", "safeRect": [0, 0, 1, 1]},
+      "expect": {"refuse": {"path": "preset.safeRect", "code": "unknown-key"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "proto-key",
+      "text": "{\"schemaVersion\":1,\"visual\":\"glow\",\"__proto__\":{\"sensitivity\":9}}",
+      "expect": {"refuse": {"path": "preset.__proto__", "code": "unknown-key"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "param-proto-key",
+      "text": "{\"schemaVersion\":1,\"visual\":\"glow\",\"params\":{\"__proto__\":1}}",
+      "expect": {"refuse": {"path": "preset.params.__proto__", "code": "unknown-param"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "missing-version",
+      "input": {"visual": "glow"},
+      "expect": {"refuse": {"path": "preset.schemaVersion", "code": "version"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "fractional-version",
+      "input": {"schemaVersion": 1.5, "visual": "glow"},
+      "expect": {"refuse": {"path": "preset.schemaVersion", "code": "version"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "string-version",
+      "input": {"schemaVersion": "1", "visual": "glow"},
+      "expect": {"refuse": {"path": "preset.schemaVersion", "code": "version"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "newer-version",
+      "input": {"schemaVersion": 2, "visual": "glow"},
+      "expect": {"refuse": {"path": "preset.schemaVersion", "code": "version"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "missing-visual",
+      "input": {"schemaVersion": 1},
+      "expect": {"refuse": {"path": "preset.visual", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "unknown-visual",
+      "input": {"schemaVersion": 1, "visual": "nope"},
+      "expect": {"refuse": {"path": "preset.visual", "code": "unknown-visual"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "unknown-param",
+      "input": {"schemaVersion": 1, "visual": "glow", "params": {"gain": 0.5}},
+      "expect": {"refuse": {"path": "preset.params.gain", "code": "unknown-param"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "uniform-name-as-param",
+      "input": {"schemaVersion": 1, "visual": "glow", "params": {"param1": 0.5}},
+      "expect": {"refuse": {"path": "preset.params.param1", "code": "unknown-param"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "string-param",
+      "input": {"schemaVersion": 1, "visual": "glow", "params": {"glow": "0.5"}},
+      "expect": {"refuse": {"path": "preset.params.glow", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "infinite-param",
+      "text": "{\"schemaVersion\":1,\"visual\":\"glow\",\"params\":{\"glow\":1e999}}",
+      "expect": {"refuse": {"path": "preset.params.glow", "code": "non-finite"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "negative-infinite-trail",
+      "text": "{\"schemaVersion\":1,\"visual\":\"glow\",\"trailDecay\":-1e999}",
+      "expect": {"refuse": {"path": "preset.trailDecay", "code": "non-finite"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "null-sensitivity",
+      "input": {"schemaVersion": 1, "visual": "glow", "sensitivity": null},
+      "expect": {"refuse": {"path": "preset.sensitivity", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "short-accent",
+      "input": {"schemaVersion": 1, "visual": "glow", "accent": [1, 1, 1]},
+      "expect": {"refuse": {"path": "preset.accent", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "string-in-motion",
+      "input": {"schemaVersion": 1, "visual": "glow", "motion": [0, 0, "0", 0]},
+      "expect": {"refuse": {"path": "preset.motion[2]", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "palette-as-uniform",
+      "input": {"schemaVersion": 1, "visual": "glow", "palette": [3, 0, 1.5, 0]},
+      "expect": {"refuse": {"path": "preset.palette", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "fractional-palette-index",
+      "input": {"schemaVersion": 1, "visual": "glow", "palette": {"index": 2.5}},
+      "expect": {"refuse": {"path": "preset.palette.index", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "palette-extra-key",
+      "input": {"schemaVersion": 1, "visual": "glow", "palette": {"index": 2, "y": 1}},
+      "expect": {"refuse": {"path": "preset.palette.y", "code": "unknown-key"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "level-source",
+      "input": {"schemaVersion": 1, "visual": "glow", "mapping": {"levelSource": "loud"}},
+      "expect": {"refuse": {"path": "preset.mapping.levelSource", "code": "enum"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "mapping-unknown-key",
+      "input": {"schemaVersion": 1, "visual": "glow", "mapping": {"hopSeconds": 0.01}},
+      "expect": {"refuse": {"path": "preset.mapping.hopSeconds", "code": "unknown-key"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "positional-params-v1",
+      "input": {"schemaVersion": 1, "visual": "glow", "params": [0.5, 0.5, 0.5]},
+      "expect": {"refuse": {"path": "preset.params", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "array",
+      "input": [],
+      "expect": {"refuse": {"path": "preset", "code": "type"}}
+    },
+    {
+      "kind": "refuse",
+      "name": "bad-json",
+      "text": "{",
+      "expect": {"refuse": {"path": "preset", "code": "json"}}
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-positional",
+      "input": {"schemaVersion": 0, "visual": "glow", "params": [0.3, 0.9, 0.1]},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.3,
+          "param1": 0.5,
+          "param2": 0.1,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [3, 0, 1.5, 0],
+          "trailDecay": 0.82
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": [],
+        "migratedFrom": 0
+      }
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-defaults",
+      "input": {"schemaVersion": 0, "visual": "free"},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.5,
+          "param1": 0.4,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [-1, 0, 0.6, 0],
+          "trailDecay": 0
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": [],
+        "migratedFrom": 0
+      }
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-clamp",
+      "input": {"schemaVersion": 0, "visual": "free", "params": [0.5, 0.95, 0.5]},
+      "expect": {
+        "uniforms": {
+          "sensitivity": 1,
+          "param0": 0.5,
+          "param1": 0.8,
+          "param2": 0.5,
+          "accent": [0.15, 0.9, 0.72, 1],
+          "motion": [0, 0, 0, 0],
+          "palette": [-1, 0, 0.6, 0],
+          "trailDecay": 0
+        },
+        "mapping": {"levelSource": "absolute", "releaseSeconds": 0.2, "dbFloor": -60},
+        "clamped": ["preset.params.depth"],
+        "migratedFrom": 0
+      }
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-extra-key",
+      "input": {"schemaVersion": 0, "visual": "glow", "sensitivity": 1},
+      "expect": {"refuse": {"path": "preset.sensitivity", "code": "unknown-key"}}
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-short-params",
+      "input": {"schemaVersion": 0, "visual": "glow", "params": [0.5]},
+      "expect": {"refuse": {"path": "preset.params", "code": "type"}}
+    },
+    {
+      "kind": "migrate",
+      "name": "v0-infinite",
+      "text": "{\"schemaVersion\":0,\"visual\":\"glow\",\"params\":[0.5,1e999,0.5]}",
+      "expect": {"refuse": {"path": "preset.params[1]", "code": "non-finite"}}
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "description": "Visuals exempt from the beat-response lint (tools/shader/beat-lint.mjs) because they are ambient by design. Each entry needs the visual id and the reason.",
+  "ambient": [
+    {
+      "id": "moonlit-tide",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "lantern-drift",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "silk-veil",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "dusk-hills",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "still-pond",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "soft-bokeh",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "sunlit-shallows",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "starlit-haze",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "cloud-sea",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "ember-glow",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "pastel-drift",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "snowfall",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0014)"
+    },
+    {
+      "id": "falling-beams",
+      "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0038)"
+    }
+  ]
+}

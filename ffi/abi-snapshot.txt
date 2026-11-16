@@ -1,0 +1,510 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# C ABI snapshot of ffi/include/oscillux.h on a 64-bit host, checked by
+# crates/oscillux-ffi/tests/abi_snapshot.rs. Regenerate with `make abi-snapshot`.
+define OSCILLUX_ABI_VERSION 1u
+define OSCILLUX_CDG_CHANGED_PALETTE 2u
+define OSCILLUX_CDG_CHANGED_PRESETS 16u
+define OSCILLUX_CDG_CHANGED_SCREEN 1u
+define OSCILLUX_CDG_CHANGED_SCROLL 8u
+define OSCILLUX_CDG_CHANGED_TRANSPARENCY 4u
+define OSCILLUX_CDG_EDGE_PIXELS 8928u
+define OSCILLUX_CDG_INDEX_COUNT 16u
+define OSCILLUX_CDG_KEY_INDEX 3u
+define OSCILLUX_CDG_KEY_MASK 4u
+define OSCILLUX_CDG_KEY_NONE 0u
+define OSCILLUX_CDG_KEY_PRESET_COLOUR 2u
+define OSCILLUX_CDG_KEY_TRANSPARENT_TABLE 1u
+define OSCILLUX_CDG_PACKS_PER_SECOND 300u
+define OSCILLUX_CDG_PACK_SIZE 24u
+define OSCILLUX_CDG_REGION_EDGE 1u
+define OSCILLUX_CDG_REGION_WINDOW 0u
+define OSCILLUX_CDG_SCREEN_HEIGHT 216u
+define OSCILLUX_CDG_SCREEN_PIXELS 64800u
+define OSCILLUX_CDG_SCREEN_WIDTH 300u
+define OSCILLUX_CDG_WINDOW_HEIGHT 192u
+define OSCILLUX_CDG_WINDOW_RGBA_BYTES 221184u
+define OSCILLUX_CDG_WINDOW_WIDTH 288u
+define OSCILLUX_CURVE_EASING_IN 1u
+define OSCILLUX_CURVE_EASING_IN_OUT 3u
+define OSCILLUX_CURVE_EASING_LINEAR 0u
+define OSCILLUX_CURVE_EASING_OUT 2u
+define OSCILLUX_CURVE_FLAG_FROM 2u
+define OSCILLUX_CURVE_FLAG_MAX 16u
+define OSCILLUX_CURVE_FLAG_MIN 8u
+define OSCILLUX_CURVE_FLAG_TO 4u
+define OSCILLUX_CURVE_FLAG_VALUE 1u
+define OSCILLUX_CURVE_FLAG_WRAP 32u
+define OSCILLUX_CURVE_KIND_CONSTANT 0u
+define OSCILLUX_CURVE_KIND_EASING 1u
+define OSCILLUX_CURVE_KIND_ENVELOPE 2u
+define OSCILLUX_CURVE_KIND_LFO 3u
+define OSCILLUX_CURVE_SHAPE_SINE 0u
+define OSCILLUX_CURVE_SHAPE_SQUARE 2u
+define OSCILLUX_CURVE_SHAPE_TRIANGLE 1u
+define OSCILLUX_CURVE_UNIT_BEATS 2u
+define OSCILLUX_CURVE_UNIT_SECONDS 1u
+define OSCILLUX_CURVE_UNIT_UNSPECIFIED 0u
+define OSCILLUX_DSP_BEAT_LATENCY_V1_MS 16u
+define OSCILLUX_DSP_BEAT_LATENCY_V2_MS 14u
+define OSCILLUX_DSP_BEAT_LATENCY_V3_MS 16u
+define OSCILLUX_DSP_BEAT_LATENCY_V4_MS 3u
+define OSCILLUX_DSP_BEHAVIOR_V1 1u
+define OSCILLUX_DSP_BEHAVIOR_V2 2u
+define OSCILLUX_DSP_BEHAVIOR_V3 3u
+define OSCILLUX_DSP_BEHAVIOR_V4 4u
+define OSCILLUX_DSP_FLAG_GAP 1u
+define OSCILLUX_DSP_FLAG_INPUT_REPLACED 4u
+define OSCILLUX_DSP_FLAG_STALLED 2u
+define OSCILLUX_DSP_MAX_BANDS 64
+define OSCILLUX_DSP_ONSET_GROUPS 3
+define OSCILLUX_ERR_INVALID_ARGUMENT (-2)
+define OSCILLUX_ERR_NULL (-1)
+define OSCILLUX_ERR_PANIC (-3)
+define OSCILLUX_FIELD_SOURCE_HOST 2u
+define OSCILLUX_FIELD_SOURCE_MAPPED 0u
+define OSCILLUX_FIELD_SOURCE_SPECTRUM 1u
+define OSCILLUX_FLASH_MAX_GRID 16u
+define OSCILLUX_FLASH_RED_RULE_ISO_9241_391 1u
+define OSCILLUX_FLASH_RED_RULE_WCAG20 0u
+define OSCILLUX_MAPPED_AMPLITUDE 0
+define OSCILLUX_MAPPED_BASS 2
+define OSCILLUX_MAPPED_BASS_IMPACT 6
+define OSCILLUX_MAPPED_CENTROID 8
+define OSCILLUX_MAPPED_FLUX 7
+define OSCILLUX_MAPPED_LEVEL 1
+define OSCILLUX_MAPPED_MID 3
+define OSCILLUX_MAPPED_ONSET 5
+define OSCILLUX_MAPPED_SPECTRUM_BINS 64
+define OSCILLUX_MAPPED_TREBLE 4
+define OSCILLUX_MAPPED_VALUE_COUNT 9
+define OSCILLUX_MAPPING_GROUPS 3
+define OSCILLUX_MAPPING_LEVELS_ABSOLUTE 0u
+define OSCILLUX_MAPPING_LEVELS_RELATIVE 1u
+define OSCILLUX_OK 0
+define OSCILLUX_OVERLAY_MAX_REGIONS 8u
+define OSCILLUX_OVERLAY_MODE_BLUR 8u
+define OSCILLUX_OVERLAY_MODE_DAMP_FLASH 32u
+define OSCILLUX_OVERLAY_MODE_DAMP_MOTION 16u
+define OSCILLUX_OVERLAY_MODE_DARK_TEXT 2u
+define OSCILLUX_OVERLAY_MODE_DESATURATE 4u
+define OSCILLUX_OVERLAY_MODE_LIGHT_TEXT 1u
+define OSCILLUX_OVERLAY_UNIFORMS_SIZE 320u
+define OSCILLUX_PACKER_MAX_COMPONENTS 64u
+define OSCILLUX_PACKER_MAX_FIELDS 256
+define OSCILLUX_REACTION_MAX_BEATS_PER_BAR 16u
+define OSCILLUX_REACTION_MAX_CAPACITY 65536u
+define OSCILLUX_TRANSITION_EASING_LINEAR 0u
+define OSCILLUX_TRANSITION_EASING_SMOOTHSTEP 1u
+define OSCILLUX_TRANSITION_QUANTISE_BAR 2u
+define OSCILLUX_TRANSITION_QUANTISE_BEAT 1u
+define OSCILLUX_TRANSITION_QUANTISE_NONE 0u
+define OSCILLUX_TRANSITION_STATE_BLENDING 3u
+define OSCILLUX_TRANSITION_STATE_DONE 4u
+define OSCILLUX_TRANSITION_STATE_IDLE 0u
+define OSCILLUX_TRANSITION_STATE_PRE_ROLL 1u
+define OSCILLUX_TRANSITION_STATE_WAITING 2u
+function uint32_t oscillux_abi_version(void)
+function int32_t oscillux_beatgrid_beat_count(const OscilluxBeatGrid *grid, size_t *out_count)
+function int32_t oscillux_beatgrid_clock(const OscilluxBeatGrid *grid, double media_time_seconds, OscilluxBeatGridClock *out)
+function int32_t oscillux_beatgrid_config_default(OscilluxBeatGridConfig *out)
+function int32_t oscillux_beatgrid_config_validate(const OscilluxBeatGridConfig *config, const char **out_field)
+function int32_t oscillux_beatgrid_copy_beats(const OscilluxBeatGrid *grid, size_t first, OscilluxBeatGridBeat *out, size_t capacity, size_t *out_written)
+function int32_t oscillux_beatgrid_create(const OscilluxBeatGridConfig *config, const float *samples, size_t sample_frames, OscilluxBeatGrid **out_grid)
+function void oscillux_beatgrid_destroy(OscilluxBeatGrid *grid)
+function int32_t oscillux_beatgrid_info(const OscilluxBeatGrid *grid, OscilluxBeatGridInfo *out)
+function int32_t oscillux_cdg_advance_to_pack(OscilluxCdg *handle, uint64_t applied)
+function int32_t oscillux_cdg_advance_to_time(OscilluxCdg *handle, double seconds)
+function int32_t oscillux_cdg_create(const uint8_t *packs, size_t len, OscilluxCdg **out)
+function void oscillux_cdg_destroy(OscilluxCdg *handle)
+function int32_t oscillux_cdg_index_counts(const OscilluxCdg *handle, uint32_t region, uint32_t *out, size_t len)
+function int32_t oscillux_cdg_screen(const OscilluxCdg *handle, uint8_t *out, size_t len)
+function int32_t oscillux_cdg_state(const OscilluxCdg *handle, OscilluxCdgState *out)
+function int32_t oscillux_cdg_window_rgba(const OscilluxCdg *handle, uint32_t key_mode, uint32_t key_index, uint8_t *out, size_t len)
+function int32_t oscillux_curve_config_default(OscilluxCurveConfig *out)
+function int32_t oscillux_curve_create(const OscilluxCurveConfig *config, OscilluxCurve **out)
+function void oscillux_curve_destroy(OscilluxCurve *handle)
+function int32_t oscillux_curve_evaluate(const OscilluxCurve *handle, const OscilluxCurveInput *input, double *out)
+function int32_t oscillux_dsp_begin_segment(OscilluxDsp *dsp, double media_start_ms, uint32_t stalled)
+function int32_t oscillux_dsp_config_default(OscilluxDspConfig *out)
+function int32_t oscillux_dsp_config_validate(const OscilluxDspConfig *config, const char **out_field)
+function int32_t oscillux_dsp_create(const OscilluxDspConfig *config, OscilluxDsp **out_dsp)
+function int32_t oscillux_dsp_create_versioned(const OscilluxDspVersionedConfig *config, OscilluxDsp **out_dsp)
+function void oscillux_dsp_destroy(OscilluxDsp *dsp)
+function int32_t oscillux_dsp_push_ext_f32(OscilluxDsp *dsp, const float *samples, size_t sample_frames, uint32_t channels, OscilluxDspFrame *out, OscilluxDspFrameExt *ext, size_t out_capacity, OscilluxDspPushResult *result)
+function int32_t oscillux_dsp_push_ext_f64(OscilluxDsp *dsp, const double *samples, size_t sample_frames, uint32_t channels, OscilluxDspFrame *out, OscilluxDspFrameExt *ext, size_t out_capacity, OscilluxDspPushResult *result)
+function int32_t oscillux_dsp_push_f32(OscilluxDsp *dsp, const float *samples, size_t sample_frames, uint32_t channels, OscilluxDspFrame *out, size_t out_capacity, OscilluxDspPushResult *result)
+function int32_t oscillux_dsp_push_f64(OscilluxDsp *dsp, const double *samples, size_t sample_frames, uint32_t channels, OscilluxDspFrame *out, size_t out_capacity, OscilluxDspPushResult *result)
+function int32_t oscillux_dsp_versioned_config_default(OscilluxDspVersionedConfig *out)
+function int32_t oscillux_dsp_versioned_config_validate(const OscilluxDspVersionedConfig *config, const char **out_field)
+function int32_t oscillux_flash_analyzer_admit(OscilluxFlashAnalyzer *analyzer, double time_ms, const OscilluxFlashRegion *regions, size_t region_count, OscilluxFlashReport *out)
+function int32_t oscillux_flash_analyzer_admit_rgb(OscilluxFlashAnalyzer *analyzer, double time_ms, const OscilluxFlashColor *colors, size_t region_count, OscilluxFlashReport *out)
+function int32_t oscillux_flash_analyzer_create(const OscilluxFlashConfig *config, OscilluxFlashAnalyzer **out_analyzer)
+function void oscillux_flash_analyzer_destroy(OscilluxFlashAnalyzer *analyzer)
+function int32_t oscillux_flash_analyzer_measure(OscilluxFlashAnalyzer *analyzer, double time_ms, const OscilluxFlashRegion *regions, size_t region_count, OscilluxFlashReport *out)
+function int32_t oscillux_flash_analyzer_measure_rgb(OscilluxFlashAnalyzer *analyzer, double time_ms, const OscilluxFlashColor *colors, size_t region_count, OscilluxFlashReport *out)
+function int32_t oscillux_flash_analyzer_overlay_report(const OscilluxFlashAnalyzer *analyzer, OscilluxFlashOverlayReport *out)
+function int32_t oscillux_flash_analyzer_reset(OscilluxFlashAnalyzer *analyzer)
+function int32_t oscillux_flash_analyzer_set_overlay(OscilluxFlashAnalyzer *analyzer, const OscilluxFlashOverlay *overlay, const OscilluxOverlayRegion *regions, size_t count)
+function int32_t oscillux_flash_config_default(OscilluxFlashConfig *out)
+function int32_t oscillux_flash_overlay_default(OscilluxFlashOverlay *out)
+function int32_t oscillux_flash_region_from_linear_rgb(double r, double g, double b, OscilluxFlashRegion *out)
+function int32_t oscillux_governor_config_default(OscilluxGovernorConfig *out)
+function int32_t oscillux_governor_create(const OscilluxGovernorConfig *config, OscilluxGovernor **out)
+function void oscillux_governor_destroy(OscilluxGovernor *handle)
+function int32_t oscillux_governor_record(OscilluxGovernor *handle, double frame_ms, OscilluxGovernorStats *out)
+function int32_t oscillux_governor_reset(OscilluxGovernor *handle, uint32_t level)
+function int32_t oscillux_limiter_create(const OscilluxLimiterPolicy *policy, OscilluxLimiter **out_limiter)
+function void oscillux_limiter_destroy(OscilluxLimiter *limiter)
+function int32_t oscillux_limiter_policy_default(OscilluxLimiterPolicy *out)
+function int32_t oscillux_limiter_process(OscilluxLimiter *limiter, const OscilluxLimiterFrame *frame, OscilluxLimiterFrame *out)
+function int32_t oscillux_limiter_reset(OscilluxLimiter *limiter)
+function int32_t oscillux_mapping_config_default(OscilluxMappingConfig *out)
+function int32_t oscillux_mapping_config_from_dsp(const OscilluxDspConfig *dsp, OscilluxMappingConfig *out)
+function int32_t oscillux_mapping_create(const OscilluxMappingConfig *config, OscilluxMapper **out)
+function void oscillux_mapping_destroy(OscilluxMapper *handle)
+function int32_t oscillux_mapping_process(OscilluxMapper *handle, const OscilluxDspFrame *frame, uint32_t unavailable, OscilluxMapped *out)
+function int32_t oscillux_mapping_process_ext(OscilluxMapper *handle, const OscilluxDspFrame *frame, const OscilluxDspFrameExt *ext, uint32_t unavailable, OscilluxMapped *out)
+function int32_t oscillux_mapping_reset(OscilluxMapper *handle)
+function int32_t oscillux_mapping_set_level_source(OscilluxMapper *handle, uint32_t source)
+function int32_t oscillux_overlay_config_default(OscilluxOverlayConfig *out)
+function int32_t oscillux_overlay_flash_config(const OscilluxOverlayConfig *config, OscilluxFlashConfig *inout)
+function int32_t oscillux_overlay_pack(const OscilluxOverlayConfig *config, const OscilluxOverlayRegion *regions, size_t count, uint8_t *out, size_t capacity)
+function int32_t oscillux_overlay_presentation_intensity(const OscilluxOverlayConfig *config, double *out)
+function int32_t oscillux_packer_create(const OscilluxUniformField *fields, size_t field_count, size_t block_size, OscilluxPacker **out)
+function void oscillux_packer_destroy(OscilluxPacker *handle)
+function int32_t oscillux_packer_pack(const OscilluxPacker *handle, const OscilluxMapped *mapped, const double *host, size_t host_count, uint8_t *out, size_t out_capacity)
+function int32_t oscillux_reaction_config_default(uint32_t behavior_version, uint32_t sample_rate_hz, OscilluxReactionConfig *out)
+function int32_t oscillux_reaction_create(const OscilluxReactionConfig *config, OscilluxReactionSampler **out)
+function void oscillux_reaction_destroy(OscilluxReactionSampler *handle)
+function int32_t oscillux_reaction_push(OscilluxReactionSampler *handle, double media_time_ms, const OscilluxMapped *mapped, const OscilluxDspBeat *beat)
+function int32_t oscillux_reaction_queued(const OscilluxReactionSampler *handle, uint32_t *out)
+function int32_t oscillux_reaction_reset(OscilluxReactionSampler *handle)
+function int32_t oscillux_reaction_sample(OscilluxReactionSampler *handle, double time_ms, OscilluxReaction *out)
+function int32_t oscillux_reaction_set_beat_clock(OscilluxReactionSampler *handle, const OscilluxBeatClock *clock)
+function const char *oscillux_status_string(int32_t status)
+function int32_t oscillux_transition_config_default(OscilluxTransitionConfig *out)
+function int32_t oscillux_transition_create(const OscilluxTransitionConfig *config, OscilluxTransition **out)
+function void oscillux_transition_destroy(OscilluxTransition *handle)
+function int32_t oscillux_transition_request(OscilluxTransition *handle, const OscilluxTransitionClock *clock, uint32_t quantise, double max_wait_seconds, OscilluxTransitionStatus *out)
+function int32_t oscillux_transition_reset(OscilluxTransition *handle)
+function int32_t oscillux_transition_status(const OscilluxTransition *handle, double time_seconds, OscilluxTransitionStatus *out)
+function int32_t oscillux_transition_update(OscilluxTransition *handle, const OscilluxTransitionClock *clock, OscilluxTransitionStatus *out)
+function uint32_t oscillux_version(void)
+opaque OscilluxBeatGrid
+opaque OscilluxCdg
+opaque OscilluxCurve
+opaque OscilluxDsp
+opaque OscilluxFlashAnalyzer
+opaque OscilluxGovernor
+opaque OscilluxLimiter
+opaque OscilluxMapper
+opaque OscilluxPacker
+opaque OscilluxReactionSampler
+opaque OscilluxTransition
+struct OscilluxBeatClock size 48 align 8
+member OscilluxBeatClock.media_time_ms offset 0 size 8 type double
+member OscilluxBeatClock.tempo_bpm offset 8 size 8 type double
+member OscilluxBeatClock.beat_phase offset 16 size 8 type double
+member OscilluxBeatClock.bar_phase offset 24 size 8 type double
+member OscilluxBeatClock.beat_index offset 32 size 8 type int64_t
+member OscilluxBeatClock.beats_per_bar offset 40 size 4 type uint32_t
+member OscilluxBeatClock.reserved offset 44 size 4 type uint32_t
+struct OscilluxBeatGridBeat size 24 align 8
+member OscilluxBeatGridBeat.time_seconds offset 0 size 8 type double
+member OscilluxBeatGridBeat.tempo_bpm offset 8 size 8 type double
+member OscilluxBeatGridBeat.beat_in_bar offset 16 size 4 type uint32_t
+member OscilluxBeatGridBeat.bar_index offset 20 size 4 type uint32_t
+struct OscilluxBeatGridClock size 40 align 8
+member OscilluxBeatGridClock.beat_phase offset 0 size 8 type double
+member OscilluxBeatGridClock.bar_phase offset 8 size 8 type double
+member OscilluxBeatGridClock.tempo_bpm offset 16 size 8 type double
+member OscilluxBeatGridClock.beat_index offset 24 size 8 type int64_t
+member OscilluxBeatGridClock.beat_in_bar offset 32 size 4 type uint32_t
+member OscilluxBeatGridClock.reserved offset 36 size 4 type uint32_t
+struct OscilluxBeatGridConfig size 32 align 8
+member OscilluxBeatGridConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxBeatGridConfig.sample_rate_hz offset 4 size 4 type uint32_t
+member OscilluxBeatGridConfig.channels offset 8 size 4 type uint32_t
+member OscilluxBeatGridConfig.beats_per_bar offset 12 size 4 type uint32_t
+member OscilluxBeatGridConfig.min_bpm offset 16 size 8 type double
+member OscilluxBeatGridConfig.max_bpm offset 24 size 8 type double
+struct OscilluxBeatGridInfo size 48 align 8
+member OscilluxBeatGridInfo.beat_count offset 0 size 8 type uint64_t
+member OscilluxBeatGridInfo.bar_count offset 8 size 8 type uint64_t
+member OscilluxBeatGridInfo.tempo_bpm offset 16 size 8 type double
+member OscilluxBeatGridInfo.confidence offset 24 size 8 type double
+member OscilluxBeatGridInfo.duration_seconds offset 32 size 8 type double
+member OscilluxBeatGridInfo.beats_per_bar offset 40 size 4 type uint32_t
+member OscilluxBeatGridInfo.reserved offset 44 size 4 type uint32_t
+struct OscilluxCdgState size 192 align 8
+member OscilluxCdgState.struct_size offset 0 size 4 type uint32_t
+member OscilluxCdgState.h_offset offset 4 size 4 type uint32_t
+member OscilluxCdgState.v_offset offset 8 size 4 type uint32_t
+member OscilluxCdgState.window_x offset 12 size 4 type uint32_t
+member OscilluxCdgState.window_y offset 16 size 4 type uint32_t
+member OscilluxCdgState.preset_colour offset 20 size 4 type uint32_t
+member OscilluxCdgState.border_colour offset 24 size 4 type uint32_t
+member OscilluxCdgState.changes offset 28 size 4 type uint32_t
+member OscilluxCdgState.dirty_x0 offset 32 size 4 type uint32_t
+member OscilluxCdgState.dirty_y0 offset 36 size 4 type uint32_t
+member OscilluxCdgState.dirty_x1 offset 40 size 4 type uint32_t
+member OscilluxCdgState.dirty_y1 offset 44 size 4 type uint32_t
+member OscilluxCdgState.palette offset 48 size 64 type uint32_t[16]
+member OscilluxCdgState.transparent offset 112 size 64 type uint32_t[16]
+member OscilluxCdgState.applied offset 176 size 8 type uint64_t
+member OscilluxCdgState.pack_count offset 184 size 8 type uint64_t
+struct OscilluxCurveConfig size 120 align 8
+member OscilluxCurveConfig.kind offset 0 size 4 type uint32_t
+member OscilluxCurveConfig.unit offset 4 size 4 type uint32_t
+member OscilluxCurveConfig.easing offset 8 size 4 type uint32_t
+member OscilluxCurveConfig.shape offset 12 size 4 type uint32_t
+member OscilluxCurveConfig.flags offset 16 size 4 type uint32_t
+member OscilluxCurveConfig.value offset 24 size 8 type double
+member OscilluxCurveConfig.from offset 32 size 8 type double
+member OscilluxCurveConfig.to offset 40 size 8 type double
+member OscilluxCurveConfig.duration offset 48 size 8 type double
+member OscilluxCurveConfig.attack offset 56 size 8 type double
+member OscilluxCurveConfig.release offset 64 size 8 type double
+member OscilluxCurveConfig.release_at offset 72 size 8 type double
+member OscilluxCurveConfig.period offset 80 size 8 type double
+member OscilluxCurveConfig.phase offset 88 size 8 type double
+member OscilluxCurveConfig.min offset 96 size 8 type double
+member OscilluxCurveConfig.max offset 104 size 8 type double
+member OscilluxCurveConfig.smoothing_seconds offset 112 size 8 type double
+struct OscilluxCurveInput size 48 align 8
+member OscilluxCurveInput.elapsed_seconds offset 0 size 8 type double
+member OscilluxCurveInput.elapsed_beats offset 8 size 8 type double
+member OscilluxCurveInput.beat_phase offset 16 size 8 type double
+member OscilluxCurveInput.delta_seconds offset 24 size 8 type double
+member OscilluxCurveInput.previous_value offset 32 size 8 type double
+member OscilluxCurveInput.has_previous offset 40 size 4 type uint32_t
+struct OscilluxDspBeat size 48 align 8
+member OscilluxDspBeat.tempo_bpm offset 0 size 8 type double
+member OscilluxDspBeat.beat_phase offset 8 size 8 type double
+member OscilluxDspBeat.bar_phase offset 16 size 8 type double
+member OscilluxDspBeat.confidence offset 24 size 8 type double
+member OscilluxDspBeat.beat offset 32 size 4 type uint32_t
+member OscilluxDspBeat.downbeat offset 36 size 4 type uint32_t
+member OscilluxDspBeat.beat_in_bar offset 40 size 4 type uint32_t
+member OscilluxDspBeat.reserved offset 44 size 4 type uint32_t
+struct OscilluxDspConfig size 128 align 8
+member OscilluxDspConfig.sample_rate_hz offset 0 size 4 type uint32_t
+member OscilluxDspConfig.fft_window_samples offset 4 size 4 type uint32_t
+member OscilluxDspConfig.hop_samples offset 8 size 4 type uint32_t
+member OscilluxDspConfig.spectrum_bands offset 12 size 4 type uint32_t
+member OscilluxDspConfig.spectrum_min_hz offset 16 size 8 type double
+member OscilluxDspConfig.spectrum_max_hz offset 24 size 8 type double
+member OscilluxDspConfig.db_floor offset 32 size 8 type double
+member OscilluxDspConfig.ballistics_attack_ms offset 40 size 8 type double
+member OscilluxDspConfig.ballistics_release_ms offset 48 size 8 type double
+member OscilluxDspConfig.rms_window_ms offset 56 size 8 type double
+member OscilluxDspConfig.loudness_reference_lufs offset 64 size 8 type double
+member OscilluxDspConfig.rms_floor offset 72 size 8 type double
+member OscilluxDspConfig.onset_peak_decay offset 80 size 8 type double
+member OscilluxDspConfig.onset_peak_floor offset 88 size 8 type double
+member OscilluxDspConfig.onset_band_groups offset 96 size 24 type uint32_t[OSCILLUX_DSP_ONSET_GROUPS][2]
+member OscilluxDspConfig.gap_tolerance_hops offset 120 size 4 type uint32_t
+struct OscilluxDspDescriptors size 48 align 8
+member OscilluxDspDescriptors.momentary_lufs offset 0 size 8 type double
+member OscilluxDspDescriptors.short_term_lufs offset 8 size 8 type double
+member OscilluxDspDescriptors.width offset 16 size 8 type double
+member OscilluxDspDescriptors.balance offset 24 size 8 type double
+member OscilluxDspDescriptors.centroid_hz offset 32 size 8 type double
+member OscilluxDspDescriptors.spectral_flux offset 40 size 8 type double
+struct OscilluxDspFrame size 584 align 8
+member OscilluxDspFrame.sequence offset 0 size 8 type uint64_t
+member OscilluxDspFrame.flags offset 8 size 4 type uint32_t
+member OscilluxDspFrame.band_count offset 12 size 4 type uint32_t
+member OscilluxDspFrame.media_time_ms offset 16 size 8 type double
+member OscilluxDspFrame.rms offset 24 size 8 type double
+member OscilluxDspFrame.loudness_db offset 32 size 8 type double
+member OscilluxDspFrame.onset offset 40 size 32 type OscilluxDspOnset
+member OscilluxDspFrame.spectrum offset 72 size 512 type double[OSCILLUX_DSP_MAX_BANDS]
+struct OscilluxDspFrameExt size 672 align 8
+member OscilluxDspFrameExt.struct_size offset 0 size 4 type uint32_t
+member OscilluxDspFrameExt.reserved offset 4 size 4 type uint32_t
+member OscilluxDspFrameExt.descriptors offset 8 size 48 type OscilluxDspDescriptors
+member OscilluxDspFrameExt.beat offset 56 size 48 type OscilluxDspBeat
+member OscilluxDspFrameExt.levels offset 104 size 568 type OscilluxDspLevels
+struct OscilluxDspLevels size 568 align 8
+member OscilluxDspLevels.band_count offset 0 size 4 type uint32_t
+member OscilluxDspLevels.reserved offset 4 size 4 type uint32_t
+member OscilluxDspLevels.relative_groups offset 8 size 24 type double[OSCILLUX_DSP_ONSET_GROUPS]
+member OscilluxDspLevels.absolute_groups offset 32 size 24 type double[OSCILLUX_DSP_ONSET_GROUPS]
+member OscilluxDspLevels.relative_bands offset 56 size 512 type double[OSCILLUX_DSP_MAX_BANDS]
+struct OscilluxDspOnset size 32 align 8
+member OscilluxDspOnset.broadband offset 0 size 8 type double
+member OscilluxDspOnset.low offset 8 size 8 type double
+member OscilluxDspOnset.mid offset 16 size 8 type double
+member OscilluxDspOnset.high offset 24 size 8 type double
+struct OscilluxDspPushResult size 16 align 8
+member OscilluxDspPushResult.consumed offset 0 size 8 type size_t
+member OscilluxDspPushResult.produced offset 8 size 8 type size_t
+struct OscilluxDspVersionedConfig size 144 align 8
+member OscilluxDspVersionedConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxDspVersionedConfig.config offset 8 size 128 type OscilluxDspConfig
+member OscilluxDspVersionedConfig.behavior_version offset 136 size 4 type uint32_t
+member OscilluxDspVersionedConfig.reserved offset 140 size 4 type uint32_t
+struct OscilluxFlashColor size 24 align 8
+member OscilluxFlashColor.r offset 0 size 8 type double
+member OscilluxFlashColor.g offset 8 size 8 type double
+member OscilluxFlashColor.b offset 16 size 8 type double
+struct OscilluxFlashConfig size 56 align 8
+member OscilluxFlashConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxFlashConfig.columns offset 4 size 4 type uint32_t
+member OscilluxFlashConfig.rows offset 8 size 4 type uint32_t
+member OscilluxFlashConfig.max_red_flashes offset 12 size 4 type uint32_t
+member OscilluxFlashConfig.field_width offset 16 size 8 type double
+member OscilluxFlashConfig.field_height offset 24 size 8 type double
+member OscilluxFlashConfig.max_field_area offset 32 size 8 type double
+member OscilluxFlashConfig.max_flash_hz offset 40 size 8 type double
+member OscilluxFlashConfig.red_rule offset 48 size 4 type uint32_t
+member OscilluxFlashConfig.reserved offset 52 size 4 type uint32_t
+struct OscilluxFlashOverlay size 40 align 8
+member OscilluxFlashOverlay.struct_size offset 0 size 4 type uint32_t
+member OscilluxFlashOverlay.reserved offset 4 size 4 type uint32_t
+member OscilluxFlashOverlay.luminance_change offset 8 size 8 type double
+member OscilluxFlashOverlay.darker_limit offset 16 size 8 type double
+member OscilluxFlashOverlay.max_flash_hz offset 24 size 8 type double
+member OscilluxFlashOverlay.max_area offset 32 size 8 type double
+struct OscilluxFlashOverlayReport size 32 align 8
+member OscilluxFlashOverlayReport.struct_size offset 0 size 4 type uint32_t
+member OscilluxFlashOverlayReport.active offset 4 size 4 type uint32_t
+member OscilluxFlashOverlayReport.transition offset 8 size 4 type uint32_t
+member OscilluxFlashOverlayReport.regions offset 12 size 4 type uint32_t
+member OscilluxFlashOverlayReport.cells offset 16 size 4 type uint32_t
+member OscilluxFlashOverlayReport.exceeds offset 20 size 4 type uint32_t
+member OscilluxFlashOverlayReport.flashes_in_window offset 24 size 8 type double
+struct OscilluxFlashRegion size 16 align 8
+member OscilluxFlashRegion.luminance offset 0 size 8 type double
+member OscilluxFlashRegion.red offset 8 size 8 type double
+struct OscilluxFlashReport size 48 align 8
+member OscilluxFlashReport.time_ms offset 0 size 8 type double
+member OscilluxFlashReport.flashes_in_window offset 8 size 8 type double
+member OscilluxFlashReport.red_flashes_in_window offset 16 size 8 type double
+member OscilluxFlashReport.admitted offset 24 size 4 type uint32_t
+member OscilluxFlashReport.general_transition offset 28 size 4 type uint32_t
+member OscilluxFlashReport.red_transition offset 32 size 4 type uint32_t
+member OscilluxFlashReport.general_regions offset 36 size 4 type uint32_t
+member OscilluxFlashReport.red_regions offset 40 size 4 type uint32_t
+member OscilluxFlashReport.exceeds offset 44 size 4 type uint32_t
+struct OscilluxGovernorConfig size 96 align 8
+member OscilluxGovernorConfig.target_ms offset 0 size 8 type double
+member OscilluxGovernorConfig.ema_alpha offset 8 size 8 type double
+member OscilluxGovernorConfig.pause_gap_ms offset 16 size 8 type double
+member OscilluxGovernorConfig.sample_cap_factor offset 24 size 8 type double
+member OscilluxGovernorConfig.refresh_drift offset 32 size 8 type double
+member OscilluxGovernorConfig.refresh_floor_ms offset 40 size 8 type double
+member OscilluxGovernorConfig.demote_factor offset 48 size 8 type double
+member OscilluxGovernorConfig.promote_refresh_factor offset 56 size 8 type double
+member OscilluxGovernorConfig.promote_target_factor offset 64 size 8 type double
+member OscilluxGovernorConfig.demote_frames offset 72 size 4 type uint32_t
+member OscilluxGovernorConfig.promote_frames offset 76 size 4 type uint32_t
+member OscilluxGovernorConfig.settle_frames offset 80 size 4 type uint32_t
+member OscilluxGovernorConfig.max_level offset 84 size 4 type uint32_t
+member OscilluxGovernorConfig.initial_level offset 88 size 4 type uint32_t
+struct OscilluxGovernorStats size 24 align 8
+member OscilluxGovernorStats.ema_ms offset 0 size 8 type double
+member OscilluxGovernorStats.refresh_ms offset 8 size 8 type double
+member OscilluxGovernorStats.level offset 16 size 4 type uint32_t
+member OscilluxGovernorStats.has_ema offset 20 size 4 type uint32_t
+struct OscilluxLimiterFrame size 56 align 8
+member OscilluxLimiterFrame.time_ms offset 0 size 8 type double
+member OscilluxLimiterFrame.broadband offset 8 size 8 type double
+member OscilluxLimiterFrame.low offset 16 size 8 type double
+member OscilluxLimiterFrame.mid offset 24 size 8 type double
+member OscilluxLimiterFrame.high offset 32 size 8 type double
+member OscilluxLimiterFrame.red offset 40 size 8 type double
+member OscilluxLimiterFrame.area offset 48 size 8 type double
+struct OscilluxLimiterPolicy size 32 align 8
+member OscilluxLimiterPolicy.max_flash_hz offset 0 size 8 type double
+member OscilluxLimiterPolicy.max_luminance_delta offset 8 size 8 type double
+member OscilluxLimiterPolicy.max_flash_area offset 16 size 8 type double
+member OscilluxLimiterPolicy.max_red_flashes offset 24 size 4 type uint32_t
+member OscilluxLimiterPolicy.strobe_banned offset 28 size 4 type uint32_t
+struct OscilluxMapped size 328 align 8
+member OscilluxMapped.values offset 0 size 72 type double[OSCILLUX_MAPPED_VALUE_COUNT]
+member OscilluxMapped.spectrum offset 72 size 256 type float[OSCILLUX_MAPPED_SPECTRUM_BINS]
+struct OscilluxMappingConfig size 64 align 8
+member OscilluxMappingConfig.loudness_reference offset 0 size 8 type double
+member OscilluxMappingConfig.db_floor offset 8 size 8 type double
+member OscilluxMappingConfig.hop_seconds offset 16 size 8 type double
+member OscilluxMappingConfig.release_seconds offset 24 size 8 type double
+member OscilluxMappingConfig.centroid_floor offset 32 size 8 type double
+member OscilluxMappingConfig.groups offset 40 size 24 type uint32_t[OSCILLUX_MAPPING_GROUPS][2]
+struct OscilluxOverlayConfig size 64 align 8
+member OscilluxOverlayConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxOverlayConfig.reduced_motion offset 4 size 4 type uint32_t
+member OscilluxOverlayConfig.premultiplied_alpha offset 8 size 4 type uint32_t
+member OscilluxOverlayConfig.output_levels offset 12 size 4 type uint32_t
+member OscilluxOverlayConfig.viewport_width offset 16 size 8 type double
+member OscilluxOverlayConfig.viewport_height offset 24 size 8 type double
+member OscilluxOverlayConfig.contrast_ratio offset 32 size 8 type double
+member OscilluxOverlayConfig.intensity offset 40 size 8 type double
+member OscilluxOverlayConfig.frame_interval_ms offset 48 size 8 type double
+member OscilluxOverlayConfig.alpha offset 56 size 8 type double
+struct OscilluxOverlayRegion size 64 align 8
+member OscilluxOverlayRegion.x offset 0 size 8 type double
+member OscilluxOverlayRegion.y offset 8 size 8 type double
+member OscilluxOverlayRegion.width offset 16 size 8 type double
+member OscilluxOverlayRegion.height offset 24 size 8 type double
+member OscilluxOverlayRegion.corner_radius offset 32 size 8 type double
+member OscilluxOverlayRegion.feather offset 40 size 8 type double
+member OscilluxOverlayRegion.strength offset 48 size 8 type double
+member OscilluxOverlayRegion.mode offset 56 size 4 type uint32_t
+member OscilluxOverlayRegion.reserved offset 60 size 4 type uint32_t
+struct OscilluxReaction size 392 align 8
+member OscilluxReaction.mapped offset 0 size 328 type OscilluxMapped
+member OscilluxReaction.beat offset 328 size 8 type double
+member OscilluxReaction.downbeat offset 336 size 8 type double
+member OscilluxReaction.beat_phase offset 344 size 8 type double
+member OscilluxReaction.bar_phase offset 352 size 8 type double
+member OscilluxReaction.tempo_bpm offset 360 size 8 type double
+member OscilluxReaction.confidence offset 368 size 8 type double
+member OscilluxReaction.beat_count offset 376 size 8 type int64_t
+member OscilluxReaction.beat_in_bar offset 384 size 4 type uint32_t
+member OscilluxReaction.locked offset 388 size 4 type uint32_t
+struct OscilluxReactionConfig size 96 align 8
+member OscilluxReactionConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxReactionConfig.capacity offset 4 size 4 type uint32_t
+member OscilluxReactionConfig.output_latency_ms offset 8 size 8 type double
+member OscilluxReactionConfig.display_latency_ms offset 16 size 8 type double
+member OscilluxReactionConfig.render_ahead_ms offset 24 size 8 type double
+member OscilluxReactionConfig.analysis_latency_ms offset 32 size 8 type double
+member OscilluxReactionConfig.onset_latency_ms offset 40 size 8 type double
+member OscilluxReactionConfig.onset_release_ms offset 48 size 8 type double
+member OscilluxReactionConfig.bass_impact_release_ms offset 56 size 8 type double
+member OscilluxReactionConfig.flux_release_ms offset 64 size 8 type double
+member OscilluxReactionConfig.pulse_decay_ms offset 72 size 8 type double
+member OscilluxReactionConfig.pulse_rise_ms offset 80 size 8 type double
+member OscilluxReactionConfig.phase_lock_gain offset 88 size 8 type double
+struct OscilluxTransitionClock size 40 align 8
+member OscilluxTransitionClock.time_seconds offset 0 size 8 type double
+member OscilluxTransitionClock.beat_phase offset 8 size 8 type double
+member OscilluxTransitionClock.bar_phase offset 16 size 8 type double
+member OscilluxTransitionClock.tempo_bpm offset 24 size 8 type double
+member OscilluxTransitionClock.confidence offset 32 size 8 type double
+struct OscilluxTransitionConfig size 48 align 8
+member OscilluxTransitionConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxTransitionConfig.easing offset 4 size 4 type uint32_t
+member OscilluxTransitionConfig.beats_per_bar offset 8 size 4 type uint32_t
+member OscilluxTransitionConfig.auto_advance_bars offset 12 size 4 type uint32_t
+member OscilluxTransitionConfig.duration_beats offset 16 size 8 type double
+member OscilluxTransitionConfig.fallback_seconds offset 24 size 8 type double
+member OscilluxTransitionConfig.pre_roll_seconds offset 32 size 8 type double
+member OscilluxTransitionConfig.min_confidence offset 40 size 8 type double
+struct OscilluxTransitionStatus size 48 align 8
+member OscilluxTransitionStatus.progress offset 0 size 8 type double
+member OscilluxTransitionStatus.request_seconds offset 8 size 8 type double
+member OscilluxTransitionStatus.start_seconds offset 16 size 8 type double
+member OscilluxTransitionStatus.end_seconds offset 24 size 8 type double
+member OscilluxTransitionStatus.state offset 32 size 4 type uint32_t
+member OscilluxTransitionStatus.quantise offset 36 size 4 type uint32_t
+member OscilluxTransitionStatus.auto_requested offset 40 size 4 type uint32_t
+member OscilluxTransitionStatus.reserved offset 44 size 4 type uint32_t
+struct OscilluxUniformField size 20 align 4
+member OscilluxUniformField.source offset 0 size 4 type uint32_t
+member OscilluxUniformField.source_offset offset 4 size 4 type uint32_t
+member OscilluxUniformField.components offset 8 size 4 type uint32_t
+member OscilluxUniformField.offset offset 12 size 4 type uint32_t
+member OscilluxUniformField.stride offset 16 size 4 type uint32_t
