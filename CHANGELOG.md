@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-16
+
 ### Added
 
 - Shader manifests take an optional per-visual `post` object (`bloomStrength`,
@@ -26,8 +28,6 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   transition of sustained flashing. It used to count one for a run that kept a large area
   changing (a strobe over 15 Hz, or a moving pattern), which undercounted inputs and made the
   limiter appear to add transitions (CORE-1623). The limiter itself is unchanged.
-
-## [0.2.0] - 2026-11-14
 
 ### Changed
 
