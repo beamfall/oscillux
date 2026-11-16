@@ -10,11 +10,18 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-16
+
 ### Changed
 
 - Nebula follows the host's detail reduction (`presentation1.y`): 12 volume shells at 0, down
   to 6 at 1, each weighted so the cloud keeps its density. Its output at reduction 0 is
   unchanged, and no other emitted shader changed (CORE-2220).
+
+### Fixed
+
+- `OSCILLUX_VERSION_PATCH` and `OSCILLUX_VERSION` in `oscillux.h` match the crate version again;
+  the 0.2.1 header still read 0.2.0 (`OSCILLUX_VERSION` 512).
 
 ## [0.2.1] - 2026-11-16
 
