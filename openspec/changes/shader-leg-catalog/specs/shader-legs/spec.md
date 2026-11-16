@@ -22,12 +22,33 @@ list every visual id exactly once.
 - **WHEN** `shaders/manifest.json` is loaded
 - **THEN** each of its 61 visuals has the catalog fields and `catalogOrder` lists all 61 ids
 
+### Requirement: Param labels
+
+A visual with the catalog fields SHALL have a label for each of its three param uniforms: a read
+param from its control, an unread one from `unreadParamLabels`. The loader SHALL reject a missing
+label, an unread label for a param that has a control, and `imageCapable` or
+`unreadParamLabels` without the catalog fields.
+
+#### Scenario: Unlabelled param
+
+- **WHEN** a visual with catalog fields reads `param0` and `param1` with controls and leaves
+  `param2` unread with no `unreadParamLabels`
+- **THEN** loading the manifest fails naming `param2`
+
 ### Requirement: Catalog in the msl and glsl300 legs
 
 The `msl` and `glsl300` legs SHALL contain `catalog.json`, listed in `index.json` with its
 SHA-256, holding the release, the rev, the licence and every visual in `catalogOrder` with its
-catalog fields, `imageInput`, palette, trail decay, post tuning and param controls. Adding it
-SHALL NOT change any other file of either leg.
+catalog fields, `params` (key, label and default for all three), `postFX` (post tuning and
+trail decay), `palette` (index and phase), `imageCapable`, `imageInput` and param controls.
+Adding it SHALL NOT change any other file of either leg.
+
+#### Scenario: Web lab parity
+
+- **WHEN** the `glsl300` leg is generated from the v0.2.0 shaders
+- **THEN** each `catalog.json` visual deep-equals the matching entry of Beamfall's web lab
+  `LAB_VISUALS` in id, name, tier, input, overlay, calm, blurb, imageCapable, params, postFX and
+  palette, in the same order
 
 #### Scenario: Leg contents
 

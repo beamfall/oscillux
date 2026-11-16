@@ -118,6 +118,19 @@ The present pass's bloom prefilter still uses a fixed threshold of 1 and the pas
 vignette, so `bloomThreshold` and `vignette` are for hosts with their own post chain until the
 pass reads them. `bundle-hosts.mjs` copies `post` into each bundled visual.
 
+The catalog fields are data a host lists a visual with, passed through to the release legs'
+`catalog.json` and reaching no shader. `name`, `blurb`, `tier`, `input`, `overlay` and `calm` come
+together or not at all: `name`, `blurb` and `input` are one-line trimmed strings, `tier` is
+`lite`, `standard` or `flagship` (the GPU cost class), `overlay` and `calm` are booleans, and
+`input` names `image` exactly when `imageInput` is true. With them, `imageCapable` is an optional
+boolean (default false), and every param uniform needs a label: a control carries its own, and
+`unreadParamLabels` (an object keyed by `param0` to `param2`, labels as for controls) gives one
+for each param the body does not read, for hosts that list all three. The optional top-level
+`catalogOrder` lists every visual id once, in the order a catalog shows them; without it the
+order is the manifest's. The reference set carries the fields for all 61 visuals, in the order
+of the imported catalog (its `catalog.json`, then `catalog.parts/*.json` by file name). The
+fields do not change any emitted shader byte.
+
 `tools/shader/import-visuals.mjs` generates the controls of the imported visuals from the
 catalog labels and the bodies (`tools/shader/param-controls.mjs`): a label's slug is the id,
 the range is 0 to 1 with the current value as the default, the step is 1 / |b - a| when the body
@@ -305,8 +318,25 @@ adds timing at 1920x1080 and writes contact sheets to `out/present-v2`.
 | `node tools/shader/passes.mjs <pass-list>... [--manifest M]` (in `make gate` through `test-passes.mjs`) | node | validates pass lists; exits 1 on the first invalid one |
 | `make shader-watch [SHADER_MANIFEST=…] [WATCH_ARGS=…]` (dev only, not in `make gate`) | as `shader-render` | `watch.mjs`, below |
 | `make shader-render [SHADER_MANIFEST=…] [RENDER_ARGS=…]` | Playwright Chromium (`npm --prefix tools/shader exec -- playwright install chromium`); Xcode for the Metal part | renders every `web` visual under WebGL2 and writes PNGs and `stats.json` to `out/shader-renders` |
-| `node tools/shader/import-visuals.mjs <beamfall-visual-shaders checkout> [--check]` | node | copies the upstream visual bodies and the manifest into `shaders/`, cleaning the header comments; with `--check`, reports any difference instead of writing. `library.glsl` is locally owned (Oscillux's own hashes and uniforms), so it is neither written nor checked |
+| `node tools/shader/import-visuals.mjs <beamfall-visual-shaders checkout> [--check]` | node | copies the upstream visual bodies and the manifest, catalog fields and `catalogOrder` included, into `shaders/`, cleaning the header comments; with `--check`, reports any difference instead of writing. `library.glsl` is locally owned (Oscillux's own hashes and uniforms), so it is neither written nor checked. Upstream no longer carries the bodies, so `shaders/` is now edited here |
+| `node tools/shader/bundle-legs.mjs <msl\|glsl300\|android-gles> <checkout> <out-dir> <tag> <40-hex rev>` | node; spirv-cross for `msl` | writes one release shader leg of the checkout's `shaders/manifest.json` with a sha256 `index.json`: `msl` (every visual as Metal, present, bloom, limiter and switch passes) and `glsl300` (the same as GLSL ES 3.00, with `vertex.web.vert`) each with `catalog.json`; `android-gles` writes `AndroidGlesShaders.kt`, below |
 | `make host-bundle` / `host-web` / `host-mac` / `host-ios` (not in `make gate`) | as `shader-verify`; Xcode and XcodeGen for the app | builds `out/hosts/visuals.json` from `HOST_MANIFEST` with the categories in `hosts/categories.json` and the curated sets in `hosts/collections.json`, and runs the reference hosts; see `hosts/README.md` |
+
+`catalog.json` in the `msl` and `glsl300` legs is `{schemaVersion: 1, release, rev, license,
+visuals}`, the visuals in `catalogOrder`, each with `id`, the catalog fields, `params` (all three
+as `{key, label, def}`, `def` being the default the host packs), `postFX` (`post` plus
+`trailDecay`, keyed `bloomStrength`, `bloomThreshold`, `trailDecay`, `chroma`, `vignette`,
+`grain`), `imageCapable`, `imageInput`, `palette` (`{index, phase}`) and `controls` (the
+manifest's param controls). Every visual needs the catalog fields, or the leg is not written.
+
+The `android-gles` leg's `AndroidGlesShaders.kt` (`tools/shader/android-gles-contract.mjs`) is
+the Android GLES contract 1.0.0 consumed as `com.beamfall.kit.visuals.AndroidGlesShaders`: the
+same visuals and fields as typed Kotlin, every fragment as `wrapGLSL300` output with
+`VERTEX_300`, eleven text probes, and two length-prefixed payloads (catalog and source) with
+SHA-256 digests over their domain, a zero byte and the payload, so a consumer can check what it
+embeds. Line 2 names the release tag and rev. The package, object, domains, payload layout and
+probes are fixed: changing any is a new contract version. `make shader-test` runs
+`test-android-gles.mjs`, which pins the reference set's payload digests.
 
 `render.mjs` takes `--frames N` (default 96), `--only id1,id2`, `--img artwork.png`
 and `--out DIR` (default `out/shader-renders` under the repository root). It flags

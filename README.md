@@ -71,7 +71,8 @@ host's responsibility. Read [conformance/limiter/README.md](conformance/limiter/
 | macOS, iOS, tvOS | `oscillux-xcframework.zip` (XCFramework) | arm64 devices and simulators; Intel Macs are not supported |
 | Android | `oscillux.aar` | C libraries for arm64-v8a and armeabi-v7a, JNI bindings, minSdk 21 |
 | Web | `oscillux-wasm.tgz` (npm package `@oscillux/core`) | wasm-bindgen ES modules with TypeScript types, at most 100 KiB gzip |
-| Any GPU host | `oscillux-msl.zip`, `oscillux-glsl300.zip` | the Metal and GLSL ES 3.00 shader legs with a SHA-256 index, for hosts that compile shaders themselves |
+| Any GPU host | `oscillux-msl.zip`, `oscillux-glsl300.zip` | the Metal and GLSL ES 3.00 shader legs with a SHA-256 index and `catalog.json` (each visual's name, blurb, tier, input, flags, params, post tuning and palette), for hosts that compile shaders themselves |
+| Android (GLES) | `oscillux-android-gles.zip` | `AndroidGlesShaders.kt`: the GLES 3.00 visuals and their catalog as a digest-checked Kotlin contract (1.0.0) with a SHA-256 index |
 | Windows | `oscillux-windows.zip` | x64 and ARM64, built on a Windows host only; not yet attached to releases, so build it with `make artifacts` |
 | Linux | crates only | checked by the gate; no packaged library |
 
