@@ -5,8 +5,12 @@ packing, transitions and governor math behind a C interface.
 
 ## Invariants
 
-1. Host-agnostic. No product names, catalogs, entitlements or UI policy in this repository. Hosts
-   pass policy in as data.
+1. Host-agnostic. No entitlements or UI policy in this repository. Hosts pass policy in as data.
+   Descriptive visual metadata is allowed: each visual's name, blurb, tier, input, overlay and calm
+   flags, parameter labels and the default `catalogOrder` live in `shaders/manifest.json` and ship
+   as the legs' `catalog.json`. Hosts own selection, gating and defaults on top of it. The
+   `android-gles` leg keeps its consumer package `com.beamfall.kit.visuals` as a contract name.
+   (Owner decision 2026-11-16, CORE-2208, when beamfall-visual-shaders was retired.)
 2. Conformance vectors under `conformance/` are the specification. Outputs match them within the
    stated tolerance on every supported target, including wasm32.
 3. Deterministic numerics. No platform-specific floating-point paths that change results across
