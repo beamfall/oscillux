@@ -10,13 +10,16 @@
 // the set is host data with no product policy (AGENTS.md invariant 1). Any
 // such name left outside a header fails the import. With --check, nothing is
 // written and the exit status is 1 when DIR differs from what would be written.
-// Param controls and tunables come from param-controls.mjs, using the catalog's labels.
+// Param controls and tunables come from param-controls.mjs, using the catalog's labels. An entry
+// with name, blurb, tier, input, overlay and calm keeps them as the manifest's catalog fields, with
+// imageCapable when set and the labels of params it does not read as unreadParamLabels;
+// catalogOrder is catalog.json's order, then catalog.parts/*.json by file name.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { visualControls } from './param-controls.mjs';
-import { POST_KEYS } from './manifest.mjs';
+import { CATALOG_KEYS, POST_KEYS } from './manifest.mjs';
 
 const SPDX = '// SPDX-License-Identifier: AGPL-3.0-only\n';
 const DROP = /beamfall|apple-ui|\.metal\b|Shaders\/|keep in sync|hand-sync|^\/\/\s*Portable (?:port|body)/i;
@@ -46,6 +49,7 @@ export function importVisuals(src, out = 'shaders') {
     const doc = JSON.parse(readFileSync(join(src, 'catalog.parts', f), 'utf8'));
     return Array.isArray(doc) ? doc : doc.visuals;
   }));
+  const catalogOrder = entries.map(e => e.id);
   entries.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const files = new Map();
@@ -59,12 +63,18 @@ export function importVisuals(src, out = 'shaders') {
       e.params.map(p => ({ label: p.label, default: p.def })));
     const header = `// ${e.name}: ${e.blurb}`;
     check(header, `${e.id} header`);
+    const listed = CATALOG_KEYS.every(k => e[k] !== undefined);
+    const unread = Object.fromEntries(e.params.slice(0, 3).flatMap((p, i) =>
+      params.some(c => c.uniform === `param${i}`) ? [] : [[`param${i}`, p.label]]));
     return {
       id: e.id,
       body: `visuals/${e.id}.glsl`,
       targets: ['web', 'vulkan', 'msl', 'hlsl'],
       imageInput: /\bimage\b/.test(e.input),
       header,
+      ...(listed ? Object.fromEntries(CATALOG_KEYS.map(k => [k, e[k]])) : {}),
+      ...(listed && e.imageCapable !== undefined ? { imageCapable: e.imageCapable } : {}),
+      ...(listed && Object.keys(unread).length ? { unreadParamLabels: unread } : {}),
       palette: [e.palette.index, 0, e.palette.phase, 0],
       ...(params.length ? { params } : {}),
       ...(tunables.length ? { tunables } : {}),
@@ -72,7 +82,7 @@ export function importVisuals(src, out = 'shaders') {
       ...(e.postFX && POST_KEYS.every(k => k in e.postFX) ? { post: Object.fromEntries(POST_KEYS.map(k => [k, e.postFX[k]])) } : {}),
     };
   });
-  files.set('manifest.json', JSON.stringify({ prelude: 'library.glsl', visuals }, null, 2) + '\n');
+  files.set('manifest.json', JSON.stringify({ prelude: 'library.glsl', visuals, catalogOrder }, null, 2) + '\n');
   return files;
 }
 

@@ -28,10 +28,22 @@
 //     "tunables": ["palette", "trailDecay"],    // the host-tunable uniforms the
 //                                               // body reads, directly or through
 //                                               // prelude functions
-//     "overrides": false                        // optional: in a host bundle, this
+//     "overrides": false,                       // optional: in a host bundle, this
 //                                               // visual replaces the one with its id
 //                                               // in a later manifest
+//     "name": "Pulse Rings",                    // optional catalog fields, passed through
+//     "blurb": "Rings on the beat.",            // as data (the release legs' catalog.json):
+//     "tier": "lite",                           // name, blurb, tier (GPU cost class),
+//     "input": "amplitude + beat",              // input and the overlay and calm hints come
+//     "overlay": true, "calm": false,           // together; input names "image" exactly
+//     "imageCapable": false,                    // when imageInput is true
+//     "unreadParamLabels": {"param2": "Glow"}   // optional, with the catalog fields: a
+//                                               // label for each param uniform the body
+//                                               // does not read, for hosts that list all
+//                                               // three; every other one has a control
 //   }],
+//   "catalogOrder": ["pulse-rings"],            // optional: every visual id once, in the
+//                                               // order a catalog lists them
 //   "transitions": [{                           // optional: switch effects for
 //     "id": "iris",                             // the hosts; the same id rule,
 //     "body": "transitions/iris.glsl",          // targets and header as visuals
@@ -49,7 +61,15 @@ import { PARAM_UNIFORMS, TRAIL_DECAY_MAX } from './preset.mjs';
 
 export { PARAM_UNIFORMS, TRAIL_DECAY_MAX };
 export const TARGETS = ['web', 'vulkan', 'msl', 'hlsl'];
-const VISUAL_KEYS = new Set(['id', 'body', 'targets', 'imageInput', 'header', 'palette', 'params', 'tunables', 'trailDecay', 'post', 'overrides']);
+const VISUAL_KEYS = new Set(['id', 'body', 'targets', 'imageInput', 'header', 'palette', 'params', 'tunables', 'trailDecay', 'post', 'overrides',
+  'name', 'blurb', 'tier', 'input', 'overlay', 'calm', 'imageCapable', 'unreadParamLabels']);
+// Catalog fields: descriptive data a host may show or select by. Oscillux applies no policy to
+// them. CATALOG_KEYS come together or not at all; imageCapable is optional with them, and with
+// them every param uniform has a label: its control's, else one from unreadParamLabels.
+export const CATALOG_KEYS = Object.freeze(['name', 'blurb', 'tier', 'input', 'overlay', 'calm']);
+export const CATALOG_TIERS = Object.freeze(['lite', 'standard', 'flagship']);
+/** True when a catalog input names the image, which it must exactly when imageInput is true. */
+export const inputIsImage = input => /\bimage\b/.test(input);
 const CONTROL_KEYS = new Set(['id', 'uniform', 'label', 'labelKey', 'min', 'max', 'default', 'step', 'curve', 'group']);
 export const PARAM_CURVES = ['linear'];
 export const PARAM_GROUPS = ['shape', 'motion', 'color', 'detail', 'reaction'];
@@ -77,7 +97,7 @@ export function loadManifest(path) {
   const file = resolve(path);
   const dir = dirname(file);
   const doc = JSON.parse(readFileSync(file, 'utf8'));
-  exactKeys(doc, new Set(['prelude', 'visuals', 'transitions']), 'manifest', ['prelude', 'visuals']);
+  exactKeys(doc, new Set(['prelude', 'visuals', 'transitions', 'catalogOrder']), 'manifest', ['prelude', 'visuals']);
   const preludes = typeof doc.prelude === 'string' ? [doc.prelude] : doc.prelude;
   if (!Array.isArray(preludes) || preludes.length === 0 || !preludes.every(p => typeof p === 'string')) {
     fail('manifest.prelude', 'must be a path string or a non-empty list of them');
@@ -106,6 +126,7 @@ export function loadManifest(path) {
     const body = readFileSync(resolve(dir, v.body), 'utf8');
     const reads = uniformReads(prelude, body);
     const controls = paramControls(v.id, v.params ?? [], reads, `${at}.params`);
+    const catalog = catalogFields(v, at, controls);
     const tunables = v.tunables ?? [];
     if (!Array.isArray(tunables) || tunables.some(t => !TUNABLES.includes(t)) || new Set(tunables).size !== tunables.length) {
       fail(`${at}.tunables`, `must be a list of distinct names from ${TUNABLES.join(', ')}`);
@@ -128,8 +149,10 @@ export function loadManifest(path) {
       trailDecay: v.trailDecay ?? 0.82,
       post,
       overrides: v.overrides ?? false,
+      catalog,
     });
   });
+  const catalogOrder = order(doc.catalogOrder, visuals);
 
   const seenTransitions = new Set();
   const transitions = (doc.transitions ?? []).map((v, i) => {
@@ -143,7 +166,7 @@ export function loadManifest(path) {
   });
 
   const byTarget = Object.fromEntries(TARGETS.map(t => [t, visuals.filter(v => v.targets.includes(t))]));
-  return { file, prelude, visuals, transitions, byTarget, byId: new Map(visuals.map(v => [v.id, v])), wrapper: createWrapper({ prelude }) };
+  return { file, prelude, visuals, transitions, byTarget, byId: new Map(visuals.map(v => [v.id, v])), catalogOrder, wrapper: createWrapper({ prelude }) };
 }
 
 // Merge the visuals of several manifests, in order, into one list for a host
@@ -272,6 +295,51 @@ function topLevelFunctions(src) {
 
 function stripComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+}
+
+// The catalog fields of a visual, checked and frozen, or null when it has none.
+function catalogFields(v, at, controls) {
+  const present = CATALOG_KEYS.filter(k => v[k] !== undefined);
+  if (present.length === 0) {
+    for (const k of ['imageCapable', 'unreadParamLabels']) {
+      if (v[k] !== undefined) fail(`${at}.${k}`, `needs the catalog fields ${CATALOG_KEYS.join(', ')}`);
+    }
+    return null;
+  }
+  for (const k of CATALOG_KEYS) if (v[k] === undefined) fail(`${at}.${k}`, `is required with ${present.join(', ')}`);
+  for (const k of ['name', 'blurb', 'input']) {
+    if (typeof v[k] !== 'string' || !/^\S(?:[^\n\r]*\S)?$/.test(v[k])) fail(`${at}.${k}`, 'must be a non-empty one-line string, trimmed');
+  }
+  if (!CATALOG_TIERS.includes(v.tier)) fail(`${at}.tier`, `must be one of ${CATALOG_TIERS.join(', ')}`);
+  for (const k of ['overlay', 'calm', 'imageCapable']) {
+    if (v[k] !== undefined && typeof v[k] !== 'boolean') fail(`${at}.${k}`, 'must be a boolean');
+  }
+  if (inputIsImage(v.input) !== (v.imageInput ?? false)) {
+    fail(`${at}.input`, `${inputIsImage(v.input) ? 'names' : 'does not name'} the image, but imageInput is ${v.imageInput ?? false}`);
+  }
+  const unread = v.unreadParamLabels ?? {};
+  exactKeys(unread, new Set(PARAM_UNIFORMS), `${at}.unreadParamLabels`, []);
+  const paramLabels = PARAM_UNIFORMS.map(u => {
+    const control = controls.find(c => c.uniform === u);
+    if (control && u in unread) fail(`${at}.unreadParamLabels.${u}`, 'is read and has a control, which carries its label');
+    if (!control && !(u in unread)) fail(`${at}.unreadParamLabels`, `${u} is not read and needs a label`);
+    const label = control ? control.label : unread[u];
+    if (typeof label !== 'string' || !/^\S(?:.{0,38}\S)?$/.test(label)) fail(`${at}.unreadParamLabels.${u}`, 'must be 1 to 40 characters, trimmed');
+    return label;
+  });
+  return Object.freeze({ name: v.name, blurb: v.blurb, tier: v.tier, input: v.input, overlay: v.overlay, calm: v.calm,
+    imageCapable: v.imageCapable ?? false, paramLabels: Object.freeze(paramLabels) });
+}
+
+// catalogOrder: every visual id exactly once. Absent, the manifest's own order.
+function order(value, visuals) {
+  const ids = visuals.map(v => v.id);
+  if (value === undefined) return Object.freeze(ids);
+  if (!Array.isArray(value) || value.length !== ids.length || new Set(value).size !== value.length ||
+      !value.every(id => ids.includes(id))) {
+    fail('manifest.catalogOrder', 'must list every visual id exactly once');
+  }
+  return Object.freeze([...value]);
 }
 
 function postTuning(value, at) {

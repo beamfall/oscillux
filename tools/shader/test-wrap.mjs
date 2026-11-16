@@ -100,7 +100,8 @@ test('import-visuals leaves the locally owned library alone', () => {
     const out = join(dir, 'out');
     for (const d of [join(src, 'catalog.parts'), join(src, 'shared'), join(src, 'visuals'), out]) mkdirSync(d, { recursive: true });
     writeFileSync(join(src, 'catalog.json'), JSON.stringify({ visuals: [{
-      id: 'probe', name: 'Probe', blurb: 'A probe.', input: 'amplitude', palette: { index: 1, phase: 0 },
+      id: 'probe', name: 'Probe', blurb: 'A probe.', tier: 'lite', input: 'amplitude', overlay: true, calm: false,
+      palette: { index: 1, phase: 0 },
       params: [0, 1, 2, 3].map(i => ({ label: `P${i}`, def: 0.5 })),
       postFX: { bloomStrength: 0.6, bloomThreshold: 0.95, trailDecay: 0.8, chroma: 0.003, vignette: 0.45, grain: 0.02 },
     }] }));
@@ -110,8 +111,13 @@ test('import-visuals leaves the locally owned library alone', () => {
     const files = importVisuals(src, out);
     assert.deepEqual([...LOCALLY_OWNED], ['library.glsl']);
     assert.deepEqual([...files.keys()].sort(), ['manifest.json', 'visuals/probe.glsl']);
-    const [probe] = JSON.parse(files.get('manifest.json')).visuals;
+    const manifest = JSON.parse(files.get('manifest.json'));
+    const [probe] = manifest.visuals;
     assert.deepEqual(probe.params.map(p => p.uniform), ['param0'], 'controls read against the local library');
+    assert.deepEqual([probe.name, probe.blurb, probe.tier, probe.input, probe.overlay, probe.calm, probe.imageCapable],
+      ['Probe', 'A probe.', 'lite', 'amplitude', true, false, undefined]);
+    assert.deepEqual(probe.unreadParamLabels, { param1: 'P1', param2: 'P2' });
+    assert.deepEqual(manifest.catalogOrder, ['probe']);
     assert.deepEqual([probe.trailDecay, probe.post],
       [0.8, { bloomStrength: 0.6, bloomThreshold: 0.95, chroma: 0.003, vignette: 0.45, grain: 0.02 }]);
   } finally {
@@ -141,6 +147,9 @@ test('reference catalog wraps for every target and stays host data', () => {
   // Every reference visual carries its own post tuning (in range: loadManifest checks it).
   const raw = JSON.parse(readFileSync(CATALOG, 'utf8'));
   for (const v of raw.visuals) assert.deepEqual(Object.keys(v.post ?? {}), POST_KEYS, `${v.id}: post`);
+  // Every reference visual carries the catalog fields the release legs' catalog.json lists.
+  for (const v of m.visuals) assert.ok(v.catalog, `${v.id}: catalog fields`);
+  assert.equal(raw.catalogOrder.length, 61);
 });
 
 // The Oscillux originals (shaders/originals/) share the catalog's library and
@@ -299,6 +308,10 @@ test('malformed manifests are rejected with a path to the fault', () => {
     const control = { id: 'glow', uniform: 'param0', label: 'Glow', labelKey: 'visual.a.glow', min: 0, max: 0.8, default: 0.5,
       step: 0.01, curve: 'linear', group: 'color' };
     const post = { bloomStrength: 0.6, bloomThreshold: 0.95, chroma: 0.003, vignette: 0.45, grain: 0.02 };
+    const cat = { name: 'A', blurb: 'A visual.', tier: 'lite', input: 'amplitude', overlay: false, calm: true };
+    const unread = { param0: 'One', param1: 'Two', param2: 'Three' };
+    const listed = { ...visual, ...cat, unreadParamLabels: unread };
+    const one = v => ({ prelude: 'prelude.glsl', visuals: [v] });
     const cases = [
       [{ prelude: 'prelude.glsl', visuals: [] }, /manifest\.visuals: must be a non-empty array/],
       [{ prelude: 'prelude.glsl', visuals: [visual], catalog: {} }, /manifest\.catalog: unknown key/],
@@ -310,7 +323,27 @@ test('malformed manifests are rejected with a path to the fault', () => {
       [{ prelude: 'prelude.glsl', visuals: [{ ...visual, palette: [0.5, 0, 0, 0] }] }, /visuals\[0\]\.palette: must be \[index, 0, phase, 0\]/],
       [{ prelude: 'prelude.glsl', visuals: [{ ...visual, palette: [0, 1, 0, 0] }] }, /visuals\[0\]\.palette: must be \[index, 0, phase, 0\]/],
       [{ prelude: 'prelude.glsl', visuals: [{ ...visual, palette: [32, 0, 0, 0] }] }, /visuals\[0\]\.palette: must be \[index, 0, phase, 0\]/],
-      [{ prelude: 'prelude.glsl', visuals: [{ ...visual, name: 'x' }] }, /visuals\[0\]\.name: unknown key/],
+      [{ prelude: 'prelude.glsl', visuals: [{ ...visual, title: 'x' }] }, /visuals\[0\]\.title: unknown key/],
+      // Catalog fields: all six or none, well formed, input agreeing with imageInput, and a label
+      // for every param uniform; catalogOrder lists every visual once.
+      [one({ ...visual, name: 'A' }), /visuals\[0\]\.blurb: is required with name/],
+      [one({ ...visual, imageCapable: true }), /visuals\[0\]\.imageCapable: needs the catalog fields/],
+      [one({ ...visual, unreadParamLabels: unread }), /visuals\[0\]\.unreadParamLabels: needs the catalog fields/],
+      [one({ ...listed, name: ' A' }), /visuals\[0\]\.name: must be a non-empty one-line string/],
+      [one({ ...listed, blurb: 'two\nlines' }), /visuals\[0\]\.blurb: must be a non-empty one-line string/],
+      [one({ ...listed, tier: 'photos' }), /visuals\[0\]\.tier: must be one of lite, standard, flagship/],
+      [one({ ...listed, overlay: 'yes' }), /visuals\[0\]\.overlay: must be a boolean/],
+      [one({ ...listed, imageCapable: 1 }), /visuals\[0\]\.imageCapable: must be a boolean/],
+      [one({ ...listed, input: 'image + beat' }), /visuals\[0\]\.input: names the image, but imageInput is false/],
+      [one({ ...listed, imageInput: true }), /visuals\[0\]\.input: does not name the image, but imageInput is true/],
+      [one({ ...listed, unreadParamLabels: { param0: 'One', param1: 'Two' } }), /visuals\[0\]\.unreadParamLabels: param2 is not read and needs a label/],
+      [one({ ...listed, unreadParamLabels: { ...unread, param3: 'Four' } }), /visuals\[0\]\.unreadParamLabels\.param3: unknown key/],
+      [one({ ...listed, unreadParamLabels: { ...unread, param1: ' Two' } }), /visuals\[0\]\.unreadParamLabels\.param1: must be 1 to 40/],
+      [one({ ...listed, body: 'p.glsl', params: [control], tunables: ['accent'] }),
+        /visuals\[0\]\.unreadParamLabels\.param0: is read and has a control/],
+      [{ ...one(visual), catalogOrder: [] }, /manifest\.catalogOrder: must list every visual id exactly once/],
+      [{ ...one(visual), catalogOrder: ['a', 'a'] }, /manifest\.catalogOrder: must list every visual id exactly once/],
+      [{ ...one(visual), catalogOrder: ['b'] }, /manifest\.catalogOrder: must list every visual id exactly once/],
       [{ prelude: 'prelude.glsl', visuals: [{ id: 'a', body: 'a.glsl' }] }, /visuals\[0\]\.targets: is required/],
       [{ prelude: 'prelude.glsl', visuals: [{ ...visual, header: 'no comment' }] }, /visuals\[0\]\.header: must be one/],
       [{ prelude: 'prelude.glsl', visuals: [{ ...visual, header: '// a\n#error x' }] }, /visuals\[0\]\.header: must be one/],
@@ -365,6 +398,11 @@ test('malformed manifests are rejected with a path to the fault', () => {
     const loaded = loadManifest(join(dir, 'manifest.json')).visuals[0];
     assert.deepEqual([loaded.params, loaded.controls.map(c => c.id), loaded.tunables], [[0.5, 0.5, 0.5], ['glow'], ['accent']]);
     assert.deepEqual(loaded.post, POST_DEFAULTS);
+    assert.equal(loaded.catalog, null);
+    writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ prelude: 'prelude.glsl',
+      visuals: [{ ...listed, body: 'p.glsl', params: [control], tunables: ['accent'], unreadParamLabels: { param1: 'Two', param2: 'Three' } }] }));
+    assert.deepEqual(loadManifest(join(dir, 'manifest.json')).visuals[0].catalog,
+      { ...cat, imageCapable: false, paramLabels: ['Glow', 'Two', 'Three'] });
     // Both ends of every range load as written.
     for (const end of [0, 1]) {
       const edge = Object.fromEntries(POST_KEYS.map(k => [k, POST_RANGES[k][end]]));
