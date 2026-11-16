@@ -1,0 +1,14 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+# Release manifests
+
+Byte copies of each release's `oscillux-vX.Y.Z.manifest.json`, kept here so consumers can verify
+a pin against the manifest at a known path: `OSC-RELEASE-vX.Y.Z/manifest.json`. Each manifest names
+the release's source commit (`build.sourceRevision`) and the sha256 of every packaged artifact.
+
+| Release | Licence | Source commit |
+|---|---|---|
+| v0.2.0 | AGPL-3.0-only | `ea319a1`, this repository's first public commit |
+| v0.1.1 | PolyForm-Noncommercial-1.0.0 | `a38042f`, pre-public history (not in this repository) |
+| v0.1.0 | PolyForm-Noncommercial-1.0.0 | `d4a4f72`, pre-public history (not in this repository) |
+
+The v0.1.x manifests stay until no known consumer pins those releases.
