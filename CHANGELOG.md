@@ -10,6 +10,16 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-17
+
+### Changed
+
+- The catalogue Aurora (`shaders/visuals/aurora.glsl`, the one the msl, glsl300 and android-gles
+  legs carry) moves and brightens less on bass and beats, so the frame flash limiter is a safety
+  net for it and no longer a constant effect. On a hard-beat probe run at 960x540 the frames with
+  any held sub-block fell from 141 to 11 of 300, and to none on ordinary audio. The 0.2.4 Aurora
+  change reached only the `shaders/originals/` Aurora, which the legs do not carry.
+
 ## [0.2.4] - 2026-11-17
 
 ### Changed
