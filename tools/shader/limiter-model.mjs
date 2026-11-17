@@ -23,7 +23,9 @@
 //   4. Area gate: a direction is over when some window of cols x rows cells (the 10° field for
 //      the viewing geometry, limiter-geometry.mjs) holds more than `limit` such sub-blocks.
 //   5. Grant: luminance over the limit is rationed by a token budget refilled by
-//      floor(clamp(2 maxFlashHz dt, 0, 1) * 65025) a frame; red over the limit is never granted.
+//      floor(clamp(2 maxFlashHz dt, 0, 1) * 65025) a frame; red over the limit by its own budget
+//      refilled by an eighth of that (integer), so no 1 s window holds two large-area red
+//      transitions (no red flash) and held red catches up instead of freezing (CORE-2382).
 //   6. Hold: a sub-block requesting a transition that is not admitted shows the previous output
 //      frame, and its trackers do not advance; every other sub-block shows the input.
 //   7. Blend: a hold has no hard edge. The hold field at each sub-block centre, 0..64, is the
@@ -44,7 +46,7 @@
 //      CORE-2328, openspec/changes/limiter-smooth-hold/).
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
-//   { out, held, holdMask, grant, deficit, stats: { requests, over, admitted, fired } }.
+//   { out, held, holdMask, grant, deficit, redDeficit, stats: { requests, over, admitted, fired } }.
 // `out` is reused every other frame.
 import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
 
@@ -137,6 +139,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const cnt = new Int32Array(CELLS * 4);
   const scratch = { lo: 0, hi: 0, dir: 0 };
   let deficit = 0;
+  let redDeficit = 0;
   const bufs = [new Uint8Array(W * H * 4), new Uint8Array(W * H * 4)];
   let flip = 0;
   const colBlock = Int32Array.from({ length: W }, (_, x) => blockOf(x, W, BLOCKS_X));
@@ -199,16 +202,21 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         }
       }
     }
-    // Luminance shares one token budget; red has its own with refill 0 and is never granted, so
-    // it never takes or waits for the luminance token. WCAG 2.3.1 (Three Flashes or Below
-    // Threshold) allows at most three red flashes a second over the area and ITU-R BT.1702 forbids
-    // saturated-red flashes; this limiter applies the red-0 rule: no large-area red transition.
+    // Luminance shares one token budget; red has its own, refilled at an eighth of the luma rate,
+    // so it never takes or waits for the luminance token and no 1 s window holds two large-area
+    // red transitions: no saturated-red flash (ITU-R BT.1702, ADR-0232 R5), and a held red change
+    // is admitted within 8 / (2 maxFlashHz) s instead of freezing (R7, CORE-2382).
     deficit = Math.max(0, deficit - refill);
     const grantUp = over[0] && requests[0] > 0 && deficit <= 0;
     if (grantUp) deficit = TOKEN;
     const grantDown = over[1] && requests[1] > 0 && deficit <= 0;
     if (grantDown) deficit = TOKEN;
-    const admitted = [!over[0] || grantUp, !over[1] || grantDown, !over[2], !over[3]];
+    redDeficit = Math.max(0, redDeficit - Math.floor(refill / 8));
+    const grantRedUp = over[2] && requests[2] > 0 && redDeficit <= 0;
+    if (grantRedUp) redDeficit = TOKEN;
+    const grantRedDown = over[3] && requests[3] > 0 && redDeficit <= 0;
+    if (grantRedDown) redDeficit = TOKEN;
+    const admitted = [!over[0] || grantUp, !over[1] || grantDown, !over[2] || grantRedUp, !over[3] || grantRedDown];
     let grant = 0;
     for (let d = 0; d < 4; d++) grant |= (admitted[d] ? 1 << d : 0) | (over[d] ? 16 << d : 0);
 
@@ -272,7 +280,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         out[i] = src[i]; out[i + 1] = src[i + 1]; out[i + 2] = src[i + 2]; out[i + 3] = 255;
       }
     }
-    return { out, held, holdMask, grant, deficit, stats: { requests, over, admitted, fired } };
+    return { out, held, holdMask, grant, deficit, redDeficit, stats: { requests, over, admitted, fired } };
   }
 
   return { step, window: win };

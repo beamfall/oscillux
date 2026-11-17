@@ -62,9 +62,12 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 
 Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 red falling.
 
-The `grant` pass applies the red-0 rule: red over the limit is never admitted. It has no token
-of its own, so red never takes or waits for the luma token. Luma over the limit takes the single
-token when the deficit is zero.
+The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma over the limit
+takes the luma token when its deficit is zero. Red over the limit, in either direction, takes the
+red token when its deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s
+window holds two large-area red transitions (no red flash) and a held red change is admitted
+within 8 / (2 maxFlashHz) s instead of freezing (CORE-2382). Red never takes or waits for the
+luma token.
 
 ## State and ping-pong
 

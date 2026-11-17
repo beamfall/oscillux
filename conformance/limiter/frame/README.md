@@ -27,7 +27,9 @@ Metal where available) against the vectors.
   size is rounded to whole cells, so a true 10° field that straddles windows can hold more than
   `limit` transitioning sub-blocks while every window stays at or under it.
 - Luma over the limit is rationed by a token budget (at most `maxFlashHz` flashes, default 3, per
-  second). Red over the limit is never admitted (the red-0 rule; WCAG 2.3.1 and ITU-R BT.1702).
+  second). Red over the limit has its own token, refilled at an eighth of the luma rate: at most
+  one large-area red transition in any 1 s window, so no red flash (ITU-R BT.1702), and a held
+  red change catches up instead of freezing (CORE-2382).
 - A sub-block whose transition is not admitted holds the previous output.
 - A hold blends into the picture around it. The blend weight is 1 at the centre of every
   sub-block that is held or adjoins a held one and falls with distance to 0 a little past four

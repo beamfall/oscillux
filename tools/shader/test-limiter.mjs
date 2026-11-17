@@ -89,10 +89,16 @@ test('a strobe that stops settles to its input', () => {
   assert.ok(settled >= 0 && settled <= 75, `settled at frame ${settled}`);
 });
 
-// CORE-0125: a full-frame saturated-red/black square wave, 5 s at 60 Hz. The model admits no
-// large-area red transition (stats.over red and fired), and the auditor sees none in the output.
+// CORE-0125, CORE-2382: a full-frame saturated-red/black square wave, 5 s at 60 Hz. The red token
+// admits a large-area red transition (stats.over red and fired) at most once in any 60 frames, so
+// the auditor sees at most one red transition, never a red flash, in every 1 s window.
+/** Frames at which the model admitted a large-area red transition are at least 1 s apart. */
+function assertRedRationed(admitted) {
+  for (let i = 1; i < admitted.length; i++)
+    assert.ok(admitted[i] - admitted[i - 1] >= 60, `large-area red admitted at frames ${admitted[i - 1]} and ${admitted[i]}`);
+}
 for (const hz of [3, 10]) {
-  test(`full-frame red ${hz} Hz admits 0 red transitions in every 1 s window`, () => {
+  test(`full-frame red ${hz} Hz admits <= 1 red transition in every 1 s window`, () => {
     const admitted = [];
     const { audit } = run({ kind: 'square', hz, on: [255, 0, 0], off: BLACK }, {
       frames: 300,
@@ -101,29 +107,46 @@ for (const hz of [3, 10]) {
         if ((s.over[2] && s.fired[2]) || (s.over[3] && s.fired[3])) admitted.push(t);
       },
     });
-    assert.deepEqual(admitted, [], `model admitted large-area red at frames ${admitted.slice(0, 5)}`);
-    assert.equal(audit.maxPerWindow('red'), 0, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
+    assert.ok(admitted.length >= 2, `red admitted only at frames ${admitted}: held red never catches up`);
+    assertRedRationed(admitted);
+    assert.ok(audit.maxPerWindow('red') <= 1, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
   });
 }
+
+// CORE-2382: a lasting full-frame red change. Until the red token, a held sub-block requested the
+// same red transition on every later frame and was never admitted, so the output kept the old
+// frame for as long as the input stayed changed (petals after a palette change on the web).
+test('a lasting full-frame red-to-cyan change reaches the output within 1.5 s', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  const fill = rgb => { for (let i = 0; i < px.length; i += 4) px.set([...rgb, 255], i); };
+  let caught = -1;
+  for (let t = 0; t < 180; t++) {
+    fill(t < 60 ? [255, 0, 0] : [0, 255, 255]);
+    const r = lim.step(px, DT);
+    if (t >= 60 && caught < 0 && r.held === 0 && r.out[0] === 0 && r.out[1] === 255) caught = t;
+  }
+  assert.ok(caught >= 60 && caught - 60 <= 90, `cyan reached the output at frame ${caught} (change at 60)`);
+});
 
 // CORE-1616: red that covers part of every sub-block. One pixel column in three switches between
 // [110, 0, 0] and black: each pixel's red change is 50 on the auditor's scale (step 20) and the
 // stripes cover a third of every 10° window, but a sub-block's mean red moves by a third of that,
 // under the v0.1.0 step of 4096 codes: that model holds nothing and the auditor counts 20 red
 // transitions a second on its output.
-test('red stripes over a third of every sub-block admit 0 red transitions', () => {
+test('red stripes over a third of every sub-block admit <= 1 red transition a second', () => {
   const spec = { kind: 'stripes', hz: 10, every: 3, width: 1, on: [110, 0, 0], off: BLACK, bg: BLACK };
   const input = createAuditor({ width: W, height: H });
   const { audit, held } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
   assert.ok(input.maxPerWindow('red') >= 6, `the auditor sees ${input.maxPerWindow('red')} red per 1 s in the input`);
   assert.ok(held.some(h => h > 0), 'nothing was held');
-  assert.equal(audit.maxPerWindow('red'), 0, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
 });
 
 // Red saturation and red change are measured on linear light. [120, 50, 0] is saturated red
 // there (R / (R + G + B) = 0.855, 320 (R - G - B) = 50) but not on the encoded bytes (0.706), so a
 // byte-domain test sees no red flash at all (review 2026-11-13, OSC-0032).
-test('full-frame [120,50,0]/[0,50,120] 10 Hz is red in linear light and admits 0 red transitions', () => {
+test('full-frame [120,50,0]/[0,50,120] 10 Hz is red in linear light and admits <= 1 red transition a second', () => {
   const spec = { kind: 'square', hz: 10, on: [120, 50, 0], off: [0, 50, 120] };
   const input = createAuditor({ width: W, height: H });
   const admitted = [];
@@ -137,8 +160,8 @@ test('full-frame [120,50,0]/[0,50,120] 10 Hz is red in linear light and admits 0
   });
   assert.ok(input.maxPerWindow('red') >= 6, `the auditor sees ${input.maxPerWindow('red')} red per 1 s in the input`);
   assert.ok(held.some(h => h > 0), 'nothing was held');
-  assert.deepEqual(admitted, [], `model admitted large-area red at frames ${admitted.slice(0, 5)}`);
-  assert.equal(audit.maxPerWindow('red'), 0, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
+  assertRedRationed(admitted);
+  assert.ok(audit.maxPerWindow('red') <= 1, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
 });
 
 test('full-frame luma-only 3 Hz still admits <= 3 flashes in every 1 s window', () => {
