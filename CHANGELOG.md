@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-17
+
 ### Added
 
 - `oscillux_palette_tour` and `oscillux_palette_vivid_present`, with
