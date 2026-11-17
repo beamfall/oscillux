@@ -226,7 +226,7 @@ Metal frame against the WebGL2 frame from the same uniforms.
 
 ## Versioning
 
-Oscillux is at 0.2.6 with C ABI version 1. Before 1.0 the interface may still change
+Oscillux is at 0.2.7 with C ABI version 1. Before 1.0 the interface may still change
 incompatibly, but only under the versioning and deprecation rules in
 [docs/api-stability.md](docs/api-stability.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 

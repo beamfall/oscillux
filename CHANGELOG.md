@@ -10,6 +10,15 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-17
+
+### Fixed
+
+- The frame flash limiter no longer freezes a lasting large-area saturated-red change. Red over
+  the area limit now has its own token, refilled at an eighth of the luma rate: at most one
+  large-area red transition in any 1 s window (still no red flash), and a held red change is
+  admitted within 8 / (2 maxFlashHz) s (CORE-2382). The limiter conformance vectors changed.
+
 ## [0.2.6] - 2026-11-17
 
 ### Added
