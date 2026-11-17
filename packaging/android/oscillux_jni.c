@@ -404,6 +404,18 @@ JNIEXPORT jint JNICALL JNI(overlayFlashConfig)(JNIEnv *env, jclass type, jobject
     OscilluxOverlayConfig copy = *cfg;
     return oscillux_overlay_flash_config(&copy, flash);
 }
+typedef struct { double v[4]; } PaletteUniform;
+typedef struct { double v[2]; } VividPresent;
+JNIEXPORT jint JNICALL JNI(paletteTour)(JNIEnv *env, jclass type, jdouble timeSeconds, jdouble offset, jobject output) {
+    UNUSED(); PaletteUniform *out = OUT(PaletteUniform, output);
+    if (!out) return OSCILLUX_ERR_INVALID_ARGUMENT;
+    return oscillux_palette_tour(timeSeconds, offset, out->v);
+}
+JNIEXPORT jint JNICALL JNI(vividPresent)(JNIEnv *env, jclass type, jobject output) {
+    UNUSED(); VividPresent *out = OUT(VividPresent, output);
+    if (!out) return OSCILLUX_ERR_INVALID_ARGUMENT;
+    return oscillux_palette_vivid_present(out->v);
+}
 /* A null overlay clears; otherwise the overlay and regions are copied before the call. */
 JNIEXPORT jint JNICALL JNI(flashSetOverlay)(JNIEnv *env, jclass type, jlong p, jobject overlay, jobject regions, jint count) {
     UNUSED(); OscilluxFlashAnalyzer *analyzer = (OscilluxFlashAnalyzer *)(uintptr_t)p;

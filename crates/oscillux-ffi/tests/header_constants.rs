@@ -138,6 +138,15 @@ fn every_header_constant_matches_its_rust_value() {
             "OSCILLUX_FLASH_RED_RULE_ISO_9241_391",
             oscillux_core::limiter::RedRule::Iso9241_391 as u32,
         ),
+        // Palette tour (CORE-2369).
+        expected(
+            "OSCILLUX_PALETTE_TOUR_COUNT",
+            oscillux::palette::OSCILLUX_PALETTE_TOUR_COUNT,
+        ),
+        expected(
+            "OSCILLUX_PALETTE_TOUR_SECONDS",
+            oscillux::palette::OSCILLUX_PALETTE_TOUR_SECONDS,
+        ),
         // Overlay regions (OSC-OVERLAY).
         expected(
             "OSCILLUX_OVERLAY_MAX_REGIONS",

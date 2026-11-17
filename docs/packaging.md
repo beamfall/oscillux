@@ -302,6 +302,8 @@ exclusion has no reason.
 | `oscillux_overlay_config_default` | `new OverlayConfig` | `Oscillux.overlayConfigDefault` |
 | `oscillux_overlay_pack` | `OverlayRegions.pack` | `Oscillux.overlayPack` |
 | `oscillux_overlay_presentation_intensity` | `OverlayConfig.presentationIntensity` | `Oscillux.overlayPresentationIntensity` |
+| `oscillux_palette_tour` | `paletteTour` | `Oscillux.paletteTour` |
+| `oscillux_palette_vivid_present` | `vividPresent` | `Oscillux.vividPresent` |
 | `oscillux_overlay_flash_config` | `OverlayConfig.tightenFlashConfig` | `Oscillux.overlayFlashConfig` |
 | `oscillux_flash_overlay_default` | `new FlashOverlay` | `Oscillux.flashOverlayDefault` |
 | `oscillux_flash_analyzer_set_overlay` | `FlashAnalyzer.setOverlay`, `FlashAnalyzer.clearOverlay` | `Oscillux.FlashAnalyzer.setOverlay` |

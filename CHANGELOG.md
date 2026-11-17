@@ -10,6 +10,15 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Added
+
+- `oscillux_palette_tour` and `oscillux_palette_vivid_present`, with
+  `OSCILLUX_PALETTE_TOUR_COUNT` (16) and `OSCILLUX_PALETTE_TOUR_SECONDS` (6): the vivid colour
+  mode's palette tour and present-pass saturation 1.35 and vibrance 1.2, so hosts take them from
+  the core instead of porting `tools/shader/palette-tour.mjs`. npm `paletteTour` (returns `z`) and
+  `vividPresent`; Java `Oscillux.paletteTour` and `Oscillux.vividPresent`. Conformance vectors in
+  `conformance/palette-tour/` (CORE-2369).
+
 ## [0.2.5] - 2026-11-17
 
 ### Changed

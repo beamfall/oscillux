@@ -62,6 +62,7 @@ use oscillux::packing::{
     oscillux_packer_create, oscillux_packer_destroy, oscillux_packer_pack, OscilluxPacker,
     OscilluxUniformField,
 };
+use oscillux::palette::{oscillux_palette_tour, oscillux_palette_vivid_present};
 use oscillux::{OSCILLUX_ERR_INVALID_ARGUMENT, OSCILLUX_OK};
 use oscillux_core::dsp::{DspConfig as CDspConfig, DspFrame};
 use wasm_bindgen::prelude::*;
@@ -72,6 +73,30 @@ const INVALID: i32 = OSCILLUX_ERR_INVALID_ARGUMENT;
 #[wasm_bindgen(js_name = abiVersion)]
 pub fn abi_version() -> u32 {
     oscillux::oscillux_abi_version()
+}
+
+/// The `z` component of the vivid palette tour at `timeSeconds` for a visual whose palette
+/// starts at `offset`; the `palette` uniform is `[-1, 0, z, 0]` (`oscillux_palette_tour`).
+/// Throws on a non-finite argument. Does not allocate, so hosts may call it every frame.
+#[wasm_bindgen(js_name = paletteTour)]
+pub fn palette_tour(time_seconds: f64, offset: f64) -> Result<f64, JsError> {
+    let mut out = [0.0; 4];
+    // SAFETY: `out` holds four f64.
+    let status = unsafe { oscillux_palette_tour(time_seconds, offset, out.as_mut_ptr()) };
+    if status != OSCILLUX_OK {
+        return Err(refused("palette tour", status));
+    }
+    Ok(out[2])
+}
+
+/// The vivid present pass's `[saturation, vibrance]` (`oscillux_palette_vivid_present`).
+/// Allocates the returned array; read it once, not per frame.
+#[wasm_bindgen(js_name = vividPresent)]
+pub fn vivid_present() -> Vec<f64> {
+    let mut out = [0.0; 2];
+    // SAFETY: `out` holds two f64.
+    unsafe { oscillux_palette_vivid_present(out.as_mut_ptr()) };
+    out.to_vec()
 }
 
 /// Release version of the linked core, packed as `major << 16 | minor << 8 | patch`.

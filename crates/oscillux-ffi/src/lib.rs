@@ -99,6 +99,7 @@ pub mod curves;
 pub mod governor;
 pub mod mapping;
 pub mod packing;
+pub mod palette;
 pub mod reaction;
 pub mod transition;
 

@@ -176,6 +176,10 @@ public final class AdapterSmoke {
         config.putInt(4,1);
         require(Oscillux.overlayPresentationIntensity(config,intensity)==0 && intensity.getDouble(0)==0.5);
         require(Oscillux.overlayFlashConfig(config,flash.asReadOnlyBuffer())<0 && Oscillux.overlayFlashConfig(config,flash)==0);
+        ByteBuffer tour=Oscillux.buffer(32), vivid=Oscillux.buffer(16);
+        require(Oscillux.paletteTour(0,-3,tour)==0 && tour.getDouble(0)==-1 && tour.getDouble(16)==13);
+        require(Oscillux.paletteTour(Double.NaN,0,tour)<0 && Oscillux.paletteTour(0,0,Oscillux.buffer(8))<0);
+        require(Oscillux.vividPresent(vivid)==0 && vivid.getDouble(0)==1.35 && vivid.getDouble(8)==1.2);
         require(flash.getDouble(40)==1 && flash.getDouble(32)==0.1 && flash.getInt(12)==1);
         ByteBuffer rules=Oscillux.buffer(40), report=Oscillux.buffer(32), samples=Oscillux.buffer(36*16), flashReport=Oscillux.buffer(48);
         rules.putInt(0,40);

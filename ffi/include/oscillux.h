@@ -1473,6 +1473,23 @@ OSCILLUX_API int32_t oscillux_cdg_index_counts(const OscilluxCdg *handle,
                                                uint32_t *out,
                                                size_t len);
 
+/*
+ * Palette tour (vivid colour mode). Hosts that tour the palette set the visual's palette
+ * uniform from oscillux_palette_tour each frame and the present pass's saturation and vibrance
+ * from oscillux_palette_vivid_present. Neither call allocates.
+ */
+#define OSCILLUX_PALETTE_TOUR_COUNT 16u  /* palettes the tour visits */
+#define OSCILLUX_PALETTE_TOUR_SECONDS 6u /* seconds the tour spends on each palette */
+/*
+ * Writes the palette uniform at time_seconds to out[0..4]: {-1, 0, z, 0}, where
+ * z = (time_seconds / OSCILLUX_PALETTE_TOUR_SECONDS + offset) wrapped into
+ * [0, OSCILLUX_PALETTE_TOUR_COUNT). offset is the visual's own palette start. A non-finite
+ * argument returns OSCILLUX_ERR_INVALID_ARGUMENT with out unchanged.
+ */
+OSCILLUX_API int32_t oscillux_palette_tour(double time_seconds, double offset, double *out);
+/* Writes the vivid present pass's saturation to out[0] and vibrance to out[1]. */
+OSCILLUX_API int32_t oscillux_palette_vivid_present(double *out);
+
 #ifdef __cplusplus
 }
 #endif

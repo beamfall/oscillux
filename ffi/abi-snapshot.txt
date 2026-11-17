@@ -91,6 +91,8 @@ define OSCILLUX_OVERLAY_MODE_LIGHT_TEXT 1u
 define OSCILLUX_OVERLAY_UNIFORMS_SIZE 320u
 define OSCILLUX_PACKER_MAX_COMPONENTS 64u
 define OSCILLUX_PACKER_MAX_FIELDS 256
+define OSCILLUX_PALETTE_TOUR_COUNT 16u
+define OSCILLUX_PALETTE_TOUR_SECONDS 6u
 define OSCILLUX_REACTION_MAX_BEATS_PER_BAR 16u
 define OSCILLUX_REACTION_MAX_CAPACITY 65536u
 define OSCILLUX_TRANSITION_EASING_LINEAR 0u
@@ -173,6 +175,8 @@ function int32_t oscillux_overlay_presentation_intensity(const OscilluxOverlayCo
 function int32_t oscillux_packer_create(const OscilluxUniformField *fields, size_t field_count, size_t block_size, OscilluxPacker **out)
 function void oscillux_packer_destroy(OscilluxPacker *handle)
 function int32_t oscillux_packer_pack(const OscilluxPacker *handle, const OscilluxMapped *mapped, const double *host, size_t host_count, uint8_t *out, size_t out_capacity)
+function int32_t oscillux_palette_tour(double time_seconds, double offset, double *out)
+function int32_t oscillux_palette_vivid_present(double *out)
 function int32_t oscillux_reaction_config_default(uint32_t behavior_version, uint32_t sample_rate_hz, OscilluxReactionConfig *out)
 function int32_t oscillux_reaction_create(const OscilluxReactionConfig *config, OscilluxReactionSampler **out)
 function void oscillux_reaction_destroy(OscilluxReactionSampler *handle)

@@ -496,6 +496,14 @@ for (const c of overlayDoc.pack) {
 }
 assert.ok(overlayPacks >= 20, 'overlay pack vectors');
 {
+  const tour = JSON.parse(readFileSync(new URL('../conformance/palette-tour/vectors.json', import.meta.url)));
+  for (const c of tour.cases)
+    assert.ok(Math.abs(m.paletteTour(c.timeSeconds, c.offset) - c.want[2]) <= tour.tolerance, `palette tour ${c.timeSeconds} ${c.offset}`);
+  assert.throws(() => m.paletteTour(NaN, 0));
+  assert.throws(() => m.paletteTour(0, Infinity));
+  assert.deepEqual([...m.vividPresent()], [tour.vividPresent.saturation, tour.vividPresent.vibrance]);
+}
+{
   const config = new m.OverlayConfig();
   assert.deepEqual([config.contrastRatio, config.intensity, config.outputLevels, config.reducedMotion], [4.5, 1, 255, false]);
   assert.equal(config.presentationIntensity(), 1);

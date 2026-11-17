@@ -70,6 +70,10 @@ public final class Oscillux {
     public static native int overlayPack(ByteBuffer config, ByteBuffer regions, int count, ByteBuffer out, int capacity);
     /** Writes one double: the config's intensity, halved under reduced motion. */
     public static native int overlayPresentationIntensity(ByteBuffer config, ByteBuffer out);
+    /** Writes the vivid palette tour uniform {-1, 0, z, 0} into out (4 doubles, native order). */
+    public static native int paletteTour(double timeSeconds, double offset, ByteBuffer out);
+    /** Writes the vivid present pass's saturation and vibrance into out (2 doubles, native order). */
+    public static native int vividPresent(ByteBuffer out);
     /** Tightens a flash config in place for reduced motion; never loosens it. */
     public static native int overlayFlashConfig(ByteBuffer config, ByteBuffer flashConfig);
     /** {@code out} must already hold {@code flashOverlaySize()} as its uint32 struct_size at offset 0. */
