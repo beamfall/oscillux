@@ -1,7 +1,8 @@
 # palette-tour Specification
 
 ## Purpose
-TBD - created by archiving change export-palette-tour. Update Purpose after archive.
+The vivid colour mode tours the sixteen vivid palettes and lifts saturation and vibrance in the
+present pass. The core owns both, so every host tours the same palettes at the same rate.
 
 ## Requirements
 
