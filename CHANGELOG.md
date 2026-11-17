@@ -10,6 +10,18 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-17
+
+### Changed
+
+- The frame flash limiter fades each hold out over a round field about four sub-blocks wide that
+  is continuous in space, so a hold no longer shows staircases of squares after a few frames.
+  What is held is unchanged, and red-dominant pixels are never blended. The `state` and `output`
+  limiter passes changed in the msl and glsl300 legs; they take the same textures and uniforms,
+  and `T1.w` now carries the hold in bit 0 and the hold field above it (CORE-2328).
+- Aurora is about half as bright and reacts less to the beat and the bass, so the limiter rarely
+  holds on it (CORE-2328).
+
 ## [0.2.3] - 2026-11-16
 
 ### Changed
