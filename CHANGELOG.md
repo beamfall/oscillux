@@ -10,6 +10,15 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-16
+
+### Changed
+
+- The frame flash limiter feathers each hold one sub-block outward, so a held sub-block no longer
+  shows as a hard-edged rectangle. What is held is unchanged, and red-dominant pixels are never
+  blended. Only the `output` limiter pass changed in the msl and glsl300 legs; it takes the same
+  textures and uniforms (CORE-2231).
+
 ## [0.2.2] - 2026-11-16
 
 ### Changed
