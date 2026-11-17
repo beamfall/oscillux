@@ -207,6 +207,58 @@ test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
 
+// CORE-2231: a hold has no hard edge. A 10 Hz strobe over half a TV 10° field is held while the
+// background drifts a level a frame: the held sub-blocks show history, the background beside
+// them blends toward history, and the background a sub-block away shows the input. A red-dominant
+// background is never blended.
+function feather(bg) {
+  const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
+  const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const bw = W / model.BLOCKS_X, bh = H / model.BLOCKS_Y;
+  const seen = { held: 0, blended: 0, input: 0 }; // blended: background pixels only
+  for (let t = 0; t < 120; t++) {
+    const on = Math.floor(t / 3) % 2 === 1, c = bg(t);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
+        const inRect = x >= W / 4 && x < W * 11 / 16 && y >= H / 3 && y < H * 13 / 18;
+        const v = inRect ? (on ? WHITE : BLACK) : c;
+        px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255;
+      }
+    }
+    const r = lim.step(px, DT);
+    const hm = (bx, by) => (bx < 0 || by < 0 || bx >= model.BLOCKS_X || by >= model.BLOCKS_Y ? 0 : r.holdMask[by * model.BLOCKS_X + bx]);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
+        const bx = Math.floor(x / bw), by = Math.floor(y / bh);
+        const inRect = x >= W / 4 && x < W * 11 / 16 && y >= H / 3 && y < H * 13 / 18;
+        let near = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) near |= hm(bx + dx, by + dy);
+        for (let ch = 0; ch < 3; ch++) {
+          const o = r.out[i + ch], a = px[i + ch], h = prev[i + ch];
+          if (hm(bx, by)) assert.equal(o, h, `frame ${t}: a held pixel at ${x},${y} does not show history`);
+          else if (!near) assert.equal(o, a, `frame ${t}: a pixel at ${x},${y} far from any hold is not the input`);
+          else assert.ok(o >= Math.min(a, h) && o <= Math.max(a, h), `frame ${t}: ${o} at ${x},${y} is outside ${a}..${h}`);
+        }
+        if (hm(bx, by)) seen.held++;
+        else if (!inRect && r.out[i + 1] !== px[i + 1]) seen.blended++;
+        else seen.input++;
+      }
+    }
+    prev.set(r.out);
+  }
+  return seen;
+}
+test('a held sub-block blends into its neighbours', () => {
+  const seen = feather(t => { const v = 60 + (t % 60); return [v, v, v]; });
+  assert.ok(seen.held > 0, 'nothing was held');
+  assert.ok(seen.blended > 0, 'no pixel beside a hold was blended');
+});
+test('a red-dominant pixel beside a hold is not blended', () => {
+  const seen = feather(t => [200, 20 + (t % 60), 0]);
+  assert.ok(seen.held > 0, 'nothing was held');
+  assert.equal(seen.blended, 0, 'a red-dominant pixel was blended');
+});
+
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
 // count, to show a model change leaves luminance behaviour byte-identical.
 if (process.argv.includes('--luma-digest')) {

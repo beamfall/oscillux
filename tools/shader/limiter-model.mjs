@@ -26,6 +26,14 @@
 //      floor(clamp(2 maxFlashHz dt, 0, 1) * 65025) a frame; red over the limit is never granted.
 //   6. Hold: a sub-block requesting a transition that is not admitted shows the previous output
 //      frame, and its trackers do not advance; every other sub-block shows the input.
+//   7. Feather: a hold has no hard edge. A pixel of a sub-block that is not held shows
+//      (input (16 - w) + history w + 8) >> 4 per 8-bit channel, where w is the largest weight of
+//      its sub-block's eight neighbours that are held: with f = floor(16 (p - lo) / (hi - lo)) the
+//      pixel's position in its sub-block [lo, hi) on each axis, the left neighbour weighs 15 - fx,
+//      the right fx, the upper 15 - fy, the lower fy, and a corner the product of its two, >> 4.
+//      A pixel whose input, history or blend is red-dominant (r > g + b in 8-bit, which every
+//      saturated-red pixel is) is not blended, so the feather never alters red (CORE-2231,
+//      openspec/changes/limiter-soft-hold/).
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
 //   { out, held, holdMask, grant, deficit, stats: { requests, over, admitted, fired } }.
@@ -125,6 +133,15 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   let flip = 0;
   const colBlock = Int32Array.from({ length: W }, (_, x) => blockOf(x, W, BLOCKS_X));
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
+  // A pixel's position in its sub-block, in sixteenths (0..15).
+  const frac = (p, size, n) => {
+    const b = blockOf(p, size, n), lo = Math.floor(b * size / n), hi = Math.floor((b + 1) * size / n);
+    return Math.floor(16 * (p - lo) / (hi - lo));
+  };
+  const colFrac = Uint8Array.from({ length: W }, (_, x) => frac(x, W, BLOCKS_X));
+  const rowFrac = Uint8Array.from({ length: H }, (_, y) => frac(y, H, BLOCKS_Y));
+  const heldAt = (bx, by) => (bx < 0 || by < 0 || bx >= BLOCKS_X || by >= BLOCKS_Y ? 0 : holdMask[by * BLOCKS_X + bx]);
+  const redDominant = (a, i) => a[i] > a[i + 1] + a[i + 2];
 
   const fires = (t, v, step, dark) => {
     scratch.lo = t.lo; scratch.hi = t.hi; scratch.dir = t.dir;
@@ -205,9 +222,23 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     flip ^= 1;
     const out = bufs[flip];
     for (let y = 0; y < H; y++) {
-      const row = rowBlock[y] * BLOCKS_X;
+      const by = rowBlock[y], wd = rowFrac[y], wu = 15 - wd;
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        const src = holdMask[row + colBlock[x]] ? history : px;
+        const bx = colBlock[x];
+        let src = px;
+        if (heldAt(bx, by)) src = history;
+        else if (!redDominant(px, i) && !redDominant(history, i)) {
+          const wr = colFrac[x], wl = 15 - wr;
+          const w = Math.max(
+            heldAt(bx - 1, by) * wl, heldAt(bx + 1, by) * wr, heldAt(bx, by - 1) * wu, heldAt(bx, by + 1) * wd,
+            heldAt(bx - 1, by - 1) * ((wl * wu) >> 4), heldAt(bx + 1, by - 1) * ((wr * wu) >> 4),
+            heldAt(bx - 1, by + 1) * ((wl * wd) >> 4), heldAt(bx + 1, by + 1) * ((wr * wd) >> 4));
+          if (w > 0) {
+            for (let c = 0; c < 3; c++) out[i + c] = (px[i + c] * (16 - w) + history[i + c] * w + 8) >> 4;
+            out[i + 3] = 255;
+            if (!redDominant(out, i)) continue;
+          }
+        }
         out[i] = src[i]; out[i + 1] = src[i + 1]; out[i + 2] = src[i + 2]; out[i + 3] = 255;
       }
     }
