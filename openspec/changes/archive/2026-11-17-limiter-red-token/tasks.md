@@ -9,5 +9,5 @@
 
 ## 2. Close
 
-- [ ] 2.1 `make gate` on the release head
-- [ ] 2.2 Archive this change (`openspec archive limiter-red-token`)
+- [x] 2.1 `make gate` on the release head
+- [x] 2.2 Archive this change (`openspec archive limiter-red-token`)
