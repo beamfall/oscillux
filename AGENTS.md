@@ -21,6 +21,12 @@ packing, transitions and governor math behind a C interface.
 6. Outside contributions need the contributor agreement before merge
    (`CONTRIBUTING.md`).
 
+## Documentation
+
+Keep docs in `README.md`, `CONTRIBUTING.md`, `LICENSING.md`, `docs/`, `openspec/` and this file.
+When this repository is checked out inside the Beamfall multi-repo workspace, also follow that
+workspace's `DOCUMENTATION-GOVERNANCE.md` before adding, moving or archiving a doc.
+
 ## Gate
 
 `make gate` is the merge gate. Run it on the exact head before merging. While iterating, run the
