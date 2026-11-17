@@ -27,12 +27,10 @@ of a sub-block counts toward the area limit.
 ### Requirement: Feathered holds
 
 The frame limiter's output SHALL show the previous output frame on every pixel of a held
-sub-block, and SHALL blend toward the previous output frame around it with a weight that is
-continuous in space: 1 at the centre of every sub-block that is held or adjoins a held one,
-falling with distance from the held sub-blocks to 0 a little past four sub-blocks away. The output SHALL NOT step across a
-sub-block boundary where neither the input nor the previous output steps. It SHALL NOT blend a
-pixel whose input, previous output or blend is red-dominant (`r > g + b` in 8-bit); such a pixel
-shows the input.
+sub-block and SHALL blend toward it around held sub-blocks with a weight that is continuous in
+space, reaching 0 a little past four sub-blocks away. The output SHALL NOT step across a
+sub-block boundary where neither the input nor the previous output steps. A pixel whose input,
+previous output or blend is red-dominant (`r > g + b` in 8-bit) SHALL show the input.
 
 #### Scenario: A held sub-block has no hard edge
 
