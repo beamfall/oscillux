@@ -207,10 +207,10 @@ test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
 
-// CORE-2231: a hold has no hard edge. A 10 Hz strobe over half a TV 10° field is held while the
-// background drifts a level a frame: the held sub-blocks show history, the background beside
-// them blends toward history, and the background a sub-block away shows the input. A red-dominant
-// background is never blended.
+// CORE-2231, CORE-2328: a hold has no hard edge. A 10 Hz strobe over half a TV 10° field is held
+// while the background drifts a level a frame: the held sub-blocks show history, the background
+// within five sub-blocks of them blends toward history, and the background further away shows the
+// input. A red-dominant background is never blended.
 function feather(bg) {
   const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
   const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
@@ -232,7 +232,7 @@ function feather(bg) {
         const bx = Math.floor(x / bw), by = Math.floor(y / bh);
         const inRect = x >= W / 4 && x < W * 11 / 16 && y >= H / 3 && y < H * 13 / 18;
         let near = 0;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) near |= hm(bx + dx, by + dy);
+        for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) near |= hm(bx + dx, by + dy);
         for (let ch = 0; ch < 3; ch++) {
           const o = r.out[i + ch], a = px[i + ch], h = prev[i + ch];
           if (hm(bx, by)) assert.equal(o, h, `frame ${t}: a held pixel at ${x},${y} does not show history`);
@@ -257,6 +257,46 @@ test('a red-dominant pixel beside a hold is not blended', () => {
   const seen = feather(t => [200, 20 + (t % 60), 0]);
   assert.ok(seen.held > 0, 'nothing was held');
   assert.equal(seen.blended, 0, 'a red-dominant pixel was blended');
+});
+
+// CORE-2328: held regions blend smoothly in space. A grey wave travelling fast enough to be held
+// is smooth everywhere in the input, so any step the output shows across a sub-block boundary is
+// the limiter's. Per boundary segment (one sub-block side) the step is the mean, over its pixels,
+// of how far the difference across the boundary exceeds the differences on either side of it; the
+// test takes the output's step less the input's and bounds the largest over every segment and
+// frame. The v0.2.3 feather measures 91 here.
+test('a hold leaves no step across sub-block boundaries', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  const xe = Array.from({ length: model.BLOCKS_X + 1 }, (_, k) => Math.floor(k * W / model.BLOCKS_X));
+  const ye = Array.from({ length: model.BLOCKS_Y + 1 }, (_, k) => Math.floor(k * H / model.BLOCKS_Y));
+  const g = (a, x, y) => a[(y * W + x) * 4 + 1];
+  const jump = (a, x, y, dx, dy) => {
+    const d = k => Math.abs(g(a, x + k * dx, y + k * dy) - g(a, x + (k - 1) * dx, y + (k - 1) * dy));
+    return Math.max(0, d(0) - Math.max(d(-1), d(1)));
+  };
+  let worst = 0, heldFrames = 0;
+  for (let t = 0; t < 300; t++) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
+        const v = Math.round(128 + 90 * Math.sin(2 * Math.PI * (6 * t * DT - x / (W * 1.5) - y / (H * 1.95))));
+        px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
+      }
+    }
+    const r = lim.step(px, DT);
+    if (!r.held) continue;
+    heldFrames++;
+    for (let by = 0; by < model.BLOCKS_Y; by++) {
+      for (let bx = 0; bx < model.BLOCKS_X; bx++) {
+        let v = 0, h = 0;
+        if (bx > 0) for (let y = ye[by]; y < ye[by + 1]; y++) v += jump(r.out, xe[bx], y, 1, 0) - jump(px, xe[bx], y, 1, 0);
+        if (by > 0) for (let x = xe[bx]; x < xe[bx + 1]; x++) h += jump(r.out, x, ye[by], 0, 1) - jump(px, x, ye[by], 0, 1);
+        worst = Math.max(worst, v / (ye[by + 1] - ye[by]), h / (xe[bx + 1] - xe[bx]));
+      }
+    }
+  }
+  assert.ok(heldFrames > 100, `the wave was held on only ${heldFrames} frames`);
+  assert.ok(worst <= 12, `a sub-block boundary steps ${worst.toFixed(1)} levels more than the input`);
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

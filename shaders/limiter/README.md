@@ -71,10 +71,12 @@ token when the deficit is zero.
 The tracker state is three 64 x 36 RGBA16UI textures:
 
 - `T0` holds the trackers' low and high marks.
-- `T1` holds (luma direction + 1, red direction + 1, live, hold). The `output` pass reads the
-  `w` of a pixel's sub-block and of its eight neighbours: a held sub-block shows history, and a
-  sub-block beside one blends toward history, so a hold has no hard edge (red-dominant pixels are
-  never blended).
+- `T1` holds (luma direction + 1, red direction + 1, live, hold + 2 * hold field). `output` reads
+  the `w` of a pixel's sub-block and of the four sub-block centres around it: bit 0 is the hold and
+  the rest (`w >> 1`, 0..64) is the hold field the `state` pass wrote from the holds within four
+  sub-blocks. A held sub-block shows history, and the picture around it blends toward history by
+  the field, bilinear between sub-block centres, so a hold has no hard edge, no corners and no
+  step at a sub-block boundary (red-dominant pixels are never blended).
 - `T2` holds the recency stamps (tick + 1; 0 means none).
 
 Keep two copies each of `G`, `T0`, `T1`, `T2` and the output. A frame reads copy `a` and writes

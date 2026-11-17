@@ -29,10 +29,11 @@ Metal where available) against the vectors.
 - Luma over the limit is rationed by a token budget (at most `maxFlashHz` flashes, default 3, per
   second). Red over the limit is never admitted (the red-0 rule; WCAG 2.3.1 and ITU-R BT.1702).
 - A sub-block whose transition is not admitted holds the previous output.
-- A hold is feathered one sub-block outward: a pixel of a sub-block that is not held, beside a
-  held one, blends toward the previous output, from 15/16 at the shared edge to nothing at the far
-  edge of its own sub-block. A pixel whose input, previous output or blend is red-dominant
-  (`r > g + b` in 8-bit) is not blended.
+- A hold blends into the picture around it. The blend weight is 1 at the centre of every
+  sub-block that is held or adjoins a held one and falls with distance to 0 a little past four
+  sub-blocks from the hold, bilinear between centres and eased, so it is continuous across
+  sub-block boundaries and round. A pixel whose input, previous
+  output or blend is red-dominant (`r > g + b` in 8-bit) is not blended.
 
 The model's header comment gives the exact arithmetic.
 

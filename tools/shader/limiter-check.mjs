@@ -180,7 +180,7 @@ async function pageMain({ passes, cases, helpers, time }) {
       gl.readPixels(0, 0, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, g);
       gl.bindFramebuffer(gl.FRAMEBUFFER, s.fOut[s.cur].f);
       gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
-      for (let k = 0; k < mask.length; k++) mask[k] = t1[4 * k + 3];
+      for (let k = 0; k < mask.length; k++) mask[k] = t1[4 * k + 3] & 1;
       const hold = runLengths(mask);
       frames.push([hold === last ? '=' : hold, g[0], g[1], fnv1a(out)]);
       last = hold;

@@ -104,7 +104,7 @@ float auCurtain(vec2 xz, float hn, float flow, vec2 w, float folds, float sway, 
     along = q.x;
     // ripples run along the folds, quick enough to read second by second;
     // the bass deepens them
-    q.y += (0.05 + 0.12 * kick) * sin(q.x * 3.1 - shim * 1.7) + 0.03 * sin(q.x * 7.3 + shim * 2.3);
+    q.y += (0.05 + 0.04 * kick) * sin(q.x * 3.1 - shim * 1.7) + 0.03 * sin(q.x * 7.3 + shim * 2.3);
     float n = vnoise(q * vec2(0.7, 2.2) + vec2(0.0, flow * 0.012));
     float ridge = 1.0 - abs(2.0 * n - 1.0);
     float sheet = ridge * ridge;
@@ -116,10 +116,10 @@ float auCurtain(vec2 xz, float hn, float flow, vec2 w, float folds, float sway, 
     // the rays reach up by the spectrum, which repeats along every fold, so
     // the curtains draw the music across the sky as rays of light
     float bnd = auSpec(abs(fract(along * 0.16) * 2.0 - 1.0), sa, sb);
-    float reach = 0.45 + 1.3 * bnd;
+    float reach = 0.65 + 0.8 * bnd;
     float vert = smoothstep(-0.015, 0.02, hl) * exp(-max(hl, 0.0) * 2.4 / reach);
     // vertical rays: the same striation at every height, shimmering
-    float rays = vnoise(vec2(along * 24.0, flow * 0.25 + shim));
+    float rays = vnoise(vec2(along * 36.0, flow * 0.25 + shim));
     rays = 0.15 + 1.1 * rays * rays;
     return sheet * vert * rays;
 }
@@ -142,14 +142,14 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
     vec3 acc = vec3(0.0);
     float beat = u.bassImpact;
     float bc = floor(mod(u.beatCount, 64.0)) + saturate(u.beatPhase);
-    vec3 fringe = peakWhite(palVisual(0.97, u), 0.15 + 0.3 * u.treble) * (0.5 + 2.2 * beat + 1.2 * u.bass);
+    vec3 fringe = peakWhite(palVisual(0.97, u), 0.15 + 0.3 * u.treble) * (0.9 + 0.4 * beat + 0.3 * u.bass);
     // green rim to violet crown: three palette reads per pixel, not per layer
     vec3 cLow = palVisual(0.72, u);
     vec3 cMid = palVisual(0.47, u);
     vec3 cTop = palVisual(0.02, u);
     float bp = saturate(u.beatPhase);
     float front = 1.15 * pow(bp, 0.7);
-    float bAmp = (0.5 + 2.0 * beat) * (1.0 - bp);
+    float bAmp = (0.5 + 0.4 * beat) * (1.0 - bp);
     for (int i = 0; i < 56; i++) {
         if (i >= n) break;
         float hn = (float(i) + dither) / float(n);
@@ -167,17 +167,17 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
         // each beat sends a bright front climbing the curtains from the rim
         float fd = hs - front;
         float climb = exp(-fd * fd * 45.0) * bAmp;
-        float lit = (0.35 + 1.6 * energy) * (1.0 + pulse * (0.4 + 1.2 * beat)) * (1.0 + 1.5 * hn) * (1.0 + 0.5 * rush);
+        float lit = (0.75 + 0.4 * energy) * (1.0 + pulse * (0.4 + 0.2 * beat)) * (1.0 + 1.5 * hn) * (1.0 + 0.25 * rush);
         vec3 c = mix(mix(cLow, cMid, saturate(hs * 2.2)), cTop, saturate(hs * 1.6 - 0.6));
         // hot magenta-white lower fringe, heated by the bass
         c += fringe * rim;
         // the climbing front glows in the crown colour, so every beat runs a
         // violet wave up through the green
-        c += cTop * climb * 2.4;
+        c += cTop * climb * 1.5;
         acc += c * d * lit * fade;
     }
     // looking straight up through the sheets saturates; ease it
-    return acc * (5.0 / float(n)) / (1.0 + 1.6 * rd.y * rd.y);
+    return acc * (2.4 / float(n)) / (1.0 + 1.6 * rd.y * rd.y);
 }
 
 vec3 auSky(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dither, float energy, vec4 sa, vec4 sb,
@@ -230,7 +230,7 @@ vec3 auRock(vec3 p, vec3 rd, float dist, VisualUniforms u, float flow, float ene
     float folds = mix(0.7, 1.6, u.param0);
     vec2 oxz = p.xz + vec2(0.0, 50.0);
     float over = auCurtain(oxz, 0.1, flow, auWarp(oxz, flow, folds), folds, mix(0.4, 1.2, u.param1), sa, sb, shim, u.bassImpact, along, rim);
-    vec3 light = mix(vec3(0.45, 0.5, 0.6), palVisual(0.62, u), 0.6) * (0.2 + 0.55 * energy) * (0.45 + 3.2 * over) + vec3(0.02, 0.03, 0.065);
+    vec3 light = mix(vec3(0.45, 0.5, 0.6), palVisual(0.62, u), 0.6) * (0.32 + 0.25 * energy) * (0.45 + 3.2 * over) + vec3(0.02, 0.03, 0.065);
     // two-tone sky light: the curtains overhead key the upward faces in
     // green, the violet crowns and the night sky fill the rest
     vec3 ld = normalize(vec3(0.15, 1.0, -0.4));
@@ -240,10 +240,10 @@ vec3 auRock(vec3 p, vec3 rd, float dist, VisualUniforms u, float flow, float ene
     float cav = saturate(0.55 + 0.6 * n.y);
     // the whole sky is alight, so faces turned from the key still take a
     // cool fill from the crowns and a green one from the curtains ahead
-    vec3 fill = palVisual(0.02, u) * (0.2 + 0.25 * energy) + palVisual(0.72, u) * (0.1 + 0.16 * energy) * (0.7 + 1.2 * over)
+    vec3 fill = palVisual(0.02, u) * (0.26 + 0.12 * energy) + palVisual(0.72, u) * (0.14 + 0.08 * energy) * (0.7 + 1.2 * over)
               + vec3(0.02, 0.026, 0.055);
     // the lit lake throws a soft green light up the steep lower walls
-    vec3 bounce = palVisual(0.72, u) * (0.08 + 0.14 * energy) * saturate(1.0 - n.y) * exp(-max(p.y, 0.0) * 0.04);
+    vec3 bounce = palVisual(0.72, u) * (0.11 + 0.07 * energy) * saturate(1.0 - n.y) * exp(-max(p.y, 0.0) * 0.04);
     vec3 col = alb * (light * (0.1 + 1.3 * dif) + fill * (0.6 + 0.4 * n.y) + bounce) * cav;
     // snow facing the camera picks up a faint glossy sheen of the curtains
     col += light * pow(1.0 - saturate(dot(-rd, n)), 5.0) * (0.012 + 0.03 * snow);
