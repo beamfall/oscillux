@@ -14,4 +14,4 @@
 
 - [x] 3.1 Run `make limiter-check`
 - [x] 3.2 Run `make gate`
-- [ ] 3.3 Run `openspec archive limiter-soft-hold` after landing
+- [x] 3.3 Run `openspec archive limiter-soft-hold` after landing
