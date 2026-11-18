@@ -53,7 +53,7 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 | # | Pass | Size | Textures | Outputs |
 |---|---|---|---|---|
 | 1 | `rows` | 64 x frame height | `uFrame`, `uHist` (previous output) | `oR` (RGBA32UI): per sub-block column and pixel row, the luma sum, linear-light red-excess sum, pixel count, and the counts of pixels whose luma rose and fell by a step against `uHist` (low and high 16 bits) |
-| 2 | `reduce` | 64 x 36 | `uRows`, `uT0`, `uT1` | `oS` = (luma code, red code, request bits, 0); a sub-block where at least 7/16 of the pixels rose and 7/16 fell requests luma up and down (a fine pattern reversing; CORE-2515) |
+| 2 | `reduce` | 64 x 36 | `uRows`, `uT0`, `uT1` | `oS` = (luma code, red code, request bits, 0); a sub-block where at least a quarter of the pixels rose by a luma step requests luma up, likewise down (a change over part of a sub-block or a fine pattern reversing; CORE-2515, CORE-2543) |
 | 3 | `cells` | 16 x 9 | `uS`, `uT2` | `oC`: per direction, the count (0..16) of sub-blocks requesting now or within the coverage interval, \| requests << 5 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW`: per direction, an over bit for the window with its origin at this cell |
 | 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8, luma token deficit, red token deficit, luma credit) |
@@ -74,13 +74,11 @@ luma token.
 The tracker state is three 64 x 36 RGBA16UI textures:
 
 - `T0` holds the trackers' low and high marks.
-- `T1` holds (luma direction + 1, red direction + 1, live, hold + 2 * hold field). `output` reads
-  the `w` of a pixel's sub-block and of the four sub-block centres around it: bit 0 is the hold and
-  the rest (`w >> 1`, 0..64) is the hold field the `state` pass wrote from the holds within four
-  sub-blocks. A held sub-block shows history, and the picture around it blends toward history by
-  the field, bilinear between sub-block centres, so a hold has no hard edge, no corners and no
-  step at a sub-block boundary. A pixel is blended only while its red code is the same in history,
-  input and blend; otherwise it shows the input.
+- `T1` holds (luma direction + 1, red direction + 1, live, hold). `output` reads the `w` of a
+  pixel's sub-block: a held sub-block shows history and every other pixel shows the input exactly,
+  so the output makes only the transitions the trackers counted. (Until v0.2.9 the picture around
+  a hold blended toward history; a blended change could appear after the token it spent had
+  refilled, CORE-2543.)
 - `T2` holds the recency stamps (tick + 1; 0 means none).
 
 Keep two copies each of `G`, `T0`, `T1`, `T2` and the output. A frame reads copy `a` and writes

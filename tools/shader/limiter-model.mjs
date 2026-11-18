@@ -27,24 +27,11 @@
 //      refilled by an eighth of that (integer), so no 1 s window holds two large-area red
 //      transitions (no red flash) and held red catches up instead of freezing (CORE-2382).
 //   6. Hold: a sub-block requesting a transition that is not admitted shows the previous output
-//      frame, and its trackers do not advance; every other sub-block shows the input.
-//   7. Blend: a hold has no hard edge. The hold field at each sub-block centre, 0..64, is the
-//      largest over the held sub-blocks within four of it on each axis of clamp(72 - 4 d2, 0, 64),
-//      d2 the squared distance in sub-blocks: 64 at a held sub-block and its eight neighbours,
-//      0 a little past four away. A pixel of a sub-block that is not held takes the field
-//      bilinearly between the four sub-block centres around it: with centre(k) = floor(k S / n) +
-//      floor((k + 1) S / n) in half pixels on each axis, l the sub-block whose centre is at or
-//      before the pixel's 2 p + 1 and f = floor(64 (2 p + 1 - centre(l)) / (centre(l + 1) -
-//      centre(l))), t is the sum of the four field values weighted (64 - fx or fx) (64 - fy or
-//      fy), shifted right by 6, in 0..4096; outside the first and last centres the pixel takes
-//      its own sub-block on that axis. The weight is eased, w = ((t^2 >> 12) (12288 - 2 t)) >> 12,
-//      and the pixel shows (input (4096 - w) + history w + 2048) >> 12 per 8-bit channel. The
-//      field is continuous across sub-block boundaries, reaches 1 before the hold begins and
-//      falls off round, so the output steps nowhere the input and the history do not. A pixel is
-//      blended only while its red code (R - G - B on linear codes when saturated red, as the
-//      reduction sums it) is the same in history, input and blend; otherwise it shows the input,
-//      so the blend never adds, delays or hides a red transition (CORE-2231, CORE-2328,
-//      CORE-2413, CORE-2541, openspec/changes/limiter-red-feather/).
+//      frame, and its trackers do not advance; every other pixel shows the input exactly, so
+//      the output makes only the transitions the trackers counted. (Until v0.2.9 the pixels
+//      around a hold blended toward the previous output; a blended change appeared after the
+//      token it spent had refilled, so the output could make seven luma transitions in 1 s:
+//      CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
 //   { out, held, holdMask, grant, deficit, redDeficit, stats: { requests, over, admitted, fired } }.
@@ -104,10 +91,11 @@ export function recent(r, tick, deltaMs) {
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
 
 /** Sub-block means of luma (L) and red (R) codes. With the previous output `hist`, also P: per
- * sub-block, 3 (luma up and down) when at least 7/16 of its pixels rose by a luma step
- * against it and at least 7/16 fell (the darker side below LUMA_DARK), else 0. A sub-block
- * mean cancels such opposing changes (a fine pattern reversing), so the pixel counts catch them
- * (CORE-2515); a change in one direction moves the mean and the trackers catch it. */
+ * sub-block, luma up (1) when at least a quarter of its pixels rose by a luma step against it,
+ * and luma down (2) likewise (the darker side below LUMA_DARK). The mean misses a change over
+ * part of a sub-block and cancels a fine pattern reversing (CORE-2515), while the pixel auditor
+ * counts a field once a quarter of its pixels changed, so the pixel counts catch both
+ * (CORE-2543: a hard-edged hold split one such change into two). */
 export function reduce(px, W, H, L, R, hist, P) {
   for (let j = 0; j < BLOCKS_Y; j++) {
     const y0 = Math.floor((j * H) / BLOCKS_Y), y1 = Math.floor(((j + 1) * H) / BLOCKS_Y);
@@ -132,7 +120,7 @@ export function reduce(px, W, H, L, R, hist, P) {
       const k = j * BLOCKS_X + i;
       L[k] = Math.min(65535, Math.floor((sy + (n >> 1)) / n));
       R[k] = Math.min(65535, Math.floor((sr + (n >> 1)) / n));
-      if (P) P[k] = 16 * up >= 7 * n && 16 * down >= 7 * n ? 3 : 0;
+      if (P) P[k] = (4 * up >= n ? 1 : 0) | (4 * down >= n ? 2 : 0);
     }
   }
 }
@@ -158,32 +146,6 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   let flip = 0;
   const colBlock = Int32Array.from({ length: W }, (_, x) => blockOf(x, W, BLOCKS_X));
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
-  // Per pixel on one axis: the first of the two sub-blocks whose centres it lies between (the
-  // second is the next one) and the second's weight in sixty-fourths. Before the first centre and
-  // after the last the pixel takes its own sub-block alone.
-  const span = (p, size, n) => {
-    const b = blockOf(p, size, n), at = 2 * p + 1;
-    const centre = k => Math.floor(k * size / n) + Math.floor((k + 1) * size / n);
-    const l = at < centre(b) ? b - 1 : b;
-    if (l < 0 || l + 1 >= n) return [b, 0];
-    return [l, Math.floor(64 * (at - centre(l)) / (centre(l + 1) - centre(l)))];
-  };
-  const cols = Array.from({ length: W }, (_, x) => span(x, W, BLOCKS_X));
-  const rows = Array.from({ length: H }, (_, y) => span(y, H, BLOCKS_Y));
-  const colL = Int32Array.from(cols, c => c[0]), colF = Int32Array.from(cols, c => c[1]);
-  const rowL = Int32Array.from(rows, c => c[0]), rowF = Int32Array.from(rows, c => c[1]);
-  // The hold field at each sub-block centre, 0..64: the largest over the held sub-blocks within
-  // four of it on each axis of clamp(72 - 4 d2, 0, 64), d2 the squared distance in sub-blocks. It
-  // is 64 at a held sub-block and its eight neighbours and falls to 0 a little past four away.
-  const field = new Uint8Array(BLOCKS);
-  const fieldAt = (bx, by) => (bx >= BLOCKS_X || by >= BLOCKS_Y ? 0 : field[by * BLOCKS_X + bx]);
-  const FIELD_REACH = 4;
-  // A pixel's red code, as the reduction sums it: R - G - B on linear codes when saturated red.
-  const redOf = (a, i) => {
-    const R = LIN[a[i]], G = LIN[a[i + 1]], B = LIN[a[i + 2]], s = R + G + B;
-    return s > 0 && 5 * R >= 4 * s && R > G + B ? R - G - B : 0;
-  };
-
   const fires = (t, v, step, dark) => {
     scratch.lo = t.lo; scratch.hi = t.hi; scratch.dir = t.dir;
     return trackStep(scratch, v, step, dark);
@@ -275,35 +237,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     const history = bufs[flip];
     flip ^= 1;
     const out = bufs[flip];
-    field.fill(0);
-    for (let k = 0; k < BLOCKS; k++) {
-      if (!holdMask[k]) continue;
-      const bx = k % BLOCKS_X, by = (k - bx) / BLOCKS_X;
-      for (let j = Math.max(0, by - FIELD_REACH); j <= Math.min(BLOCKS_Y - 1, by + FIELD_REACH); j++) {
-        for (let i = Math.max(0, bx - FIELD_REACH); i <= Math.min(BLOCKS_X - 1, bx + FIELD_REACH); i++) {
-          const v = Math.min(64, Math.max(0, 72 - 4 * ((i - bx) * (i - bx) + (j - by) * (j - by))));
-          if (v > field[j * BLOCKS_X + i]) field[j * BLOCKS_X + i] = v;
-        }
-      }
-    }
     for (let y = 0; y < H; y++) {
-      const by = rowBlock[y], t = rowL[y], fy = rowF[y];
+      const by = rowBlock[y];
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        let src = px;
-        if (holdMask[by * BLOCKS_X + colBlock[x]]) src = history;
-        else {
-          const l = colL[x], fx = colF[x];
-          const lin = (fieldAt(l, t) * (64 - fx) + fieldAt(l + 1, t) * fx) * (64 - fy)
-            + (fieldAt(l, t + 1) * (64 - fx) + fieldAt(l + 1, t + 1) * fx) * fy;
-          if (lin > 63) {
-            const u = lin >> 6;
-            const w = (((u * u) >> 12) * (12288 - 2 * u)) >> 12;
-            for (let c = 0; c < 3; c++) out[i + c] = (px[i + c] * (4096 - w) + history[i + c] * w + 2048) >> 12;
-            out[i + 3] = 255;
-            const mh = redOf(history, i), ma = redOf(px, i), mo = redOf(out, i);
-            if (mh === ma && mo === ma) continue;
-          }
-        }
+        const src = holdMask[by * BLOCKS_X + colBlock[x]] ? history : px;
         out[i] = src[i]; out[i + 1] = src[i + 1]; out[i + 2] = src[i + 2]; out[i + 3] = 255;
       }
     }

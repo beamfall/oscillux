@@ -4,8 +4,8 @@
 
 The frame limiter SHALL count, per sub-block, the pixels whose luma code rose by the luma step
 against the previous output and those whose luma code fell by it, the darker side below the dark
-threshold. When at least 7/16 of a sub-block's pixels rose and at least 7/16 fell, the sub-block
-SHALL request a luma transition in each direction.
+threshold. When at least a quarter of a sub-block's pixels rose, the sub-block SHALL request a
+luma transition up; when at least a quarter fell, it SHALL request a luma transition down.
 
 #### Scenario: Fine checkerboard
 
@@ -13,10 +13,17 @@ SHALL request a luma transition in each direction.
 - **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
   the output
 
-#### Scenario: Moving texture
+#### Scenario: A change over part of each sub-block
 
-- **WHEN** the reference visuals render under loud audio
-- **THEN** their mean held fraction of sub-blocks stays within 0.001 of the value before the change
+- **WHEN** the top 2 of every 5 rows toggle between grey 124 and 153 at 10 Hz, so no sub-block's
+  mean moves by a luma step
+- **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
+  the output
+
+#### Scenario: Reference visuals
+
+- **WHEN** the reference visuals render through the limiter under loud audio
+- **THEN** none makes more than 6 large-area luma transitions in any 1 s window of the output
 
 ### Requirement: A paired luma grant spends two tokens
 

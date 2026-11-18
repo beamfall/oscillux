@@ -2,9 +2,10 @@
 // Pass 2, reduce: one fragment per sub-block (64 x 36). Finishes the box reduction of the
 // sub-block's footprint (every pixel counts once) from the rows pass's partial sums to a luma and
 // a red code, and tests the trackers for the transitions this frame would make. A sub-block where
-// at least 7/16 of the pixels rose by a luma step against the previous output and at least
-// 7/16 fell (a fine pattern reversing, which the mean cancels; CORE-2515) requests luma up and
-// down. Inputs uRows
+// at least a quarter of the pixels rose by a luma step against the previous output requests luma
+// up, and likewise down: the mean misses a change over part of a sub-block, or a fine pattern
+// reversing (CORE-2515), that the pixel auditor counts once a quarter of a field's pixels make it
+// (CORE-2543). Inputs uRows
 // (RGBA32UI, 64 x frame height), uT0, uT1; output oS = (luma code, red code, request bits: luma
 // up 1, luma down 2, red up 4, red down 8, 0).
 
@@ -35,7 +36,8 @@ void main() {
         int fl = limiterTrackStep(ivec3(t0.xy, int(t1.x) - 1), luma, LUMA_STEP, LUMA_DARK).w;
         int fr = limiterTrackStep(ivec3(t0.zw, int(t1.y) - 1), red, RED_STEP, NO_DARK).w;
         bits = (fl > 0 ? 1u : 0u) | (fl < 0 ? 2u : 0u) | (fr > 0 ? 4u : 0u) | (fr < 0 ? 8u : 0u);
-        if (16u * up >= 7u * n && 16u * down >= 7u * n) bits |= 3u;
+        if (4u * up >= n) bits |= 1u;
+        if (4u * down >= n) bits |= 2u;
     }
     oS = uvec4(uint(luma), uint(red), bits, 0u);
 }

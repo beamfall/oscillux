@@ -260,7 +260,7 @@ test('an admitted red rise beside a held red fall is not hidden (CORE-2413)', ()
   assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
 });
 
-// Codex review (CORE-2541): a small red step beside luma holds must not be feathered. Blending it
+// Codex review (CORE-2541): a small red step beside luma holds must not be delayed. Blending it
 // delayed the step 30 frames, so it completed a red transition after the red token refilled, and
 // the fall to black 74 frames later made two red transitions within 1 s.
 test('a small red step beside luma holds is not delayed (CORE-2541)', () => {
@@ -320,27 +320,30 @@ export function barCounts(width, height, frames = 60) {
   }
   return perFrame;
 }
+// The pixel counts (a quarter of a sub-block's pixels) are whole pixels, so where the bar's edge
+// crosses exactly a quarter of a sub-block the 4K count can tie the threshold where the 1080p one
+// falls a fraction of a pixel short (CORE-2543). Such a frame may differ by one column of luma
+// requests in each direction; red requests and holds never differ.
 test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   const hd = barCounts(1920, 1080), uhd = barCounts(3840, 2160);
   const differ = hd.map((v, t) => (v === uhd[t] ? -1 : t)).filter(t => t >= 0);
-  assert.deepEqual(differ, [], `requests differ at frames ${differ.slice(0, 5)}: 1080p ${hd[differ[0]]} vs 4K ${uhd[differ[0]]}`);
+  assert.ok(differ.length <= 3, `requests differ at frames ${differ.slice(0, 5)}: 1080p ${hd[differ[0]]} vs 4K ${uhd[differ[0]]}`);
+  for (const t of differ) {
+    const a = hd[t].split(',').map(Number), b = uhd[t].split(',').map(Number);
+    const tie = Math.abs(a[0] - b[0]) <= model.BLOCKS_Y && Math.abs(a[1] - b[1]) <= model.BLOCKS_Y;
+    assert.ok(tie && a[2] === b[2] && a[3] === b[3] && a[4] === b[4], `frame ${t}: 1080p ${hd[t]} vs 4K ${uhd[t]}`);
+  }
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
 
-// CORE-2231, CORE-2328: a hold has no hard edge. A 10 Hz strobe over half a TV 10° field is held
-// while the background drifts a level a frame: the held sub-blocks show history, the background
-// within five sub-blocks of them blends toward history, and the background further away shows the
-// input. A red background is blended too, but never further from history's red than the input.
-function feather(bg) {
+// The output is exact: a pixel of a held sub-block shows history and every other pixel shows the
+// input, so the output makes only the transitions the trackers counted. A 10 Hz strobe over half
+// a TV 10° field is held while the background drifts a level a frame. (Until v0.2.9 the pixels
+// around a hold blended toward history, which delayed admitted changes: CORE-2541, CORE-2543.)
+function exactness(bg) {
   const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
   const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
-  const bw = W / model.BLOCKS_X, bh = H / model.BLOCKS_Y;
-  const seen = { held: 0, blended: 0, input: 0, redOver: 0 }; // blended: background pixels only
-  const LIN = model.LUMA_LUT.map(v => v[3]);
-  const redOf = (a, i) => {
-    const R = LIN[a[i]], G = LIN[a[i + 1]], B = LIN[a[i + 2]], s = R + G + B;
-    return s > 0 && 5 * R >= 4 * s && R > G + B ? R - G - B : 0;
-  };
+  let held = 0;
   for (let t = 0; t < 120; t++) {
     const on = Math.floor(t / 3) % 2 === 1, c = bg(t);
     for (let y = 0; y < H; y++) {
@@ -351,94 +354,77 @@ function feather(bg) {
       }
     }
     const r = lim.step(px, DT);
-    const hm = (bx, by) => (bx < 0 || by < 0 || bx >= model.BLOCKS_X || by >= model.BLOCKS_Y ? 0 : r.holdMask[by * model.BLOCKS_X + bx]);
     for (let y = 0; y < H; y++) {
+      const by = model.blockOf(y, H, model.BLOCKS_Y);
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        const bx = Math.floor(x / bw), by = Math.floor(y / bh);
-        const inRect = x >= W / 4 && x < W * 11 / 16 && y >= H / 3 && y < H * 13 / 18;
-        let near = 0;
-        for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) near |= hm(bx + dx, by + dy);
+        const h = r.holdMask[by * model.BLOCKS_X + model.blockOf(x, W, model.BLOCKS_X)];
+        held += h;
+        const src = h ? prev : px;
         for (let ch = 0; ch < 3; ch++) {
-          const o = r.out[i + ch], a = px[i + ch], h = prev[i + ch];
-          if (hm(bx, by)) assert.equal(o, h, `frame ${t}: a held pixel at ${x},${y} does not show history`);
-          else if (!near) assert.equal(o, a, `frame ${t}: a pixel at ${x},${y} far from any hold is not the input`);
-          else assert.ok(o >= Math.min(a, h) && o <= Math.max(a, h), `frame ${t}: ${o} at ${x},${y} is outside ${a}..${h}`);
+          assert.equal(r.out[i + ch], src[i + ch], `frame ${t}: pixel ${x},${y} shows neither ${h ? 'history' : 'the input'}`);
         }
-        const mo = redOf(r.out, i), mh = redOf(prev, i), ma = redOf(px, i);
-        if (mo < Math.min(mh, ma) || mo > Math.max(mh, ma)) seen.redOver++;
-        if (hm(bx, by)) seen.held++;
-        else if (!inRect && r.out[i + 1] !== px[i + 1]) seen.blended++;
-        else seen.input++;
       }
     }
     prev.set(r.out);
   }
-  return seen;
+  return held;
 }
-test('a held sub-block blends into its neighbours', () => {
-  const seen = feather(t => { const v = 60 + (t % 60); return [v, v, v]; });
-  assert.ok(seen.held > 0, 'nothing was held');
-  assert.ok(seen.blended > 0, 'no pixel beside a hold was blended');
-});
-// Warm oranges (r > g + b, but not saturated red) blend beside a hold, so a hold shows no hard tile
-// on them; a saturated red whose red code changes shows the input (CORE-2413, CORE-2541).
-test('an orange pixel beside a hold blends (CORE-2413)', () => {
-  const seen = feather(t => [255, 150 + (t % 60), 0]);
-  assert.ok(seen.held > 0, 'nothing was held');
-  assert.ok(seen.blended > 0, 'no orange pixel beside a hold was blended');
-  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
-});
-test('a red pixel beside a hold is not blended while its red changes (CORE-2541)', () => {
-  const seen = feather(t => [200, 20 + (t % 60), 0]);
-  assert.ok(seen.held > 0, 'nothing was held');
-  assert.equal(seen.blended, 0, 'a red pixel whose red changed was blended');
-});
-// Codex review of CORE-2413: while red [160,0,0] fades to orange [255,140,0] (not red), a blend of the
-// two can be redder than either, a red rise the red token never granted.
-test('a red-to-orange fade beside a hold never blends past its history red (CORE-2413)', () => {
-  const seen = feather(t => [160 + Math.round(95 * t / 119), Math.round(140 * t / 119), 0]);
-  assert.ok(seen.held > 0, 'nothing was held');
-  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
+test('a held sub-block shows history and every other pixel the input', () => {
+  assert.ok(exactness(t => { const v = 60 + (t % 60); return [v, v, v]; }) > 0, 'nothing was held');
+  assert.ok(exactness(t => [255, 150 + (t % 60), 0]) > 0, 'nothing was held');
+  assert.ok(exactness(t => [200, 20 + (t % 60), 0]) > 0, 'nothing was held');
 });
 
-// CORE-2328: held regions blend smoothly in space. A grey wave travelling fast enough to be held
-// is smooth everywhere in the input, so any step the output shows across a sub-block boundary is
-// the limiter's. Per boundary segment (one sub-block side) the step is the mean, over its pixels,
-// of how far the difference across the boundary exceeds the differences on either side of it; the
-// test takes the output's step less the input's and bounds the largest over every segment and
-// frame. The v0.2.3 feather measures 91 here.
-test('a hold leaves no step across sub-block boundaries', () => {
+// Codex review (CORE-2543): beside a red region held by the red budget, a luma rise admitted at
+// frame 10 was blended toward history until the hold released at frame 82, after the luma token it
+// spent had refilled, and the black/colour alternation from frame 84 then made seven luma
+// transitions within 0.95 s. The rise must show when it is admitted, whatever its colour.
+for (const rise of [[180, 110, 0], [140, 140, 140], [90, 140, 200]]) {
+  test(`an admitted luma rise beside a red hold is not delayed: ${rise} (CORE-2543)`, () => {
+    const w = 128, h = 72;
+    const lim = model.createLimiter({ width: w, height: h });
+    const audit = createAuditor({ width: w, height: h });
+    const px = new Uint8Array(w * h * 4);
+    const shade = (cat, t) => {
+      if (cat === 0) return t === 1 ? [0, 0, 0] : [160, 0, 0];
+      if (t < 10) return [0, 0, 0];
+      if (t < 84) return rise;
+      return Math.floor((t - 84) / 11) % 2 === 0 ? [0, 0, 0] : rise;
+    };
+    for (let t = 0; t < 145; t++) {
+      for (let y = 0, i = 0; y < h; y++) {
+        for (let x = 0; x < w; x++, i += 4) {
+          const [r, g, b] = shade((Math.floor(x / 2) + Math.floor(y / 2)) % 3, t);
+          px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+        }
+      }
+      audit.push(lim.step(px, DT).out, DT);
+    }
+    assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
+    assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
+  });
+}
+
+// CORE-2543: a change over part of each sub-block. The top 2 of every 5 rows toggle between grey
+// 124 and 153 at 10 Hz: 40% of the frame's pixels change by more than a luma step, which the
+// pixel auditor counts, while each sub-block's mean moves less than half a step, which the
+// trackers miss. The pixel counts request it once a quarter of a sub-block's pixels change.
+test('a 10 Hz change over 2/5 of every sub-block is limited (CORE-2543)', () => {
+  const input = createAuditor({ width: W, height: H });
   const lim = model.createLimiter({ width: W, height: H });
+  const audit = createAuditor({ width: W, height: H });
   const px = new Uint8Array(W * H * 4);
-  const xe = Array.from({ length: model.BLOCKS_X + 1 }, (_, k) => Math.floor(k * W / model.BLOCKS_X));
-  const ye = Array.from({ length: model.BLOCKS_Y + 1 }, (_, k) => Math.floor(k * H / model.BLOCKS_Y));
-  const g = (a, x, y) => a[(y * W + x) * 4 + 1];
-  const jump = (a, x, y, dx, dy) => {
-    const d = k => Math.abs(g(a, x + k * dx, y + k * dy) - g(a, x + (k - 1) * dx, y + (k - 1) * dy));
-    return Math.max(0, d(0) - Math.max(d(-1), d(1)));
-  };
-  let worst = 0, heldFrames = 0;
   for (let t = 0; t < 300; t++) {
-    for (let y = 0; y < H; y++) {
-      for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        const v = Math.round(128 + 90 * Math.sin(2 * Math.PI * (6 * t * DT - x / (W * 1.5) - y / (H * 1.95))));
-        px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
-      }
+    const top = Math.floor(t / 3) % 2 === 0 ? 124 : 153;
+    for (let y = 0, i = 0; y < H; y++) {
+      const v = y % 5 < 2 ? top : 124;
+      for (let x = 0; x < W; x++, i += 4) { px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255; }
     }
-    const r = lim.step(px, DT);
-    if (!r.held) continue;
-    heldFrames++;
-    for (let by = 0; by < model.BLOCKS_Y; by++) {
-      for (let bx = 0; bx < model.BLOCKS_X; bx++) {
-        let v = 0, h = 0;
-        if (bx > 0) for (let y = ye[by]; y < ye[by + 1]; y++) v += jump(r.out, xe[bx], y, 1, 0) - jump(px, xe[bx], y, 1, 0);
-        if (by > 0) for (let x = xe[bx]; x < xe[bx + 1]; x++) h += jump(r.out, x, ye[by], 0, 1) - jump(px, x, ye[by], 0, 1);
-        worst = Math.max(worst, v / (ye[by + 1] - ye[by]), h / (xe[bx + 1] - xe[bx]));
-      }
-    }
+    input.push(px, DT);
+    audit.push(lim.step(px, DT).out, DT);
   }
-  assert.ok(heldFrames > 100, `the wave was held on only ${heldFrames} frames`);
-  assert.ok(worst <= 12, `a sub-block boundary steps ${worst.toFixed(1)} levels more than the input`);
+  assert.ok(input.maxPerWindow('luma') > 6, `the input makes only ${input.maxPerWindow('luma')} luma transitions per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

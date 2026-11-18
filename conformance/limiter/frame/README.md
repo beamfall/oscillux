@@ -14,9 +14,10 @@ Metal where available) against the vectors.
   inverts, a thin bar) is measured by area at any resolution, not sampled at points. Detail finer
   than a sub-block averages inside it, so the reduction also counts, against the previous output,
   the pixels whose luma rose by a step and those whose luma fell (the darker side below the dark
-  threshold). When at least 7/16 of a sub-block's pixels rose and 7/16 fell (a fine pattern that
-  inverts while its mean stays constant), the sub-block requests a luma transition in each
-  direction. The grant admits the pair only once the token has also stood unspent for a refill
+  threshold). When at least a quarter of a sub-block's pixels rose, the sub-block requests a
+  luma rise, and likewise a fall: the mean misses a change over part of a sub-block and cancels a
+  fine pattern that inverts, while the pixel auditor counts a field once a quarter of its pixels
+  changed (CORE-2515, CORE-2543). A sub-block with both requests a transition in each direction. The grant admits the pair only once the token has also stood unspent for a refill
   period, and leaves two tokens of deficit after it (CORE-2515).
 - Each sub-block tracks a luma code with the WCAG audit counter's step, and a red code with an
   eighth of it (512 codes, 2.5 on the 320 * (R - G - B) scale): a sub-block's mean dilutes red
@@ -35,11 +36,8 @@ Metal where available) against the vectors.
   one large-area red transition in any 1 s window, so no red flash (ITU-R BT.1702), and a held
   red change catches up instead of freezing (CORE-2382).
 - A sub-block whose transition is not admitted holds the previous output.
-- A hold blends into the picture around it. The blend weight is 1 at the centre of every
-  sub-block that is held or adjoins a held one and falls with distance to 0 a little past four
-  sub-blocks from the hold, bilinear between centres and eased, so it is continuous across
-  sub-block boundaries and round. A pixel is not blended (it shows the input) unless its linear
-  red code is the same in the previous output, the input and the blend.
+- Every pixel outside a held sub-block shows the input exactly; nothing blends around a hold, so
+  the output makes only the transitions the trackers counted (CORE-2543).
 
 The model's header comment gives the exact arithmetic.
 
