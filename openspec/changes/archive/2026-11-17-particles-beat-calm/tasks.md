@@ -14,5 +14,5 @@
 
 ## 3. Close
 
-- [ ] 3.1 `make gate`
-- [ ] 3.2 Archive this change (`openspec archive particles-beat-calm`)
+- [x] 3.1 `make gate`
+- [x] 3.2 Archive this change (`openspec archive particles-beat-calm`)

@@ -1,0 +1,52 @@
+{
+  "artifacts": [
+    {
+      "file": "oscillux-wasm.tgz",
+      "sha256": "3255134c6ef2c091affea7cf38b895a897ab5c67c5a081557eda936793c205d7",
+      "sizeBytes": 185806
+    },
+    {
+      "file": "oscillux-xcframework.zip",
+      "sha256": "9dcc8ea91376f10edb4a7c934cf1050f29c35c748d565cd6ec6136b826526b61",
+      "sizeBytes": 4143023
+    },
+    {
+      "file": "oscillux.aar",
+      "sha256": "6da32b9b7df39888fe9e853251d0ee5a6c0aaeba55ffa1f94229ccb5ace5f7be",
+      "sizeBytes": 709383
+    }
+  ],
+  "build": {
+    "appleSdks": {
+      "appletvos": "27.2",
+      "appletvsimulator": "27.2",
+      "iphoneos": "27.2",
+      "iphonesimulator": "27.2",
+      "macosx": "27.2"
+    },
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "host": "macOS-27.2.1-arm64-arm-64bit",
+    "javac": "javac 17.0.21.0.3",
+    "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 28.2.13676358\nPkg.BaseRevision = 28.2.13676358\nPkg.ReleaseName = r28c",
+    "python": "3.9.6 (default, Oct 19 2026, 19:18:13) \n[Clang 21.0.0 (clang-2100.4.1.1)]",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "sourceDirty": false,
+    "sourceRevision": "2602d6ed6754a8126997c811054ce3430dd811e3",
+    "wasmBindgen": "wasm-bindgen 0.2.130",
+    "xcode": "Xcode 27.2\nBuild version 27B52"
+  },
+  "details": {
+    "wasm": {
+      "bytes": 286486,
+      "gzipBudgetBytes": 102400,
+      "gzipBytes": 97868
+    }
+  },
+  "license": "AGPL-3.0-only",
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "apple",
+    "android",
+    "wasm"
+  ]
+}
