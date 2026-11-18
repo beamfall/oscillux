@@ -18,23 +18,26 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float sparkAmt = mix(0.4, 1.7, u.param2);
 
     vec3 glow = vec3(0.0);
+    // Continuous beat clock for everything that scrolls with the beat:
+    // beatPhase alone wraps each beat and jumped every arc cell at once.
+    float beatClock = u.beatCount + u.beatPhase;
 
     float coreFill = exp(-r * r / max(core * core, 1e-4));
-    glow += palRoleFog(0.58 + 0.1 * u.spectralCentroid, u) * coreFill * (0.12 + u.level * 0.42 + u.onset * 0.55);
+    glow += palRoleFog(0.58 + 0.1 * u.spectralCentroid, u) * coreFill * (0.12 + u.level * 0.42 + u.bassImpact * 0.12);
     glow += palRoleBass(0.55, u) * aaLine(r - core, 0.006) * (1.0 + 2.2 * u.bassImpact + 1.8 * u.onset);
 
     for (int k = 0; k < 8; k++) {
         if (float(k) >= orbitCount) break;
         float fk = float(k);
         float rr = core + 0.08 + fk * 0.085;
-        float bandv = bandAtWrapped(u, fk / 8.0 + ang * SPOKE_COUNT + u.beatPhase * 0.08);
+        float bandv = bandAtWrapped(u, fk / 8.0 + ang * SPOKE_COUNT + beatClock * 0.08);
         float orbitPhase = beatRadians(u, fk * 0.11);
         float wobble = sin(a * (3.0 + fk) + u.time * (0.8 + fk * 0.1) + orbitPhase * 0.18) * 0.012 * bandv;
         float line = aaLine(r - rr - wobble, 0.0032);
-        float cell = fract(ang * (18.0 + fk * 2.0) - u.time * 0.08 - fk * 0.13 - u.beatPhase * (0.45 + fk * 0.05));
+        float cell = fract(ang * (18.0 + fk * 2.0) - u.time * 0.08 - fk * 0.13 - beatClock * (0.45 + fk * 0.05));
         float arc = smoothstep(0.02, 0.10, cell) * smoothstep(0.72, 0.52, cell);
         float phaseSpark = phasePulse(u, fract(fk * 0.17), 0.18);
-        vec3 c = palRoleTrace(ang + fk * 0.09 + 0.1 * u.spectralCentroid + u.beatPhase * 0.12, u);
+        vec3 c = palRoleTrace(ang + fk * 0.09 + 0.1 * u.spectralCentroid + beatClock * 0.12, u);
         glow += c * line * arc * (0.35 + bandv * 3.2 + phaseSpark * 0.45 + u.beat * 0.6);
     }
 
@@ -53,7 +56,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     glow = accentize(glow, u.accent, 0.12);
     vec3 col = feedbackTrail(glow, uv,
                              min(u.trailDecay, 0.90),
-                             0.003 + 0.007 * u.bassImpact,
-                             0.002 + 0.004 * u.beat);
+                             0.003 + 0.002 * u.bassImpact,
+                             0.002 + 0.001 * u.beat);
     return col; // LINEAR HDR — post chain tonemaps
 }

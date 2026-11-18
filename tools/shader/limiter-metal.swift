@@ -124,7 +124,7 @@ final class Limiter {
     func passes() -> [(Int, [MTLTexture], [MTLTexture])] {
         let a = cur, b = cur ^ 1
         return [
-            (0, [rows], [frame]),
+            (0, [rows], [frame, out[a]]),
             (1, [s], [rows, t0[a], t1[a]]),
             (2, [c], [s, t2[a]]),
             (3, [win], [c]),

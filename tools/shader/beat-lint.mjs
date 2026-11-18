@@ -208,7 +208,10 @@ async function main() {
     }));
   });
   const all = mergeVisualSets(sets);
-  const unknown = [...ONLY, ...ambient.keys()].filter(id => !all.some(v => v.id === id));
+  // Exemptions name ids across the default merged set; a run over named manifests skips the
+  // ones those manifests lack, and the default run still flags stale exemptions (CORE-2494).
+  const exempt = positionals.length ? [] : [...ambient.keys()];
+  const unknown = [...ONLY, ...exempt].filter(id => !all.some(v => v.id === id));
   if (unknown.length) {
     console.error(`beat-lint: unknown visual id(s): ${unknown.join(', ')}`);
     process.exit(2);

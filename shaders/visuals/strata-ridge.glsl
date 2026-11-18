@@ -42,8 +42,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float baseline = 0.14 + 0.70 * (1.0 - pow(1.0 - t, 1.65));
 
         // Older traces flatten and calm down; bass lifts the near peaks.
+        // The instant bassImpact kick stays small: tall bright ridges jumping
+        // together on every hit swept a third of the frame at once.
         float amp = drama * mix(0.26, 0.055, t)
-                  * (1.0 + 0.9 * u.bass * (1.0 - t) + 0.35 * u.bassImpact * (1.0 - t));
+                  * (1.0 + 0.55 * u.bass * (1.0 - t) + 0.10 * u.bassImpact * (1.0 - t));
         float crest = baseline + ridgeTrace(vec2(x, fi), u) * amp;
 
         // Occlusion: a nearer ridge's peak hides the trace lines behind it.

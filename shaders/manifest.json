@@ -4389,9 +4389,9 @@
         "hlsl"
       ],
       "imageInput": false,
-      "header": "// Wave Tunnel: Fly down a tunnel extruded from the trace history: every depth ring is a past waveform slice, beats lurch the camera forward, onsets flash the nearest ring, timbre tilts the flight path.",
+      "header": "// Wave Tunnel: Fly down a tunnel extruded from the trace history: every depth ring is a past waveform slice, beats lurch the camera forward, timbre tilts the flight path.",
       "name": "Wave Tunnel",
-      "blurb": "Fly down a tunnel extruded from the trace history: every depth ring is a past waveform slice, beats lurch the camera forward, onsets flash the nearest ring, timbre tilts the flight path.",
+      "blurb": "Fly down a tunnel extruded from the trace history: every depth ring is a past waveform slice, beats lurch the camera forward, timbre tilts the flight path.",
       "tier": "flagship",
       "input": "spectrum",
       "overlay": false,

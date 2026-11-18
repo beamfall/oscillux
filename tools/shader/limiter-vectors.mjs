@@ -32,10 +32,13 @@ export const CASES = [
   { name: 'red-stripes-10hz', frames: 90, signal: { kind: 'stripes', hz: 10, every: 3, width: 1, on: [110, 0, 0], off: K, bg: K } },
   { name: 'red-dark-10hz-half', frames: 90, signal: { kind: 'square', hz: 10, on: [200, 0, 0], off: [90, 0, 0], rect: [0, 0, 0.5, 1], bg: K } },
   { name: 'tv-half-field-10hz', frames: 120, geometry: 'tv', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.25, 1 / 3, 0.6875, 13 / 18], bg: K } },
+  // CORE-2413: an orange background drifting beside a held strobe is feathered like any other.
+  { name: 'tv-half-field-10hz-orange-drift', frames: 120, geometry: 'tv', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.25, 1 / 3, 0.6875, 13 / 18], bg: [200, 20, 0], bgStep: [0, 1, 0] } },
   { name: 'desktop-field-10hz', frames: 90, geometry: 'desktop', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.375, 1 / 3, 0.5625, 2 / 3], bg: G } },
   { name: 'phone-field-10hz', frames: 90, geometry: 'phone', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.25, 0.25, 0.5, 0.75], bg: K } },
   { name: 'checker-half-cell-10hz', frames: 120, signal: { kind: 'checker', hz: 10, size: [1 / 32, 1 / 18], on: W, off: K } },
   { name: 'odd-size-checker-10hz', frames: 90, width: 331, height: 193, signal: { kind: 'checker', hz: 10, size: [0.05, 0.07], on: W, off: G } },
+  { name: 'fine-checker-10hz', frames: 90, width: 640, height: 360, signal: { kind: 'checker', hz: 10, size: [4 / 640, 4 / 360], on: W, off: K } },
 ];
 
 export function fnv1a(bytes) {

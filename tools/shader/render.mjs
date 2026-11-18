@@ -6,7 +6,10 @@
 // through Metal (metal-smoke.swift) and diffs it against the WebGL frame.
 //
 //   node tools/shader/render.mjs <manifest.json> [--out out/shader-renders]
-//        [--frames 96] [--only id1,id2] [--img artwork.png]
+//        [--frames 96] [--only id1,id2] [--img artwork.png] [--size 480x270]
+//
+// --size renders at another frame size, for example a portrait phone's 390x844
+// to check how a visual fits a narrow frame.
 //
 // Exits 2 when any visual fails to compile, renders blank, whites out, or
 // (macOS) drifts from its WebGL reference. An "msl" visual without a "web"
@@ -30,10 +33,11 @@ const { values: opts, positionals } = parseArgs({
     frames: { type: 'string', default: '96' },
     only: { type: 'string', default: '' },
     img: { type: 'string', default: '' },
+    size: { type: 'string', default: '480x270' },
   },
 });
 if (positionals.length !== 1) {
-  console.error('usage: render.mjs <manifest.json> [--out DIR] [--frames N] [--only id1,id2] [--img PNG]');
+  console.error('usage: render.mjs <manifest.json> [--out DIR] [--frames N] [--only id1,id2] [--img PNG] [--size WxH]');
   process.exit(64);
 }
 const manifest = loadManifest(positionals[0]);
@@ -42,7 +46,9 @@ const OUT = opts.out ? resolve(opts.out) : join(ROOT, 'out', 'shader-renders');
 const CACHE = join(ROOT, 'out', 'cache', 'metal-module-cache');
 const FRAMES = parseInt(opts.frames, 10);
 const ONLY = opts.only.split(',').filter(Boolean);
-const W = 480, H = 270;
+const SIZE = /^(\d+)x(\d+)$/.exec(opts.size);
+if (!SIZE) { console.error('render.mjs: --size must be WxH, for example 390x844'); process.exit(64); }
+const W = Number(SIZE[1]), H = Number(SIZE[2]);
 const MSL_PIXEL_DIFF_LIMIT = 0.40;
 const CLIP_BLOB_LIMIT = 0.0025;
 const CLIP_BLOB_RADIUS = 2;

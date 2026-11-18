@@ -10,6 +10,41 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- Visuals fit the frame's aspect (CORE-2491). `centered()` and `motionCentered()` in
+  `shaders/library.glsl` lean toward the frame's short side below aspect 1 (scale aspect^-0.7),
+  so subjects stay in frame on a portrait phone; output at 16:9 and wider is unchanged. Spectrum,
+  Terrain and Spectral City choose their column count from the frame aspect with the new
+  `fitColumns()`, never under one column per 4 px, so bars are not squeezed together on a phone.
+  Ink sizes its dye splats against the short side and no longer whites out in portrait.
+- Visuals keep within the general flash limit on their own (CORE-2492): under a loud master no
+  catalogue visual makes more than 6 large-area luma transitions a second or any large-area red
+  transition before the limiter, so the limiter holds far less (stale tiles). Beat accents in
+  about 30 visuals are softer or ride on motion instead of brightness; Wave Tunnel's rings no
+  longer flash on onsets. `make visual-flash-check` runs the budget
+  (`limiter-red-audit.mjs --max-luma`).
+
+### Fixed
+
+- The frame flash limiter now limits fine patterns that reverse inside a sub-block, such as a
+  10 Hz checkerboard of 4 px squares, whose sub-block means never change. The `rows` pass reads
+  the previous output and counts pixels whose luma rose or fell by a step; a sub-block where at
+  least 7/16 rose and 7/16 fell requests luma up and down, granted together at two tokens
+  (CORE-2515). **Host binding change:** the `rows` pass now samples `uHist` (the previous output,
+  the same texture the `output` pass reads) at texture unit 1 besides `uFrame` at unit 0; a host
+  that does not bind it reads an unbound sampler. Frame conformance vectors re-recorded, with a
+  new `fine-checker-10hz` case.
+- The frame flash limiter's output pass feathers around a held sub-block on warm and red pixels
+  too, instead of skipping every pixel with `r > g + b` (most oranges), which showed as hard
+  rectangular tiles. A blended pixel whose saturated-red code would move further from history
+  than the input's shows the input instead, so the feather adds no red transition (CORE-2413).
+  Frame conformance vectors re-recorded.
+- Feedback trails (`feedbackTrail`) and Ink's advection scale their per-frame decay, zoom and
+  rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled
+  past the frame edge fades out instead of streaking inward from the edge texel. The GLSL ES 3.00
+  wrapper declares `precision highp sampler2D` (CORE-2480).
+
 ## [0.2.8] - 2026-11-17
 
 ### Fixed

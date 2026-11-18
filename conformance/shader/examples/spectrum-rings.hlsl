@@ -169,28 +169,32 @@ float3 suppressGreenCast(inout float3 c)
 
 float3 feedbackTrail(float3 col, float2 uv, float decay, float zoom, float rotAmt)
 {
-    float2 q = uv - 0.5f.xx;
-    float param = rotAmt;
-    q = mul(q, rot2(param));
-    q *= (1.0f - zoom);
-    float3 param_1 = uPrevTex.Sample(uSamp, q + 0.5f.xx).xyz;
-    float3 _312 = suppressGreenCast(param_1);
-    float3 p = _312;
-    float _320;
+    float _285;
     if (ub_dt > 0.0f)
     {
-        _320 = ub_dt * 60.0f;
+        _285 = min(ub_dt * 60.0f, 4.0f);
     }
     else
     {
-        _320 = 1.0f;
+        _285 = 1.0f;
     }
-    float k = pow(clamp(decay, 0.0f, 0.89999997615814208984375f), _320);
+    float n = _285;
+    float2 q = uv - 0.5f.xx;
+    float param = rotAmt * n;
+    q = mul(q, rot2(param));
+    q *= pow(max(1.0f - zoom, 9.9999997473787516355514526367188e-05f), n);
+    float2 s = q + 0.5f.xx;
+    float2 out2 = max(-s, s - 1.0f.xx);
+    float inside = clamp(1.0f - (32.0f * max(max(out2.x, out2.y), 0.0f)), 0.0f, 1.0f);
+    float3 param_1 = uPrevTex.Sample(uSamp, s).xyz;
+    float3 _353 = suppressGreenCast(param_1);
+    float3 p = _353 * inside;
+    float k = pow(clamp(decay, 0.0f, 0.89999997615814208984375f), n);
     float3 param_2 = col;
-    float3 _332 = suppressGreenCast(param_2);
-    float3 param_3 = max(_332, p * k);
-    float3 _338 = suppressGreenCast(param_3);
-    return _338;
+    float3 _364 = suppressGreenCast(param_2);
+    float3 param_3 = max(_364, p * k);
+    float3 _370 = suppressGreenCast(param_3);
+    return _370;
 }
 
 float3 visual(float2 uv, VisualUniforms u)
@@ -199,8 +203,8 @@ float3 visual(float2 uv, VisualUniforms u)
     float r = length(p);
     VisualUniforms param = u;
     int param_1 = int(clamp(r * 1.60000002384185791015625f, 0.0f, 0.999000012874603271484375f) * 64.0f);
-    float _368 = spectrumBin(param, param_1);
-    float e = _368;
+    float _400 = spectrumBin(param, param_1);
+    float e = _400;
     float ring = smoothstep(0.0599999986588954925537109375f, 0.0f, abs(frac((r * 8.0f) - (u.time * 0.5f)) - 0.5f) - (0.119999997317790985107421875f * e));
     float3 hue = 0.5f.xxx + (cos(((u.palette.z + r).xxx + float3(0.0f, 0.3300000131130218505859375f, 0.670000016689300537109375f)) * 6.28318023681640625f) * 0.5f);
     float3 col = ((hue * ring) * (0.4000000059604644775390625f + (1.2000000476837158203125f * e))) + (((u.accent.xyz * u.beat) * 0.1500000059604644775390625f) * max(1.0f - r, 0.0f));
@@ -218,8 +222,8 @@ void frag_spectrum_rings_inner()
     float2 param = vUV;
     VisualUniforms param_1 = u;
     float3 param_2 = visual(param, param_1);
-    float3 _459 = suppressGreenCast(param_2);
-    outColor = float4(_459, 1.0f);
+    float3 _491 = suppressGreenCast(param_2);
+    outColor = float4(_491, 1.0f);
     if (u.time < (-100000002004087734272.0f))
     {
         outColor += (uImageTex.Sample(uSamp, 0.0f.xx) + uPrevTex.Sample(uSamp, 0.0f.xx));

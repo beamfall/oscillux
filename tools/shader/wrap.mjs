@@ -33,17 +33,25 @@ const result = (imageInput, transition) => transition
 const TRANSITION_MACROS = `#define FROM(x) IMG(x).rgb
 #define TO(x) PREV(x).rgb`;
 
-// decay is authored per 60 Hz frame; raising it to dt*60 keeps the trail's
-// persistence in seconds the same at 30/60/120 Hz. dt <= 0 (no frame clock)
-// applies one 60 Hz step. dt is the host frame-delta uniform expression.
+// decay, zoom and rotAmt are authored per 60 Hz frame; scaling them by n =
+// dt*60 (decay^n, (1 - zoom)^n, rotAmt n) keeps the trail's persistence and
+// motion in seconds the same at 30/60/120 Hz. dt <= 0 (no frame clock) applies
+// one 60 Hz step; n is capped at 4 so a stalled frame does not jump. History
+// sampled outside the frame fades to nothing over 1/32 of it instead of
+// repeating the edge texel, which feedback would carry inward as streaks.
+// dt is the host frame-delta uniform expression.
 function feedbackTrail(imageInput, dt) {
   const grade = finish(imageInput);
   return `vec3 feedbackTrail(vec3 col, vec2 uv, float decay, float zoom, float rotAmt) {
+    float n = ${dt} > 0.0 ? min(${dt} * 60.0, 4.0) : 1.0;
     vec2 q = uv - 0.5;
-    q = rot2(rotAmt) * q;
-    q *= (1.0 - zoom);
-    vec3 p = ${grade}(PREV(q + 0.5).rgb);
-    float k = pow(clamp(decay, 0.0, 0.90), ${dt} > 0.0 ? ${dt} * 60.0 : 1.0);
+    q = rot2(rotAmt * n) * q;
+    q *= pow(max(1.0 - zoom, 1e-4), n);
+    vec2 s = q + 0.5;
+    vec2 out2 = max(-s, s - 1.0);
+    float inside = clamp(1.0 - 32.0 * max(max(out2.x, out2.y), 0.0), 0.0, 1.0);
+    vec3 p = ${grade}(PREV(s).rgb) * inside;
+    float k = pow(clamp(decay, 0.0, 0.90), n);
     return ${grade}(max(${grade}(col), p * k));
 }`;
 }
@@ -87,6 +95,7 @@ export function createWrapper({ prelude }) {
     return `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler2D;
 uniform sampler2D uImage;
 uniform sampler2D uPrev;
 #define IMG(x) texture(uImage,(x))

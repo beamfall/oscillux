@@ -154,28 +154,32 @@ float3 sanitizeColor(inout float3 c)
 
 float3 feedbackTrail(float3 col, float2 uv, float decay, float zoom, float rotAmt)
 {
-    float2 q = uv - 0.5f.xx;
-    float param = rotAmt;
-    q = mul(q, rot2(param));
-    q *= (1.0f - zoom);
-    float3 param_1 = uPrevTex.Sample(uSamp, q + 0.5f.xx).xyz;
-    float3 _268 = sanitizeColor(param_1);
-    float3 p = _268;
-    float _276;
+    float _241;
     if (ub_dt > 0.0f)
     {
-        _276 = ub_dt * 60.0f;
+        _241 = min(ub_dt * 60.0f, 4.0f);
     }
     else
     {
-        _276 = 1.0f;
+        _241 = 1.0f;
     }
-    float k = pow(clamp(decay, 0.0f, 0.89999997615814208984375f), _276);
+    float n = _241;
+    float2 q = uv - 0.5f.xx;
+    float param = rotAmt * n;
+    q = mul(q, rot2(param));
+    q *= pow(max(1.0f - zoom, 9.9999997473787516355514526367188e-05f), n);
+    float2 s = q + 0.5f.xx;
+    float2 out2 = max(-s, s - 1.0f.xx);
+    float inside = clamp(1.0f - (32.0f * max(max(out2.x, out2.y), 0.0f)), 0.0f, 1.0f);
+    float3 param_1 = uPrevTex.Sample(uSamp, s).xyz;
+    float3 _311 = sanitizeColor(param_1);
+    float3 p = _311 * inside;
+    float k = pow(clamp(decay, 0.0f, 0.89999997615814208984375f), n);
     float3 param_2 = col;
-    float3 _288 = sanitizeColor(param_2);
-    float3 param_3 = max(_288, p * k);
-    float3 _294 = sanitizeColor(param_3);
-    return _294;
+    float3 _322 = sanitizeColor(param_2);
+    float3 param_3 = max(_322, p * k);
+    float3 _328 = sanitizeColor(param_3);
+    return _328;
 }
 
 float3 visual(float2 uv, VisualUniforms u)
@@ -199,8 +203,8 @@ void frag_image_ripple_inner()
     float2 param = vUV;
     VisualUniforms param_1 = u;
     float3 param_2 = visual(param, param_1);
-    float3 _374 = sanitizeColor(param_2);
-    outColor = float4(_374, 1.0f);
+    float3 _407 = sanitizeColor(param_2);
+    outColor = float4(_407, 1.0f);
     if (u.time < (-100000002004087734272.0f))
     {
         outColor += (uImageTex.Sample(uSamp, 0.0f.xx) + uPrevTex.Sample(uSamp, 0.0f.xx));

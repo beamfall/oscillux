@@ -11,11 +11,13 @@ vec2 emitterPos(float fi, float driftAmt, VisualUniforms u) {
     float bc = floor(u.beatCount);
     vec2 aNow = (hash22(vec2(fi * 7.31 + 11.0, bc + 23.0)) - 0.5) * vec2(1.30, 0.95);
     vec2 aPrev = (hash22(vec2(fi * 7.31 + 11.0, bc - 1.0 + 23.0)) - 0.5) * vec2(1.30, 0.95);
-    vec2 anchor = mix(aPrev, aNow, smoothstep(0.0, 0.30, u.beatPhase));
+    // ease across the whole beat: a fast re-anchor slid the whole fringe
+    // field at once, flipping every pixel's brightness on each beat
+    vec2 anchor = mix(aPrev, aNow, smoothstep(0.0, 1.0, u.beatPhase));
     vec2 drift = vec2(sin(u.time * 0.21 + fi * 2.09), cos(u.time * 0.165 + fi * 1.37));
     // fixed triangulated homes keep the three sources spread apart
     vec2 home = vec2(cos(fi * 2.0944 + 0.65), sin(fi * 2.0944 + 0.65)) * 0.48;
-    return home + anchor * 0.45 * driftAmt + drift * 0.18 * driftAmt;
+    return home + anchor * 0.22 * driftAmt + drift * 0.18 * driftAmt;
 }
 
 // Band trace as a radial ring profile: crest value in ~[-1, 1] at ring coord q.
@@ -47,7 +49,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float fi = float(i);
         vec2 pos = emitterPos(fi, driftAmt, u);
         float r = length(p - pos) + 1e-4;
-        float speedI = 0.55 + 0.25 * fi + 0.35 * u.level;
+        float speedI = 0.28 + 0.12 * fi + 0.15 * u.level;
         float q = r * freq - u.time * speedI - fi * 0.7;
 
         float s = traceProfile(q, fi, u);
@@ -61,17 +63,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 tint = (i == 0) ? palRoleBass(0.10, u)
                   : ((i == 1) ? palRoleTrace(0.45 + 0.08 * u.spectralCentroid, u)
                               : palRoleTreble(0.75, u));
-        col += tint * crest * 0.85;
+        col += tint * crest * 0.25;
 
         // Emitter core: a small breathing coal.
         float coreGlow = exp(-r * r * 90.0) * (0.6 + 1.8 * e * 0.4);
         col += tint * coreGlow * 1.4;
 
         // Beat shockwave: soft expanding ring from the fresh anchor.
-        float swR = u.beatPhase * 1.25;
+        float swR = u.beatPhase * 0.60;
         float sw = aaLine(r - swR, 0.020 + 0.015 * u.beatPhase)
                  * exp(-u.beatPhase * 3.2) * (0.4 + 1.2 * u.bassImpact);
-        col += palRolePeak(0.2 + fi * 0.1, u) * sw * 1.6;
+        col += palRolePeak(0.2 + fi * 0.1, u) * sw * 0.30;
     }
 
     // ---- constructive interference: hot zones where crests align ----
@@ -79,7 +81,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float hot = pow(constructive * 0.75, heat);
 
     // moiré shimmer inside the hot zones
-    float shim = 0.78 + 0.22 * sin(sum * 9.0 + u.time * 2.6);
+    float shim = 0.92 + 0.08 * sin(sum * 3.0 + u.time * 1.2);
 
     float hue = fract(0.06 + constructive * 0.28 + 0.10 * u.spectralCentroid);
     vec3 zoneCol = palVisual(hue, u);

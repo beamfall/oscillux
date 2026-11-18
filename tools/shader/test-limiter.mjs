@@ -189,6 +189,18 @@ test('10 Hz half-cell checkerboard is limited', () => {
   assert.ok(held.some(h => h > 0), 'nothing was held');
 });
 
+// A full-frame 10 Hz checkerboard of 4 px squares: every sub-block holds both phases, so its mean
+// never changes; only the per-pixel up and down counts against the previous output see the
+// reversal (CORE-2515).
+test('10 Hz fine (4 px) checkerboard is limited', () => {
+  const spec = { kind: 'checker', hz: 10, size: [4 / W, 4 / H], on: WHITE, off: BLACK };
+  const input = createAuditor({ width: W, height: H });
+  const { audit, held } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
+  assert.ok(input.maxPerWindow('luma') >= 10, `input luma ${input.maxPerWindow('luma')} per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
+  assert.ok(held.some(h => h > 0), 'nothing was held');
+});
+
 // A grey bar one cell wide (W / 16, 35% linear white) on black, moving 0.0071 W a frame,
 // area-antialiased in linear light: each pixel's byte is the one whose linear value is nearest its
 // coverage. At 4K every 1080p pixel is exactly four pixels, so the same scene must make the same
@@ -233,12 +245,17 @@ test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
 // CORE-2231, CORE-2328: a hold has no hard edge. A 10 Hz strobe over half a TV 10° field is held
 // while the background drifts a level a frame: the held sub-blocks show history, the background
 // within five sub-blocks of them blends toward history, and the background further away shows the
-// input. A red-dominant background is never blended.
+// input. A red background is blended too, but never further from history's red than the input.
 function feather(bg) {
   const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
   const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
   const bw = W / model.BLOCKS_X, bh = H / model.BLOCKS_Y;
-  const seen = { held: 0, blended: 0, input: 0 }; // blended: background pixels only
+  const seen = { held: 0, blended: 0, input: 0, redOver: 0 }; // blended: background pixels only
+  const LIN = model.LUMA_LUT.map(v => v[3]);
+  const redOf = (a, i) => {
+    const R = LIN[a[i]], G = LIN[a[i + 1]], B = LIN[a[i + 2]], s = R + G + B;
+    return s > 0 && 5 * R >= 4 * s && R > G + B ? R - G - B : 0;
+  };
   for (let t = 0; t < 120; t++) {
     const on = Math.floor(t / 3) % 2 === 1, c = bg(t);
     for (let y = 0; y < H; y++) {
@@ -262,6 +279,7 @@ function feather(bg) {
           else if (!near) assert.equal(o, a, `frame ${t}: a pixel at ${x},${y} far from any hold is not the input`);
           else assert.ok(o >= Math.min(a, h) && o <= Math.max(a, h), `frame ${t}: ${o} at ${x},${y} is outside ${a}..${h}`);
         }
+        if (Math.abs(redOf(r.out, i) - redOf(prev, i)) > Math.abs(redOf(px, i) - redOf(prev, i))) seen.redOver++;
         if (hm(bx, by)) seen.held++;
         else if (!inRect && r.out[i + 1] !== px[i + 1]) seen.blended++;
         else seen.input++;
@@ -276,10 +294,11 @@ test('a held sub-block blends into its neighbours', () => {
   assert.ok(seen.held > 0, 'nothing was held');
   assert.ok(seen.blended > 0, 'no pixel beside a hold was blended');
 });
-test('a red-dominant pixel beside a hold is not blended', () => {
+test('a red pixel beside a hold blends without adding red change (CORE-2413)', () => {
   const seen = feather(t => [200, 20 + (t % 60), 0]);
   assert.ok(seen.held > 0, 'nothing was held');
-  assert.equal(seen.blended, 0, 'a red-dominant pixel was blended');
+  assert.ok(seen.blended > 0, 'no red pixel beside a hold was blended');
+  assert.equal(seen.redOver, 0, 'the blend moved red further from history than the input');
 });
 
 // CORE-2328: held regions blend smoothly in space. A grey wave travelling fast enough to be held

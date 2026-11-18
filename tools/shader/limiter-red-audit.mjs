@@ -13,12 +13,16 @@
 // --audio loud replaces beat-lint's clock values with a loud, full-band mix on the same beat:
 // spectrum 0.9 falling to 0.68 across the bins plus the kick, bass, mid and treble near full
 // scale, as a live rock master drives the mapper. --max-held F fails (exit 3) any visual whose
-// largest held fraction in a frame exceeds F; held sub-blocks show the previous frame, and next
-// to red-dominant pixels, which the hold feather leaves alone, they show as hard tiles
-// (CORE-2409). The full audit is optional, not part of gate; `make limiter-hold-check` is.
+// largest held fraction in a frame exceeds F; held sub-blocks show the previous frame, so a
+// large held fraction shows as stale regions (CORE-2409). --max-luma N fails (exit 4) any visual
+// whose own output, before the limiter, makes more than N large-area luma transitions in a second
+// or any large-area red transition: a visual should keep within the general flash limit itself
+// (WCAG: 3 flashes, so 6 transitions, a second) rather than lean on the limiter, whose holds show
+// as stale tiles. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
+// `make visual-flash-check` runs the source flash budget.
 //
 //   node tools/shader/limiter-red-audit.mjs [manifest.json ...] [--only id1,id2] [--beats 12]
-//        [--jobs 6] [--audio lint|loud] [--max-held F] [--out out/limiter-red-audit]
+//        [--jobs 6] [--audio lint|loud] [--max-held F] [--max-luma N] [--out out/limiter-red-audit]
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -39,6 +43,7 @@ const { values: opts, positionals } = parseArgs({
     jobs: { type: 'string', default: '6' },
     audio: { type: 'string', default: 'lint' },
     'max-held': { type: 'string', default: '' },
+    'max-luma': { type: 'string', default: '' },
   },
 });
 const W = 480, H = 270, FPS = 60, BPM = Number(opts.bpm);
@@ -46,8 +51,9 @@ const FRAMES = Math.round(parseInt(opts.beats, 10) * FPS * 60 / BPM);
 const OUT = opts.out ? resolve(opts.out) : join(ROOT, 'out', 'limiter-red-audit');
 const ONLY = opts.only.split(',').filter(Boolean);
 const MAX_HELD = opts['max-held'] === '' ? Infinity : Number(opts['max-held']);
-if (!['lint', 'loud'].includes(opts.audio) || !(MAX_HELD >= 0)) {
-  console.error('limiter-red-audit: --audio must be lint or loud and --max-held a fraction');
+const MAX_LUMA = opts['max-luma'] === '' ? Infinity : Number(opts['max-luma']);
+if (!['lint', 'loud'].includes(opts.audio) || !(MAX_HELD >= 0) || !(MAX_LUMA >= 0)) {
+  console.error('limiter-red-audit: --audio must be lint or loud, --max-held a fraction and --max-luma a count');
   process.exit(64);
 }
 const manifests = positionals.length
@@ -165,8 +171,10 @@ async function main() {
   if (Number.isFinite(MAX_HELD)) {
     console.log(`${opts.audio} audio: largest held fraction ${Math.max(0, ...ok.map(r => r.heldMax))}, budget ${MAX_HELD}`);
   }
-  if (results.length > ok.length && Number.isFinite(MAX_HELD)) process.exit(3);
-  process.exit(ok.some(r => r.redOut > 0) ? 2 : overHeld.length ? 3 : 0);
+  const flashing = Number.isFinite(MAX_LUMA) ? ok.filter(r => r.lumaIn > MAX_LUMA || r.redIn > 0) : [];
+  for (const r of flashing) console.log(`${r.id.padEnd(22)} FLASHES luma/s ${r.lumaIn} red/s ${r.redIn} before the limiter, over --max-luma ${MAX_LUMA} or any red`);
+  if (results.length > ok.length && (Number.isFinite(MAX_HELD) || Number.isFinite(MAX_LUMA))) process.exit(3);
+  process.exit(ok.some(r => r.redOut > 0) ? 2 : overHeld.length ? 3 : flashing.length ? 4 : 0);
 }
 
 await main();

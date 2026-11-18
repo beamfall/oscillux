@@ -34,13 +34,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float shuttleZ = 1.18;
 
             // bass ripple traveling back through the woven history
-            float ripple = sin(z * 2.6 - u.time * 7.5)
+            float ripple = sin(z * 2.6 - u.time * 4.0)
                          * u.bassImpact * rippleAmt * exp(-max(z - shuttleZ, 0.0) * 0.55);
 
             // ---- history: reproject where this cloth point was last frame ----
             float dtc = clamp(u.dt, 0.008, 0.05);
             float zp = max(z - scroll * dtc * 60.0 * 0.045, 0.30);
-            float xs = x + ripple * 0.05;
+            // a small sideways sway: at 0.05 a bass hit slid the history a whole
+            // strand pitch, flipping every thread on screen
+            float xs = x + ripple * 0.006;
             float pxp = xs / (zp * f);
             float syp = (tilt - camH / zp) / f;
             vec2 uvPrev = vec2((pxp / aspect + 1.0) * 0.5, (1.0 - syp) * 0.5);
@@ -62,9 +64,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float thick = bandE * bandE;
 
             // thin warp filaments, black gaps between threads
-            float warpLine = pow(abs(sin(strand * 3.14159265)), 9.0);
+            // band energy fattens the thread rather than pumping its brightness
+            float warpLine = pow(abs(sin(strand * 3.14159265)), mix(12.0, 7.0, thick));
             // weft rows laid two per beat, marching back with the cloth
-            float rowPhase = (u.beatCount + u.beatPhase) * 2.0 - z * 3.2;
+            float rowPhase = (u.beatCount + u.beatPhase) * 1.0 - z * 3.2;
             float rid = floor(rowPhase);
             float weftLine = pow(abs(sin(rowPhase * 3.14159265)), 14.0);
             float knot = warpLine * weftLine;
@@ -74,22 +77,26 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             warpCol = accentize(warpCol, u.accent, 0.12);
             vec3 weftCol = palRoleBass(0.06 + fract(rid * 0.171) * 0.28, u);
 
-            vec3 fresh = warpCol * warpLine * (0.22 + 4.0 * thick + 0.7 * u.onset);
-            fresh += weftCol * weftLine * (0.08 + 1.0 * u.bass * u.bass);
+            // Swings stay modest: every row marches past each pixel several times a
+            // second, so a bright weft or onset pump reads as a cloth-wide flicker.
+            vec3 fresh = warpCol * warpLine * (0.45 + 0.9 * thick + 0.12 * u.onset);
+            fresh += weftCol * weftLine * (0.04 + 0.12 * u.bass * u.bass);
             // crossing knots spark on the beat (HDR cores)
             fresh += peakWhite(warpCol, 0.45) * knot
-                   * (0.8 + 2.6 * phasePulse(u, 0.0, 0.10)) * (0.3 + thick);
+                   * (0.45 + 0.30 * phasePulse(u, 0.0, 0.22)) * (0.3 + thick);
 
             // metallic chorus thread: every other 16-beat section gleams
-            float sect = mod(floor(u.beatCount / 16.0), 2.0);
-            fresh += vec3(1.6, 1.25, 0.62) * weftLine * sect * thick * 0.9;
+            // eased over a beat: a hard section switch lit the whole cloth at once
+            float sx = mod((u.beatCount + u.beatPhase) / 16.0, 2.0);
+            float sect = smoothstep(0.94, 1.0, sx) - smoothstep(1.94, 2.0, sx);
+            fresh += vec3(1.6, 1.25, 0.62) * weftLine * sect * thick * 0.45;
 
             // lay fresh cloth in the shuttle band, history beyond it
             float freshMask = 1.0 - smoothstep(shuttleZ, shuttleZ + 0.35, z);
             col = mix(history, fresh, freshMask);
 
             // ripple sheen glints on displaced rows
-            col += palRoleRim(0.45, u) * abs(ripple) * 0.28;
+            col += palRoleRim(0.45, u) * abs(ripple) * 0.04;
 
             // depth haze: the tapestry recedes into darkness
             col *= 1.0 - smoothstep(4.0, 14.0, z) * 0.06;
@@ -97,7 +104,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             // the shuttle: bright line where thread is being laid
             float sh = exp(-abs(z - shuttleZ) * 45.0);
             vec3 shuttleCol = palRolePeak(0.30 + 0.20 * u.spectralCentroid, u);
-            col += shuttleCol * sh * (0.9 + u.onset * 3.0 + u.beat * 1.5) * (0.25 + bandE);
+            col += shuttleCol * sh * (1.0 + u.onset * 0.3 + u.beat * 0.2) * (0.25 + bandE);
         }
 
         // fabric edges fall off into darkness

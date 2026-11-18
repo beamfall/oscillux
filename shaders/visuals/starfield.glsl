@@ -12,11 +12,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float streakMult = mix(0.10, 0.80, u.param2);
 
     // ── warp speed: locked to beat tempo + bass surge ────────────────────────
+    // Speed only lengthens streaks; position must stay continuous. time *
+    // (speed + surge) teleported every star on each beat, a full-field flash.
     float beatSurge  = u.bassImpact * 3.5 + u.beat * 1.5;
-    float warpSpeed  = baseSpeed + beatSurge + u.beatPhase * baseSpeed * 0.45;
+    float warpSpeed  = baseSpeed + beatSurge;
 
-    // Monotonic warp position (drives star depth cycling)
-    float warpPos = u.time * warpSpeed;
+    // Monotonic warp position: steady cruise plus an eased forward lunge per
+    // beat (0 at phase 0, 1 at phase 1, so it is seamless across beats).
+    float lunge = (1.0 - exp(-u.beatPhase * 4.0)) / (1.0 - exp(-4.0));
+    float beatClock = mod(u.beatCount, 512.0) + lunge;
+    float warpPos = u.time * baseSpeed + beatClock * 0.3;
 
     // ── accumulate stars ─────────────────────────────────────────────────────
     vec3 col = vec3(0.0);
@@ -52,8 +57,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // ── streak segment toward centre (tail direction) ────────────────────
         float streakLen = streakMult * depth * depth
-                          * (1.0 + warpSpeed * 0.12)
-                          * (1.0 + u.bassImpact * 1.8); // bass makes tails longer
+                          * (1.0 + warpSpeed * 0.04)
+                          * (1.0 + u.bassImpact * 0.4); // bass stretches tails, gently: long tails sweep a lot of screen
 
         // Guard near-zero for normalize
         float starDist = length(starPos);
@@ -72,7 +77,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // Brightness envelope: fade in from singularity, fade out past edge
         float bright = smoothstep(0.0, 0.30, depth)
                      * smoothstep(1.0, 0.72, depth)
-                     * (0.55 + h3 * 0.45) * (0.35 + specBend * 0.9 + u.onset * 0.6 + u.beat * 0.35);
+                     * (0.55 + h3 * 0.45) * (0.35 + specBend * 0.9 + u.onset * 0.25 + u.beat * 0.15);
 
         // Glow falloff along the streak — quadratic so halos stay tight and
         // space between stars stays black; cores still reach ~5x HDR
@@ -136,7 +141,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= smoothstep(0.0, 0.12, cr);      // fully black at the singularity
 
     // ── feedback warp trails (zoom-OUT = warp-speed effect) ──────────────────
-    float trailZoom = 0.006 + 0.018 * u.bassImpact + 0.008 * u.beat;
+    float trailZoom = 0.006 + 0.006 * u.bassImpact;
     float trailRot  = 0.002 * u.beat;
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.74), trailZoom, trailRot);
 

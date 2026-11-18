@@ -18,11 +18,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float hueTemp = u.spectralCentroid;
 
     // ---- breathing envelope: the bloom's overall radius ----
+    // bass only nudges it: the bloom is most of the frame, so a hard radius
+    // jump on each hit relit a wide ring of pixels at once
     float breathe = 0.66
                   + 0.07 * sin(t * 0.45)
                   + 0.22 * u.level
-                  + 0.14 * u.bassImpact
-                  + 0.05 * sin(u.beatPhase * 6.2831853);
+                  + 0.05 * u.bassImpact
+                  + 0.04 * sin(u.beatPhase * 6.2831853);
 
     // ---- organic petals: domain-warped noise sculpting the radius ----
     float warpAmp = 0.30 + 1.10 * u.amplitude;
@@ -52,11 +54,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= gate * (0.22 + 0.70 * bodyShade) * (0.42 + 0.60 * u.level)
          * (0.55 + 0.45 * petal);
 
-    // hot HDR core, kicked by bass
-    float core = exp(-r * r * (16.0 - 5.0 * u.bassImpact));
+    // hot HDR core, kicked by bass (gently: the core glow spans a wide area)
+    float core = exp(-r * r * (16.0 - 2.5 * u.bassImpact));
     vec3 coreCol = palVisual(palT + 0.12, u);
-    col += peakWhite(coreCol, 0.06 + 0.10 * u.bassImpact)
-         * core * (0.22 + 0.80 * u.bassImpact + 0.30 * u.beat);
+    col += peakWhite(coreCol, 0.06 + 0.04 * u.bassImpact)
+         * core * (0.24 + 0.25 * u.bassImpact + 0.08 * u.beat);
 
     // ---- bass light-leak ring around the bloom ----
     float leak = u.bassImpact;
@@ -65,7 +67,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float ringW = 0.045 + 0.06 * leak;
         float ringMask = exp(-((r - ringR) / max(ringW, 1e-3))*((r - ringR) / max(ringW, 1e-3)) * 3.0);
         vec3 leakCol = accentize(palVisual(0.10 + 0.45 * hueTemp, u), u.accent, 0.2);
-        col += leakCol * ringMask * leak * 0.65;
+        col += leakCol * ringMask * leak * 0.35;
     }
 
     // ---- electric veins radiating through the bloom (treble) ----
@@ -78,15 +80,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         col += veinCol * veinLine * veinPower * (0.6 + 1.4 * u.treble) * 1.1;
     }
 
-    // onset flash: a bright rim tracing the bloom's silhouette
+    // onset accent: a thin rim tracing the bloom's silhouette, kept dim
     if (u.onset > 0.05) {
         float silh = gate * (1.0 - smoothstep(0.0, 0.10, field));
-        col += vec3(0.5, 1.1, 1.3) * silh * u.onset * 1.2;
+        col += vec3(0.5, 1.1, 1.3) * silh * u.onset * 0.4;
     }
 
     // feedback trail — slow outward exhale
     float trailZoom = 0.004 + 0.010 * u.amplitude;
-    float trailRot  = 0.002 + 0.003 * u.beat;
+    float trailRot  = 0.002 + 0.001 * u.beat; // a beat-kicked spin ghosts the whole bloom
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.70), trailZoom, trailRot);
 
     return col; // LINEAR HDR — post chain tonemaps

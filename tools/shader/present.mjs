@@ -108,6 +108,7 @@ uniform sampler2D uL;
   return `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler2D;
 layout(std140) uniform PresentBlock {
 ${members}
 } pu;
@@ -256,6 +257,7 @@ export function bloomGLSL300(stage) {
   return `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler2D;
 ${define}layout(std140) uniform BloomBlock {
     vec4 bloom0;
     vec4 bloom1;

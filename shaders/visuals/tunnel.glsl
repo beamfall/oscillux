@@ -22,14 +22,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 col = vec3(0.0);
 
+    // beat count that surges after each beat and never jumps back at the wrap
+    // (beatPhase alone snapped every ring and ember back once a beat)
+    float beatSurge = floor(u.beatCount) + 1.0 - pow(1.0 - u.beatPhase, 3.0);
+
     // radius window: keep the action in a ring band, fade to black elsewhere
     float band01 = smoothstep(0.12, 0.22, r) * (1.0 - smoothstep(0.9, 1.3, r));
 
     // ---- flythrough concentric rings ----
-    float depth = 1.0 / max(r, 0.05) + u.time * speed + u.beatPhase * 0.6;
+    float depth = 1.0 / max(r, 0.05) + u.time * speed + beatSurge * 0.12;
     float ringLine = aaLineCyclic(depth, 0.08) * band01;
     vec3 ringCol = palVisual(fract(depth * 0.12 + ang01 * 0.1 + 0.03 * u.time), u);
-    col += ringCol * ringLine * (0.4 + 1.2 * u.amplitude);
+    col += ringCol * ringLine * (0.2 + 0.4 * u.amplitude);
 
     // ---- circular spectrum equalizer around a base radius ----
     float baseR = 0.40;
@@ -49,14 +53,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- bass radial spikes ----
     float spikeCell = fract(ang01 * 24.0);
     float spike = smoothstep(0.10, 0.0, abs(spikeCell - 0.5)) * step(baseR, r);
-    col += palVisual(ang01 + 0.25, u) * spike * (1.0 - smoothstep(baseR, 1.5, r)) * u.bassImpact * 6.2;
+    // kept as accents: at full strength the 24 spikes lit a third of the frame per kick
+    col += palVisual(ang01 + 0.25, u) * spike * (1.0 - smoothstep(baseR, 1.5, r)) * u.bassImpact * 1.2;
 
     // ---- ember sparks streaming outward ----
     for (int i = 0; i < 44; i++) {
         float fi = float(i);
         vec2 h = hash22(vec2(fi, 7.0));
         float sa = h.x * 6.2831853 + 0.3 * sin(u.time * 0.2 + fi);
-        float life = fract(h.y + u.time * (0.15 + 0.45 * h.x) + u.beatCount * 0.07);
+        float life = fract(h.y + u.time * (0.15 + 0.45 * h.x) + beatSurge * 0.07);
         float sr = mix(baseR, 1.7, life);
         vec2 sp = vec2(cos(sa), sin(sa)) * sr;
         float d = length(p - sp);
@@ -72,7 +77,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // ---- stable feedback warp trails (subtle zoom -> content flies outward) ----
     col = feedbackTrail(col, uv,
-                        min(u.trailDecay, 0.88), 0.005 + 0.012 * u.bassImpact, 0.003 * twist + 0.008 * u.beat);
+                        min(u.trailDecay, 0.88), 0.003 + 0.002 * u.bassImpact, 0.003 * twist + 0.002 * u.beat);
 
     return col; // LINEAR HDR — post chain tonemaps
 }

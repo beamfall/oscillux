@@ -53,13 +53,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (i >= layers) break;
         float fi = (float(i) + 0.5) * invLayers;
         float depth = 1.0 - fi;
-        float sliceAngle = t * 0.55 + swirlAmt * fi * 1.65 + impact * fi * 2.0 + sin(beatRadians(u, fi * 0.23)) * 0.16;
+        float sliceAngle = t * 0.55 + swirlAmt * fi * 1.65 + impact * fi * 0.6 + sin(beatRadians(u, fi * 0.23)) * 0.16;
         float shell = mix(1.28, 0.72, fi) * (1.0 + (phaseBreath - 0.5) * 0.045 * (1.0 - fi));
         vec2 sp = rot2(sliceAngle) * (p0 * shell);
 
         vec2 warp = vec2(
-            fbm(sp * 1.05 + vec2(1.7, 9.2) + t * 0.9 + midBand * 0.7 + vec2(u.beatPhase * 0.18, 0.0)),
-            fbm(sp * 1.05 + vec2(8.3, 2.8) - t * 0.7 + midBand * 0.7 + vec2(0.0, u.beatPhase * 0.16))
+            fbm(sp * 1.05 + vec2(1.7, 9.2) + t * 0.9 + midBand * 0.7 + vec2(sin(beatRadians(u, 0.0)) * 0.03, 0.0)),
+            fbm(sp * 1.05 + vec2(8.3, 2.8) - t * 0.7 + midBand * 0.7 + vec2(0.0, cos(beatRadians(u, 0.0)) * 0.03))
         ) - 0.5;
         sp += warp * (0.28 + midE * 0.36 + depth * 0.10);
 
@@ -78,7 +78,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 smokeCol = accentize(palVisual(fi * 0.55 + specCentroid * 0.22 + t * 0.04 + u.beatPhase * 0.05, u), u.accent, 0.10);
         vec3 litCol = peakWhite(palVisual(0.75 + specCentroid * 0.2 - fi * 0.15, u),
                                 saturate(lightning * 0.20));
-        float beatFlash = impact * depth * 1.3;
+        float beatFlash = impact * depth * 0.45; // kick tints the smoke; a bigger push flashes it
         vec3 beatCol = palVisual(0.08 + specCentroid * 0.1, u);
 
         float alpha = min(dens * 0.16, 0.075) * layerWeight;
@@ -124,8 +124,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // ---- feedback trails (curl-ish UV offset to simulate smoke advection) --
     {
-        float swirlFeedback = 0.004 + swirlAmt * 0.003 + impact * 0.008;
-        float zoomFeedback  = 0.003 + impact * 0.010;
+        float swirlFeedback = 0.004 + swirlAmt * 0.003 + impact * 0.004;
+        float zoomFeedback  = 0.003 + impact * 0.004;
         col = feedbackTrail(col, uv, u.trailDecay, zoomFeedback, swirlFeedback);
     }
 

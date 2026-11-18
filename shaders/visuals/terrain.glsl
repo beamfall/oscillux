@@ -7,7 +7,8 @@
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 uv0 = uv; // unshaken coords for the feedback trail
 
-    float shake = u.bassImpact * 0.004;
+    // Small: a kick shake moves every thin grid and edge line at once.
+    float shake = u.bassImpact * 0.0012;
     vec2 cameraNoise = vec2(
         sin(u.time * 15.0 + 1.9 * sin(u.time * 2.5)),
         sin(u.time * 11.0 + 1.4 * cos(u.time * 2.1) + 5.0)
@@ -22,13 +23,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 base = vec3(0.0);
     vec3 glow = vec3(0.0);
 
+    // Continuous beat clock with an eased surge per beat. Scrolling by
+    // beatPhase alone snapped every floor line back on the beat wrap.
+    float beatClock = u.beatCount + smoothstep(0.0, 1.0, u.beatPhase);
+
     // ---------------------------------------------------------------------
     // Floor: lower-third support only. Dim circuit lines, never HDR.
     // ---------------------------------------------------------------------
     if (uv.y > horizon) {
         float ft = (uv.y - horizon) / max(1.0 - horizon, 0.001);
         float depth = 1.0 / max(ft * 2.45 + 0.025, 0.025);
-        float scroll = u.time * mix(0.12, 0.75, u.param0) + u.beatPhase * 0.36;
+        float scroll = u.time * mix(0.12, 0.75, u.param0) * 0.6 + beatClock * 0.09;
         float wx = (uv.x - 0.5 + sin(beatRadians(u, ft * 0.20)) * 0.0035) * depth * 1.55;
         float wz = depth + scroll;
 
@@ -48,7 +53,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         glow += floorCol * grid * floorFade * (0.32 + 0.24 * u.mid);
 
         // Very dim reflected ticks directly beneath active columns.
-        float tickCell = fract(uv.x * 40.0);
+        float tickCell = fract(uv.x * 40.0 * columnFit(u));
         float tick = smoothstep(0.08, 0.18, tickCell) * smoothstep(0.92, 0.82, tickCell);
         float b = bandAt(u, uv.x);
         float tickY = step(ft, b * 0.26);
@@ -58,13 +63,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---------------------------------------------------------------------
     // Skyline: dark glass bodies with bright edges and caps.
     // ---------------------------------------------------------------------
+    // Fewer, wider columns on a narrow frame: x distances shrink by sx (frame fit).
     const int NCOLS = 56;
+    int ncols = fitColumns(u, NCOLS, 12);
+    float sx = float(ncols) / float(NCOLS);
     for (int i = 0; i < NCOLS; i++) {
+        if (i >= ncols) break;
         float fi = float(i);
-        float x = (fi + 0.5) / float(NCOLS);
-        float lane = abs(uv.x - x);
-        float phaseOffset = fi / float(NCOLS - 1);
-        float rawB = bandAtWrapped(u, phaseOffset + u.beatPhase * 0.032);
+        float x = (fi + 0.5) / float(ncols);
+        float lane = abs(uv.x - x) * sx;
+        float phaseOffset = fi / float(ncols - 1);
+        float rawB = bandAtWrapped(u, phaseOffset + beatWave(u, 0.0) * 0.032);
         float seed = hash11(fi * 2.91);
         float b = max(rawB, 0.10 + 0.18 * seed);
         float phaseLift = phasePulse(u, phaseOffset, 0.19);
@@ -72,7 +81,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float group = hash11(floor(fi / 3.0) * 2.3);
         float peak = pow(seed, 5.0) * 0.36;
         float h = pow(b, 0.68) * heightScale * (0.16 + 0.34 * group) + peak;
-        h *= (1.0 + 0.16 * u.bassImpact + phaseLift * 0.075);
+        h *= (1.0 + 0.06 * u.bassImpact + phaseLift * 0.075);
         h = clamp(h, 0.045, 0.60);
         float yTop = horizon - h;
 
@@ -102,7 +111,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (sparkSeed > 0.72) {
             float life = fract(sparkSeed + u.time * (0.55 + sparkSeed) + u.beatPhase * 0.14);
             float sparkY = horizon - h * life;
-            float sparkD = length(vec2((uv.x - x) * 1.8, uv.y - sparkY));
+            float sparkD = length(vec2((uv.x - x) * sx * 1.8, uv.y - sparkY));
             float spark = min(1.2, 0.00018 / (sparkD * sparkD + 0.00045));
             glow += palRoleTreble(x + 0.06 * u.spectralCentroid, u) * spark * u.flux * (1.0 - life);
         }
@@ -130,7 +139,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 trailedGlow = feedbackTrail(glow, uv0,
                                      min(u.trailDecay, 0.56),
-                                     0.0015 + 0.003 * u.bassImpact,
+                                     0.0015 + 0.001 * u.bassImpact,
                                      0.0);
     return base + trailedGlow; // LINEAR HDR — post chain tonemaps
 }

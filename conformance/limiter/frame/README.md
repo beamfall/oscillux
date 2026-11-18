@@ -12,8 +12,11 @@ Metal where available) against the vectors.
 - The frame is box-reduced to 64 x 36 sub-blocks (16 x 9 cells of 4 x 4). Every pixel counts in
   exactly one sub-block, so a pattern down to sub-block size (a half-cell checkerboard that
   inverts, a thin bar) is measured by area at any resolution, not sampled at points. Detail finer
-  than a sub-block averages inside it: an inversion that keeps every sub-block's mean constant
-  registers nothing.
+  than a sub-block averages inside it, so the reduction also counts, against the previous output,
+  the pixels whose luma rose by a step and those whose luma fell (the darker side below the dark
+  threshold). When at least 7/16 of a sub-block's pixels rose and 7/16 fell (a fine pattern that
+  inverts while its mean stays constant), the sub-block requests a luma transition in each
+  direction, and the grant spends two tokens on it (CORE-2515).
 - Each sub-block tracks a luma code with the WCAG audit counter's step, and a red code with an
   eighth of it (512 codes, 2.5 on the 320 * (R - G - B) scale): a sub-block's mean dilutes red
   that covers only part of it (CORE-1616). The red code is the mean, over the sub-block's pixels, of the linear-light red excess R - G - B of
@@ -34,8 +37,8 @@ Metal where available) against the vectors.
 - A hold blends into the picture around it. The blend weight is 1 at the centre of every
   sub-block that is held or adjoins a held one and falls with distance to 0 a little past four
   sub-blocks from the hold, bilinear between centres and eased, so it is continuous across
-  sub-block boundaries and round. A pixel whose input, previous
-  output or blend is red-dominant (`r > g + b` in 8-bit) is not blended.
+  sub-block boundaries and round. A pixel is not blended (it shows the input) when the blend
+  would move its linear red code further from the previous output's than the input does.
 
 The model's header comment gives the exact arithmetic.
 

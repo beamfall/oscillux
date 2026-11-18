@@ -6,9 +6,11 @@
 // Specs (colours are 8-bit display values [r, g, b]; rect and size are frame fractions):
 //   { kind: 'solid', color }
 //   { kind: 'gradient' }                      static horizontal/vertical ramp
-//   { kind: 'square', hz, on, off, bg?, rect?, until?, after? }
+//   { kind: 'square', hz, on, off, bg?, bgStep?, rect?, until?, after? }
 //       rect (default the whole frame) shows `on` in the first half period and `off` in the second,
-//       at 60 frames a second; from frame `until` on it shows `after` ('on' or 'off').
+//       at 60 frames a second; from frame `until` on it shows `after` ('on' or 'off'). bgStep
+//       [r, g, b] drifts the background by bgStep * (t % 60), so pixels beside a hold differ from
+//       the previous output and the feather shows.
 //   { kind: 'checker', hz, size: [w, h], on, off }
 //       a checkerboard of w x h squares whose phase inverts every half period.
 //   { kind: 'stripes', hz, every, width, on, off, bg }
@@ -39,7 +41,8 @@ export function renderSignal(spec, t, W, H, out) {
     const r = spec.rect || [0, 0, 1, 1];
     let on = halves(spec.hz) % 2 === 0;
     if (spec.until !== undefined && t >= spec.until) on = spec.after === 'on';
-    if (spec.rect) fill(0, 0, W, H, spec.bg || [0, 0, 0]);
+    const bg = spec.bg || [0, 0, 0], st = spec.bgStep || [0, 0, 0];
+    if (spec.rect) fill(0, 0, W, H, [0, 1, 2].map(c => bg[c] + st[c] * (t % 60)));
     fill(Math.floor(r[0] * W), Math.floor(r[1] * H), Math.floor(r[2] * W), Math.floor(r[3] * H), on ? spec.on : spec.off);
   } else if (spec.kind === 'checker') {
     const sw = Math.max(1, Math.floor(spec.size[0] * W)), sh = Math.max(1, Math.floor(spec.size[1] * H));

@@ -22,6 +22,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float flow   = mix(0.45, 1.70, u.param0);
     float budget = mix(0.55, 1.90, u.param1);
     float buoy   = mix(0.25, 1.30, u.param2);
+    // Advection, bleed and injection are authored per 60 Hz frame; n = dt*60
+    // keeps them the same per second at 30/60/120 Hz (one step without a clock).
+    float n = u.dt > 0.0 ? min(u.dt * 60.0, 4.0) : 1.0;
 
     // ---- advection: curl-noise velocity field in uv space (y-down screen) ----
     vec2 q = uv * vec2(aspect, 1.0) * 3.1 + vec2(0.0, u.time * 0.045);
@@ -35,24 +38,31 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // buoyancy: sample from below => dye rises (uv.y grows downward)
     float rise = (0.0022 + 0.0060 * u.bassImpact + 0.0018 * u.bass) * buoy;
 
-    vec2 sampleUV = uv + vel * 0.0045 * flow + vec2(0.0, rise);
-    vec3 prev = PREV(sampleUV).rgb;
+    vec2 sampleUV = uv + (vel * 0.0045 * flow + vec2(0.0, rise)) * n;
+    // Water outside the frame is empty: fade history sampled past the edge
+    // instead of repeating the edge texel, which advection drags inward.
+    vec2 outside = max(-sampleUV, sampleUV - 1.0);
+    float inside = clamp(1.0 - 32.0 * max(max(outside.x, outside.y), 0.0), 0.0, 1.0);
+    vec3 prev = PREV(sampleUV).rgb * inside;
 
     // energy must decay: base bleed + whiteout guard. The guard must bite
     // inside the tonemapped range (ACES is ~white by luma 2), or dye stacks
     // into flat white blobs and the color is lost.
     float pl = luma(prev);
     float keep = 0.978 - 0.12 * smoothstep(0.9, 2.6, pl);
-    prev = max(prev * keep - 0.0016, vec3(0.0));
+    prev = max(prev * pow(keep, n) - 0.0016 * n, vec3(0.0));
 
     // ---- dye injection ----
+    // Splats are sized against the frame's short side, so on a portrait frame
+    // they cover the same share of it as at 16:9 instead of stacking into white.
+    vec2 splatScale = vec2(aspect, 1.0) / min(aspect, 1.0);
     vec3 dye = vec3(0.0);
     float k = u.beatCount * 2.0 + step(0.5, u.beatPhase); // splat site key
     for (int j = 0; j < 3; ++j) {
         float fj = float(j);
         vec2 h = hash22(vec2(k * 0.371 + fj * 13.7, fj * 5.13 + 2.7));
         vec2 c = vec2(0.16 + 0.68 * h.x, 0.22 + 0.48 * h.y);
-        vec2 d = (uv - c) * vec2(aspect, 1.0);
+        vec2 d = (uv - c) * splatScale;
         float g = exp(-dot(d, d) / (0.0016 + 0.0045 * u.flux + 1e-5));
         vec3 dcol = palVisual(u.spectralCentroid * 0.85 + fj * 0.14 + h.y * 0.10, u);
         dcol = peakWhite(dcol, u.onset * u.treble * 0.10);
@@ -60,11 +70,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
 
     // kick plume: hot charge near the floor, buoyancy carries it up
-    vec2 db = (uv - vec2(0.5 + 0.12 * sin(u.time * 0.7), 0.90)) * vec2(aspect, 1.0);
+    vec2 db = (uv - vec2(0.5 + 0.12 * sin(u.time * 0.7), 0.90)) * splatScale;
     vec3 bassCol = palRoleBass(0.06 + 0.05 * u.spectralCentroid, u);
     dye += bassCol * exp(-dot(db, db) / 0.0045) * u.bassImpact * budget * 2.6;
 
-    vec3 col = prev + dye;
+    vec3 col = prev + dye * n;
 
     // faint caustic floor light in the empty water (self-limiting)
     float caustic = fbm(uv * vec2(aspect, 1.0) * 6.0 + u.time * 0.03);

@@ -4,7 +4,8 @@
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     // Camera shake (suv = shaken coords; keep uv pristine for the trail).
-    float shake = u.bassImpact * 0.004;
+    // Small: a kick shake moves every thin grid and edge line at once.
+    float shake = u.bassImpact * 0.0012;
     vec2 cameraNoise = vec2(
         sin(u.time * 17.0 + 2.2 * sin(u.time * 3.1)),
         sin(u.time * 13.0 + 1.7 * cos(u.time * 2.7) + 4.0)
@@ -20,12 +21,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 base = vec3(0.0);
     vec3 glow = vec3(0.0);
 
+    // Continuous beat clock with an eased surge per beat. Scrolling by
+    // beatPhase alone snapped every floor line and segment ring back on the
+    // beat wrap, a full-floor flash each beat.
+    float beatClock = u.beatCount + smoothstep(0.0, 1.0, u.beatPhase);
+
     // Floor grid/reflection, lower half only.
     if (suv.y > horizon) {
         float ft = (suv.y - horizon) / max(1.0 - horizon, 0.001);
         float depth = 1.0 / max(ft * persp + 0.025, 0.025);
         float wx = (suv.x - 0.5 + sin(beatRadians(u, ft * 0.25)) * 0.004) * depth * 1.8;
-        float wz = depth + u.time * 0.20 + u.beatPhase * 0.42;
+        float wz = depth + u.time * 0.10 + beatClock * 0.10;
 
         float gx = wx * 0.82 + 0.5;
         float gz = wz * 0.36;
@@ -34,13 +40,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         glow += mix(palRoleFog(0.56, u), palRoleTrace(suv.x, u), 0.45) * grid * fade * (0.16 + 0.12 * u.mid);
     }
 
+    // Fewer, wider columns on a narrow frame: x distances shrink by sx (frame fit).
     const int NCOLS = 58;
+    int ncols = fitColumns(u, NCOLS, 12);
+    float sx = float(ncols) / float(NCOLS);
     for (int i = 0; i < NCOLS; i++) {
+        if (i >= ncols) break;
         float fi = float(i);
-        float x = (fi + 0.5) / float(NCOLS);
-        float lane = abs(suv.x - x);
-        float phaseOffset = fi / float(NCOLS - 1);
-        float raw = bandAtWrapped(u, phaseOffset + u.beatPhase * 0.035);
+        float x = (fi + 0.5) / float(ncols);
+        float lane = abs(suv.x - x) * sx;
+        float phaseOffset = fi / float(ncols - 1);
+        float raw = bandAtWrapped(u, phaseOffset + beatWave(u, 0.0) * 0.035);
         float seed = hash11(fi * 3.37);
         float b = max(raw, 0.06 + 0.10 * seed);
         float phaseLift = phasePulse(u, phaseOffset, 0.18);
@@ -48,7 +58,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         float h = pow(b, 0.72) * mix(0.20, 0.60, cluster) * glass;
         h += pow(seed, 6.0) * 0.26;
-        h *= (1.0 + 0.18 * u.bassImpact + phaseLift * 0.08);
+        h *= (1.0 + 0.06 * u.bassImpact + phaseLift * 0.08);
         h = clamp(h, 0.035, 0.56);
 
         float yTop = horizon - h;
@@ -62,7 +72,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         base += c * inX * inY * b * 0.024;
         float edge = aaLine(lane - colW, 0.0016) * inY;
         float cap = aaLine(suv.y - yTop, 0.0032) * inX;
-        float seg = aaLineCyclic((suv.y - yTop) / max(h, 0.001) * 5.0 - u.beatPhase * 0.55, 0.035) * inX * inY;
+        float seg = aaLineCyclic((suv.y - yTop) / max(h, 0.001) * 5.0 - beatClock * 0.55, 0.035) * inX * inY;
         glow += c * edge * (0.58 + 1.10 * b);
         glow += mix(c, vec3(1.0), 0.45) * cap * (0.82 + 1.90 * u.treble + 0.70 * b);
         glow += c * seg * (0.12 + 0.38 * b + phaseLift * 0.18);
@@ -84,7 +94,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // Tiny spark caps.
         float sparkLife = fract(seed + u.time * (0.5 + seed) + u.beatCount * 0.03 + u.beatPhase * 0.12);
         float sparkY = yTop - sparkLife * (0.06 + 0.22 * seed);
-        float sparkD = length(vec2((suv.x - x) * 1.9, suv.y - sparkY));
+        float sparkD = length(vec2((suv.x - x) * sx * 1.9, suv.y - sparkY));
         float spark = min(1.5, 0.00014 / (sparkD * sparkD + 0.00032));
         glow += palRoleTreble(x + 0.08 * u.spectralCentroid, u) * spark * u.flux * (1.0 - sparkLife);
     }
@@ -102,7 +112,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 trailedGlow = feedbackTrail(glow, uv,
                                      min(u.trailDecay, 0.80),
-                                     0.002 + 0.004 * u.bassImpact,
+                                     0.002 + 0.001 * u.bassImpact,
                                      0.0006 * u.beat);
     return base + trailedGlow;
 }

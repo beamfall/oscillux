@@ -29,14 +29,14 @@ export const LIMITER_BLOCK_SIZE = 32;
  * 'one' 1 x 1, 'frame'), textures and outputs ([name, type]): 'float' RGBA8, 'uint' RGBA16UI,
  * 'uint32' RGBA32UI. */
 export const LIMITER_PASSES = Object.freeze([
-  { name: 'rows', size: 'rows', lut: true, textures: [['uFrame', 'float']], outputs: [['oR', 'uint32']] },
+  { name: 'rows', size: 'rows', lut: true, textures: [['uFrame', 'float'], ['uHist', 'float']], outputs: [['oR', 'uint32']] },
   { name: 'reduce', size: 'blocks', textures: [['uRows', 'uint32'], ['uT0', 'uint'], ['uT1', 'uint']], outputs: [['oS', 'uint']] },
   { name: 'cells', size: 'cells', textures: [['uS', 'uint'], ['uT2', 'uint']], outputs: [['oC', 'uint']] },
   { name: 'windows', size: 'cells', textures: [['uC', 'uint']], outputs: [['oW', 'uint']] },
   { name: 'grant', size: 'one', textures: [['uC', 'uint'], ['uW', 'uint'], ['uG', 'uint']], outputs: [['oG', 'uint']] },
   { name: 'state', size: 'blocks', textures: [['uS', 'uint'], ['uG', 'uint'], ['uT0', 'uint'], ['uT1', 'uint'], ['uT2', 'uint']],
     outputs: [['oT0', 'uint'], ['oT1', 'uint'], ['oT2', 'uint']] },
-  { name: 'output', size: 'frame', textures: [['uFrame', 'float'], ['uHist', 'float'], ['uT1', 'uint']], outputs: [['oColor', 'float']] },
+  { name: 'output', size: 'frame', lut: true, textures: [['uFrame', 'float'], ['uHist', 'float'], ['uT1', 'uint']], outputs: [['oColor', 'float']] },
 ]);
 export const limiterFunction = pass => `oscillux_limiter_${pass.name}`;
 

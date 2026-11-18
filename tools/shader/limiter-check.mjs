@@ -143,7 +143,7 @@ async function pageMain({ passes, cases, helpers, time }) {
   function drawFrame(s) {
     const a = s.cur, b = a ^ 1;
     const [rows, reduce, cells, windows, grant, state, output] = programs;
-    draw(rows, s.fRows, [s.frame]);
+    draw(rows, s.fRows, [s.frame, s.out[a]]);
     draw(reduce, s.fS, [s.rows, s.T0[a], s.T1[a]]);
     draw(cells, s.fC, [s.S, s.T2[a]]);
     draw(windows, s.fW, [s.C]);

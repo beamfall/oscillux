@@ -12,7 +12,7 @@ float filamentY(float x01, VisualUniforms u, float tension, float pluck) {
     for (int n = 1; n <= 8; ++n) {
         float fn = float(n);
         float w = bandAt(u, (fn - 1.0) / 7.0) * (1.25 - 0.09 * fn); // physical rolloff
-        float om = tension * (2.0 + 1.35 * fn);
+        float om = tension * (1.2 + 0.7 * fn);
         float shape = sin(fn * 3.14159265 * x01);
         float osc = cos(om * u.time + fn * 1.7);
         float amp = w * pluck * (0.52 / fn) * (0.35 + 0.95 * u.amplitude);
@@ -21,6 +21,15 @@ float filamentY(float x01, VisualUniforms u, float tension, float pluck) {
     // bass bows the whole string in one arc
     y += sin(3.14159265 * x01) * 0.20 * u.bassImpact;
     return y;
+}
+
+// Pluck envelope over one beat: a short eased rise, then a decay that ends at
+// the value it starts from, so the string never snaps on the beat wrap. A
+// step from 0.09 to 1 in one frame swept the whole bright string (and its halo)
+// across the frame at once: a large-area flash every beat.
+float pluckEnv(float bp) {
+    float rise = smoothstep(0.0, 0.40, bp);
+    return mix(0.0907, 1.0, rise) * exp(-4.0 * max(bp - 0.40, 0.0));
 }
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -33,13 +42,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float beadAmt = mix(0.3, 1.7, u.param2);
 
     // pluck envelope: excitation decays between beats, re-armed on each beat
-    float pluck = exp(-2.4 * u.beatPhase) * (0.40 + 0.60 * saturate(u.onset)) + 0.16;
+    float pluck = pluckEnv(u.beatPhase) * 0.25 + 0.22;
 
     float y = filamentY(x01, u, tension, pluck);
     float d = p.y - y;
 
     // temporal echo: the string a moment ago, as a dim ghost (depth cue)
-    float yGhost = filamentY(x01, u, tension, exp(-2.4 * fract(u.beatPhase + 0.22)) * 0.5 + 0.16);
+    float yGhost = filamentY(x01, u, tension, pluckEnv(fract(u.beatPhase - 0.22)) * 0.5 + 0.16);
     float dGhost = p.y - mix(yGhost, y, 0.35);
 
     // string velocity proxy (finite difference in x -> local slope energy)
