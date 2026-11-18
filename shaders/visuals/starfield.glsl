@@ -20,7 +20,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // Monotonic warp position: steady cruise plus an eased forward lunge per
     // beat (0 at phase 0, 1 at phase 1, so it is seamless across beats).
     float lunge = (1.0 - exp(-u.beatPhase * 4.0)) / (1.0 - exp(-4.0));
-    float beatClock = mod(u.beatCount, 512.0) + lunge;
+    // Wrap the beat count where depth (beatClock * 0.3 * 0.065) has run a whole number of
+    // cycles: 2000 beats is exactly 39, so the wrap moves no star (OSC-0040).
+    float beatClock = mod(u.beatCount, 2000.0) + lunge;
     float warpPos = u.time * baseSpeed + beatClock * 0.3;
 
     // ── accumulate stars ─────────────────────────────────────────────────────
