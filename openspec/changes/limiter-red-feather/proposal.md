@@ -15,14 +15,14 @@ A Codex review (2026-11-18) reproduced a 76-level step at a sub-block boundary o
 bands where neither input nor history stepped.
 
 The exemption existed so the blend could never add a red transition the red token did not grant.
-That only needs the blend not to move a pixel's red further from history than the input does.
+That only needs each blended pixel's red to stay between its history's and its input's.
 
 ## What Changes
 
 - The output pass blends every pixel beside a hold, red included. After blending it compares
   red codes as the reduction sums them (`R - G - B` on linear codes when the pixel is saturated
-  red, `5R >= 4(R + G + B)` and `R > G + B`, else 0): if the blend's red code is further from the
-  history's than the input's is, the pixel shows the input instead.
+  red, `5R >= 4(R + G + B)` and `R > G + B`, else 0): if the blend's red code falls outside the
+  range between the history's and the input's, the pixel shows the input instead.
 - The `output` pass now reads `LUMA_LUT` for the linear codes. No pass gains a texture or a
   uniform; hosts take the change by re-vendoring the generated passes.
 - Held sub-blocks, the hold field and luminance are unchanged.

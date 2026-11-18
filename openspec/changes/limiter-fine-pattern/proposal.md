@@ -15,7 +15,8 @@ Ticket: **CORE-2515** (P1). Found in the 2026-11-18 web visualizer review.
   pixels whose luma code rose by `LUMA_STEP` and those whose luma fell by it, the darker side below
   `LUMA_DARK`.
 - The `reduce` pass requests luma up and down for a sub-block where at least 7/16 of its pixels
-  rose and at least 7/16 fell. The grant admits the pair together for two tokens.
+  rose and at least 7/16 fell. The grant admits the pair together once the token has also
+  stood unspent for a refill period, so it spends two tokens where two single grants could fall.
 - Host binding: `rows` samples `uHist` at texture unit 1. Hosts bind the previous output there.
 - A `fine-checker-10hz` conformance case; vectors re-recorded.
 

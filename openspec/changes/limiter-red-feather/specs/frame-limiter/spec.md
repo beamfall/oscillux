@@ -6,8 +6,8 @@ The frame limiter's output SHALL show the previous output frame on every pixel o
 sub-block and SHALL blend toward it around held sub-blocks with a weight that is continuous in
 space, reaching 0 a little past four sub-blocks away. The output SHALL NOT step across a
 sub-block boundary where neither the input nor the previous output steps. A blended pixel whose
-linear red code (`R - G - B` when saturated red, else 0) would be further from the previous
-output's than the input's is SHALL show the input.
+linear red code (`R - G - B` when saturated red, else 0) falls outside the range between the
+previous output's and the input's SHALL show the input.
 
 #### Scenario: A held sub-block has no hard edge
 
@@ -26,8 +26,8 @@ output's than the input's is SHALL show the input.
 #### Scenario: Red pixels are not blended
 
 - **WHEN** a pixel beside a held sub-block is red in the input or in the previous output
-- **THEN** it is not blended past the input: it is blended only where that does not move its red code further from the previous output's
-  than the input's is
+- **THEN** it is blended only where its red code stays between the previous output's and the
+  input's
 - **THEN** the pixel auditor counts 0 large-area red transitions in every 1 s window of the output
 
 #### Scenario: Luminance unchanged

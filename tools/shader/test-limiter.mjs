@@ -201,6 +201,23 @@ test('10 Hz fine (4 px) checkerboard is limited', () => {
   assert.ok(held.some(h => h > 0), 'nothing was held');
 });
 
+// Codex review of CORE-2515: a full-frame step spends the luma token; a pair of grants for a fine
+// pattern must still wait as long as two singles would, so no 1 s window holds more than 6.
+test('a full-frame step before a fine checkerboard stays within 6 transitions a second', () => {
+  const checker = { kind: 'checker', hz: 10, size: [4 / W, 4 / H], on: WHITE, off: BLACK };
+  for (let start = 30; start <= 36; start += 2) {
+    const lim = model.createLimiter({ width: W, height: H });
+    const audit = createAuditor({ width: W, height: H });
+    const px = new Uint8Array(W * H * 4);
+    for (let t = 0; t < start + 120; t++) {
+      if (t > start) renderSignal(checker, t, W, H, px);
+      else px.fill(t < start ? 0 : 255).forEach((_, i) => { if (i % 4 === 3) px[i] = 255; });
+      audit.push(lim.step(px, DT).out, DT);
+    }
+    assert.ok(audit.maxPerWindow('luma') <= 6, `step at ${start}: luma ${audit.maxPerWindow('luma')} per 1 s`);
+  }
+});
+
 // A grey bar one cell wide (W / 16, 35% linear white) on black, moving 0.0071 W a frame,
 // area-antialiased in linear light: each pixel's byte is the one whose linear value is nearest its
 // coverage. At 4K every 1080p pixel is exactly four pixels, so the same scene must make the same
@@ -279,7 +296,8 @@ function feather(bg) {
           else if (!near) assert.equal(o, a, `frame ${t}: a pixel at ${x},${y} far from any hold is not the input`);
           else assert.ok(o >= Math.min(a, h) && o <= Math.max(a, h), `frame ${t}: ${o} at ${x},${y} is outside ${a}..${h}`);
         }
-        if (Math.abs(redOf(r.out, i) - redOf(prev, i)) > Math.abs(redOf(px, i) - redOf(prev, i))) seen.redOver++;
+        const mo = redOf(r.out, i), mh = redOf(prev, i), ma = redOf(px, i);
+        if (mo < Math.min(mh, ma) || mo > Math.max(mh, ma)) seen.redOver++;
         if (hm(bx, by)) seen.held++;
         else if (!inRect && r.out[i + 1] !== px[i + 1]) seen.blended++;
         else seen.input++;
@@ -298,7 +316,14 @@ test('a red pixel beside a hold blends without adding red change (CORE-2413)', (
   const seen = feather(t => [200, 20 + (t % 60), 0]);
   assert.ok(seen.held > 0, 'nothing was held');
   assert.ok(seen.blended > 0, 'no red pixel beside a hold was blended');
-  assert.equal(seen.redOver, 0, 'the blend moved red further from history than the input');
+  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
+});
+// Codex review of CORE-2413: while red [160,0,0] fades to orange [255,140,0] (not red), a blend of the
+// two can be redder than either, a red rise the red token never granted.
+test('a red-to-orange fade beside a hold never blends past its history red (CORE-2413)', () => {
+  const seen = feather(t => [160 + Math.round(95 * t / 119), Math.round(140 * t / 119), 0]);
+  assert.ok(seen.held > 0, 'nothing was held');
+  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
 });
 
 // CORE-2328: held regions blend smoothly in space. A grey wave travelling fast enough to be held

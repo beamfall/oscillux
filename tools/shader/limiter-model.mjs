@@ -152,7 +152,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const cnt = new Int32Array(CELLS * 4);
   const scratch = { lo: 0, hi: 0, dir: 0 };
   let deficit = 0;
-  let owed = 0;
+  let credit = 0;
   let redDeficit = 0;
   const bufs = [new Uint8Array(W * H * 4), new Uint8Array(W * H * 4)];
   let flip = 0;
@@ -225,13 +225,17 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     // red transitions: no saturated-red flash (ITU-R BT.1702, ADR-0232 R5), and a held red change
     // is admitted within 8 / (2 maxFlashHz) s instead of freezing (R7, CORE-2382).
     // Both luma directions may be admitted in one frame (a pattern reversing: some pixels rise,
-    // others fall); that costs two tokens, the second owed and taken when the first has refilled.
+    // others fall). That spends two tokens, so the pair waits until the budget has also stood
+    // unspent for one refill period (credit, at most one token): the pair then falls where two
+    // single grants could have, and no 1 s window holds more transitions than singles allow
+    // (CORE-2515). A single grant forfeits the credit.
+    credit = Math.min(TOKEN, credit + Math.max(0, refill - deficit));
     deficit = Math.max(0, deficit - refill);
-    if (deficit <= 0 && owed) { deficit = TOKEN; owed = 0; }
-    const grantUp = over[0] && requests[0] > 0 && deficit <= 0;
-    const grantDown = over[1] && requests[1] > 0 && deficit <= 0;
-    if (grantUp || grantDown) deficit = TOKEN;
-    if (grantUp && grantDown) owed = 1;
+    const askUp = over[0] && requests[0] > 0, askDown = over[1] && requests[1] > 0;
+    const pair = askUp && askDown;
+    const grantUp = askUp && deficit <= 0 && (!pair || credit >= TOKEN);
+    const grantDown = askDown && deficit <= 0 && (!pair || credit >= TOKEN);
+    if (grantUp || grantDown) { deficit = TOKEN; credit = 0; }
     redDeficit = Math.max(0, redDeficit - Math.floor(refill / 8));
     const grantRedUp = over[2] && requests[2] > 0 && redDeficit <= 0;
     if (grantRedUp) redDeficit = TOKEN;
@@ -296,8 +300,8 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
             const w = (((u * u) >> 12) * (12288 - 2 * u)) >> 12;
             for (let c = 0; c < 3; c++) out[i + c] = (px[i + c] * (4096 - w) + history[i + c] * w + 2048) >> 12;
             out[i + 3] = 255;
-            const mh = redOf(history, i);
-            if (Math.abs(redOf(out, i) - mh) <= Math.abs(redOf(px, i) - mh)) continue;
+            const mh = redOf(history, i), ma = redOf(px, i), mo = redOf(out, i);
+            if (mo >= Math.min(mh, ma) && mo <= Math.max(mh, ma)) continue;
           }
         }
         out[i] = src[i]; out[i + 1] = src[i + 1]; out[i + 2] = src[i + 2]; out[i + 3] = 255;

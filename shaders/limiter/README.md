@@ -79,8 +79,8 @@ The tracker state is three 64 x 36 RGBA16UI textures:
   the rest (`w >> 1`, 0..64) is the hold field the `state` pass wrote from the holds within four
   sub-blocks. A held sub-block shows history, and the picture around it blends toward history by
   the field, bilinear between sub-block centres, so a hold has no hard edge, no corners and no
-  step at a sub-block boundary. A red pixel is blended unless the blend would move its red code
-  further from history's than the input does; then it shows the input.
+  step at a sub-block boundary. A red pixel is blended unless the blend's red code falls outside
+  the range between history's and the input's; then it shows the input.
 - `T2` holds the recency stamps (tick + 1; 0 means none).
 
 Keep two copies each of `G`, `T0`, `T1`, `T2` and the output. A frame reads copy `a` and writes
