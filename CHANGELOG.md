@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-11-17
+
 ### Fixed
 
 - The catalogue Particles (`shaders/visuals/particles.glsl`, carried by the msl, glsl300 and
