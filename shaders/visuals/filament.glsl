@@ -35,6 +35,9 @@ float pluckEnv(float bp) {
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
+    // motionCentered scales p by the short-side fit, so the screen's edges sit at
+    // x = +-aspect * fit: beads and anchors measure x in that same space.
+    float fit = shortSideFit(aspect);
     float x01 = saturate(uv.x);
 
     float tension = mix(0.7, 2.0, u.param0);
@@ -82,7 +85,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float fk = float(k);
         float xk = fk / 8.0;
         float yk = filamentY(xk, u, tension, pluck);
-        vec2 db = vec2((uv.x - xk) * aspect * 2.0, p.y - yk);
+        vec2 db = vec2((uv.x - xk) * aspect * fit * 2.0, p.y - yk);
         float r2 = dot(db, db);
         float wk = bandAt(u, (fk - 1.0) / 7.0);
         float bead = exp(-r2 / (0.00010 + 0.00030 * wk + 1e-6));
@@ -92,8 +95,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
 
     // anchors: dim endpoints ground the string physically
-    float endL = exp(-dot(vec2(p.x + aspect, p.y), vec2(p.x + aspect, p.y)) / 0.004);
-    float endR = exp(-dot(vec2(p.x - aspect, p.y), vec2(p.x - aspect, p.y)) / 0.004);
+    float edge = aspect * fit;
+    float endL = exp(-dot(vec2(p.x + edge, p.y), vec2(p.x + edge, p.y)) / 0.004);
+    float endR = exp(-dot(vec2(p.x - edge, p.y), vec2(p.x - edge, p.y)) / 0.004);
     col += palRoleFog(0.3, u) * (endL + endR) * 0.5;
 
     // faint ambient fog so calm mode isn't a void
