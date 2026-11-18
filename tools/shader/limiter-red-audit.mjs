@@ -8,13 +8,17 @@
 // reports the most large-area red and luma transitions in any 1 s window, input and output;
 // the frames where the model found red over the area limit, on the input and (a second model
 // instance) on the limiter's output; the output auditor's red transition frames; and the mean
-// held fraction.
-// Optional, not part of gate.
+// and largest held fraction.
+//
+// --audio loud replaces beat-lint's clock values with a loud, full-band mix on the same beat:
+// spectrum 0.9 falling to 0.68 across the bins plus the kick, bass, mid and treble near full
+// scale, as a live rock master drives the mapper. --max-held F fails (exit 3) any visual whose
+// largest held fraction in a frame exceeds F; held sub-blocks show the previous frame, and next
+// to red-dominant pixels, which the hold feather leaves alone, they show as hard tiles
+// (CORE-2409). The full audit is optional, not part of gate; `make limiter-hold-check` is.
 //
 //   node tools/shader/limiter-red-audit.mjs [manifest.json ...] [--only id1,id2] [--beats 12]
-//        [--jobs 6] [--out out/limiter-red-audit]
-//
-// The options are beat-lint.mjs's, which parses them on import.
+//        [--jobs 6] [--audio lint|loud] [--max-held F] [--out out/limiter-red-audit]
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -33,12 +37,19 @@ const { values: opts, positionals } = parseArgs({
     bpm: { type: 'string', default: '120' },
     beats: { type: 'string', default: '12' },
     jobs: { type: 'string', default: '6' },
+    audio: { type: 'string', default: 'lint' },
+    'max-held': { type: 'string', default: '' },
   },
 });
 const W = 480, H = 270, FPS = 60, BPM = Number(opts.bpm);
 const FRAMES = Math.round(parseInt(opts.beats, 10) * FPS * 60 / BPM);
 const OUT = opts.out ? resolve(opts.out) : join(ROOT, 'out', 'limiter-red-audit');
 const ONLY = opts.only.split(',').filter(Boolean);
+const MAX_HELD = opts['max-held'] === '' ? Infinity : Number(opts['max-held']);
+if (!['lint', 'loud'].includes(opts.audio) || !(MAX_HELD >= 0)) {
+  console.error('limiter-red-audit: --audio must be lint or loud and --max-held a fraction');
+  process.exit(64);
+}
 const manifests = positionals.length
   ? positionals
   : ['shaders/originals/manifest.json', 'shaders/manifest.json'].map(p => join(ROOT, p));
@@ -53,7 +64,7 @@ async function attach({ W, H }) {
     start() {
       const s = { lim: createLimiter({ width: W, height: H }), inA: createAuditor({ width: W, height: H }),
         outA: createAuditor({ width: W, height: H }), outLim: createLimiter({ width: W, height: H }),
-        redOver: 0, redOverOut: 0, held: 0, frames: 0 };
+        redOver: 0, redOverOut: 0, held: 0, heldMax: 0, frames: 0 };
       window.lint.onFrame = px => {
         const r = s.lim.step(px, 1 / 60);
         s.inA.push(px, 1 / 60);
@@ -62,6 +73,7 @@ async function attach({ W, H }) {
         const o = s.outLim.step(r.out, 1 / 60).stats;
         if (o.over[2] || o.over[3]) s.redOverOut++;
         s.held += r.held / (64 * 36);
+        s.heldMax = Math.max(s.heldMax, r.held / (64 * 36));
         s.frames++;
       };
       window.audit.state = s;
@@ -73,9 +85,21 @@ async function attach({ W, H }) {
         redIn: s.inA.maxPerWindow('red'), redOut: s.outA.maxPerWindow('red'),
         lumaIn: s.inA.maxPerWindow('luma'), lumaOut: s.outA.maxPerWindow('luma'),
         redOverFrames: s.redOver, redOverOutFrames: s.redOverOut,
-        redOutAt: [...s.outA.transitions[2], ...s.outA.transitions[3]].sort((a, b) => a - b), heldMean: +(s.held / s.frames).toFixed(4), frames: s.frames,
+        redOutAt: [...s.outA.transitions[2], ...s.outA.transitions[3]].sort((a, b) => a - b), heldMean: +(s.held / s.frames).toFixed(4),
+        heldMax: +s.heldMax.toFixed(4), frames: s.frames,
       };
     },
+  };
+}
+
+// beat-lint's clock with the levels of a loud master: the same beat, kick, onset and bassImpact,
+// every band near full scale.
+export function loudAudioAt(fr, bpm) {
+  const a = lintAudioAt(fr, bpm);
+  const kick = Math.exp(-a.beatPhase * (60000 / bpm) / 120);
+  return {
+    ...a, amplitude: Math.min(1, 0.85 + 0.2 * kick), level: 0.85, bass: Math.min(1, 0.68 + 0.3 * kick),
+    mid: 0.68, treble: 0.6, spectrum: a.spectrum.map((_, i) => Math.min(1, 0.85 * (1 - 0.25 * i / 63) + 0.4 * kick * Math.exp(-i / 10))),
   };
 }
 
@@ -88,7 +112,7 @@ async function main() {
     }));
   });
   const visuals = mergeVisualSets(sets).filter(v => !ONLY.length || ONLY.includes(v.id));
-  const audio = Array.from({ length: FRAMES }, (_, fr) => lintAudioAt(fr, BPM));
+  const audio = Array.from({ length: FRAMES }, (_, fr) => (opts.audio === 'loud' ? loudAudioAt : lintAudioAt)(fr, BPM));
   const results = new Array(visuals.length);
   let next = 0, renderer = '';
   const job = async () => {
@@ -120,7 +144,7 @@ async function main() {
   await Promise.all(Array.from({ length: Math.max(1, Math.min(parseInt(opts.jobs, 10) || 1, visuals.length)) }, job));
 
   mkdirSync(OUT, { recursive: true });
-  writeFileSync(join(OUT, 'report.json'), JSON.stringify({ renderer, width: W, height: H, bpm: BPM, frames: FRAMES, results }, null, 2));
+  writeFileSync(join(OUT, 'report.json'), JSON.stringify({ renderer, width: W, height: H, bpm: BPM, audio: opts.audio, frames: FRAMES, results }, null, 2));
   const ok = results.filter(r => !r.error);
   for (const r of results) {
     if (r.error) { console.log(`${r.id.padEnd(22)} COMPILE-FAIL ${r.error}`); continue; }
@@ -136,7 +160,13 @@ async function main() {
     `${count(r => r.redOut > 0)} after the limiter; ${count(r => r.redOverFrames > 0)} trip the red area gate (${count(r => r.redOverOutFrames > 0)} with the limiter's output); ` +
     `luma over 6 transitions/s: ${count(r => r.lumaIn > 6)} in, ${count(r => r.lumaOut > 6)} out; ` +
     `${results.length - ok.length} compile failures. Report in ${join(OUT, 'report.json')}`);
-  process.exit(ok.some(r => r.redOut > 0) ? 2 : 0);
+  const overHeld = ok.filter(r => r.heldMax > MAX_HELD);
+  for (const r of overHeld) console.log(`${r.id.padEnd(22)} HELD ${r.heldMax} of the sub-blocks in one frame, over --max-held ${MAX_HELD}`);
+  if (Number.isFinite(MAX_HELD)) {
+    console.log(`${opts.audio} audio: largest held fraction ${Math.max(0, ...ok.map(r => r.heldMax))}, budget ${MAX_HELD}`);
+  }
+  if (results.length > ok.length && Number.isFinite(MAX_HELD)) process.exit(3);
+  process.exit(ok.some(r => r.redOut > 0) ? 2 : overHeld.length ? 3 : 0);
 }
 
 await main();

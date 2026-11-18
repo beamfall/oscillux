@@ -323,6 +323,15 @@ limiter-check: tools/shader/node_modules
 
 gate: limiter-check
 
+# Hold budget (CORE-2409, openspec/specs/visual-defaults/spec.md): the release-leg Particles
+# (shaders/manifest.json, as the glsl300 bundle ships it) through the limiter model under the red
+# audit's loud audio holds at most 5% of the sub-blocks in any frame. Needs Playwright Chromium.
+.PHONY: limiter-hold-check
+limiter-hold-check: tools/shader/node_modules
+	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --only particles --audio loud --max-held 0.05 --jobs 1
+
+gate: limiter-hold-check
+
 # Reference hosts (hosts/README.md): the same bundled visuals in a browser and a
 # SwiftUI macOS/iOS app. host-bundle needs the shader-verify toolchain; host-mac
 # and host-ios need Xcode and XcodeGen. Not part of gate.

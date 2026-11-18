@@ -36,7 +36,11 @@ import { loadManifest, mergeVisualSets } from './manifest.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const EXEMPTIONS = join(ROOT, 'conformance', 'shaders', 'beat-lint.json');
+// The command line is this script's own: a module that imports it (limiter-red-audit.mjs) has
+// its own options, so an import parses none and takes the defaults.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const { values: opts, positionals } = parseArgs({
+  args: isMain ? process.argv.slice(2) : [],
   allowPositionals: true,
   options: {
     out: { type: 'string', default: '' },
@@ -190,7 +194,6 @@ function verdict(m, ambient) {
   return ambient ? { ok: true, flag: 'ambient', passes } : { ok: false, flag: 'NO-BEAT', passes };
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) await main();
 
 async function main() {

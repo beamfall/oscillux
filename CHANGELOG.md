@@ -10,6 +10,16 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Fixed
+
+- The catalogue Particles (`shaders/visuals/particles.glsl`, carried by the msl, glsl300 and
+  android-gles legs) brightens and bursts much less on beats and onsets, no longer rotates its
+  feedback trail on beats, fades its streaks in instead of cutting them hard, and tints bass
+  embers less red. The frame flash limiter no longer holds large areas of it and red embers no
+  longer show as hard square tiles.
+  Under loud audio the largest held fraction of limiter sub-blocks fell from 0.23 to 0.02.
+  `make limiter-hold-check` (in `make gate`) keeps it under 5% (CORE-2409).
+
 ## [0.2.7] - 2026-11-17
 
 ### Fixed
