@@ -21,8 +21,10 @@ That only needs each blended pixel's red to stay between its history's and its i
 
 - The output pass blends every pixel beside a hold, red included. After blending it compares
   red codes as the reduction sums them (`R - G - B` on linear codes when the pixel is saturated
-  red, `5R >= 4(R + G + B)` and `R > G + B`, else 0): if the blend's red code falls outside the
-  range between the history's and the input's, the pixel shows the input instead.
+  red, `5R >= 4(R + G + B)` and `R > G + B`, else 0): if the pixel's red code changes by more
+  than `RED_STEP` (the red tracker's step), or the blend's falls outside the range between the
+  history's and the input's, the pixel shows the input instead. A red change the red token
+  admitted is never hidden by the feather, and a delayed small change stays under one step.
 - The `output` pass now reads `LUMA_LUT` for the linear codes. No pass gains a texture or a
   uniform; hosts take the change by re-vendoring the generated passes.
 - Held sub-blocks, the hold field and luminance are unchanged.

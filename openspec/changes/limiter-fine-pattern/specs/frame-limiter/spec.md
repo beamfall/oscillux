@@ -22,11 +22,19 @@ SHALL request a luma transition in each direction.
 
 When luma up and luma down are both over the area limit and requested in one frame, the grant
 SHALL admit them together only when the luma token has also stood unspent for one refill period,
-so the pair falls where two single grants could have.
+and SHALL then leave two tokens of deficit, so no 1 s window holds more transitions than singles
+allow.
 
 #### Scenario: A full-frame flash before a fine pattern
 
 - **WHEN** the frame steps from black to white and then a full-frame checkerboard of 4 px squares
   inverts at 10 Hz
+- **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
+  the output
+
+#### Scenario: Full-frame flashes after a fine pattern
+
+- **WHEN** a fine checkerboard inverts once after a quiet second and the frame then alternates
+  full-frame black and white every 11 frames at 60 Hz
 - **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
   the output

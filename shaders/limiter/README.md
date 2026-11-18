@@ -56,7 +56,7 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 | 2 | `reduce` | 64 x 36 | `uRows`, `uT0`, `uT1` | `oS` = (luma code, red code, request bits, 0); a sub-block where at least 7/16 of the pixels rose and 7/16 fell requests luma up and down (a fine pattern reversing; CORE-2515) |
 | 3 | `cells` | 16 x 9 | `uS`, `uT2` | `oC`: per direction, the count (0..16) of sub-blocks requesting now or within the coverage interval, \| requests << 5 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW`: per direction, an over bit for the window with its origin at this cell |
-| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4, token deficit, 0, 0) |
+| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8, luma token deficit, red token deficit, luma credit) |
 | 6 | `state` | 64 x 36 | `uS`, `uG` (this frame), `uT0`, `uT1`, `uT2` | `oT0`, `oT1`, `oT2` |
 | 7 | `output` | frame | `uFrame`, `uHist` (previous output), `uT1` (this frame) | `oColor` |
 
@@ -79,8 +79,9 @@ The tracker state is three 64 x 36 RGBA16UI textures:
   the rest (`w >> 1`, 0..64) is the hold field the `state` pass wrote from the holds within four
   sub-blocks. A held sub-block shows history, and the picture around it blends toward history by
   the field, bilinear between sub-block centres, so a hold has no hard edge, no corners and no
-  step at a sub-block boundary. A red pixel is blended unless the blend's red code falls outside
-  the range between history's and the input's; then it shows the input.
+  step at a sub-block boundary. A red pixel is blended only when its red code changes by at most
+  `RED_STEP` and the blend's red code stays between history's and the input's; otherwise it shows
+  the input.
 - `T2` holds the recency stamps (tick + 1; 0 means none).
 
 Keep two copies each of `G`, `T0`, `T1`, `T2` and the output. A frame reads copy `a` and writes

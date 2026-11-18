@@ -31,18 +31,19 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   10 Hz checkerboard of 4 px squares, whose sub-block means never change. The `rows` pass reads
   the previous output and counts pixels whose luma rose or fell by a step; a sub-block where at
   least 7/16 rose and 7/16 fell requests luma up and down, granted together only once the token
-  has also stood unspent for a refill period, so the pair spends two tokens where two single
-  grants could have fallen (CORE-2515). **Host binding change:** the `rows` pass now samples `uHist` (the previous output,
+  has also stood unspent for a refill period. The pair then leaves two tokens of deficit, so it
+  counts as two transitions on both sides of it and no 1 s window holds more than 6 (CORE-2515). **Host binding change:** the `rows` pass now samples `uHist` (the previous output,
   the same texture the `output` pass reads) at texture unit 1 besides `uFrame` at unit 0; a host
   that does not bind it reads an unbound sampler. Frame conformance vectors re-recorded, with a
   new `fine-checker-10hz` case.
 - The frame flash limiter's output pass feathers around a held sub-block on warm and red pixels
   too, instead of skipping every pixel with `r > g + b` (most oranges), which showed as hard
-  rectangular tiles. A blended pixel whose saturated-red code falls outside the range between
-  history's and the input's shows the input instead, so the feather adds no red transition
-  (CORE-2413).
+  rectangular tiles. A blended pixel shows the input instead when its saturated-red code changes
+  by more than the red tracker's step (`RED_STEP`) or the blend's falls outside the range between
+  history's and the input's, so the feather adds no red transition and never hides one the red
+  token admitted (CORE-2413).
   Frame conformance vectors re-recorded.
-- Feedback trails (`feedbackTrail`) and Ink's advection scale their per-frame decay, zoom and
+- Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and
   rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled
   past the frame edge fades out instead of streaking inward from the edge texel. The GLSL ES 3.00
   wrapper declares `precision highp sampler2D` (CORE-2480).

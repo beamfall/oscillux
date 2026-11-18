@@ -187,7 +187,8 @@ for c in cfg.cases {
         lim.g[b].getBytes(&g, bytesPerRow: 8, from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
         lim.out[b].getBytes(&out, bytesPerRow: c.width * 4, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
         let mask = String((0..<(64 * 36)).map { t1[4 * $0 + 3] & 1 != 0 ? Character("1") : Character("0") })
-        frames.append([mask, Int(g[0]), Int(g[1]), fnv1a(out)])
+        // Bit 8 of the grant word carries a second token of luma deficit (grant.glsl).
+        frames.append([mask, Int(g[0] & 255), Int(g[1]) + Int((g[0] >> 8) & 1) * 65025, fnv1a(out)])
     }
     emit(["name": c.name, "frames": frames])
 }

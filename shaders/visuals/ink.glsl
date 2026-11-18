@@ -78,11 +78,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // faint caustic floor light in the empty water (self-limiting)
     float caustic = fbm(uv * vec2(aspect, 1.0) * 6.0 + u.time * 0.03);
-    col += palRoleFog(0.62, u) * caustic * 0.006 * (1.0 - saturate(pl * 1.5)) * (0.4 + u.amplitude);
+    col += palRoleFog(0.62, u) * caustic * 0.006 * (1.0 - saturate(pl * 1.5)) * (0.4 + u.amplitude) * n;
 
     // subtle chroma shear at plume fronts: brighten dye edges
     float dl = luma(dye);
-    col += dye * dl * 0.35;
+    col += dye * dl * 0.35 * n;
 
     return col; // LINEAR HDR — this exact value is next frame's fluid state
 }

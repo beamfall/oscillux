@@ -17,7 +17,7 @@ Metal where available) against the vectors.
   threshold). When at least 7/16 of a sub-block's pixels rose and 7/16 fell (a fine pattern that
   inverts while its mean stays constant), the sub-block requests a luma transition in each
   direction. The grant admits the pair only once the token has also stood unspent for a refill
-  period, so it spends two tokens where two single grants could have fallen (CORE-2515).
+  period, and leaves two tokens of deficit after it (CORE-2515).
 - Each sub-block tracks a luma code with the WCAG audit counter's step, and a red code with an
   eighth of it (512 codes, 2.5 on the 320 * (R - G - B) scale): a sub-block's mean dilutes red
   that covers only part of it (CORE-1616). The red code is the mean, over the sub-block's pixels, of the linear-light red excess R - G - B of
@@ -38,8 +38,9 @@ Metal where available) against the vectors.
 - A hold blends into the picture around it. The blend weight is 1 at the centre of every
   sub-block that is held or adjoins a held one and falls with distance to 0 a little past four
   sub-blocks from the hold, bilinear between centres and eased, so it is continuous across
-  sub-block boundaries and round. A pixel is not blended (it shows the input) when the blend's
-  linear red code falls outside the range between the previous output's and the input's.
+  sub-block boundaries and round. A pixel is not blended (it shows the input) when its linear
+  red code changes by more than `RED_STEP` or the blend's falls outside the range between the
+  previous output's and the input's.
 
 The model's header comment gives the exact arithmetic.
 
@@ -77,7 +78,7 @@ A host that does not know its device class uses `wcag`.
   run of not-held sub-blocks. It is `"="` when unchanged from the previous frame.
 - `grant`: the grant pass's word, admitted bits | over bits << 4. The direction bits are luma
   up 1, luma down 2, red up 4, red down 8.
-- `deficit`: the luma token deficit after the frame (65025 is one full token).
+- `deficit`: the luma token deficit after the frame (65025 is one full token; a paired grant leaves two).
 - `digest`: FNV-1a 32 of the output RGBA8 bytes.
 
 ## Cases
