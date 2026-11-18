@@ -4,11 +4,11 @@
 // across sub-block boundaries and falls off round, so a hold has no visible edge: the hold field
 // the state pass wrote (0..64 at each sub-block centre) is interpolated bilinearly between the
 // four nearest centres (in 64ths per axis), scaled to t in 0..4096 and eased,
-// w = ((t^2 >> 12) (12288 - 2 t)) >> 12. Red is blended too, unless the pixel's red code (R - G - B
-// on linear codes when saturated red, as the reduction sums it) changes by more than RED_STEP, or
-// the blend's falls outside the range between its history's and its input's; then the pixel shows
-// the input, so the blend never adds a red transition the red token did not grant, nor hides one
-// it did. Inputs uFrame (RGBA8), uHist (the
+// w = ((t^2 >> 12) (12288 - 2 t)) >> 12. A pixel is blended only while its red code (R - G - B on
+// linear codes when saturated red, as the reduction sums it) is the same in its history, its input
+// and the blend; otherwise it shows the input. Blending a red change at all delays it, and a
+// delayed step completes a red transition late, after the red token has refilled (CORE-2541), so
+// the feather never adds, delays or hides a red transition. Inputs uFrame (RGBA8), uHist (the
 // previous output, RGBA8), uT1 (this frame's state); output oColor (RGBA8, alpha 1), which is next
 // frame's uHist.
 
@@ -52,6 +52,6 @@ void main() {
     int w = (((t * t) >> 12) * (12288 - 2 * t)) >> 12;
     ivec3 o = (a * (4096 - w) + h * w + 2048) >> 12;
     int mh = redOf(h), ma = redOf(a), mo = redOf(o);
-    if (abs(ma - mh) > RED_STEP || mo < min(mh, ma) || mo > max(mh, ma)) return;
+    if (mh != ma || mo != ma) return;
     oColor = vec4(vec3(o) / 255.0, 1.0);
 }

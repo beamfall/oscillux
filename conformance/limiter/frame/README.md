@@ -38,9 +38,8 @@ Metal where available) against the vectors.
 - A hold blends into the picture around it. The blend weight is 1 at the centre of every
   sub-block that is held or adjoins a held one and falls with distance to 0 a little past four
   sub-blocks from the hold, bilinear between centres and eased, so it is continuous across
-  sub-block boundaries and round. A pixel is not blended (it shows the input) when its linear
-  red code changes by more than `RED_STEP` or the blend's falls outside the range between the
-  previous output's and the input's.
+  sub-block boundaries and round. A pixel is not blended (it shows the input) unless its linear
+  red code is the same in the previous output, the input and the blend.
 
 The model's header comment gives the exact arithmetic.
 

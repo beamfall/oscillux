@@ -260,6 +260,32 @@ test('an admitted red rise beside a held red fall is not hidden (CORE-2413)', ()
   assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
 });
 
+// Codex review (CORE-2541): a small red step beside luma holds must not be feathered. Blending it
+// delayed the step 30 frames, so it completed a red transition after the red token refilled, and
+// the fall to black 74 frames later made two red transitions within 1 s.
+test('a small red step beside luma holds is not delayed (CORE-2541)', () => {
+  const w = 128, h = 72;
+  const lim = model.createLimiter({ width: w, height: h });
+  const audit = createAuditor({ width: w, height: h });
+  const px = new Uint8Array(w * h * 4);
+  const shade = (cat, t) => {
+    if (cat === 0) return t === 0 || t > 84 ? [0, 0, 0] : t <= 10 ? [69, 0, 0] : [72, 0, 0];
+    const white = t >= 2 && t <= 10;
+    const v = (cat === 1) === white ? 255 : 0;
+    return [v, v, v];
+  };
+  for (let t = 0; t < 160; t++) {
+    for (let y = 0, i = 0; y < h; y++) {
+      for (let x = 0; x < w; x++, i += 4) {
+        const [r, g, b] = shade((Math.floor(x / 2) + Math.floor(y / 2)) % 3, t);
+        px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+      }
+    }
+    audit.push(lim.step(px, DT).out, DT);
+  }
+  assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
+});
+
 // A grey bar one cell wide (W / 16, 35% linear white) on black, moving 0.0071 W a frame,
 // area-antialiased in linear light: each pixel's byte is the one whose linear value is nearest its
 // coverage. At 4K every 1080p pixel is exactly four pixels, so the same scene must make the same
@@ -354,11 +380,18 @@ test('a held sub-block blends into its neighbours', () => {
   assert.ok(seen.held > 0, 'nothing was held');
   assert.ok(seen.blended > 0, 'no pixel beside a hold was blended');
 });
-test('a red pixel beside a hold blends without adding red change (CORE-2413)', () => {
+// Warm oranges (r > g + b, but not saturated red) blend beside a hold, so a hold shows no hard tile
+// on them; a saturated red whose red code changes shows the input (CORE-2413, CORE-2541).
+test('an orange pixel beside a hold blends (CORE-2413)', () => {
+  const seen = feather(t => [255, 150 + (t % 60), 0]);
+  assert.ok(seen.held > 0, 'nothing was held');
+  assert.ok(seen.blended > 0, 'no orange pixel beside a hold was blended');
+  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
+});
+test('a red pixel beside a hold is not blended while its red changes (CORE-2541)', () => {
   const seen = feather(t => [200, 20 + (t % 60), 0]);
   assert.ok(seen.held > 0, 'nothing was held');
-  assert.ok(seen.blended > 0, 'no red pixel beside a hold was blended');
-  assert.equal(seen.redOver, 0, 'the blend moved red outside history..input');
+  assert.equal(seen.blended, 0, 'a red pixel whose red changed was blended');
 });
 // Codex review of CORE-2413: while red [160,0,0] fades to orange [255,140,0] (not red), a blend of the
 // two can be redder than either, a red rise the red token never granted.

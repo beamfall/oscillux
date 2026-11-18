@@ -38,10 +38,9 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   new `fine-checker-10hz` case.
 - The frame flash limiter's output pass feathers around a held sub-block on warm and red pixels
   too, instead of skipping every pixel with `r > g + b` (most oranges), which showed as hard
-  rectangular tiles. A blended pixel shows the input instead when its saturated-red code changes
-  by more than the red tracker's step (`RED_STEP`) or the blend's falls outside the range between
-  history's and the input's, so the feather adds no red transition and never hides one the red
-  token admitted (CORE-2413).
+  rectangular tiles. A pixel is blended only while its saturated-red code is the same in history,
+  input and blend; a pixel whose red changes shows the input, so the feather never adds, delays or
+  hides a red transition (CORE-2413, CORE-2541).
   Frame conformance vectors re-recorded.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and
   rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled

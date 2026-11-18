@@ -40,11 +40,11 @@
 //      its own sub-block on that axis. The weight is eased, w = ((t^2 >> 12) (12288 - 2 t)) >> 12,
 //      and the pixel shows (input (4096 - w) + history w + 2048) >> 12 per 8-bit channel. The
 //      field is continuous across sub-block boundaries, reaches 1 before the hold begins and
-//      falls off round, so the output steps nowhere the input and the history do not. Red is
-//      blended too, unless the blend moves the pixel's red code (R - G - B on linear codes when
-//      saturated red, as the reduction sums it) further from its history's than the input does;
-//      then the pixel shows the input, so the blend never adds red change the red token did not
-//      grant (CORE-2231, CORE-2328, CORE-2413, openspec/changes/limiter-red-feather/).
+//      falls off round, so the output steps nowhere the input and the history do not. A pixel is
+//      blended only while its red code (R - G - B on linear codes when saturated red, as the
+//      reduction sums it) is the same in history, input and blend; otherwise it shows the input,
+//      so the blend never adds, delays or hides a red transition (CORE-2231, CORE-2328,
+//      CORE-2413, CORE-2541, openspec/changes/limiter-red-feather/).
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
 //   { out, held, holdMask, grant, deficit, redDeficit, stats: { requests, over, admitted, fired } }.
@@ -301,7 +301,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
             for (let c = 0; c < 3; c++) out[i + c] = (px[i + c] * (4096 - w) + history[i + c] * w + 2048) >> 12;
             out[i + 3] = 255;
             const mh = redOf(history, i), ma = redOf(px, i), mo = redOf(out, i);
-            if (Math.abs(ma - mh) <= RED_STEP && mo >= Math.min(mh, ma) && mo <= Math.max(mh, ma)) continue;
+            if (mh === ma && mo === ma) continue;
           }
         }
         out[i] = src[i]; out[i + 1] = src[i + 1]; out[i + 2] = src[i + 2]; out[i + 3] = 255;
