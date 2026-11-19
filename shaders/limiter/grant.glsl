@@ -27,12 +27,23 @@ void main() {
         askBits |= LIM_U(uC, cell).y;
         over = over || LIM_U(uW, cell).x != 0u;
     }
-    bvec4 asks = notEqual(uvec4(askBits) & uvec4(1u, 2u, 4u, 8u), uvec4(0u));
+    uint now = askBits & 15u;
+    uint recent = askBits >> 4u;
+    // When something fires now, a channel firing nowhere but changed recently is part of the over
+    // area too: it is asked in one direction (up when it rose), so its own budget pays for the
+    // frame and staggering red one frame behind luma cannot slip past the red budget (Codex
+    // round 14).
+    if (now != 0u) {
+        if ((now & 3u) == 0u && (recent & 3u) != 0u) now |= (recent & 1u) != 0u ? 1u : 2u;
+        if ((now & 12u) == 0u && (recent & 12u) != 0u) now |= (recent & 4u) != 0u ? 4u : 8u;
+    }
+    bvec4 asks = notEqual(uvec4(now) & uvec4(1u, 2u, 4u, 8u), uvec4(0u));
     uvec4 last = LIM_U(uG, ivec2(0));
     uint previous = last.y + ((last.x >> 8u) & 1u) * TOKEN;
     uint deficit = previous > refill ? previous - refill : 0u;
     uint credit = min(TOKEN, last.w + (refill > previous ? refill - previous : 0u));
-    uint redRefill = refill / 8u;
+    // At least one unit whenever luma refills: a tiny maxFlashHz must not freeze red (Codex round 14).
+    uint redRefill = refill == 0u ? 0u : max(1u, refill / 8u);
     uint redDeficit = last.z > redRefill ? last.z - redRefill : 0u;
     bool lastRedDown = ((last.x >> 9u) & 1u) != 0u;
     bool askUp = over && asks.x, askDown = over && asks.y;

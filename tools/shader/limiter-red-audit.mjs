@@ -66,6 +66,9 @@ const MODULES = ['limiter-model.mjs', 'limiter-geometry.mjs', 'limiter-audit.mjs
 async function attach({ W, H }) {
   const { createLimiter } = await import('/limiter-model.mjs');
   const { createAuditor } = await import('/limiter-audit.mjs');
+  // Over is one flag for every direction: a frame is red-over only where red pixels fire in it too,
+  // so luma-only activity is not labelled red (Codex round 14).
+  const redOver = st => st.over[2] && st.requests[2] + st.requests[3] > 0;
   window.audit = {
     start() {
       const s = { lim: createLimiter({ width: W, height: H }), inA: createAuditor({ width: W, height: H }),
@@ -75,9 +78,9 @@ async function attach({ W, H }) {
         const r = s.lim.step(px, 1 / 60);
         s.inA.push(px, 1 / 60);
         s.outA.push(r.out, 1 / 60);
-        if (r.stats.over[2] || r.stats.over[3]) s.redOver++;
+        if (redOver(r.stats)) s.redOver++;
         const o = s.outLim.step(r.out, 1 / 60).stats;
-        if (o.over[2] || o.over[3]) s.redOverOut++;
+        if (redOver(o)) s.redOverOut++;
         s.held += r.held / (W * H);
         s.heldMax = Math.max(s.heldMax, r.held / (W * H));
         s.heldMaxPx = Math.max(s.heldMaxPx, r.held);

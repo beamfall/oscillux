@@ -14,5 +14,5 @@ void main() {
             asks |= s.y;
         }
     }
-    oC = uvec4(count, asks & 15u, 0u, 0u);
+    oC = uvec4(count, asks & 255u, 0u, 0u);
 }

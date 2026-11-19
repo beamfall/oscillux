@@ -169,6 +169,40 @@ when both red directions are asked the grant SHALL admit one, the other than at 
 - **WHEN** a frame shows black, then (100, 0, 0), then (255, 0, 0), then black forever at 120 Hz
 - **THEN** the output reaches black within 8 / (2 maxFlashHz) s plus one luma refill period
 
+### Requirement: Recent channels pay for the combined area
+
+When some direction fires now and the frame is over the limit, the grant SHALL also ask each
+channel that fires nowhere now but fired within the coverage interval, in the direction it last
+fired, so that channel's own budget pays for the combined area.
+
+#### Scenario: Red a frame ahead of luma
+
+- **WHEN** red stripes and luma stripes, each under the limit and both together over it, toggle at
+  5 Hz with red one frame ahead of luma
+- **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
+  output
+
+### Requirement: A further step after a plateau
+
+A tracker past a transition SHALL count a further full step past its extreme in the same direction
+as a new transition once that direction's previous transition is no longer recent.
+
+#### Scenario: Rise, plateau, rise
+
+- **WHEN** a full frame goes from black to (110, 0, 0), holds, rises to (220, 0, 0) and returns to
+  black, 2.5 times a second
+- **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
+  output
+
+### Requirement: Red refills at any rate
+
+Whenever the luma budget refills, the red budget SHALL refill by at least one unit.
+
+#### Scenario: A tiny maximum flash rate
+
+- **WHEN** maxFlashHz is 0.003 and a red change spends the red budget
+- **THEN** the red deficit falls on the next frame
+
 ### Requirement: Geometry change spends the budget
 
 When the viewing geometry changes, the host SHALL keep the trackers and write `G` fully spent.

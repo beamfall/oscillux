@@ -91,7 +91,7 @@ A host that does not know its device class uses `wcag`.
 | `luma-3hz`, `luma-10hz` | full-frame flashes, rationed to 3 per second |
 | `luma-10hz-small` | a strobe below the area limit passes |
 | `luma-settle` | after the strobe stops, the frame settles to the input |
-| `red-3hz`, `red-10hz`, `red-dark-10hz-half` | red transitions over the area are always held |
+| `red-3hz`, `red-10hz`, `red-dark-10hz-half` | large-area red transitions are rationed to at most one in any 1 s window (`red-3hz` admits one, the rest are held) |
 | `red-linear-saturation-10hz` | `[120,50,0]` <-> `[0,50,120]` is saturated red in linear light (not in encoded bytes) and is held |
 | `red-stripes-10hz` | red over a third of every sub-block (one `[110,0,0]` column in three) is held (CORE-1616) |
 | `tv-half-field-10hz`, `desktop-field-10hz`, `phone-field-10hz` | the 10° window per device class |

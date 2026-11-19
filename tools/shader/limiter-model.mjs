@@ -125,12 +125,17 @@ export function createClock(maxFlashHz = 3) {
 const fall = (trough, out) => { out[0] = trough > 0 ? trough : 2; out[1] = trough > 0 ? 0 : 1; };
 
 /** One step of a packed tracker (lo, hi as stored, max the code's maximum) on value v: writes
- * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. */
-export function trackStep(lo, hi, v, step, dark, max, out) {
+ * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. renew bit 0 (rising)
+ * or 1 (falling) says that direction's stamp is no longer recent: a further step of `step` past
+ * the extreme then counts as a new transition, so a second rise after a plateau is not free
+ * (Codex round 14). */
+export function trackStep(lo, hi, v, step, dark, max, out, renew = 0) {
   let dir = 0;
   if (lo > hi) {
     if (lo === max) { dir = 1; lo = hi; } else { dir = -1; lo = hi === 0 ? lo : 0; hi = lo; }
   }
+  if (dir > 0 && renew & 1 && v - hi >= step && hi < dark) { out[0] = max; out[1] = v; return 1; }
+  if (dir < 0 && renew & 2 && lo - v >= step && v < dark) { fall(v, out); return -1; }
   lo = Math.min(lo, v);
   hi = Math.max(hi, v);
   if (dir <= 0 && v - lo >= step && lo < dark) { out[0] = max; out[1] = v; return 1; }
@@ -144,8 +149,8 @@ export function trackStep(lo, hi, v, step, dark, max, out) {
  * A change counts when the new state or one since the previous change is saturated; one that did
  * not count then counts at the first saturated state before the next change. Direction changes
  * never wait for saturation (Codex round 13). */
-export function redStep(x, y, z, rv, sat, out) {
-  const c = trackStep(z & 255, z >> 8, rv, RED_STEP, NO_DARK, RED_MAX, out);
+export function redStep(x, y, z, rv, sat, out, renew = 0) {
+  const c = trackStep(z & 255, z >> 8, rv, RED_STEP, NO_DARK, RED_MAX, out, renew);
   out[0] |= out[1] << 8;
   let counted = x >= COUNT_BIT, seen = y >= SAT_BIT, count = 0;
   if (c !== 0) {
@@ -166,6 +171,10 @@ const redCount = r => ((r & 3) === 3 ? -1 : r & 3);
 export function recent(s, u, deltaMs) {
   return s > 0 && deltaMs <= Math.fround(COVERAGE_MS) && (u - (s - 1) + UNITS) % UNITS <= RECENT_UNITS;
 }
+
+/** The renew bits of the directions at stamps d0 (rising) and d0 + 1 (falling) of stamp word st. */
+export const renewOf = (st, d0, u, deltaMs) =>
+  (recent((st >> (4 * d0)) & 15, u, deltaMs) ? 0 : 1) | (recent((st >> (4 * d0 + 4)) & 15, u, deltaMs) ? 0 : 2);
 
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
@@ -196,11 +205,12 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
 
   // Directions (bit d) the pixel's trackers fire in on value (v, rv, sat); 0 for a pixel with no state.
-  function fires(q, v, rv, sat) {
+  function fires(q, v, rv, sat, unit, deltaMs) {
     const lo = track[q] & LUMA_MAX, hi = track[q + 1] & LUMA_MAX;
     if (lo === LUMA_MAX && hi === 0) return 0;
-    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
-    const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp));
+    const st = track[q + 3];
+    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp, renewOf(st, 0, unit, deltaMs));
+    const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp, renewOf(st, 2, unit, deltaMs)));
     return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
   }
 
@@ -214,15 +224,27 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p, k = by * BLOCKS_X + colBlock[x];
-        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]));
-        req[k] |= now;
+        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]), unit, deltaMs);
         const st = track[i + 3];
-        let hit = now !== 0;
-        for (let d = 0; d < 4; d++) hit = hit || recent((st >> (4 * d)) & 15, unit, deltaMs);
-        if (hit) area[(by >> 2) * GRID_X + (colBlock[x] >> 2)]++;
+        let rec = 0;
+        for (let d = 0; d < 4; d++) rec |= recent((st >> (4 * d)) & 15, unit, deltaMs) ? 1 << d : 0;
+        req[k] |= now | rec << 4;
+        if (now || rec) area[(by >> 2) * GRID_X + (colBlock[x] >> 2)]++;
       }
     }
-    for (let k = 0; k < BLOCKS; k++) for (let d = 0; d < 4; d++) requests[d] += (req[k] >> d) & 1;
+    // Directions firing now, and the channels changed recently: when something fires now, a channel
+    // firing nowhere but recent in the area is asked in one direction (up when it rose), so its own
+    // budget pays for the frame (Codex round 14).
+    let askNow = 0, askRecent = 0;
+    for (let k = 0; k < BLOCKS; k++) {
+      for (let d = 0; d < 4; d++) requests[d] += (req[k] >> d) & 1;
+      askNow |= req[k] & 15; askRecent |= req[k] >> 4;
+    }
+    let asked = askNow;
+    if (askNow) {
+      if (!(askNow & 3) && askRecent & 3) asked |= askRecent & 1 ? 1 : 2;
+      if (!(askNow & 12) && askRecent & 12) asked |= askRecent & 4 ? 4 : 8;
+    }
     // Worst window: over it, every direction is over.
     let isOver = false;
     for (let y0 = 0; y0 + win.rows <= GRID_Y && !isOver; y0++) {
@@ -245,9 +267,9 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     // pixel changing in both shows only if both are admitted (Codex round 13).
     credit = Math.min(TOKEN, credit + Math.max(0, refill - deficit));
     deficit = Math.max(0, deficit - refill);
-    redDeficit = Math.max(0, redDeficit - Math.floor(refill / 8));
-    const askUp = isOver && requests[0] > 0, askDown = isOver && requests[1] > 0;
-    const askRedUp = isOver && requests[2] > 0, askRedDown = isOver && requests[3] > 0;
+    redDeficit = Math.max(0, redDeficit - (refill === 0 ? 0 : Math.max(1, Math.floor(refill / 8))));
+    const askUp = isOver && !!(asked & 1), askDown = isOver && !!(asked & 2);
+    const askRedUp = isOver && !!(asked & 4), askRedDown = isOver && !!(asked & 8);
     const lumaReady = deficit <= 0 && (!(askUp && askDown) || credit >= TOKEN);
     const go = (!(askUp || askDown) || lumaReady) && (!(askRedUp || askRedDown) || redDeficit <= 0);
     const grantUp = askUp && go, grantDown = askDown && go;
@@ -260,7 +282,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     for (let d = 0; d < 4; d++) grant |= (admitted[d] ? 1 << d : 0) | (over[d] ? 16 << d : 0);
 
     // A sub-block holds where one of its pixels does (the same as req & ~grant & 15).
-    for (let k = 0; k < BLOCKS; k++) holdMask[k] = req[k] & ~grant & 15 ? 1 : 0;
+    for (let k = 0; k < BLOCKS; k++) holdMask[k] = req[k] & 15 & ~grant ? 1 : 0;
     let held = 0;
 
     // Output, then the trackers step on it: a held pixel shows the value its tracker last took.
@@ -274,7 +296,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         const i = 4 * p;
         // Held: the pixel would fire in a direction the grant did not admit.
         const hold = holdMask[by * BLOCKS_X + colBlock[x]]
-          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2])) & ~grant & 15;
+          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]), unit, deltaMs) & ~grant & 15;
         if (hold) held++;
         const src = hold ? history : px;
         const r = src[i], g = src[i + 1], b = src[i + 2];
@@ -286,10 +308,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
           track[i] = v; track[i + 1] = v | (sat ? SAT_BIT : 0); track[i + 2] = rv | (rv << 8); track[i + 3] = 0;
           continue;
         }
-        const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp);
+        const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp, renewOf(st, 2, unit, deltaMs));
         const fr = redCount(r3);
         track[i + 2] = tmp[0];
-        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
+        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp, renewOf(st, 0, unit, deltaMs));
         track[i] = tmp[0] | (r3 & 4 ? COUNT_BIT : 0);
         track[i + 1] = tmp[1] | (r3 & 8 ? SAT_BIT : 0);
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);

@@ -3,11 +3,13 @@
 // row's pixels inside the sub-block column [floor(i W / 64), floor((i + 1) W / 64)), counts the
 // pixels whose tracker this frame would fire in any direction or that fired in any direction within
 // the coverage interval, and ORs the directions firing now, so the reduce pass can finish the
-// sub-block over few texels. One count across channels and directions: pixels rising, falling,
-// changing luminance and changing red at once flash together, and per-channel counts let two
-// adjacent patches each stay under the limit while their union is over it (Codex rounds 12, 13).
+// sub-block over few texels, and the directions with a recent stamp in bits 4..7: a channel that
+// changed recently is part of the area, so it is charged with the frame (Codex round 14). One
+// count across channels and directions: pixels rising, falling, changing luminance and changing
+// red at once flash together, and per-channel counts let two adjacent patches each stay under the
+// limit while their union is over it (Codex rounds 12, 13).
 // Inputs uFrame (RGBA8), uTrack (RGBA16UI, the tracker state after the previous frame); output
-// oR (RGBA32UI) = (count, directions firing now, 0, 0).
+// oR (RGBA32UI) = (count, directions firing now | recent directions << 4, 0, 0).
 
 void main() {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -23,9 +25,10 @@ void main() {
         uvec4 t = LIM_U(uTrack, q);
         uint now = limiterFires(t, limiterBytes(LIM_F(uFrame, q).rgb));
         bits |= now;
-        bool hit = now != 0u;
-        for (int d = 0; d < 4; d++) hit = hit || limiterRecent((t.w >> uint(4 * d)) & 15u, unit, deltaMs);
-        count += hit ? 1u : 0u;
+        uint recent = 0u;
+        for (int d = 0; d < 4; d++) recent |= limiterRecent((t.w >> uint(4 * d)) & 15u, unit, deltaMs) ? 1u << uint(d) : 0u;
+        bits |= recent << 4u;
+        count += now != 0u || recent != 0u ? 1u : 0u;
     }
     oR = uvec4(count, bits, 0u, 0u);
 }

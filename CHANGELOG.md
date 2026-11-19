@@ -24,8 +24,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   motion instead of brightness, Wave Tunnel's rings no longer flash on onsets, and Particles has
   narrower size and brightness swings, half the burst range and half its beat and onset
   brightness swings, so the limiter holds less (at most 20% of a frame's pixels on loud audio). Under
-  a loud master no catalogue visual makes a large-area red transition before the limiter, but
-  measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
+  a loud master a few catalogue visuals still make large-area red transitions before the limiter
+  (Particles up to 2 a second), which the limiter holds to one; measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
   own; the limiter holds those. `make visual-flash-check` runs the source budget
   (`limiter-red-audit.mjs --max-luma`) and fails until they are calmed.
 

@@ -608,8 +608,8 @@ test('a geometry change that puts recent pixels over the limit spends the budget
  * Runs a scene of `colour(t, x, y)` through the model at w x h; returns the auditors of the input
  * and output and the last output frame. `dt(t)` gives each frame's interval in seconds.
  */
-function scene(w, h, frames, colour, { dt = () => DT, field, before } = {}) {
-  const lim = model.createLimiter({ width: w, height: h });
+function scene(w, h, frames, colour, { dt = () => DT, field, before, maxFlashHz } = {}) {
+  const lim = model.createLimiter({ width: w, height: h, maxFlashHz });
   const input = createAuditor({ width: w, height: h, field }), audit = createAuditor({ width: w, height: h, field });
   const px = new Uint8Array(w * h * 4);
   let out = null;
@@ -700,6 +700,56 @@ test('a geometry change after a small fall stays within the red budget (Codex ro
     return red ? [160, 0, 0] : [0, 0, 0];
   }, { before: (t, lim, input, out) => { if (t === 31) { lim.setGeometry('desktop'); input.setGeometry(GEOMETRY.desktop); out.setGeometry(GEOMETRY.desktop); } } });
   assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
+});
+
+// Codex round 14: red stripes and luma stripes a frame apart, each under the area limit and over
+// it together. Red changing alone is under the limit and passes; the luma frame after was over and
+// asked only luma, so the combined flash never spent the red budget.
+test('red a frame ahead of luma is charged to the red budget (Codex round 14)', () => {
+  // Each channel alone covers an eighth of the field, under the limit; together a quarter, over it.
+  const { input, audit } = scene(64, 36, 240, (t, x, y) => {
+    const red = Math.floor(t / 6) % 2 === 1, luma = Math.floor((t - 1) / 6) % 2 === 1;
+    const k = (x + 2 * y) % 8;
+    if (k === 4) return luma ? [180, 180, 180] : [0, 0, 0];
+    if (k === 0) return red ? [160, 0, 0] : [0, 0, 0];
+    return [0, 0, 0];
+  });
+  assert.ok(input.maxPerWindow('red') >= 2, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
+});
+
+// Codex round 14: a second rise after a plateau was no transition (the tracker stayed rising), so a
+// rise, a plateau and a further rise flashed red twice for one token.
+test('a second red rise after a plateau is a new transition (Codex round 14)', () => {
+  const seq = [[0, [0, 0, 0]], [1, [110, 0, 0]], [9, [220, 0, 0]], [17, [0, 0, 0]]];
+  const { input, audit } = scene(64, 36, 240, t => phase(seq, t % 24));
+  assert.ok(input.maxPerWindow('red') >= 6, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 14: the auditor's combined area recorded a transition on a frame where nothing
+// changed. One combined change counts once per channel.
+test('one combined change counts once per channel (Codex round 14)', () => {
+  const { input } = scene(64, 36, 30, (t, x) => {
+    if (t < 1) return [0, 0, 0];
+    return x % 5 === 0 ? [180, 180, 180] : x % 5 === 2 ? [160, 0, 0] : [0, 0, 0];
+  });
+  assert.equal(input.transitions.reduce((n, k) => n + k.length, 0), 2);
+  assert.equal(input.maxPerWindow('luma'), 1);
+  assert.equal(input.maxPerWindow('red'), 1);
+});
+
+// Codex round 14: at a tiny maxFlashHz the luma refill was under 8 and the red refill floored to 0,
+// so red froze forever after one grant.
+test('red refills at a tiny maxFlashHz (Codex round 14)', () => {
+  const lim = model.createLimiter({ width: 64, height: 36, maxFlashHz: 0.003 });
+  const px = new Uint8Array(64 * 36 * 4);
+  lim.step(px, DT);
+  for (let i = 0; i < px.length; i += 4) { px[i] = 160; px[i + 3] = 255; }
+  const granted = lim.step(px, DT);
+  assert.equal(granted.redDeficit, model.TOKEN, 'the first red change spends the red budget');
+  assert.ok(lim.step(px, DT).redDeficit < model.TOKEN, 'the red budget never refills');
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
