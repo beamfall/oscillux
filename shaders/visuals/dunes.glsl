@@ -2,49 +2,68 @@
 // Dunes — topographic neon wire landscape.
 // Perspective screen-space contours, not a raymarched terrain.
 // param0 = Speed ; param1 = Height ; param2 = Grid Density
+//
+// Flash budget (Makefile visual-flash-check): the beat answers as motion (a gentle surge in the
+// grid's glide), a hue drift and a swell over ~1/3 beat, never as a brightness step. The only
+// instant response is the horizon haze, whose per-pixel change stays far below WCAG's 0.1
+// relative-luminance step. Crests are cool (ice), so no large saturated-red area changes.
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     float horizon = 0.42;
     vec3 glow = vec3(0.0);
 
-    if (uv.y > horizon) {
-        float ft = (uv.y - horizon) / max(1.0 - horizon, 0.001);
+    float p = saturate(u.beatPhase);
+    // swell: rises over the first ~third of the beat (>= 150 ms at 120 BPM), eases off by the next
+    float swell = smoothstep(0.0, 0.35, p) * (1.0 - smoothstep(0.35, 1.0, p));
+    // continuous beat clock: a soft quadratic surge per beat, never the raw beatPhase saw
+    float beatT = u.beatCount + 1.0 - (1.0 - p) * (1.0 - p);
+
+    float fromHorizon = uv.y - horizon;
+    if (fromHorizon > 0.0) {
+        float ft = fromHorizon / max(1.0 - horizon, 0.001);
         float depth = 1.0 / max(ft * 2.2 + 0.035, 0.035);
-        float speed = mix(0.16, 0.75, u.param0);
+        float speed = mix(0.08, 0.30, u.param0);
         float height = mix(0.10, 0.42, u.param1);
         float density = mix(0.50, 1.45, u.param2);
         float phase = beatRadians(u, ft * 0.22);
+        // the dunes' own drift runs on the continuous beat clock: phase is a saw that resets on
+        // every beat, and phase * k inside a sine snapped the whole terrain at each reset
+        float drift = (beatT + ft * 0.22) * 0.35;
         float phaseLift = beatWave(u, ft * 0.18);
-        // continuous beat clock: an eased lurch per beat, never the raw
-        // beatPhase saw, whose reset snapped the whole grid on every beat
-        float beatT = u.beatCount + 1.0 - pow(1.0 - saturate(u.beatPhase), 3.0);
 
         float wx = (uv.x - 0.5) * depth * 1.55;
-        float wz = depth + u.time * speed + beatT * 0.38;
-        float surface = sin(wx * 1.7 + wz * 0.45 + phase * 0.18) * 0.18;
-        surface += sin(wx * 3.3 - wz * 0.32 + u.mid * 2.0 - phase * 0.22) * 0.08;
-        surface += (fbm(vec2(wx * 0.22 + cos(phase) * 0.10, wz * 0.18 + sin(phase) * 0.08)) - 0.5) * 0.22;
-        surface *= height * (0.8 + u.bassImpact * 0.30);
+        float wz = depth + u.time * speed + beatT * 0.12;
+        float surface = sin(wx * 1.7 + wz * 0.45 + drift) * 0.18;
+        surface += sin(wx * 3.3 - wz * 0.32 + u.mid * 0.5 - drift * 1.2) * 0.08;
+        surface += (fbm(vec2(wx * 0.22 + cos(phase) * 0.04, wz * 0.18 + sin(phase) * 0.03)) - 0.5) * 0.22;
+        surface *= height * (0.92 + 0.08 * swell);
 
         float rows = (wz + surface * 3.0) * density;
-        float cols = (wx + surface + sin(phase) * 0.035) * density * 0.72;
+        float cols = (wx + surface + sin(phase) * 0.02) * density * 0.72;
         float rowLine = aaLineCyclic(rows, 0.010 / max(depth * 0.25, 0.7));
         float colLine = aaLineCyclic(cols, 0.006 / max(depth * 0.25, 0.7)) * 0.45;
-        float fade = exp(-ft * 2.2) * smoothstep(0.02, 0.18, ft);
-        float hue = uv.x + 0.16 * u.spectralCentroid + surface + beatT * 0.08;
-        glow += palNeon(hue) * max(rowLine, colLine) * fade * (0.55 + 0.9 * bandAt(u, fract(uv.x + beatT * 0.08)));
+        float fade = exp(-ft * 3.0) * smoothstep(0.02, 0.18, ft);
+        // the spectrum steers hue along the grid; brightness stays in one band
+        float band = bandAt(u, fract(uv.x + beatT * 0.05));
+        float hue = uv.x + 0.16 * u.spectralCentroid + surface + beatT * 0.05 + 0.12 * band;
+        glow += palNeon(hue) * max(rowLine, colLine) * fade;
+        // a dim, steady sheen on the sand between the wires so the foreground is not empty
+        glow += palNight(0.62 + 0.25 * uv.x) * fade * 0.018;
 
+        // cool crest highlights that swell after the beat
         float crest = smoothstep(0.22, 0.38, surface + phaseLift * 0.05) * rowLine;
-        glow += palHeatIce(0.08 + uv.x * 0.3) * crest * u.bassImpact * 1.2;
-        glow += palVisual(0.15 + uv.x * 0.25 + beatT * 0.16, u) * rowLine * fade * phasePulse(u, ft * 0.35, 0.16) * (0.10 + u.level * 0.18);
+        glow += palHeatIce(0.55 + uv.x * 0.2) * crest * fade * (0.45 + 0.25 * swell);
+        glow += palVisual(0.15 + uv.x * 0.25 + beatT * 0.08, u) * rowLine * fade
+              * phasePulse(u, ft * 0.35, 0.22) * 0.12;
     }
 
-    float horizonLine = aaLine(uv.y - horizon, 0.0016);
+    // horizon haze: a low glow around the horizon that breathes with the kick (dim by design)
+    float haze = exp(-abs(fromHorizon) * (fromHorizon > 0.0 ? 9.0 : 16.0));
+    glow += palNight(0.58 + 0.1 * u.spectralCentroid) * haze * (0.025 + 0.03 * u.bassImpact + 0.02 * swell);
+
+    float horizonLine = aaLine(fromHorizon, 0.0016);
     glow += palNight(0.58 + 0.1 * u.spectralCentroid) * horizonLine * 0.22;
 
-    vec3 col = feedbackTrail(glow, uv,
-                             min(u.trailDecay, 0.86),
-                             0.002 + 0.002 * u.bassImpact,
-                             0.0);
+    vec3 col = feedbackTrail(glow, uv, min(u.trailDecay, 0.75), 0.002, 0.0);
     return col; // LINEAR HDR — post chain tonemaps
 }
