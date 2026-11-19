@@ -47,12 +47,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         vec3 bc = palVisual(fr * 0.55 + 0.06 * u.spectralCentroid + 0.015 * u.time, u);
         bc = accentize(bc, u.accent, 0.15);
+        // keep G a fair share of R (a saturated red-orange, not pink): the dim
+        // halo tails of the red shafts otherwise quantise to pure red and
+        // swell as one large red area on the beat
+        bc.g = max(bc.g, bc.r * 0.30);
 
         // beat-driven: each shaft swells on its own phase offset. A gentle
         // swell, not a slam: a whole saturated shaft doubling in brightness on
         // the kick was a large-area (often red) flash.
-        float slam = phasePulse(u, fr * 0.35, 0.10) * u.bassImpact;
-        float energy = 0.10 + 2.4 * bandE * bandE + 0.45 * slam;
+        // Each shaft's swell rises over ~180 ms (0.36 beat at 120 bpm) from its
+        // own phase offset and falls back to zero before that offset wraps, so
+        // the swell is continuous across the beat: no kick-edge step.
+        float ph = fract(u.beatPhase - fr * 0.35);
+        float slam = smoothstep(0.0, 0.36, ph) * (1.0 - smoothstep(0.40, 1.0, ph))
+                   * u.bassImpact;
+        float energy = 0.10 + 2.4 * bandE * bandE + 0.55 * slam;
 
         col += bc * halo * sh * smoke * fall * haze * energy * 0.40;
         // steady white core; onset whitening flipped every shaft's red balance
