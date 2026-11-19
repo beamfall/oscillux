@@ -56,7 +56,7 @@
 // fires exactly as the direction would (nothing is above the maximum).
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
-//   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, track, stats: { requests, over, admitted, fired } }.
+//   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
 import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
 
@@ -110,13 +110,17 @@ export function redCode(r, g, b) {
   return R > G + B ? (R - G - B) >> 8 : 0;
 }
 
-/** The host clock: tick in [0, 240), the frame interval in ms, and the token refill. */
+/** The host clock: tick in [0, 240), the frame interval in ms, and the token refill. The refill
+ * carries its fraction to the next frame, so a small maxFlashHz at a high frame rate still refills
+ * (Codex round 15). */
 export function createClock(maxFlashHz = 3) {
-  let ms = 0;
+  let ms = 0, carry = 0;
   return dt => {
     ms += dt * 1000;
-    return { tick: Math.floor(ms / TICK_MS) % TICKS, deltaMs: Math.fround(dt * 1000),
-      refill: Math.floor(Math.min(1, Math.max(0, 2 * maxFlashHz * dt)) * TOKEN) };
+    const earned = carry + Math.min(1, Math.max(0, 2 * maxFlashHz * dt)) * TOKEN;
+    const refill = Math.min(TOKEN, Math.floor(earned));
+    carry = Math.min(1, earned - refill);
+    return { tick: Math.floor(ms / TICK_MS) % TICKS, deltaMs: Math.fround(dt * 1000), refill };
   };
 }
 
@@ -125,17 +129,14 @@ export function createClock(maxFlashHz = 3) {
 const fall = (trough, out) => { out[0] = trough > 0 ? trough : 2; out[1] = trough > 0 ? 0 : 1; };
 
 /** One step of a packed tracker (lo, hi as stored, max the code's maximum) on value v: writes
- * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. renew bit 0 (rising)
- * or 1 (falling) says that direction's stamp is no longer recent: a further step of `step` past
- * the extreme then counts as a new transition, so a second rise after a plateau is not free
- * (Codex round 14). */
-export function trackStep(lo, hi, v, step, dark, max, out, renew = 0) {
+ * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. Steps in one
+ * direction are one transition however long they pause between them (a flash is a pair of
+ * opposing changes, ITU-R BT.1702, WCAG 2.x). */
+export function trackStep(lo, hi, v, step, dark, max, out) {
   let dir = 0;
   if (lo > hi) {
     if (lo === max) { dir = 1; lo = hi; } else { dir = -1; lo = hi === 0 ? lo : 0; hi = lo; }
   }
-  if (dir > 0 && renew & 1 && v - hi >= step && hi < dark) { out[0] = max; out[1] = v; return 1; }
-  if (dir < 0 && renew & 2 && lo - v >= step && v < dark) { fall(v, out); return -1; }
   lo = Math.min(lo, v);
   hi = Math.max(hi, v);
   if (dir <= 0 && v - lo >= step && lo < dark) { out[0] = max; out[1] = v; return 1; }
@@ -149,8 +150,8 @@ export function trackStep(lo, hi, v, step, dark, max, out, renew = 0) {
  * A change counts when the new state or one since the previous change is saturated; one that did
  * not count then counts at the first saturated state before the next change. Direction changes
  * never wait for saturation (Codex round 13). */
-export function redStep(x, y, z, rv, sat, out, renew = 0) {
-  const c = trackStep(z & 255, z >> 8, rv, RED_STEP, NO_DARK, RED_MAX, out, renew);
+export function redStep(x, y, z, rv, sat, out) {
+  const c = trackStep(z & 255, z >> 8, rv, RED_STEP, NO_DARK, RED_MAX, out);
   out[0] |= out[1] << 8;
   let counted = x >= COUNT_BIT, seen = y >= SAT_BIT, count = 0;
   if (c !== 0) {
@@ -172,9 +173,6 @@ export function recent(s, u, deltaMs) {
   return s > 0 && deltaMs <= Math.fround(COVERAGE_MS) && (u - (s - 1) + UNITS) % UNITS <= RECENT_UNITS;
 }
 
-/** The renew bits of the directions at stamps d0 (rising) and d0 + 1 (falling) of stamp word st. */
-export const renewOf = (st, d0, u, deltaMs) =>
-  (recent((st >> (4 * d0)) & 15, u, deltaMs) ? 0 : 1) | (recent((st >> (4 * d0 + 4)) & 15, u, deltaMs) ? 0 : 2);
 
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
@@ -205,12 +203,11 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
 
   // Directions (bit d) the pixel's trackers fire in on value (v, rv, sat); 0 for a pixel with no state.
-  function fires(q, v, rv, sat, unit, deltaMs) {
+  function fires(q, v, rv, sat) {
     const lo = track[q] & LUMA_MAX, hi = track[q + 1] & LUMA_MAX;
     if (lo === LUMA_MAX && hi === 0) return 0;
-    const st = track[q + 3];
-    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp, renewOf(st, 0, unit, deltaMs));
-    const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp, renewOf(st, 2, unit, deltaMs)));
+    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
+    const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp));
     return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
   }
 
@@ -224,7 +221,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p, k = by * BLOCKS_X + colBlock[x];
-        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]), unit, deltaMs);
+        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]));
         const st = track[i + 3];
         let rec = 0;
         for (let d = 0; d < 4; d++) rec |= recent((st >> (4 * d)) & 15, unit, deltaMs) ? 1 << d : 0;
@@ -296,7 +293,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         const i = 4 * p;
         // Held: the pixel would fire in a direction the grant did not admit.
         const hold = holdMask[by * BLOCKS_X + colBlock[x]]
-          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]), unit, deltaMs) & ~grant & 15;
+          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2])) & ~grant & 15;
         if (hold) held++;
         const src = hold ? history : px;
         const r = src[i], g = src[i + 1], b = src[i + 2];
@@ -308,10 +305,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
           track[i] = v; track[i + 1] = v | (sat ? SAT_BIT : 0); track[i + 2] = rv | (rv << 8); track[i + 3] = 0;
           continue;
         }
-        const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp, renewOf(st, 2, unit, deltaMs));
+        const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp);
         const fr = redCount(r3);
         track[i + 2] = tmp[0];
-        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp, renewOf(st, 0, unit, deltaMs));
+        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
         track[i] = tmp[0] | (r3 & 4 ? COUNT_BIT : 0);
         track[i + 1] = tmp[1] | (r3 & 8 ? SAT_BIT : 0);
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
@@ -325,7 +322,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         track[i + 3] = ns;
       }
     }
-    return { out, held, holdMask, grant, deficit, redDeficit, track, stats: { requests, over, admitted, fired } };
+    return { out, held, holdMask, grant, deficit, redDeficit, track, stats: { requests, asked, over, admitted, fired } };
   }
 
   // The viewing geometry may change on a live display. The trackers are kept, and the grant

@@ -2171,9 +2171,9 @@
       "overlay": true,
       "calm": false,
       "palette": [
-        1,
+        25,
         0,
-        1,
+        25,
         0
       ],
       "params": [
@@ -3378,9 +3378,9 @@
       "overlay": false,
       "calm": false,
       "palette": [
-        1,
+        16,
         0,
-        1,
+        16,
         0
       ],
       "params": [

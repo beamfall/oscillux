@@ -31,7 +31,10 @@ The uniform block holds two vectors:
     field wherever it sits.
   - `limit` is the area limit in pixels, a quarter of the field's pixels; a window is over when
     its count is strictly greater.
-  - `refill` is the token refill this frame, `floor(clamp(2 * maxFlashHz * dt, 0, 1) * 65025)`.
+  - `refill` is the token refill this frame: `earned = carry + clamp(2 * maxFlashHz * dt, 0, 1) *
+    65025`, `refill = min(65025, floor(earned))`, then `carry = min(1, earned - refill)`, starting
+    at 0. Carrying the fraction keeps a small `maxFlashHz` at a high frame rate refilling; without
+    it every frame floors to 0 and a spent budget never returns (Codex round 15).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
   - `deltaMs` is the frame interval as float32.
@@ -83,7 +86,8 @@ fires now, a channel firing nowhere but changed recently in the frame is asked t
 direction (rising when it rose), so its own token pays for the combined area: red changing alone
 under the limit and luma over it a frame later cannot spend only the luma token (Codex round 14).
 The red refill is at least one unit whenever luma refills, so a tiny `maxFlashHz` never freezes
-red.
+red. The floor can only shorten red's refill when luma's is under 8 units a frame, that is at a
+`maxFlashHz` far below 1, where a red token still takes over a second.
 
 Pixels flash together whichever way and in whichever channel they change, so the area is one
 count of pixels changing in any channel and direction; over the limit, every direction is over
@@ -120,9 +124,9 @@ Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.
 A tracker fires when the pixel moves a full step (luma 0.1, red 20 on WCAG's scale) from its
 low or high mark with the darker side below 0.8, so a change over many frames counts as soon as
 it adds up to a step, and the area counts pixels exactly whatever share of a sub-block moves.
-A tracker past a rise keeps its peak; a further step up past the peak once the rise's stamp is no
-longer recent is a new rise (likewise a fall), so a rise, a plateau and a second rise are two
-transitions (until Codex round 14 the second was free).
+A tracker past a rise keeps its peak, however long the rise pauses: steps in one direction are
+one transition, and only a full step back from the peak is the next (a flash is a pair of opposing
+changes, ITU-R BT.1702, WCAG 2.x). The pixel auditor counts the same way.
 `output` shows history at a pixel whose trackers would fire on the input in a direction the grant
 did not admit and the input everywhere else (until v0.2.9 the whole sub-block held, so holds
 showed as tiles), then steps every pixel's trackers on the colour it shows. The trackers

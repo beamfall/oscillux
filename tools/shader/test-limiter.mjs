@@ -719,9 +719,9 @@ test('red a frame ahead of luma is charged to the red budget (Codex round 14)', 
   assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
 });
 
-// Codex round 14: a second rise after a plateau was no transition (the tracker stayed rising), so a
-// rise, a plateau and a further rise flashed red twice for one token.
-test('a second red rise after a plateau is a new transition (Codex round 14)', () => {
+// Codex round 14: a rise, a plateau and a further rise is one transition; with the fall after it,
+// the staircase still flashes at most once a second through the red budget.
+test('a red staircase rise and fall is rationed as one flash (Codex rounds 14, 15)', () => {
   const seq = [[0, [0, 0, 0]], [1, [110, 0, 0]], [9, [220, 0, 0]], [17, [0, 0, 0]]];
   const { input, audit } = scene(64, 36, 240, t => phase(seq, t % 24));
   assert.ok(input.maxPerWindow('red') >= 6, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
@@ -740,6 +740,25 @@ test('one combined change counts once per channel (Codex round 14)', () => {
   assert.equal(input.maxPerWindow('red'), 1);
 });
 
+// Codex round 15: a large luma rise in one field hid a combined red-and-luma area in another.
+test('a large area elsewhere does not hide a combined area (Codex round 15)', () => {
+  const auditor = createAuditor({ width: 64, height: 36 });
+  const px = new Uint8Array(64 * 36 * 4);
+  const paint = on => {
+    for (let y = 0, i = 0; y < 36; y++) {
+      for (let x = 0; x < 64; x++, i += 4) {
+        const c = !on ? [0, 0, 0] : y < 8 && x < 5 ? [160, 0, 0] : y < 8 && x < 10 ? [180, 180, 180]
+          : x >= 40 ? [180, 180, 180] : [0, 0, 0];
+        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      }
+    }
+  };
+  paint(false); auditor.push(px, DT);
+  paint(true); auditor.push(px, DT);
+  assert.equal(auditor.maxPerWindow('red'), 1);
+  assert.equal(auditor.maxPerWindow('luma'), 1);
+});
+
 // Codex round 14: at a tiny maxFlashHz the luma refill was under 8 and the red refill floored to 0,
 // so red froze forever after one grant.
 test('red refills at a tiny maxFlashHz (Codex round 14)', () => {
@@ -750,6 +769,19 @@ test('red refills at a tiny maxFlashHz (Codex round 14)', () => {
   const granted = lim.step(px, DT);
   assert.equal(granted.redDeficit, model.TOKEN, 'the first red change spends the red budget');
   assert.ok(lim.step(px, DT).redDeficit < model.TOKEN, 'the red budget never refills');
+});
+
+// Codex round 15: at 480 Hz the same rate earns under one unit a frame, and flooring each frame
+// discarded it; the clock carries the fraction.
+test('the refill carries its fraction at a high frame rate (Codex round 15)', () => {
+  const lim = model.createLimiter({ width: 64, height: 36, maxFlashHz: 0.003 });
+  const px = new Uint8Array(64 * 36 * 4), dt = 1 / 480;
+  lim.step(px, dt);
+  for (let i = 0; i < px.length; i += 4) { px[i] = 160; px[i + 3] = 255; }
+  assert.equal(lim.step(px, dt).redDeficit, model.TOKEN, 'the first red change spends the red budget');
+  let deficit = model.TOKEN;
+  for (let f = 0; f < 4; f++) deficit = lim.step(px, dt).redDeficit;
+  assert.ok(deficit < model.TOKEN, 'the red budget never refills at 480 Hz');
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

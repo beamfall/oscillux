@@ -47,15 +47,6 @@ bool limiterRecent(uint s, int unit, float deltaMs) {
     return s > 0u && deltaMs <= COVERAGE_MS && (unit - (int(s) - 1) + 15) % 15 <= 5;
 }
 
-// The renew bits for limiterTrackStep of the directions at stamps d0 (rising) and d0 + 1 (falling)
-// of tracker t: set where that direction has no stamp inside the coverage interval.
-int limiterRenew(uvec4 t, int d0) {
-    int unit = int(lu.limiter1.x) >> 4;
-    float deltaMs = lu.limiter1.y;
-    return (limiterRecent((t.w >> uint(4 * d0)) & 15u, unit, deltaMs) ? 0 : 1)
-        | (limiterRecent((t.w >> uint(4 * d0 + 4)) & 15u, unit, deltaMs) ? 0 : 2);
-}
-
 // A fall's packed (lo, hi): the trough in lo and 0 in hi, or (2, 1) for a trough of 0, which
 // (0, 0) would read back as no direction (Codex round 13).
 ivec2 limiterFall(int trough) {
@@ -64,12 +55,10 @@ ivec2 limiterFall(int trough) {
 
 // The audit counter's step on a packed tracker (lo, hi) for value v: returns (lo', hi', change),
 // change 1 rising, -1 falling, 0 none. Every change moves the tracker, whether or not it counts as
-// a transition (limiterRedStep decides that for red). `renew` bit 0 (rising) or 1 (falling) says the
-// tracker's last transition in that direction is outside the coverage interval: a step of at least
-// stepSize past its extreme in the same direction is then a new transition, not the old one
-// continuing, so a plateau, a further rise and a fall back are two opposing transitions
-// (Codex round 14).
-ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCode, int renew) {
+// a transition (limiterRedStep decides that for red). Steps in one direction are one transition
+// however long they pause between them (a flash is a pair of opposing changes, ITU-R BT.1702,
+// WCAG 2.x): a rise, a plateau and a further rise end at one extreme.
+ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCode) {
     int dir = 0;
     if (lo > hi) {
         if (lo == maxCode) {
@@ -81,8 +70,6 @@ ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCod
             hi = lo;
         }
     }
-    if (dir > 0 && (renew & 1) != 0 && v - hi >= stepSize && hi < dark) return ivec3(maxCode, v, 1);
-    if (dir < 0 && (renew & 2) != 0 && lo - v >= stepSize && v < dark) return ivec3(limiterFall(v), -1);
     lo = min(lo, v);
     hi = max(hi, v);
     if (dir <= 0 && v - lo >= stepSize && lo < dark) return ivec3(maxCode, v, 1);
@@ -99,7 +86,7 @@ ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCod
 // saturated red is not lost. Direction changes never wait for saturation: a gated direction let an
 // unsaturated reversal hide the transition after it (Codex round 13).
 ivec4 limiterRedStep(uvec4 t, int rv, bool sat) {
-    ivec3 s = limiterTrackStep(int(t.z & 255u), int(t.z >> 8u), rv, RED_STEP, NO_DARK, RED_MAX, limiterRenew(t, 2));
+    ivec3 s = limiterTrackStep(int(t.z & 255u), int(t.z >> 8u), rv, RED_STEP, NO_DARK, RED_MAX);
     bool counted = (t.x & COUNT_BIT) != 0u;
     bool seen = (t.y & SAT_BIT) != 0u;
     int count = 0;
@@ -151,7 +138,7 @@ bool limiterUntracked(uvec4 t) {
 // with display values c; none for a pixel with no state yet.
 uint limiterFires(uvec4 t, ivec3 c) {
     if (limiterUntracked(t)) return 0u;
-    int fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), limiterLuma(c), LUMA_STEP, LUMA_DARK, LUMA_MAX, limiterRenew(t, 0)).z;
+    int fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), limiterLuma(c), LUMA_STEP, LUMA_DARK, LUMA_MAX).z;
     int fr = limiterRedStep(t, limiterRed(c), limiterSat(c)).y;
     return (fl > 0 ? 1u : 0u) | (fl < 0 ? 2u : 0u) | (fr > 0 ? 4u : 0u) | (fr < 0 ? 8u : 0u);
 }

@@ -25,7 +25,7 @@ void main() {
         oTrack = uvec4(uint(v), uint(v) | (sat ? SAT_BIT : 0u), uint(rv | (rv << 8)), 0u);
         return;
     }
-    ivec3 fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), v, LUMA_STEP, LUMA_DARK, LUMA_MAX, limiterRenew(t, 0));
+    ivec3 fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), v, LUMA_STEP, LUMA_DARK, LUMA_MAX);
     ivec4 fr = limiterRedStep(t, rv, sat);
     uint fired = (fl.z > 0 ? 1u : 0u) | (fl.z < 0 ? 2u : 0u) | (fr.y > 0 ? 4u : 0u) | (fr.y < 0 ? 8u : 0u);
     int unit = int(lu.limiter1.x) >> 4;

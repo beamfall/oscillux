@@ -25,10 +25,6 @@
 import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode, redSat } from './limiter-model.mjs';
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
-// A further step past a tracker's extreme in its own direction is a new transition once the
-// direction's previous one is this old: past the limiter's longest recency (6 units of 1000/60 ms),
-// so every such transition the auditor counts the limiter counts too (Codex round 14).
-export const AUDIT_RENEW_MS = 100;
 // The measures are the limiter's codes (limiter-model.mjs: lumaCode, redCode, redSat), and the
 // codes are the measure: luma steps of 3275 15-bit codes (0.1 relative luminance) with the darker
 // side below 26215 (0.8); red steps of 15 codes (20 of WCAG's 320 scale) of (R - G - B) >> 8
@@ -92,9 +88,36 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     return false;
   }
 
-  function hasFresh(c) {
-    for (let j = 0; j < N; j++) if (fresh(last[2 * c][j], since[2 * c]) || fresh(last[2 * c + 1][j], since[2 * c + 1])) return true;
-    return false;
+  const sums = [new Int32Array((W + 1) * (H + 1)), new Int32Array((W + 1) * (H + 1))];
+  const freshIn = c => j => fresh(last[2 * c][j], since[2 * c]) || fresh(last[2 * c + 1][j], since[2 * c + 1]);
+  function fill(sum, test) {
+    for (let y = 0; y < H; y++) {
+      let run = 0;
+      for (let x = 0; x < W; x++) {
+        run += test(y * W + x) ? 1 : 0;
+        sum[(y + 1) * (W + 1) + x + 1] = sum[y * (W + 1) + x + 1] + run;
+      }
+    }
+  }
+  const box = (sum, x, y) => sum[(y + fhPx) * (W + 1) + x + fwPx] - sum[y * (W + 1) + x + fwPx]
+    - sum[(y + fhPx) * (W + 1) + x] + sum[y * (W + 1) + x];
+  // The channels with a fresh pixel inside some field placement whose fresh pixels, in any channel
+  // and direction, are over the limit: the combined area is charged to them, whatever happens
+  // elsewhere in the frame (Codex round 15).
+  function combined() {
+    const lumaFresh = freshIn(0), redFresh = freshIn(1);
+    fill(integral, j => lumaFresh(j) || redFresh(j));
+    fill(sums[0], lumaFresh);
+    fill(sums[1], redFresh);
+    const charged = [false, false];
+    for (let y = 0; y + fhPx <= H; y++) {
+      for (let x = 0; x + fwPx <= W; x++) {
+        if (box(integral, x, y) <= limit) continue;
+        if (box(sums[0], x, y) > 0) charged[0] = true;
+        if (box(sums[1], x, y) > 0) charged[1] = true;
+      }
+    }
+    return charged;
   }
 
   function record(k) { transitions[k].push(frame); times[k].push(clock); }
@@ -102,13 +125,6 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // One tracker step; returns 1 rising, -1 falling, 0 none.
   function track(c, j, v) {
     const step = c === 0 ? LUMA_STEP : RED_STEP, dark = c === 0 ? LUMA_DARK : Infinity;
-    // A second rise after a plateau (or fall after a trough) is a new transition.
-    if (dir[c][j] > 0 && clock - last[2 * c][j] > AUDIT_RENEW_MS && v - hi[c][j] >= step && hi[c][j] < dark) {
-      lo[c][j] = hi[c][j] = v; return 1;
-    }
-    if (dir[c][j] < 0 && clock - last[2 * c + 1][j] > AUDIT_RENEW_MS && lo[c][j] - v >= step && v < dark) {
-      lo[c][j] = hi[c][j] = v; return -1;
-    }
     lo[c][j] = Math.min(lo[c][j], v);
     hi[c][j] = Math.max(hi[c][j], v);
     if (dir[c][j] <= 0 && v - lo[c][j] >= step && lo[c][j] < dark) { dir[c][j] = 1; lo[c][j] = hi[c][j] = v; return 1; }
@@ -139,21 +155,21 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firedNow[1] = true; }
     }
     live = true;
+    // Every test reads the counts as they stood before this frame's charges, so a large area in one
+    // field cannot hide another field's narrower or combined area (Codex round 15).
     const now = [large([0]), large([1]), large([2]), large([3])];
+    const channel = [large([0, 1]), large([2, 3])];
+    // The combined area, only on a frame where something changed: it is charged to every channel
+    // with a fresh pixel in an over placement, so staggering red a frame behind luma charges both
+    // (Codex round 14).
+    const more = firedNow[0] || firedNow[1] ? combined() : [false, false];
     for (let d = 0; d < 4; d++) if (now[d]) { record(d); since[d] = clock; }
-    let any = now.some(Boolean);
     for (let c = 0; c < 2; c++) {
-      if (now[2 * c] || now[2 * c + 1] || !large([2 * c, 2 * c + 1])) continue;
+      if (now[2 * c] || now[2 * c + 1] || !(channel[c] || more[c])) continue;
       record(4 + c);
       since[2 * c] = since[2 * c + 1] = clock;
-      any = true;
     }
-    // The combined area, only on a frame where something changed: it is charged to every channel
-    // with a fresh pixel in it, so staggering red a frame behind luma charges both (Codex round 14).
-    if (!any && (firedNow[0] || firedNow[1]) && large([0, 1, 2, 3])) {
-      for (let c = 0; c < 2; c++) if (hasFresh(c)) record(4 + c);
-      since.fill(clock);
-    }
+    if (more[0] || more[1]) since.fill(clock);
     return now;
   }
 

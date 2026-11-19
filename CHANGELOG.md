@@ -23,9 +23,11 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 - Calmer visual sources (CORE-2492): beat accents in about 30 visuals are softer or ride on
   motion instead of brightness, Wave Tunnel's rings no longer flash on onsets, and Particles has
   narrower size and brightness swings, half the burst range and half its beat and onset
-  brightness swings, so the limiter holds less (at most 20% of a frame's pixels on loud audio). Under
-  a loud master a few catalogue visuals still make large-area red transitions before the limiter
-  (Particles up to 2 a second), which the limiter holds to one; measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
+  brightness swings, so the limiter holds less (at most 20% of a frame's pixels on loud audio).
+  Particles' default palette is now deepSpace and Reactor's jade, instead of emberIce, whose red
+  stop lit large areas in saturated red: on a loud master neither makes a large-area red transition
+  before the limiter, and Particles holds under 9% of a frame. Under a loud master a few catalogue visuals still make
+  large-area red transitions before the limiter, which the limiter holds to one a second; measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
   own; the limiter holds those. `make visual-flash-check` runs the source budget
   (`limiter-red-audit.mjs --max-luma`) and fails until they are calmed.
 
@@ -42,9 +44,9 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   trackers would fire in a direction the grant did not admit shows the previous output; every
   other pixel shows the input exactly, so holds no longer show as sub-block tiles and the hold
   feather from 0.2.5 is gone (a blended change could finish a transition late). Under loud audio
-  every catalogue visual's output keeps within 6 luma transitions a second and makes no red
-  transition; held pixels average 3.8% in Laser Tunnel (0.2.8: 37% of sub-blocks) and 17% in
-  Interference (32%). Cost on an M2 Max: 0.31 ms a frame at 1080p, 0.87 ms at 4K.
+  every catalogue visual's output keeps within 6 luma transitions a second and at most one
+  large-area red transition in any second, so no red flash; held pixels average 11% in Laser
+  Tunnel (0.2.8: 37% of sub-blocks) and 28% in Interference (32%). Cost on an M2 Max: 0.31 ms a frame at 1080p, 0.87 ms at 4K.
   **Host binding change:** six passes (`rows`, `reduce`, `cells`, `windows`, `grant`, `output`).
   `rows` reads `uFrame` and `uTrack`; `output` reads `uFrame`, `uHist`, `uTrack` and `uG` and
   writes `oColor` and `oTrack` (MRT). Hosts start the output black and the track textures at
@@ -57,7 +59,7 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   stretched (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from
   `windowOf()` and the limit in pixels, computed from physical pixels and divided by the square of
   the texel size. The area is one count of pixels changing in any channel and direction; the luma
-  step is 3275 codes and the red step 15. Frames are supported from 64 x 36 to 8192 x 8192;
+  step is 3275 codes and the red step 15. Hosts carry the fraction of each frame's refill to the next frame, so a small `maxFlashHz` at a high frame rate still refills. Steps in one direction are one transition however long they pause. Frames are supported from 64 x 36 to 8192 x 8192;
   hosts clamp larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
   field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and

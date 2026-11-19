@@ -68,7 +68,8 @@ async function attach({ W, H }) {
   const { createAuditor } = await import('/limiter-audit.mjs');
   // Over is one flag for every direction: a frame is red-over only where red pixels fire in it too,
   // so luma-only activity is not labelled red (Codex round 14).
-  const redOver = st => st.over[2] && st.requests[2] + st.requests[3] > 0;
+  // Red is asked of the grant when it fires now or, with something else firing, changed recently.
+  const redOver = st => st.over[2] && (st.asked & 12) !== 0;
   window.audit = {
     start() {
       const s = { lim: createLimiter({ width: W, height: H }), inA: createAuditor({ width: W, height: H }),

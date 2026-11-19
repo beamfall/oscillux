@@ -172,8 +172,9 @@ when both red directions are asked the grant SHALL admit one, the other than at 
 ### Requirement: Recent channels pay for the combined area
 
 When some direction fires now and the frame is over the limit, the grant SHALL also ask each
-channel that fires nowhere now but fired within the coverage interval, in the direction it last
-fired, so that channel's own budget pays for the combined area.
+channel that fires nowhere now but fired within the coverage interval, rising when it rose
+within the interval and falling otherwise, so that channel's own budget pays for the combined
+area.
 
 #### Scenario: Red a frame ahead of luma
 
@@ -182,12 +183,14 @@ fired, so that channel's own budget pays for the combined area.
 - **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
   output
 
-### Requirement: A further step after a plateau
+### Requirement: Same-direction steps are one transition
 
-A tracker past a transition SHALL count a further full step past its extreme in the same direction
-as a new transition once that direction's previous transition is no longer recent.
+A tracker SHALL count steps in one direction, however long it pauses between them, as one
+transition ending at the furthest extreme; only a full step back from that extreme is the next
+transition. A flash is a pair of opposing changes (ITU-R BT.1702, WCAG 2.x), so a rise, a plateau
+and a further rise are one rise, as in the pixel auditor.
 
-#### Scenario: Rise, plateau, rise
+#### Scenario: Rise, plateau, rise, fall
 
 - **WHEN** a full frame goes from black to (110, 0, 0), holds, rises to (220, 0, 0) and returns to
   black, 2.5 times a second
@@ -196,12 +199,20 @@ as a new transition once that direction's previous transition is no longer recen
 
 ### Requirement: Red refills at any rate
 
-Whenever the luma budget refills, the red budget SHALL refill by at least one unit.
+Whenever the luma budget refills, the red budget SHALL refill by at least one unit, and the host
+SHALL carry the fraction of a refill unit to the next frame so a small maxFlashHz refills at any
+frame rate.
 
 #### Scenario: A tiny maximum flash rate
 
 - **WHEN** maxFlashHz is 0.003 and a red change spends the red budget
 - **THEN** the red deficit falls on the next frame
+
+#### Scenario: A tiny maximum flash rate at a high frame rate
+
+- **WHEN** maxFlashHz is 0.003, frames come 480 times a second and a red change spends the red
+  budget
+- **THEN** the red deficit falls within 4 frames
 
 ### Requirement: Geometry change spends the budget
 
