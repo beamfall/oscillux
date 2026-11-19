@@ -19,11 +19,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ~175 ms after the beat and falls over the rest of it, scaled by the smoothed level.
     float swell = smoothstep(0.0, 0.35, u.beatPhase) * (1.0 - smoothstep(0.35, 1.0, u.beatPhase))
                 * saturate(u.level * 1.2);
-    float warpSpeed  = baseSpeed + swell * 2.0;
+    float warpSpeed  = baseSpeed + swell * 1.6;
 
-    // Monotonic warp position: steady cruise plus an eased forward lunge per
-    // beat (0 at phase 0, 1 at phase 1, so it is seamless across beats).
-    float lunge = (1.0 - exp(-u.beatPhase * 4.0)) / (1.0 - exp(-4.0));
+    // Monotonic warp position: steady cruise plus an eased forward surge per
+    // beat (0 at phase 0, 1 at phase 1, so it is seamless across beats). The surge
+    // is spread over the beat with no velocity step at the wrap: a sharp lunge just
+    // after the kick swept every thick streak across new pixels at once.
+    float lunge = mix(u.beatPhase, smoothstep(0.0, 1.0, u.beatPhase), 0.6);
     // Wrap the beat count where depth (beatClock * 0.3 * 0.065) has run a whole number of
     // cycles: 2000 beats is exactly 39, so the wrap moves no star (OSC-0040).
     float beatClock = mod(u.beatCount, 2000.0) + lunge;
@@ -66,7 +68,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // ── streak segment toward centre (tail direction) ────────────────────
         float streakLen = streakMult * depth * depth
                           * (1.0 + warpSpeed * 0.04)
-                          * (1.0 + swell * 0.25); // the swell stretches tails slowly; a kick-rate stretch flashed every tail
+                          * (1.0 + swell * 0.2); // the swell stretches tails slowly; a kick-rate stretch flashed every tail
 
         // Guard near-zero for normalize
         float starDist = length(starPos);
@@ -78,14 +80,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                               0.0, max(streakLen, 1e-5));
         vec2  closest = starPos + tailDir * tProj;
         float dist    = length(p - closest);
+        float tailFrac = tProj / max(streakLen, 1e-5); // 0=head, 1=tail
 
-        // Star dot size: tiny near origin, blooms toward viewer
-        float dotSize = (0.0005 + h3 * 0.0025) * (0.2 + depth * 2.0);
+        // Streak width: tiny near origin, thick toward the viewer, tapering head to tail
+        // into a wedge. Width is steady per star (depth only), so it never pulses.
+        float dotSize = (0.0026 + h3 * 0.0085) * (0.25 + depth * 2.2) * (1.0 - 0.5 * tailFrac);
 
         // Brightness envelope: fade in from singularity, fade out past edge
         float bright = smoothstep(0.0, 0.30, depth)
                      * smoothstep(1.0, 0.72, depth)
-                     * (0.55 + h3 * 0.45) * (0.55 + specBend * 0.25 + swell * 0.12);
+                     * (0.65 + h3 * 0.35) * (0.85 + specBend * 0.15 + swell * 0.08);
 
         // Glow falloff along the streak — quadratic so halos stay tight and
         // space between stars stays black; cores still reach ~5x HDR
@@ -93,14 +97,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         glow = min(glow, 5.0) * bright;
 
         // ── color ────────────────────────────────────────────────────────────
-        float tailFrac = tProj / max(streakLen, 1e-5); // 0=head, 1=tail
-
         // Base hue follows the active semantic palette across star index + depth.
         vec3 coreCol = palRoleTrace(h4 + depth * 0.15 + u.spectralCentroid * 0.12, u);
 
-        // Star cores: saturated palette color, only a hint of white-hot
-        vec3 headCol = mix(coreCol * 1.15, vec3(1.1, 1.15, 1.25),
-                           0.18 + 0.25 * smoothstep(0.9, 1.0, depth));
+        // Star cores: palette colour pushed toward lavender-white hot cores
+        vec3 headCol = mix(coreCol * 1.15, vec3(1.1, 1.05, 1.3),
+                           0.22 + 0.3 * smoothstep(0.75, 1.0, depth));
 
         // Tail: semantic bass colour, shifted (not brightened) by the swell.
         vec3 tailCol = palRoleBass(h4 * 0.6 + swell * 0.12, u);
@@ -115,17 +117,26 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         col += starCol * glow;
     }
 
-    // ── beat wave: a thin gold ring rides out on each beat ───────────────────
-    // It expands with the beat phase and swells in and out (no on-beat flash), stays thin,
-    // and keeps green in it so it never reads as saturated red (CORE-2659).
+    // ── warp rings: a bright gold inner ring and a gold-to-amber outer ring ──
+    // Both are steady in place and brightness; the beat warms their hue on the slow swell
+    // (CORE-2659): even a 2% radius breath, stacked by the trail zoom, tipped the field
+    // over the luma budget with the swell-stretched streaks. Amber keeps green and blue in
+    // it so it never reads as saturated red.
     {
         float r = length(p);
         float a = atan2_(p.y, p.x);
-        float ringR  = 0.22 + u.beatPhase * 0.95;
-        float ringEnv = swell * (1.0 - smoothstep(0.6, 1.2, ringR));
-        float ring = ringEnv * 0.16 * aaLine(r - ringR, 0.004);
-        vec3 burstCol = mix(palNeon(0.10 + a / 6.28318530718 * 0.15), vec3(1.0, 0.85, 0.55), 0.45);
-        col += burstCol * ring;
+        float innerR = 0.34;
+        float inner  = aaLine(r - innerR, 0.011) + 0.25 * exp(-abs(r - innerR) * 70.0);
+        vec3 innerCol = mix(vec3(1.0, 0.74, 0.18), vec3(1.0, 0.84, 0.36), 0.5 + 0.5 * sin(a * 2.0 + u.time * 0.4));
+        innerCol = mix(innerCol, vec3(1.0, 0.68, 0.22), swell * 0.5);
+        col += innerCol * inner * 0.75;
+
+        float outerR = 0.94;
+        float outer  = aaLine(r - outerR, 0.007) + 0.2 * exp(-abs(r - outerR) * 80.0);
+        // gold around half the ring, warming to amber around the other half, drifting slowly
+        float warm = smoothstep(0.15, 0.85, 0.5 + 0.5 * sin(a + 2.4 + u.time * 0.15 + swell * 0.3));
+        vec3 outerCol = mix(vec3(0.7, 0.52, 0.14), vec3(0.8, 0.34, 0.08), warm);
+        col += outerCol * outer * 0.62;
 
         // flux filaments: faint radial rays, re-seeded each beat while their envelope is 0
         for (int j = 0; j < 12; ++j) {
