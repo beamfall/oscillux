@@ -2,10 +2,9 @@
 
 ### Requirement: Fine reversing patterns
 
-The frame limiter SHALL count, per sub-block, the pixels whose luma code rose by the luma step
-against the previous output and those whose luma code fell by it, the darker side below the dark
-threshold. When at least a quarter of a sub-block's pixels rose, the sub-block SHALL request a
-luma transition up; when at least a quarter fell, it SHALL request a luma transition down.
+The frame limiter SHALL limit reversing patterns finer than a sub-block, and changes over part
+of each sub-block, as the pixel auditor counts them (per-pixel trackers: the
+`limiter-pixel-trackers` change).
 
 #### Scenario: Fine checkerboard
 
