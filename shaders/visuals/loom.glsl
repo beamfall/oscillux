@@ -100,6 +100,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float freshMask = 1.0 - smoothstep(shuttleZ, shuttleZ + 0.35, z);
             col = mix(history, fresh, freshMask);
 
+            // woven cloth floor: the receding fabric drawn directly at a steady dim
+            // level, so the far cloth is there in every frame instead of depending
+            // on what the history trail happened to carry. max(), not +: PREV
+            // feeds back, so an added floor would pile up. Strands blend to their
+            // mean where they shrink below a pixel so they cannot shimmer.
+            float clothLine = mix(warpLine, 0.30, smoothstep(2.2, 6.0, z));
+            float clothFade = smoothstep(shuttleZ + 0.10, shuttleZ + 0.80, z)
+                            * (1.0 - smoothstep(7.0, 18.0, z));
+            vec3 cloth = warpCol * clothLine * (0.085 + 0.025 * bandE) * clothFade;
+            col = max(col, cloth);
+
             // ripple sheen glints on displaced rows
             col += palVisual(0.45, u) * abs(ripple) * 0.02;
 
