@@ -19,6 +19,13 @@ that qualifies, in 8-bit display codes:
 2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
 3. the mix of the input and the previous output that is nearest the input.
 
+A mix has 256 steps between its two colours, each rounded to display codes, so the steps that
+qualify need not be contiguous. The limiter SHALL search each mix above from the input's end
+without assuming they are: the 16 steps nearest the input in order, then every 16th step, then
+the 15 steps between the first of those that qualifies and the step tested before it, again from
+the input's end. It SHALL take the first step that qualifies, and the mix's other end when none
+does.
+
 The band's floor is 0 when a fall is allowed, else the lower of the dark threshold and one code
 more than a step below the tracker's high. Its ceiling is the top code when a rise is allowed or
 the tracker's low is at or above the dark threshold, else one code less than a step above the
@@ -61,6 +68,15 @@ tracker's low.
 - **WHEN** a bright area turns black on a frame whose fall is not admitted
 - **THEN** each of its pixels shows the colour it showed dimmed to less than a step below the luma
   it had, and the pixel auditor counts no transition there
+
+#### Scenario: A mix that qualifies is found past ones that do not
+
+- **WHEN** a frame of (240, 123, 247) turns (31, 167, 125) and the fall is not admitted, a frame
+  of (23, 189, 209) turns (12, 250, 58) and the rise is not admitted, or a frame of
+  (154, 194, 79) turns (251, 130, 9) and the red rise is not admitted
+- **THEN** the pixels show (32, 167, 125), one step of the previous output; (10, 214, 50), the
+  scaled input, the furthest mix under the limit being step 90 past three steps over it; and
+  (247, 132, 16), the safe mix from the grey 12 steps from colour 1
 
 #### Scenario: Nothing fires outside the grant
 
