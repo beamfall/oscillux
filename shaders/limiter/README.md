@@ -297,9 +297,12 @@ Through the fade the view of the old frame may only shrink. A pixel that leaves 
 by the host page's clip: the limiter cannot hold what is no longer drawn, and the limit of 0
 covers whatever is left. A pixel the view hid must not come back before the start: it would show
 the frame's colour with no tracker event. So the host keeps the frame at its size and place and
-clips it to the smallest view since the frame started (the Beamfall web host clips its canvas
-over a black backdrop, Codex rounds 24 and 25). Cutting the frame itself to the smaller view
-would drop the lit pixels of a texel still partly on screen to black with no grant.
+clips it to the smallest view since the frame started, or keeps the view the frame started with
+until the start (the Beamfall web host does the second: it sizes and clips its canvas from the
+frame alone, over a black backdrop, and lets no box of the page clip it, since a page box can
+shrink and grow back for one paint with nothing reported to the host, Codex rounds 24, 25 and
+29). Cutting the frame itself to the smaller view would drop the lit pixels of a texel still
+partly on screen to black with no grant.
 
 The host sizes the view to exactly the frame times the display scale in physical pixels and
 letterboxes the rest, so every texel covers the same whole number of physical pixels, and it
