@@ -18,7 +18,9 @@ at an old colour while calm pixels beside them keep updating. In the catalogue u
 - A held pixel shows the input moved as little as needed so that its trackers fire only in
   directions the input fires and the grant admitted:
   1. the input's colour with its luma moved into the band the pixel's luma tracker allows,
-     scaled toward black to lower it or mixed toward white to raise it;
+     scaled toward black to lower it or mixed with the least of the previous output that raises
+     it there (mixing toward white was tried: it turns the held remains of coloured content, and
+     the whole frame during a fade, grey);
   2. if that colour still fires (a red transition, or a rounding edge), the largest safe mix of
      it from the grey of the same luma;
   3. if that grey fires too, the largest safe mix of the input from the previous output, which
@@ -44,7 +46,7 @@ at an old colour while calm pixels beside them keep updating. In the catalogue u
 ## Failure modes
 
 - Held regions show the current frame at reduced contrast, and a bright area that went dark
-  stays lit one step lower in a neutral tone until the next grant.
+  stays lit one step lower, in the colour it had, until the next grant.
 - The output pass does more work on a held pixel (up to three 8-step searches). The cost is
   measured and recorded in `shaders/limiter/README.md`.
 - A held pixel whose tracker has no history (first frames, reset) falls back to the previous

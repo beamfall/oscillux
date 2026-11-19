@@ -10,7 +10,8 @@ grant admitted, and SHALL step the trackers on that colour. It SHALL choose the 
 that qualifies, in 8-bit display codes:
 
 1. the input with its luma code moved the least distance into the band the pixel's luma tracker
-   allows, by scaling the colour toward black to lower it or mixing it toward white to raise it;
+   allows, by scaling the colour toward black to lower it or mixing it with the least of the
+   previous output that raises it there;
 2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
 3. the mix of the input and the previous output that is nearest the input.
 
@@ -41,8 +42,8 @@ tracker's low.
 #### Scenario: A denied fall stays a step below its peak
 
 - **WHEN** a bright area turns black on a frame whose fall is not admitted
-- **THEN** each of its pixels shows a neutral grey less than a step below the luma it had, and
-  the pixel auditor counts no transition there
+- **THEN** each of its pixels shows the colour it showed dimmed to less than a step below the luma
+  it had, and the pixel auditor counts no transition there
 
 #### Scenario: Nothing fires outside the grant
 
