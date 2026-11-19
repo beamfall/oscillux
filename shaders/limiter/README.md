@@ -49,9 +49,12 @@ The uniform block holds two vectors:
     refresh late and this one on time, so it was shown for max(R, interval - R) for the display's
     refresh period R. A host that knows R only from above takes the least of that over every R up
     to its bound, max(interval / 2, interval - bound), and no more than the bound (the Beamfall web
-    host: the bound is the shortest draw interval seen, at least 4 ms and at most a 24 Hz refresh;
-    animation frames can run at every other refresh, so a host drawing at its animation-frame rate
-    credits half of each interval) (Codex rounds 18 to 21). R is the period at both paints: a
+    host: the bound is the shortest of its last 32 draw intervals, at least 4 ms and at most a
+    24 Hz refresh, so a cadence that slows is measured again; animation frames can run at every
+    other refresh, as Safari's do at 60 a second on a 120 Hz display, so a host drawing at its
+    animation-frame rate credits half of each interval) (Codex rounds 18 to 21, 27). A steady
+    draw cadence is therefore not a measurement of R, and does not earn more than half: only
+    paint times, or an R the platform reports, do. R is the period at both paints: a
     display that changes its refresh rate between them can show the frame for less, which a host
     without paint times cannot see, so such a host over-credits one interval, by at most its
     bound, on a refresh-rate change (Codex round 22, OSC-0046). A host that credits less than the
@@ -250,22 +253,26 @@ for every change. Nothing is carried from the old frame to the new one.
    a channel, so the grant has admitted it once the red token is back: the luma tokens it also
    waits for return sooner. The fade is over when a frame of it has shown black at every pixel.
    A host that reads the grant word knows when: a frame of the fade whose held bits (4 to 7 of
-   `oG.x`) are clear showed its input, black, exactly, and the fade ends at the next frame. The
-   first frame of the fade reads the `G` the host wrote, which says nothing; the word that counts
-   is the one a frame of the fade wrote. A frame with no pixel a step above black is black on the
-   fade's first frame, one with luma to drop when the two luma tokens are back
+   `oG.x`) are clear showed its input, black, exactly, and the fade can end at the next frame,
+   or at any later one: a host need not wait on the GPU for the word. The first frame of the
+   fade reads the `G` the host wrote, which says nothing; the word that counts is the one a
+   frame of the fade wrote. A frame whose trackers hold nothing a step above black is black on
+   the fade's first frame (a dark frame can still hold an earlier peak a step above black, and
+   its fall then waits like any other), one with luma to drop when the two luma tokens are back
    (2 / (2 · maxFlashHz) seconds), and one with saturated red when the red token is. A host that
    does not read the word, and any host as a cap, runs the fade for longer than the red token's
    refill, 8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write
    refills nothing, and the grant comes on a frame). Both times are in the time the limiter is
-   credited with, not on the clock (the Beamfall web host: the held bits of the frame before,
-   with a cap of 2 s, counting each frame's `deltaMs` up to one luma token's refill, the most a
-   frame refills, so a slow page fades for longer; Codex rounds 22 and 26). The output is then
-   black.
+   credited with, not on the clock (the Beamfall web host: the held bits of an earlier frame of
+   the fade, read through a pixel-pack buffer and a fence polled once a frame so the page never
+   waits on the GPU, which ends the fade a frame or two after the grant, with a cap of 2 s,
+   counting each frame's `deltaMs` up to one luma token's refill, the most a frame refills, so a
+   slow page fades for longer; Codex rounds 22, 26 and 27). The output is then black.
 
    Credited time runs slower than the clock wherever `deltaMs` is a lower bound. The Beamfall
-   web host cannot read the display's refresh period, so at a steady cadence it credits half of
-   each interval (`limiter1` above): its credited times take about twice as long on the clock.
+   web host cannot read the display's refresh period or measure it from its animation frames,
+   so at a steady cadence it credits half of each interval (`limiter1` above): its credited
+   times take about twice as long on the clock.
    At 60 frames a second and the default 3 Hz a frame with luma to drop is held about 0.7 s and
    a saturated red one about 2.7 s before it falls, and the cap of 2 s is about 4 s.
 2. **Black.** Free the frame and present black, without running the limiter, for longer than the

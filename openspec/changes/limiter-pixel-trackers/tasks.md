@@ -12,6 +12,8 @@
 - [x] 2.2 WebGL2 and Metal checkers; regenerate vectors (the reference web host runs no limiter)
 
 - [x] 2.3 Per-pixel holds in the model, `output.glsl` and both checkers (CORE-2492)
+- [x] 2.4 Host guide: the grant word may be read without waiting on the GPU; a draw cadence does
+  not measure the refresh period; a dark frame fades at once only when its trackers hold no peak
 
 ## 3. Verify and close
 

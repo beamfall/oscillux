@@ -220,10 +220,11 @@ black at every pixel. Until the start the view of the frame SHALL only shrink.
 
 ### Requirement: The fade ends when the frame is black
 
-A host that reads the grant word SHALL end the fade at the frame after one of the fade's frames
-whose word holds no direction. Every host SHALL end it once it has run for longer than the red
-token's refill, 8 / (2 · maxFlashHz) seconds, by more than two frames, in the time the limiter
-is credited with, and a host that does not read the word SHALL NOT end it sooner.
+A host that reads the grant word SHALL end the fade once it has read, from one of the fade's
+frames, a word that holds no direction: at the frame after that one at the soonest, and later if
+it reads the word without waiting on the GPU. Every host SHALL end it once it has run for longer
+than the red token's refill, 8 / (2 · maxFlashHz) seconds, by more than two frames, in the time
+the limiter is credited with, and a host that does not read the word SHALL NOT end it sooner.
 
 #### Scenario: A fade timed to the red refill
 
@@ -235,15 +236,23 @@ is credited with, and a host that does not read the word SHALL NOT end it sooner
 
 #### Scenario: A dark frame fades in one frame
 
-- **WHEN** the fade starts on a frame with no pixel a luma or red step above black
-- **THEN** the fade's first frame shows black with no direction held, and the fade ends at the
-  next frame
+- **WHEN** the fade starts on a frame whose trackers hold nothing a luma or red step above black
+  (no extreme when rising, no reference when falling)
+- **THEN** the fade's first frame shows black with no direction held, and the fade can end at
+  the next frame
+
+#### Scenario: A dark frame that holds an earlier peak
+
+- **WHEN** the fade starts on a frame with no pixel a luma step above black, whose luma trackers
+  are rising with a peak a step above black
+- **THEN** the fall to black is a transition from that peak, and the frame is held until it is
+  granted
 
 #### Scenario: A lit frame waits for its grant
 
 - **WHEN** the fade starts on a frame with luma to drop and no saturated red
 - **THEN** the frame is held until the two luma tokens are back, the fall is granted on one
-  frame, and the fade ends at the next
+  frame, and the fade ends at the next or once the host has read that frame's word
 
 ### Requirement: A change during the fade moves the target
 

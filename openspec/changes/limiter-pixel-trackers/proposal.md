@@ -57,20 +57,23 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   black and `G` written fully spent, and never clear it or `G` under a frame on screen. Any change
   to the frame (its size, its display scale or the texels in view) takes one path: fade the frame
   to black through the limiter (`G` written fully spent, an area limit of 0, black fed in, until
-  a frame of the fade shows black at every pixel, which the grant word's held bits report, and
-  for no longer than the red token's refill and two frames more, in the time the limiter is
-  credited with), present black without running the limiter for longer than
+  a frame of the fade shows black at every pixel, which the grant word's held bits report; a
+  host that does not read the word fades for more than two frames past the red token's refill,
+  in the time the limiter is credited with, and no host fades for longer than that), present
+  black without running the limiter for longer than
   the coverage interval, counted from the first black frame presented, then start again at the
   latest size. A change during the fade or the black only moves that target. Nothing is copied
   from one frame to the next, and a lost context restored starts the same way, from the black.
 - A change to the frame costs the picture: it is held until the limiter grants its fall, black
   until the start, and then rises through the grant like a first frame. The times are the
   limiter's credited time, not the clock's. The Beamfall web host cannot read the display's
-  refresh period and credits half of each interval at a steady cadence, so at 60 frames a second
+  refresh period, or measure it from its animation frames, and credits half of each interval at
+  a steady cadence, so at 60 frames a second
   and the default 3 Hz its 0.1 s of black is about 0.2 s on the clock; a frame with luma to drop
   is held about 0.7 s before it and a saturated red one about 2.7 s (the red token's refill of
-  1.33 s credited); and the cap on the fade, 2 s credited, is about 4 s. A dark frame is black
-  at once and starts after the 0.2 s.
+  1.33 s credited); and the cap on the fade, 2 s credited, is about 4 s. A frame whose
+  trackers hold nothing a step above black is black within a frame or two and starts after the
+  0.2 s; a dark frame that still holds an earlier peak waits for its fall like a lit one.
 - A display-scale change is the user's: the browser rescales the last frame before the host can
   react, which the limiter does not control.
 - More holds where many small areas change at once, since partial coverage now counts in full.
