@@ -3,8 +3,8 @@
 // Every decision is integer arithmetic on 16-bit codes, so the GLSL passes reproduce it bit for
 // bit. Per frame:
 //   1. Measures: each pixel's luma code is min(65535, LUMA_LUT[r][0] + LUMA_LUT[g][1] +
-//      LUMA_LUT[b][2]) (65535 relative luminance) and its red code (R - G - B) >> 8 on the
-//      saturated-red pixels, R + 4 >= 4 (G + B) and R > G + B, else 0, where R, G, B are the
+//      LUMA_LUT[b][2]) >> 1 (32767 relative luminance), its red code (R - G - B) >> 8 where
+//      R > G + B, else 0, and whether it is saturated red, R + 4 >= 4 (G + B), where R, G, B are the
 //      linear channel codes LUMA_LUT[k][3] = round(65535 linear(k / 255)) (256 red codes are
 //      1.25 on WCAG's 320 max(0, R - G - B) scale). Both are linear light, as WCAG 2.x defines
 //      them. The auditor (limiter-audit.mjs) measures with the same codes.
@@ -41,10 +41,11 @@
 //      refilled: CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
 //
 // Tracker state is packed as the GPU stores it, one RGBA16UI texel per pixel:
-//   x, y  luma lo, hi; z  red lo | hi << 8; w  stamps, 4 bits each (luma up, luma down << 4,
+//   x, y  luma lo, hi (15-bit; bit 15 of y: a saturated red state since the red tracker last
+//         fired, which a red fire needs now or then); z  red lo | hi << 8; w  stamps, 4 bits each (luma up, luma down << 4,
 //   red up << 8, red down << 12), 0 absent, else the event's unit (tick >> 4) + 1.
 // The direction is in the order of lo and hi: lo <= hi is none; after a rise lo is the maximum
-// code (65535, red 255) and hi the reference; after a fall hi is 0 and lo the reference (a
+// code (32767, red 255) and hi the reference; after a fall hi is 0 and lo the reference (a
 // tracker only reads hi after a rise and lo after a fall). lo = maximum, hi = 0 marks a pixel
 // with no state yet, which takes its first value without firing. A rise to the maximum or a fall
 // to 0 reads back as no direction, which fires exactly as the direction would.
@@ -60,16 +61,20 @@ export const MODEL = 'pixel-10deg';
 export const BLOCKS_X = GRID_X * SUB, BLOCKS_Y = GRID_Y * SUB;
 const BLOCKS = BLOCKS_X * BLOCKS_Y;
 const CELLS = GRID_X * GRID_Y;
-export const LUMA_STEP = 6550, LUMA_DARK = 52430, RED_STEP = 15, NO_DARK = 256;
-export const LUMA_MAX = 65535, RED_MAX = 255;
+// The codes are the measure (shaders/limiter/common.glsl): 0.1 and 0.8 relative luminance,
+// and 20 of WCAG's 320 red scale in 256ths.
+export const LUMA_STEP = 3276, LUMA_DARK = 26215, RED_STEP = 16, NO_DARK = 256;
+// Luma codes are 15-bit (32767 relative luminance) so bit 15 of the luma-hi word can carry the
+// red tracker's saturated bit (SAT_BIT): whether a saturated red state was seen since it last fired.
+export const LUMA_MAX = 32767, RED_MAX = 255, SAT_BIT = 32768;
 export const TOKEN = 65025;
 export const COVERAGE_MS = 1000 / 15;
 export const TICK_MS = COVERAGE_MS / 64;
 // The clock counts ticks modulo 240, 15 units of 16 ticks. A stamp is recent while the current
-// unit is at most 4 units after it (modulo 15): every event at most 64 ticks (the coverage
-// interval) old, and some up to 79. Stale stamps are cleared every frame and a frame interval
+// unit is at most 5 units after it (modulo 15): every event at most 64 ticks (the coverage
+// interval) old, since 64 ticks reach into a sixth unit, and some up to 95. Stale stamps are cleared every frame and a frame interval
 // over the coverage interval voids them all, so no stamp lives long enough to alias.
-export const TICKS = 240, UNIT_TICKS = 16, UNITS = 15, RECENT_UNITS = 4;
+export const TICKS = 240, UNIT_TICKS = 16, UNITS = 15, RECENT_UNITS = 5;
 
 /** Per 8-bit display value k: round(65535 * weight * linear(k / 255)) for the Rec. 709 weights
  * (R, G, B), then the unweighted linear code round(65535 * linear(k / 255)). */
@@ -84,12 +89,20 @@ const LG = Int32Array.from(LUMA_LUT, v => v[1]);
 const LB = Int32Array.from(LUMA_LUT, v => v[2]);
 const LIN = Int32Array.from(LUMA_LUT, v => v[3]);
 
-/** A pixel's luma code. */
-export const lumaCode = (r, g, b) => Math.min(LUMA_MAX, LR[r] + LG[g] + LB[b]);
-/** A pixel's red code: (R - G - B) >> 8 when saturated red, else 0. */
+/** A pixel's luma code: the 16-bit relative luminance halved to 15 bits. */
+export const lumaCode = (r, g, b) => Math.min(65535, LR[r] + LG[g] + LB[b]) >> 1;
+/** Whether a pixel is saturated red, R / (R + G + B) >= 0.8 on the linear codes, widened by their
+ * rounding (R + 4 >= 4 (G + B)) so every saturated colour passes. */
+export function redSat(r, g, b) {
+  const R = LIN[r], G = LIN[g], B = LIN[b];
+  return R > G + B && R + 4 >= 4 * (G + B);
+}
+/** A pixel's red code: (R - G - B) >> 8 when R > G + B, else 0. A red change fires its tracker
+ * only when the new state or one since the tracker last fired is saturated (redSat), so every
+ * WCAG transition between a saturated and any other state counts and orange to orange never does. */
 export function redCode(r, g, b) {
   const R = LIN[r], G = LIN[g], B = LIN[b];
-  return R + 4 >= 4 * (G + B) && R > G + B ? (R - G - B) >> 8 : 0;
+  return R > G + B ? (R - G - B) >> 8 : 0;
 }
 
 /** The host clock: tick in [0, 240), the frame interval in ms, and the token refill. */
@@ -103,16 +116,17 @@ export function createClock(maxFlashHz = 3) {
 }
 
 /** One step of a packed tracker (lo, hi as stored, max the code's maximum) on value v: writes
- * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. */
-export function trackStep(lo, hi, v, step, dark, max, out) {
+ * the new lo, hi to out[0], out[1] and returns 1 rising, -1 falling, 0 none. It fires only when
+ * `gate` holds (red: a saturated state now or since the last fire). */
+export function trackStep(lo, hi, v, step, dark, max, gate, out) {
   let dir = 0;
   if (lo > hi) {
     if (lo === max) { dir = 1; lo = hi; } else { dir = -1; hi = lo; }
   }
   lo = Math.min(lo, v);
   hi = Math.max(hi, v);
-  if (dir <= 0 && v - lo >= step && lo < dark) { out[0] = max; out[1] = v; return 1; }
-  if (dir >= 0 && hi - v >= step && v < dark) { out[0] = v; out[1] = 0; return -1; }
+  if (gate && dir <= 0 && v - lo >= step && lo < dark) { out[0] = max; out[1] = v; return 1; }
+  if (gate && dir >= 0 && hi - v >= step && v < dark) { out[0] = v; out[1] = 0; return -1; }
   out[0] = dir > 0 ? max : lo;
   out[1] = dir < 0 ? 0 : hi;
   return 0;
@@ -132,14 +146,15 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   // holds at most 65535 pixels; 8192 x 8192 keeps it at 29 184.
   if (W > MAX_SIDE || H > MAX_SIDE) throw new Error(`limiter: frame ${W}x${H} is over ${MAX_SIDE}x${MAX_SIDE}`);
   const N = W * H;
-  const win = windowOf(geometry, W, H);
+  let win = windowOf(geometry, W, H);
   const clock = createClock(maxFlashHz);
   // Packed tracker state per pixel (RGBA16UI), cleared to "no state yet".
   const track = new Uint16Array(N * 4);
   for (let p = 0; p < N; p++) { track[4 * p] = LUMA_MAX; track[4 * p + 2] = RED_MAX; }
   const req = new Uint8Array(BLOCKS);
   const holdMask = new Uint8Array(BLOCKS);
-  const area = new Int32Array(CELLS * 4);
+  // Per cell: luma up, luma down, red up, red down, luma either, red either.
+  const area = new Int32Array(CELLS * 6);
   const tmp = [0, 0];
   let deficit = 0;
   let credit = 0;
@@ -149,12 +164,12 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const colBlock = Int32Array.from({ length: W }, (_, x) => blockOf(x, W, BLOCKS_X));
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
 
-  // Directions (bit d) the pixel's trackers fire in on value (v, rv); 0 for a pixel with no state.
-  function fires(q, v, rv) {
-    const lo = track[q], hi = track[q + 1], rz = track[q + 2];
+  // Directions (bit d) the pixel's trackers fire in on value (v, rv, sat); 0 for a pixel with no state.
+  function fires(q, v, rv, sat) {
+    const lo = track[q], hi = track[q + 1] & LUMA_MAX, rz = track[q + 2];
     if (lo === LUMA_MAX && hi === 0) return 0;
-    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
-    const fr = trackStep(rz & 255, rz >> 8, rv, RED_STEP, NO_DARK, RED_MAX, tmp);
+    const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, true, tmp);
+    const fr = trackStep(rz & 255, rz >> 8, rv, RED_STEP, NO_DARK, RED_MAX, sat || track[q + 1] >= SAT_BIT, tmp);
     return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
   }
 
@@ -168,27 +183,32 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p, k = by * BLOCKS_X + colBlock[x];
-        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]));
+        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]));
         req[k] |= now;
         const st = track[i + 3];
-        const cell = 4 * ((by >> 2) * GRID_X + (colBlock[x] >> 2));
+        const cell = 6 * ((by >> 2) * GRID_X + (colBlock[x] >> 2));
+        let hit = 0;
         for (let d = 0; d < 4; d++) {
-          if ((now >> d) & 1 || recent((st >> (4 * d)) & 15, unit, deltaMs)) area[cell + d]++;
+          if ((now >> d) & 1 || recent((st >> (4 * d)) & 15, unit, deltaMs)) { area[cell + d]++; hit |= 1 << d; }
         }
+        if (hit & 3) area[cell + 4]++;
+        if (hit & 12) area[cell + 5]++;
       }
     }
     for (let k = 0; k < BLOCKS; k++) for (let d = 0; d < 4; d++) requests[d] += (req[k] >> d) & 1;
-    // Worst window per direction.
-    const over = [false, false, false, false];
+    // Worst window per count; a channel's either-direction count over puts both directions over,
+    // since pixels rising and pixels falling at once flash together.
+    const overN = [false, false, false, false, false, false];
     for (let y0 = 0; y0 + win.rows <= GRID_Y; y0++) {
       for (let x0 = 0; x0 + win.cols <= GRID_X; x0++) {
-        for (let d = 0; d < 4; d++) {
+        for (let d = 0; d < 6; d++) {
           let s = 0;
-          for (let y = y0; y < y0 + win.rows; y++) for (let x = x0; x < x0 + win.cols; x++) s += area[4 * (y * GRID_X + x) + d];
-          if (s > win.limit) over[d] = true;
+          for (let y = y0; y < y0 + win.rows; y++) for (let x = x0; x < x0 + win.cols; x++) s += area[6 * (y * GRID_X + x) + d];
+          if (s > win.limit) overN[d] = true;
         }
       }
     }
+    const over = [overN[0] || overN[4], overN[1] || overN[4], overN[2] || overN[5], overN[3] || overN[5]];
     // Luminance shares one token budget; red has its own, refilled at an eighth of the luma rate,
     // so it never takes or waits for the luminance token and no 1 s window holds two large-area
     // red transitions: no saturated-red flash (ITU-R BT.1702, ADR-0232 R5), and a held red change
@@ -229,21 +249,25 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         const i = 4 * p;
         // Held: the pixel would fire in a direction the grant did not admit.
         const hold = holdMask[by * BLOCKS_X + colBlock[x]]
-          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2])) & ~grant & 15;
+          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2])) & ~grant & 15;
         if (hold) held++;
         const src = hold ? history : px;
         const r = src[i], g = src[i + 1], b = src[i + 2];
         out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
-        const v = lumaCode(r, g, b), rv = redCode(r, g, b);
-        const lo = track[i], hi = track[i + 1], rz = track[i + 2], st = track[i + 3];
+        const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
+        const lo = track[i], hi = track[i + 1] & LUMA_MAX, any = track[i + 1] >= SAT_BIT;
+        const rz = track[i + 2], st = track[i + 3];
         if (lo === LUMA_MAX && hi === 0) {
-          track[i] = track[i + 1] = v; track[i + 2] = rv | (rv << 8); track[i + 3] = 0;
+          track[i] = v; track[i + 1] = v | (sat ? SAT_BIT : 0); track[i + 2] = rv | (rv << 8); track[i + 3] = 0;
           continue;
         }
-        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, tmp);
-        track[i] = tmp[0]; track[i + 1] = tmp[1];
-        const fr = trackStep(rz & 255, rz >> 8, rv, RED_STEP, NO_DARK, RED_MAX, tmp);
+        const fl = trackStep(lo, hi, v, LUMA_STEP, LUMA_DARK, LUMA_MAX, true, tmp);
+        track[i] = tmp[0];
+        const nhi = tmp[1];
+        const fr = trackStep(rz & 255, rz >> 8, rv, RED_STEP, NO_DARK, RED_MAX, sat || any, tmp);
         track[i + 2] = tmp[0] | (tmp[1] << 8);
+        // The saturated bit restarts at each red fire and collects every state until the next.
+        track[i + 1] = nhi | ((fr !== 0 ? sat : sat || any) ? SAT_BIT : 0);
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
         let ns = 0;
         for (let d = 0; d < 4; d++) {
@@ -258,5 +282,14 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     return { out, held, holdMask, grant, deficit, redDeficit, track, stats: { requests, over, admitted, fired } };
   }
 
-  return { step, window: win };
+  // The viewing geometry may change on a live display. The trackers are kept, and the grant
+  // state is written fully spent (as on a resize): a smaller window can put pixels that fired
+  // recently, each admitted while under the old limit, over the new one with no grant paying.
+  const setGeometry = g => {
+    win = windowOf(g, W, H);
+    deficit = 2 * TOKEN;
+    credit = 0;
+    redDeficit = TOKEN;
+  };
+  return { step, setGeometry, get window() { return win; } };
 }

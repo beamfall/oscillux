@@ -164,43 +164,66 @@ test('full-frame [120,50,0]/[0,50,120] 10 Hz is red in linear light and admits <
   assert.ok(audit.maxPerWindow('red') <= 1, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
 });
 
-// The codes never under-measure WCAG's linear-light thresholds (Codex round 11): over every 8-bit
-// colour, the luma code is within 1.5 of 65535 Y and R - G - B of the linear codes within 1.5 of
-// 65535 (R - G - B), so a luma change of 0.1 (6553.5) moves the code by at least 6550 (LUMA_STEP),
-// a darker side under 0.8 (52428) reads under 52430 (LUMA_DARK), a red change of 20 on the 320
-// scale (4096 linear codes) moves the red code by at least 15 (RED_STEP), and every saturated
-// colour (R >= 4 (G + B)) passes the code's saturation test.
-test('the 16-bit codes are conservative against WCAG linear-light thresholds', () => {
+// The codes never under-measure WCAG's linear-light thresholds (Codex rounds 11 to 13): over every
+// 8-bit colour, the 15-bit luma code is within 1.25 of 32767.5 Y and R - G - B of the linear codes
+// within 1.5 of 65535 (R - G - B), so the luma step and darker side are WCAG's 0.1 and 0.8 at the
+// nearest code, a red change of 20 on the 320 scale (4096 linear codes) moves the red code by at
+// least 15 (RED_STEP), and every saturated colour (R >= 4 (G + B)) passes the saturation test.
+test('the codes track WCAG linear light and take its thresholds', () => {
   const lin = k => { const c = k / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const L = Float64Array.from({ length: 256 }, (_, k) => lin(k));
   const C = Int32Array.from(model.LUMA_LUT, v => v[3]);
-  let lumaErr = 0, redErr = 0, satMiss = 0;
+  let lumaErr = 0, redErr = 0, redMiss = 0, satMiss = 0;
   for (let r = 0; r < 256; r++) {
     for (let g = 0; g < 256; g++) {
       for (let b = 0; b < 256; b++) {
-        const y = 65535 * (0.2126 * L[r] + 0.7152 * L[g] + 0.0722 * L[b]);
+        const y = 32767.5 * (0.2126 * L[r] + 0.7152 * L[g] + 0.0722 * L[b]);
         lumaErr = Math.max(lumaErr, Math.abs(model.lumaCode(r, g, b) - y));
         const d = 65535 * (L[r] - L[g] - L[b]);
         redErr = Math.max(redErr, Math.abs(C[r] - C[g] - C[b] - d));
-        if (L[r] >= 4 * (L[g] + L[b]) && d >= 256 && model.redCode(r, g, b) === 0) satMiss++;
+        if (d >= 258 && model.redCode(r, g, b) === 0) redMiss++;
+        if (L[r] > 0 && L[r] >= 4 * (L[g] + L[b]) && !model.redSat(r, g, b)) satMiss++;
       }
     }
   }
-  assert.ok(lumaErr <= 1.5, `luma code off by ${lumaErr}`);
+  assert.ok(lumaErr <= 1.25, `luma code off by ${lumaErr}`);
   assert.ok(redErr <= 1.5, `red difference off by ${redErr}`);
-  assert.equal(satMiss, 0, `${satMiss} saturated-red colours fail the code's saturation test`);
-  assert.ok(model.LUMA_STEP <= Math.floor(6553.5 - 2 * lumaErr), `LUMA_STEP ${model.LUMA_STEP}`);
-  assert.ok(model.LUMA_DARK > Math.floor(52428 + lumaErr), `LUMA_DARK ${model.LUMA_DARK}`);
-  assert.ok(model.RED_STEP <= Math.ceil((4096 - 2 * redErr) / 256) - 1, `RED_STEP ${model.RED_STEP}`);
+  assert.equal(redMiss, 0, `${redMiss} red colours (saturated or not) measure no red`);
+  assert.equal(satMiss, 0, `${satMiss} saturated red colours fail the saturation test`);
+  assert.equal(model.LUMA_MAX, 32767);
+  assert.equal(model.LUMA_STEP, Math.floor(0.1 * 32767.5));
+  assert.equal(model.LUMA_DARK, Math.ceil(0.8 * 32767.5) + 1);
+  assert.equal(model.RED_STEP, (20 / 320) * 65536 / 256);
+});
+
+// Codex round 12: WCAG counts a transition between saturated red and an unsaturated state, so a
+// strobe between dark saturated red and a brighter purple-red (red fraction 0.76) is a red flash.
+test('a strobe between saturated and unsaturated red is limited', () => {
+  const spec = { kind: 'square', hz: 10, on: [155, 0, 90], off: [48, 0, 0] };
+  const input = createAuditor({ width: W, height: H });
+  const { audit } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
+  assert.ok(input.maxPerWindow('red') >= 18, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Neither state saturated (red fractions 0.74 and 0.75): a change between two oranges is no red
+// transition, so a 3 Hz orange strobe passes as luma only.
+test('a change between two oranges is not a red transition', () => {
+  const spec = { kind: 'square', hz: 3, on: [255, 160, 0], off: [180, 110, 0] };
+  const input = createAuditor({ width: W, height: H });
+  const { audit } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
+  assert.equal(input.maxPerWindow('red'), 0, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.equal(audit.maxPerWindow('red'), 0);
+  assert.equal(audit.maxPerWindow('luma'), input.maxPerWindow('luma'));
 });
 
 // Codex round 11's two strobes just over a threshold: red 28 on the 320 scale at a red fraction
-// of 0.8000025, and a luma excursion of 0.1000026. Both read as flashing in the input and are
-// limited in the output.
+// of 0.8000025, and a luma excursion of 6553 16-bit codes (0.09999 relative luminance). Both read as
+// flashing in the input and are limited in the output.
 test('10 Hz strobes just over the red and luma thresholds are limited', () => {
   for (const [spec, channel, budget] of [
     [{ kind: 'square', hz: 10, on: [96, 40, 22], off: [0, 0, 0] }, 'red', 1],
-    [{ kind: 'square', hz: 10, on: [65, 77, 193], off: [22, 4, 11] }, 'luma', 6],
+    [{ kind: 'square', hz: 10, on: [65, 77, 193], off: [20, 5, 11] }, 'luma', 6],
   ]) {
     const input = createAuditor({ width: W, height: H });
     const { audit } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
@@ -368,15 +391,22 @@ export function barCounts(width, height, frames = 60) {
 // The pixel counts (a quarter of a sub-block's pixels) are whole pixels, so where the bar's edge
 // crosses exactly a quarter of a sub-block the 4K count can tie the threshold where the 1080p one
 // falls a fraction of a pixel short (CORE-2543). Such a frame may differ by one column of luma
-// requests in each direction; red requests and holds never differ.
+// requests in each direction; red requests never differ. Holds are pixels, so they are compared as
+// a share of the frame: the bar's anti-aliased edges fire at slightly different columns, so the
+// shares may differ by two 1080p columns.
 test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   const hd = barCounts(1920, 1080), uhd = barCounts(3840, 2160);
-  const differ = hd.map((v, t) => (v === uhd[t] ? -1 : t)).filter(t => t >= 0);
+  const req = v => v.split(',').slice(0, 4).join(',');
+  const differ = hd.map((v, t) => (req(v) === req(uhd[t]) ? -1 : t)).filter(t => t >= 0);
   assert.ok(differ.length <= 3, `requests differ at frames ${differ.slice(0, 5)}: 1080p ${hd[differ[0]]} vs 4K ${uhd[differ[0]]}`);
   for (const t of differ) {
     const a = hd[t].split(',').map(Number), b = uhd[t].split(',').map(Number);
     const tie = Math.abs(a[0] - b[0]) <= model.BLOCKS_Y && Math.abs(a[1] - b[1]) <= model.BLOCKS_Y;
-    assert.ok(tie && a[2] === b[2] && a[3] === b[3] && a[4] === b[4], `frame ${t}: 1080p ${hd[t]} vs 4K ${uhd[t]}`);
+    assert.ok(tie && a[2] === b[2] && a[3] === b[3], `frame ${t}: 1080p ${hd[t]} vs 4K ${uhd[t]}`);
+  }
+  for (let t = 0; t < hd.length; t++) {
+    const a = Number(hd[t].split(',')[4]) / (1920 * 1080), b = Number(uhd[t].split(',')[4]) / (3840 * 2160);
+    assert.ok((a > 0) === (b > 0) && Math.abs(a - b) <= 2 / 1920 + 1e-9, `frame ${t}: held 1080p ${hd[t]} vs 4K ${uhd[t]}`);
   }
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
@@ -513,6 +543,55 @@ test('changes over a fifth of some sub-blocks count towards the area (Codex roun
     if (cat === 2 || row === 0) return [v, v, v];
     return [124, 124, 124];
   });
+});
+
+// Codex round 12: two adjacent 50 x 60 patches inside one 107 x 60 field toggle two rows of
+// every five between black and white at 5 Hz in opposite phases. Each direction changes 1200
+// pixels, under the 1605-pixel limit, but 2400 flash together.
+test('opposite-phase patches count as one combined area (Codex round 12)', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const input = createAuditor({ width: W, height: H }), audit = createAuditor({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  for (let t = 0; t < 300; t++) {
+    const on = Math.floor(t / 6) % 2 === 0;
+    for (let y = 0, i = 0; y < H; y++) {
+      for (let x = 0; x < W; x++, i += 4) {
+        let v = 0;
+        if (y >= 60 && y < 120 && y % 5 < 2 && x >= 100 && x < 200) v = (x < 150) === on ? 255 : 0;
+        px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
+      }
+    }
+    input.push(px, DT);
+    audit.push(lim.step(px, DT).out, DT);
+  }
+  assert.ok(input.maxPerWindow('luma') >= 9, `the input shows ${input.maxPerWindow('luma')} luma per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
+});
+
+// Codex round 12: a 7 x 7 red fall passes under the wcag limit (63 at 64 x 36); the geometry then
+// changes to desktop (limit 42), so the still-recent fall is a large area no grant paid for. It is
+// charged, and a rise of the same patch right after is held.
+test('a geometry change that puts recent pixels over the limit spends the budget (Codex round 12)', () => {
+  const w = 64, h = 36;
+  const lim = model.createLimiter({ width: w, height: h });
+  const audit = createAuditor({ width: w, height: h, field: GEOMETRY.desktop });
+  const px = new Uint8Array(w * h * 4);
+  let rise = null;
+  for (let t = 0; t < 150; t++) {
+    const patch = t === 100 || t === 101;
+    for (let y = 0, i = 0; y < h; y++) {
+      for (let x = 0; x < w; x++, i += 4) {
+        const red = t > 0 && !(patch && x < 7 && y < 7);
+        px[i] = red ? 160 : 0; px[i + 1] = px[i + 2] = 0; px[i + 3] = 255;
+      }
+    }
+    if (t === 101) lim.setGeometry('desktop');
+    const r = lim.step(px, DT);
+    if (t === 102) rise = r;
+    audit.push(r.out, DT);
+  }
+  assert.equal(rise.stats.admitted[2], false, 'the rise after the change is admitted');
+  assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

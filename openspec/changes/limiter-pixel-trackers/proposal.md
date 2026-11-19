@@ -23,9 +23,15 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 - Every pixel has the auditor's luma and red trackers and four recency stamps, packed in a new
   frame-size RGBA16UI state texture (`uTrack`, ping-ponged). Pixels request a direction when the
   frame would fire their tracker in it; the trackers step on the output.
-- Luma and red are measured in 16-bit codes: luma as before, red as `(R - G - B) >> 8` of the
-  linear codes when saturated. The auditor measures with the same codes and thresholds, so the
-  limiter's trackers equal the auditor's.
+- Luma and red are measured in integer codes, and the codes are the measure: luma in 15 bits, red
+  as `(R - G - B) >> 8` of the linear codes wherever `R > G + B`, a red step counting only when the
+  new state or one since the pixel's last red fire is saturated red (a superset of WCAG's
+  saturated-red transitions; orange to orange is not red), with WCAG's thresholds at the nearest
+  code. Bit 15 of the luma-hi word carries the saturated state. The auditor measures with the
+  same codes and thresholds, so the limiter's trackers equal the auditor's.
+- A channel's pixels changing in either direction count together (combined area), and a
+  viewing-geometry change writes `G` fully spent (Codex round 12).
+- Recency stamps live 5 units, so the coverage interval's whole span counts.
 - The area gate counts pixels (firing now or recently) per cell. The window is the fewest whole
   cells that contain the field wherever it is placed; the limit is a quarter of the field's pixels.
   `windowOf` takes the frame size.
@@ -35,8 +41,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   show as sub-block tiles (CORE-2492). The output pass no longer reads the sub-block counts.
 - Six passes (rows, reduce, cells, windows, grant, output); the state pass and the sub-block state
   textures go. The output pass writes the frame and the new tracker state (two outputs).
-- The Particles hold budget (`visual-defaults`) moves from 5% of sub-blocks to 15% of the frame's
-  pixels, since holds are now counted per pixel (`make limiter-hold-check --max-held 0.15`).
+- The Particles hold budget (`visual-defaults`) moves from 5% of sub-blocks to 18% of the frame's
+  pixels, since holds are now counted per pixel (`make limiter-hold-check --max-held 0.18`).
 - Memory: 8 bytes per pixel, twice for the ping-pong (133 MB at 3840 x 2160), in place of 64 x 36
   sub-block state.
 
@@ -48,10 +54,12 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 ## Failure modes
 
 - Hosts must bind and ping-pong `uTrack`, start it at zero (tracked black) with the output
-  black, never clear it or `G` after the start, and follow the resize rule (1:1 copy from the view's anchor
-  at one display scale with the exposed area tracked black and `G` written fully spent; on a display-scale
-  change, hold the old size with `G` fully spent for 8 / (2 · maxFlashHz) s, then switch with everything
-  tracked black and spend `G` again).
+  black, never clear it or `G` after the start, and follow the resize rule (1:1 copy from the view's
+  anchor at one display scale with the exposed area tracked black and `G` written fully spent; on a
+  display-scale change, switch at once with everything tracked black and `G` spent, and present
+  black without running the limiter for longer than the coverage interval).
+- A display-scale change is the user's: the browser rescales the last frame before the host can
+  react, which the limiter does not control.
 - More holds where many small areas change at once, since partial coverage now counts in full.
 
 ## Acceptance evidence

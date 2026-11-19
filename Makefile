@@ -325,11 +325,12 @@ gate: limiter-check
 
 # Hold budget (CORE-2409, openspec/specs/visual-defaults/spec.md): the release-leg Particles
 # (shaders/manifest.json, as the glsl300 bundle ships it) through the limiter model under the red
-# audit's loud audio holds at most 15% of the pixels in any frame (14% at v0.2.9; until v0.2.9 the
-# budget was 5% of sub-blocks, with sub-block trackers that missed changes). Needs Playwright Chromium.
+# audit's loud audio holds at most 18% of the pixels in any frame (16% at v0.2.9, after the
+# limiter gained the half-offset windows and a fifth recent unit and Particles was calmed to match;
+# until v0.2.9 the budget was 5% of sub-blocks, with sub-block trackers that missed changes). Needs Playwright Chromium.
 .PHONY: limiter-hold-check
 limiter-hold-check: tools/shader/node_modules
-	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --only particles --audio loud --max-held 0.15 --jobs 1
+	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --only particles --audio loud --max-held 0.18 --jobs 1
 
 gate: limiter-hold-check
 

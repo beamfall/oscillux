@@ -6,7 +6,7 @@
 // (deterministic per frame) — no state stored across frames except via feedbackTrail.
 //
 // param0 Density      → particle count (maps to 56..80)
-// param1 Burst        → outward explosion radius on bassImpact (0.06..0.15 scale)
+// param1 Burst        → outward explosion radius on bassImpact (0.03..0.075 scale)
 // param2 Trail Length → feedbackTrail zoom factor (trail persistence)
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -14,7 +14,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // ---- param interpretation ----
     int   K          = int(mix(56.0, 80.0, clamp(u.param0, 0.0, 1.0)));   // Density
-    float burstScale = mix(0.06, 0.15, clamp(u.param1, 0.0, 1.0));        // Burst
+    float burstScale = mix(0.03, 0.075, clamp(u.param1, 0.0, 1.0));        // Burst
     float trailZoom  = mix(0.003, 0.018, clamp(u.param2, 0.0, 1.0));      // Trail Length
 
     // ---- attractor ring radii: 3 spectral bands (bass/mid/treble) ----
@@ -23,6 +23,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float trebleRing = 0.76 + 0.08 * bandRange(u, 44, 64);
 
     // ---- bassImpact burst: burst pushes all particles radially outward ----
+    // Half the old range, with narrower size and brightness swings below: per-band energy pulsing
+    // whole embers held a fifth of the frame in the per-pixel limiter.
     float burstAmt = u.bassImpact * burstScale;
 
     vec3 col = vec3(0.0);
@@ -91,9 +93,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // ---- per-particle size: energy + tier ----
         float sizeBase = (tierFrac < 0.1)
-                          ? mix(0.015, 0.060, energy)           // bass: fat embers
+                          ? mix(0.025, 0.045, energy)           // bass: fat embers
                           : ((tierFrac < 0.6)
-                             ? mix(0.008, 0.035, energy)        // mid: medium
+                             ? mix(0.014, 0.026, energy)        // mid: medium
                              : mix(0.003, 0.012, energy));      // treble: pin-sparks
         float pSize = sizeBase * (1.0 + h4 * 0.4);
         float visibilityFade = smoothstep(0.003, 0.010, pSize) * smoothstep(1.4, 0.9, length(pos));
@@ -118,9 +120,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float streakGlow = perpG * alongG * 0.42 * (1.0 - smoothstep(-pSize, 0.0, along));
 
         // ---- brightness ----
-        float bassBeat    = (tierFrac < 0.1) ? (1.0 + u.beat * 0.6 + u.bassImpact * 0.4) : (1.0 + u.beat * 0.3);
-        float trebleFlash = (tierFrac > 0.9) ? (1.0 + u.onset * 0.6 + u.treble * 0.5) : 1.0;
-        float brightness  = (0.4 + 1.6 * energy) * bassBeat * trebleFlash * visibilityFade;
+        float bassBeat    = (tierFrac < 0.1) ? (1.0 + u.beat * 0.3 + u.bassImpact * 0.2) : (1.0 + u.beat * 0.15);
+        float trebleFlash = (tierFrac > 0.9) ? (1.0 + u.onset * 0.3 + u.treble * 0.5) : 1.0;
+        float brightness  = (0.8 + 0.8 * energy) * bassBeat * trebleFlash * visibilityFade;
         float hdrCap = (tierFrac < 0.1) ? 6.0 : 3.5;
         brightness = min(brightness, hdrCap);
 

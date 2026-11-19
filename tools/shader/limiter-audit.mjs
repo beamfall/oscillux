@@ -8,6 +8,9 @@
 // A direction makes a large-area transition at a frame where some placement of the field window
 // holds more than `fraction` of the window's pixels that made that transition within the coverage
 // interval (1000/15 ms, as the limiter) and after the direction's previous large-area transition.
+// Pixels flash together whichever way they change, so a channel also makes one where the window
+// holds more than `fraction` of pixels that made either of its transitions (WCAG's combined area),
+// though neither direction alone does.
 // A pixel therefore counts towards one large-area transition per change it makes, and sustained
 // flashing counts every time a fresh large area changes. (Until CORE-1623 a transition was the
 // rising edge of the over-area condition, which stays true while flashing is sustained, so a
@@ -15,17 +18,16 @@
 // up, appeared to add transitions.)
 // The field window is fw x fh of the frame (default the WCAG reference: a third by a third).
 
-import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode } from './limiter-model.mjs';
+import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode, redSat } from './limiter-model.mjs';
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
-// The measures are the limiter's 16-bit codes (limiter-model.mjs: lumaCode, redCode) and the
-// thresholds WCAG's on them, widened by the codes' rounding so a change at a threshold always
-// fires: luma 6550 codes (0.1 is 6553.5 and a difference of two codes is off by at most 3) with
-// the darker side below 52430 (0.8 is 52428); red 15 codes (20 on the 320 scale is 4096 linear
-// codes, 16 red codes less one for the >> 8 floor) on pixels with R + 4 >= 4 (G + B) (saturated
-// red, R / (R + G + B) >= 0.8, less 4.5 codes of rounding). Until v0.2.9 the widening missed the
-// saturation test and was a code short, Codex round 11. Until v0.2.9 the auditor measured in floating point, so a change
-// within a rounding of a threshold could fire one tracker and not the other.
+// The measures are the limiter's codes (limiter-model.mjs: lumaCode, redCode, redSat), and the
+// codes are the measure: luma steps of 3276 15-bit codes (0.1 relative luminance) with the darker
+// side below 26215 (0.8); red steps of 16 codes (20 of WCAG's 320 scale) of (R - G - B) >> 8
+// wherever R > G + B, firing only when the new state or one since the last red fire is saturated
+// red, a superset of WCAG's saturated-red transitions. Until
+// v0.2.9 the auditor measured in floating point, so a change within a rounding of a threshold
+// could fire one tracker and not the other.
 export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 / 3 }, fraction = 0.25 }) {
   const N = W * H;
   const fwPx = Math.max(1, Math.min(W, Math.round(field.fw * W)));
@@ -34,6 +36,8 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // Per pixel and channel (0 luma, 1 red): lo, hi, dir, and the time of the last up/down fire.
   const lo = [new Float64Array(N), new Float64Array(N)], hi = [new Float64Array(N), new Float64Array(N)];
   const dir = [new Int8Array(N), new Int8Array(N)];
+  // Per pixel: whether a saturated red state was seen since its red tracker last fired.
+  const anySat = new Uint8Array(N);
   const lastUp = [new Float64Array(N).fill(-Infinity), new Float64Array(N).fill(-Infinity)];
   const lastDown = [new Float64Array(N).fill(-Infinity), new Float64Array(N).fill(-Infinity)];
   const sat = new Int32Array((W + 1) * (H + 1));
@@ -41,13 +45,23 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // Per direction (luma up, luma down, red up, red down): the time of its last large-area
   // transition. Pixels that changed at or before it have been counted.
   const counted = [-Infinity, -Infinity, -Infinity, -Infinity];
+  const countedAny = [-Infinity, -Infinity]; // per channel, the combined area's
+
   let live = false, clock = 0;
-  const transitions = [[], [], [], []]; // frame indices: luma up, luma down, red up, red down
+  // Frame indices: luma up, luma down, red up, red down, then combined-only luma and red.
+  const transitions = [[], [], [], [], [], []];
   let frame = -1;
 
+  const fresh = (t, since) => t > since && clock - t <= AUDIT_COVERAGE_MS;
+  // up: true, false, or null for either direction (the channel's combined area).
   function large(c, up) {
-    const last = up ? lastUp[c] : lastDown[c], since = counted[2 * c + (up ? 0 : 1)];
-    for (let j = 0; j < N; j++) mask[j] = last[j] > since && clock - last[j] <= AUDIT_COVERAGE_MS ? 1 : 0;
+    if (up === null) {
+      const su = countedAny[c], u = lastUp[c], d = lastDown[c];
+      for (let j = 0; j < N; j++) mask[j] = fresh(u[j], su) || fresh(d[j], su) ? 1 : 0;
+    } else {
+      const last = up ? lastUp[c] : lastDown[c], since = counted[2 * c + (up ? 0 : 1)];
+      for (let j = 0; j < N; j++) mask[j] = fresh(last[j], since) ? 1 : 0;
+    }
     for (let y = 0; y < H; y++) {
       let run = 0;
       for (let x = 0; x < W; x++) {
@@ -70,17 +84,21 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     clock += dt * 1000;
     for (let j = 0, i = 0; j < N; j++, i += 4) {
       const r = px[i], g = px[i + 1], b = px[i + 2];
-      const v = [lumaCode(r, g, b), redCode(r, g, b)];
+      const v = [lumaCode(r, g, b), redCode(r, g, b)], sat = redSat(r, g, b) ? 1 : 0;
+      if (!live) anySat[j] = sat;
       for (let c = 0; c < 2; c++) {
         if (!live) { lo[c][j] = hi[c][j] = v[c]; continue; }
         const step = c === 0 ? LUMA_STEP : RED_STEP, dark = c === 0 ? LUMA_DARK : Infinity;
+        const gate = c === 0 || sat || anySat[j];
         lo[c][j] = Math.min(lo[c][j], v[c]);
         hi[c][j] = Math.max(hi[c][j], v[c]);
-        if (dir[c][j] <= 0 && v[c] - lo[c][j] >= step && lo[c][j] < dark) {
+        let fired = true;
+        if (gate && dir[c][j] <= 0 && v[c] - lo[c][j] >= step && lo[c][j] < dark) {
           dir[c][j] = 1; lo[c][j] = hi[c][j] = v[c]; lastUp[c][j] = clock;
-        } else if (dir[c][j] >= 0 && hi[c][j] - v[c] >= step && v[c] < dark) {
+        } else if (gate && dir[c][j] >= 0 && hi[c][j] - v[c] >= step && v[c] < dark) {
           dir[c][j] = -1; lo[c][j] = hi[c][j] = v[c]; lastDown[c][j] = clock;
-        }
+        } else fired = false;
+        if (c === 1) anySat[j] = fired ? sat : anySat[j] | sat;
       }
     }
     live = true;
@@ -89,13 +107,20 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (!now[d]) continue;
       transitions[d].push(frame);
       counted[d] = clock;
+      countedAny[d >> 1] = clock;
+    }
+    for (let c = 0; c < 2; c++) {
+      if (now[2 * c] || now[2 * c + 1] || !large(c, null)) continue;
+      transitions[4 + c].push(frame);
+      counted[2 * c] = counted[2 * c + 1] = countedAny[c] = clock;
     }
     return now;
   }
 
   /** Most large-area transitions of a channel ('luma' or 'red') in any `seconds` window at fps. */
   function maxPerWindow(channel, fps = 60, seconds = 1) {
-    const all = channel === 'luma' ? [...transitions[0], ...transitions[1]] : [...transitions[2], ...transitions[3]];
+    const all = channel === 'luma' ? [...transitions[0], ...transitions[1], ...transitions[4]]
+      : [...transitions[2], ...transitions[3], ...transitions[5]];
     all.sort((a, b) => a - b);
     let best = 0;
     for (let i = 0, j = 0; i < all.length; i++) {

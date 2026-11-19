@@ -70,7 +70,7 @@ async function attach({ W, H }) {
     start() {
       const s = { lim: createLimiter({ width: W, height: H }), inA: createAuditor({ width: W, height: H }),
         outA: createAuditor({ width: W, height: H }), outLim: createLimiter({ width: W, height: H }),
-        redOver: 0, redOverOut: 0, held: 0, heldMax: 0, frames: 0 };
+        redOver: 0, redOverOut: 0, held: 0, heldMax: 0, heldMaxPx: 0, pixels: W * H, frames: 0 };
       window.lint.onFrame = px => {
         const r = s.lim.step(px, 1 / 60);
         s.inA.push(px, 1 / 60);
@@ -80,6 +80,7 @@ async function attach({ W, H }) {
         if (o.over[2] || o.over[3]) s.redOverOut++;
         s.held += r.held / (W * H);
         s.heldMax = Math.max(s.heldMax, r.held / (W * H));
+        s.heldMaxPx = Math.max(s.heldMaxPx, r.held);
         s.frames++;
       };
       window.audit.state = s;
@@ -91,8 +92,8 @@ async function attach({ W, H }) {
         redIn: s.inA.maxPerWindow('red'), redOut: s.outA.maxPerWindow('red'),
         lumaIn: s.inA.maxPerWindow('luma'), lumaOut: s.outA.maxPerWindow('luma'),
         redOverFrames: s.redOver, redOverOutFrames: s.redOverOut,
-        redOutAt: [...s.outA.transitions[2], ...s.outA.transitions[3]].sort((a, b) => a - b), heldMean: +(s.held / s.frames).toFixed(4),
-        heldMax: +s.heldMax.toFixed(4), frames: s.frames,
+        redOutAt: [...s.outA.transitions[2], ...s.outA.transitions[3], ...s.outA.transitions[5]].sort((a, b) => a - b), heldMean: +(s.held / s.frames).toFixed(4),
+        heldMax: +s.heldMax.toFixed(4), heldMaxPx: s.heldMaxPx, pixels: s.pixels, frames: s.frames,
       };
     },
   };
@@ -166,7 +167,8 @@ async function main() {
     `${count(r => r.redOut > 0)} after the limiter; ${count(r => r.redOverFrames > 0)} trip the red area gate (${count(r => r.redOverOutFrames > 0)} with the limiter's output); ` +
     `luma over 6 transitions/s: ${count(r => r.lumaIn > 6)} in, ${count(r => r.lumaOut > 6)} out; ` +
     `${results.length - ok.length} compile failures. Report in ${join(OUT, 'report.json')}`);
-  const overHeld = ok.filter(r => r.heldMax > MAX_HELD);
+  // Raw counts against the budget: a rounded fraction could pass a few pixels over it.
+  const overHeld = ok.filter(r => r.heldMaxPx > MAX_HELD * r.pixels);
   for (const r of overHeld) console.log(`${r.id.padEnd(22)} HELD ${r.heldMax} of the pixels in one frame, over --max-held ${MAX_HELD}`);
   if (Number.isFinite(MAX_HELD)) {
     console.log(`${opts.audio} audio: largest held fraction ${Math.max(0, ...ok.map(r => r.heldMax))}, budget ${MAX_HELD}`);

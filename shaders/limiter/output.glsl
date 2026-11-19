@@ -20,12 +20,16 @@ void main() {
     ivec3 c = limiterBytes(color);
     int v = limiterLuma(c);
     int rv = limiterRed(c);
+    bool sat = limiterSat(c);
     if (limiterUntracked(t)) {
-        oTrack = uvec4(uint(v), uint(v), uint(rv | (rv << 8)), 0u);
+        oTrack = uvec4(uint(v), uint(v) | (sat ? SAT_BIT : 0u), uint(rv | (rv << 8)), 0u);
         return;
     }
-    ivec3 fl = limiterTrackStep(int(t.x), int(t.y), v, LUMA_STEP, LUMA_DARK, LUMA_MAX);
-    ivec3 fr = limiterTrackStep(int(t.z & 255u), int(t.z >> 8u), rv, RED_STEP, NO_DARK, RED_MAX);
+    bool any = (t.y & SAT_BIT) != 0u;
+    ivec3 fl = limiterTrackStep(int(t.x), int(t.y & uint(LUMA_MAX)), v, LUMA_STEP, LUMA_DARK, LUMA_MAX, true);
+    ivec3 fr = limiterTrackStep(int(t.z & 255u), int(t.z >> 8u), rv, RED_STEP, NO_DARK, RED_MAX, sat || any);
+    // The saturated bit restarts at each red fire and collects every state until the next.
+    bool nextSat = fr.z != 0 ? sat : sat || any;
     uint fired = (fl.z > 0 ? 1u : 0u) | (fl.z < 0 ? 2u : 0u) | (fr.z > 0 ? 4u : 0u) | (fr.z < 0 ? 8u : 0u);
     int unit = int(lu.limiter1.x) >> 4;
     float deltaMs = lu.limiter1.y;
@@ -35,5 +39,5 @@ void main() {
         uint keep = ((fired >> uint(d)) & 1u) != 0u ? uint(unit + 1) : limiterRecent(s, unit, deltaMs) ? s : 0u;
         stamps |= keep << uint(4 * d);
     }
-    oTrack = uvec4(uint(fl.x), uint(fl.y), uint(fr.x | (fr.y << 8)), stamps);
+    oTrack = uvec4(uint(fl.x), uint(fl.y) | (nextSat ? SAT_BIT : 0u), uint(fr.x | (fr.y << 8)), stamps);
 }

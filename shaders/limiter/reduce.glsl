@@ -13,10 +13,12 @@ void main() {
     int y1 = (b.y + 1) * height / BLOCKS_Y;
     uvec4 area = uvec4(0u);
     uint bits = 0u;
+    uint either = 0u;
     for (int y = y0; y < y1; y++) {
         uvec4 r = LIM_U(uRows, ivec2(b.x, y));
         area += uvec4(r.x & 65535u, r.x >> 16u, r.y & 65535u, r.y >> 16u);
         bits |= r.z;
+        either += r.w;
     }
-    oS = uvec4(area.x | (area.y << 16u), area.z | (area.w << 16u), bits, 0u);
+    oS = uvec4(area.x | (area.y << 16u), area.z | (area.w << 16u), bits, either);
 }
