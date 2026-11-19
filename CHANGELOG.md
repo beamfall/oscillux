@@ -20,12 +20,13 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   Terrain and Spectral City choose their column count from the frame aspect with the new
   `fitColumns()`, never under one column per 4 px, so bars are not squeezed together on a phone.
   Ink sizes its dye splats against the short side and no longer whites out in portrait.
-- Visuals keep within the general flash limit on their own (CORE-2492): under a loud master no
-  catalogue visual makes more than 6 large-area luma transitions a second or any large-area red
-  transition before the limiter, so the limiter holds far less. Beat accents in
-  about 30 visuals are softer or ride on motion instead of brightness; Wave Tunnel's rings no
-  longer flash on onsets. `make visual-flash-check` runs the budget
-  (`limiter-red-audit.mjs --max-luma`).
+- Calmer visual sources (CORE-2492): beat accents in about 30 visuals are softer or ride on
+  motion instead of brightness, Wave Tunnel's rings no longer flash on onsets, and Particles has
+  narrower size and brightness swings and half the burst range, so the limiter holds less. Under
+  a loud master no catalogue visual makes a large-area red transition before the limiter, but
+  measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
+  own; the limiter holds those. `make visual-flash-check` runs the source budget
+  (`limiter-red-audit.mjs --max-luma`) and fails until they are calmed.
 
 ### Fixed
 
