@@ -15,14 +15,14 @@
 // up, appeared to add transitions.)
 // The field window is fw x fh of the frame (default the WCAG reference: a third by a third).
 
+import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode } from './limiter-model.mjs';
+
 export const AUDIT_COVERAGE_MS = 1000 / 15;
-const LUMA_STEP = 0.1, LUMA_DARK = 0.8, RED_STEP = 20, RED_SCALE = 320;
-
-const LINEAR = Float64Array.from({ length: 256 }, (_, k) => {
-  const c = k / 255;
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-});
-
+// The measures are the limiter's 16-bit codes (limiter-model.mjs: lumaCode, redCode) and the
+// thresholds WCAG's on them: luma 6553 codes (0.1) with the darker side below 52429 (0.8, both
+// widened by the codes' rounding); red 16 codes (20 on the 320 scale; any change of 20 moves the
+// red code by at least 16). Until v0.2.9 the auditor measured in floating point, so a change
+// within a rounding of a threshold could fire one tracker and not the other.
 export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 / 3 }, fraction = 0.25 }) {
   const N = W * H;
   const fwPx = Math.max(1, Math.min(W, Math.round(field.fw * W)));
@@ -67,9 +67,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     clock += dt * 1000;
     for (let j = 0, i = 0; j < N; j++, i += 4) {
       const r = px[i], g = px[i + 1], b = px[i + 2];
-      const R = LINEAR[r], G = LINEAR[g], B = LINEAR[b], sum = R + G + B;
-      const v = [0.2126 * R + 0.7152 * G + 0.0722 * B,
-        sum > 0 && R / sum >= 0.8 ? RED_SCALE * Math.max(0, R - G - B) : 0];
+      const v = [lumaCode(r, g, b), redCode(r, g, b)];
       for (let c = 0; c < 2; c++) {
         if (!live) { lo[c][j] = hi[c][j] = v[c]; continue; }
         const step = c === 0 ? LUMA_STEP : RED_STEP, dark = c === 0 ? LUMA_DARK : Infinity;

@@ -5,9 +5,9 @@
 //
 // Every pass: LimiterBlock (32 bytes: vec4 limiter0, vec4 limiter1) at buffer 0 (WebGL2:
 // uniform block binding 0); its textures at textures 0.. in LIMITER_PASSES order; sampler 0
-// (Metal only; every read is a texel fetch); its outputs at colours 0... The rows partial sums
-// are RGBA32UI (Metal rgba32Uint), the other uint textures RGBA16UI (rgba16Uint); uFrame, uHist
-// and oColor are RGBA8 (rgba8Unorm).
+// (Metal only; every read is a texel fetch); its outputs at colours 0... The pixel counts (rows,
+// sub-blocks, cells) are RGBA32UI (Metal rgba32Uint), the tracker state, window flags and grant
+// RGBA16UI (rgba16Uint); uFrame, uHist and oColor are RGBA8 (rgba8Unorm).
 //
 //   node tools/shader/limiter.mjs --write   rewrites shaders/limiter/luma-lut.glsl
 //   node tools/shader/limiter.mjs --check   the LUT golden, then (with the pinned toolchain on
@@ -29,14 +29,14 @@ export const LIMITER_BLOCK_SIZE = 32;
  * 'one' 1 x 1, 'frame'), textures and outputs ([name, type]): 'float' RGBA8, 'uint' RGBA16UI,
  * 'uint32' RGBA32UI. */
 export const LIMITER_PASSES = Object.freeze([
-  { name: 'rows', size: 'rows', lut: true, textures: [['uFrame', 'float'], ['uHist', 'float']], outputs: [['oR', 'uint32']] },
-  { name: 'reduce', size: 'blocks', textures: [['uRows', 'uint32'], ['uT0', 'uint'], ['uT1', 'uint']], outputs: [['oS', 'uint']] },
-  { name: 'cells', size: 'cells', textures: [['uS', 'uint'], ['uT2', 'uint']], outputs: [['oC', 'uint']] },
-  { name: 'windows', size: 'cells', textures: [['uC', 'uint']], outputs: [['oW', 'uint']] },
-  { name: 'grant', size: 'one', textures: [['uC', 'uint'], ['uW', 'uint'], ['uG', 'uint']], outputs: [['oG', 'uint']] },
-  { name: 'state', size: 'blocks', textures: [['uS', 'uint'], ['uG', 'uint'], ['uT0', 'uint'], ['uT1', 'uint'], ['uT2', 'uint']],
-    outputs: [['oT0', 'uint'], ['oT1', 'uint'], ['oT2', 'uint']] },
-  { name: 'output', size: 'frame', lut: true, textures: [['uFrame', 'float'], ['uHist', 'float'], ['uT1', 'uint']], outputs: [['oColor', 'float']] },
+  { name: 'rows', size: 'rows', lut: true, textures: [['uFrame', 'float'], ['uTrack', 'uint']], outputs: [['oR', 'uint32']] },
+  { name: 'reduce', size: 'blocks', textures: [['uRows', 'uint32']], outputs: [['oS', 'uint32']] },
+  { name: 'cells', size: 'cells', textures: [['uS', 'uint32']], outputs: [['oC', 'uint32']] },
+  { name: 'windows', size: 'cells', textures: [['uC', 'uint32']], outputs: [['oW', 'uint']] },
+  { name: 'grant', size: 'one', textures: [['uC', 'uint32'], ['uW', 'uint'], ['uG', 'uint']], outputs: [['oG', 'uint']] },
+  { name: 'output', size: 'frame', lut: true,
+    textures: [['uFrame', 'float'], ['uHist', 'float'], ['uTrack', 'uint'], ['uG', 'uint']],
+    outputs: [['oColor', 'float'], ['oTrack', 'uint']] },
 ]);
 export const limiterFunction = pass => `oscillux_limiter_${pass.name}`;
 
@@ -58,7 +58,7 @@ ${rows.join(',\n')}
 
 function body(pass) {
   const src = f => readFileSync(join(DIR, f), 'utf8');
-  return (pass.lut ? src('luma-lut.glsl') : '') + src('common.glsl') + src(`${pass.name}.glsl`);
+  return (pass.lut ? `#define LIMITER_LUT\n${src('luma-lut.glsl')}` : '') + src('common.glsl') + src(`${pass.name}.glsl`);
 }
 
 const BLOCK = `{

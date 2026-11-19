@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-11-18
+
 ### Changed
 
 - Visuals fit the frame's aspect (CORE-2491). `centered()` and `motionCentered()` in
@@ -20,33 +22,33 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   Ink sizes its dye splats against the short side and no longer whites out in portrait.
 - Visuals keep within the general flash limit on their own (CORE-2492): under a loud master no
   catalogue visual makes more than 6 large-area luma transitions a second or any large-area red
-  transition before the limiter, so the limiter holds far less (stale tiles). Beat accents in
+  transition before the limiter, so the limiter holds far less. Beat accents in
   about 30 visuals are softer or ride on motion instead of brightness; Wave Tunnel's rings no
   longer flash on onsets. `make visual-flash-check` runs the budget
   (`limiter-red-audit.mjs --max-luma`).
 
 ### Fixed
 
-- The frame flash limiter now limits fine patterns that reverse inside a sub-block, such as a
-  10 Hz checkerboard of 4 px squares, whose sub-block means never change. The `rows` pass reads
-  the previous output and counts pixels whose luma rose or fell by a step; a sub-block where at
-  least a quarter rose requests luma up, and one where at least a quarter fell requests luma
-  down, so a change over part of a sub-block that barely moves its mean is limited too
-  (CORE-2543). Up and down in one frame are granted together only once the token has also stood
-  unspent for a refill period. The pair then leaves two tokens of deficit, so it counts as two
-  transitions on both sides of it and no 1 s window holds more than 6 (CORE-2515). Under loud
-  audio no catalogue visual's output now exceeds 6 luma transitions a second (before: Ink 8;
-  Comets, Kaleidoscope and Spectral City 7); held sub-blocks rise from a mean of 0.5% to 1.9%. **Host binding change:** the `rows` pass now samples `uHist` (the previous output,
-  the same texture the `output` pass reads) at texture unit 1 besides `uFrame` at unit 0; a host
-  that does not bind it reads an unbound sampler. Frame conformance vectors re-recorded, with a
-  new `fine-checker-10hz` case.
-- The frame flash limiter no longer blends the picture around a held sub-block toward the
-  previous output (the hold feather from 0.2.5). A blended change reached the screen after the
-  token it spent had refilled, so a steady gray, orange or blue rise beside holds made 7 large-area
-  luma transitions in 1 s, and a small red step could finish a red transition late (CORE-2543,
-  CORE-2541). A held sub-block shows the previous output and every other pixel shows the input
-  exactly. Holds have hard sub-block edges again (CORE-2413 tracks feathering them without delay).
-  `T1.w` is now just the hold bit; no pass binding changed. Frame conformance vectors re-recorded.
+- The frame flash limiter tracks every pixel and holds only the pixels it limits (CORE-2543,
+  CORE-2515, CORE-2541, CORE-2492). Each pixel keeps the audit counter's luma and red trackers and
+  recency stamps in a new RGBA16UI track texture, so fine patterns that reverse inside a
+  sub-block (a 10 Hz checkerboard of 4 px squares) and changes over part of a sub-block are
+  limited exactly as the auditor counts them. The area test counts pixels that fire now or fired
+  inside the coverage interval over the cell window covering the field, against a quarter of the
+  field's pixels. Up and down in one frame are granted together only on a full token pair, and
+  leave two tokens of deficit, so no 1 s window holds more than 6 transitions. A pixel whose
+  trackers would fire in a direction the grant did not admit shows the previous output; every
+  other pixel shows the input exactly, so holds no longer show as sub-block tiles and the hold
+  feather from 0.2.5 is gone (a blended change could finish a transition late). Under loud audio
+  every catalogue visual's output keeps within 6 luma transitions a second and makes no red
+  transition; held pixels average 3.8% in Laser Tunnel (0.2.8: 37% of sub-blocks) and 17% in
+  Interference (32%). Cost on an M2 Max: 0.31 ms a frame at 1080p, 0.87 ms at 4K.
+  **Host binding change:** six passes (`rows`, `reduce`, `cells`, `windows`, `grant`, `output`).
+  `rows` reads `uFrame` and `uTrack`; `output` reads `uFrame`, `uHist`, `uTrack` and `uG` and
+  writes `oColor` and `oTrack` (MRT). Hosts clear the track textures to (65535, 0, 255, 0), copy
+  them NEAREST on resize, and pass the window from `windowOf()` and the limit in pixels.
+  `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
+  field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and
   rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled
   past the frame edge fades out instead of streaking inward from the edge texel. The GLSL ES 3.00

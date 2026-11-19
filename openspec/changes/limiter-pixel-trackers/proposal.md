@@ -30,6 +30,9 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   cells that contain the field wherever it is placed; the limit is a quarter of the field's pixels.
   `windowOf` takes the frame size.
 - The clock counts ticks modulo 240 (15 units of 16 ticks); stamps hold units.
+- Holds are per pixel: a pixel whose trackers would fire on the input in a direction the grant
+  did not admit shows the previous output, and every other pixel the input, so holds no longer
+  show as sub-block tiles (CORE-2492). The output pass no longer reads the sub-block counts.
 - Six passes (rows, reduce, cells, windows, grant, output); the state pass and the sub-block state
   textures go. The output pass writes the frame and the new tracker state (two outputs).
 - Memory: 8 bytes per pixel, twice for the ping-pong (133 MB at 3840 x 2160), in place of 64 x 36
@@ -37,7 +40,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 
 ## Non-goals
 
-- Smaller hold regions. Holds stay per sub-block (CORE-2413 tracks smooth edges).
+- A less conservative area test (CORE-2617): the covering window and recent stamps after a grant
+  hold some pixels of visuals that keep within the flash limit.
 
 ## Failure modes
 

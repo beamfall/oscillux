@@ -427,6 +427,46 @@ test('a 10 Hz change over 2/5 of every sub-block is limited (CORE-2543)', () => 
   assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
 });
 
+// Codex review round 7 (CORE-2543): the auditor tracks every pixel, so a change it counts can
+// build up over several frames (a grey cycling 124, 140, 153, 140: no single frame moves a luma
+// step) or cover under a quarter of each sub-block. Beside red holds, both made 20 to 30 luma
+// transitions a second through the sub-block trackers. Per-pixel trackers count what the auditor
+// counts.
+function categoryScene(w, h, side, frames, shade) {
+  const lim = model.createLimiter({ width: w, height: h });
+  const audit = createAuditor({ width: w, height: h });
+  const px = new Uint8Array(w * h * 4);
+  for (let t = 0; t < frames; t++) {
+    for (let y = 0, i = 0; y < h; y++) {
+      for (let x = 0; x < w; x++, i += 4) {
+        const [r, g, b] = shade(Math.floor(x / side) + Math.floor(y / side), y % side, y, t);
+        px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+      }
+    }
+    audit.push(lim.step(px, DT).out, DT);
+  }
+  assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
+}
+const RED_HOLD = t => (t === 1 ? [0, 0, 0] : [160, 0, 0]);
+test('a grey cycle under a luma step a frame is limited (Codex round 7)', () => {
+  const cycle = [124, 140, 153, 140];
+  categoryScene(128, 72, 2, 80, (k, row, y, t) => {
+    if (k % 3 === 0) return RED_HOLD(t);
+    const v = y % 2 === 0 ? cycle[t % 4] : 124;
+    return [v, v, v];
+  });
+});
+test('changes over a fifth of some sub-blocks count towards the area (Codex round 7)', () => {
+  categoryScene(320, 180, 5, 80, (k, row, y, t) => {
+    const cat = k % 6;
+    if (cat < 2) return RED_HOLD(t);
+    const v = Math.floor(t / 3) % 2 === 0 ? 124 : 153;
+    if (cat === 2 || row === 0) return [v, v, v];
+    return [124, 124, 124];
+  });
+});
+
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
 // count, to show a model change leaves luminance behaviour byte-identical.
 if (process.argv.includes('--luma-digest')) {

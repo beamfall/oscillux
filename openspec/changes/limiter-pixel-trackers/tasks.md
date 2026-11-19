@@ -8,10 +8,12 @@
 
 ## 2. Passes and hosts
 
-- [ ] 2.1 Six GLSL passes with the `uTrack` state texture; generated Metal; READMEs
-- [ ] 2.2 WebGL2 and Metal checkers, the reference web host; regenerate vectors
+- [x] 2.1 Six GLSL passes with the `uTrack` state texture; generated Metal; READMEs
+- [x] 2.2 WebGL2 and Metal checkers; regenerate vectors (the reference web host runs no limiter)
+
+- [x] 2.3 Per-pixel holds in the model, `output.glsl` and both checkers (CORE-2492)
 
 ## 3. Verify and close
 
-- [ ] 3.1 Run `make limiter-check`, `make limiter-hold-check` and `make visual-flash-check`
+- [x] 3.1 Run `make limiter-check`, `make limiter-hold-check` and `make visual-flash-check`
 - [ ] 3.2 Run `openspec archive limiter-pixel-trackers` after landing

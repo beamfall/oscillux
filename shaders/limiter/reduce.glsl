@@ -1,43 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Pass 2, reduce: one fragment per sub-block (64 x 36). Finishes the box reduction of the
-// sub-block's footprint (every pixel counts once) from the rows pass's partial sums to a luma and
-// a red code, and tests the trackers for the transitions this frame would make. A sub-block where
-// at least a quarter of the pixels rose by a luma step against the previous output requests luma
-// up, and likewise down: the mean misses a change over part of a sub-block, or a fine pattern
-// reversing (CORE-2515), that the pixel auditor counts once a quarter of a field's pixels make it
-// (CORE-2543). Inputs uRows
-// (RGBA32UI, 64 x frame height), uT0, uT1; output oS = (luma code, red code, request bits: luma
-// up 1, luma down 2, red up 4, red down 8, 0).
+// Pass 2, reduce: one fragment per sub-block (64 x 36). Sums the rows pass's counts over the
+// sub-block's rows [floor(j H / 36), floor((j + 1) H / 36)) and ORs its directions firing now:
+// the sub-block requests each direction one of its pixels fires in. Input uRows (RGBA32UI, 64 x
+// frame height); output oS (RGBA32UI) in the rows pass's layout. A sub-block holds under 65536
+// pixels for any frame up to 8192 x 4320 (128 x 120 pixels a sub-block), so each count fits 16
+// bits.
 
 void main() {
     ivec2 b = ivec2(gl_FragCoord.xy);
     int height = LIM_USIZE(uRows).y;
     int y0 = b.y * height / BLOCKS_Y;
     int y1 = (b.y + 1) * height / BLOCKS_Y;
-    uint sy = 0u;
-    uint sr = 0u;
-    uint n = 0u;
-    uint up = 0u;
-    uint down = 0u;
+    uvec4 area = uvec4(0u);
+    uint bits = 0u;
     for (int y = y0; y < y1; y++) {
         uvec4 r = LIM_U(uRows, ivec2(b.x, y));
-        sy += r.x;
-        sr += r.y;
-        n += r.z;
-        up += r.w & 65535u;
-        down += r.w >> 16u;
+        area += uvec4(r.x & 65535u, r.x >> 16u, r.y & 65535u, r.y >> 16u);
+        bits |= r.z;
     }
-    int luma = int(min(65535u, (sy + n / 2u) / n));
-    int red = int(min(65535u, (sr + n / 2u) / n));
-    uvec4 t0 = LIM_U(uT0, b);
-    uvec4 t1 = LIM_U(uT1, b);
-    uint bits = 0u;
-    if (t1.z != 0u) {
-        int fl = limiterTrackStep(ivec3(t0.xy, int(t1.x) - 1), luma, LUMA_STEP, LUMA_DARK).w;
-        int fr = limiterTrackStep(ivec3(t0.zw, int(t1.y) - 1), red, RED_STEP, NO_DARK).w;
-        bits = (fl > 0 ? 1u : 0u) | (fl < 0 ? 2u : 0u) | (fr > 0 ? 4u : 0u) | (fr < 0 ? 8u : 0u);
-        if (4u * up >= n) bits |= 1u;
-        if (4u * down >= n) bits |= 2u;
-    }
-    oS = uvec4(uint(luma), uint(red), bits, 0u);
+    oS = uvec4(area.x | (area.y << 16u), area.z | (area.w << 16u), bits, 0u);
 }

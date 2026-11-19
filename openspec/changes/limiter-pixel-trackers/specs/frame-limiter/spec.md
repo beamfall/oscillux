@@ -35,3 +35,15 @@ quarter of the field's pixels.
 
 - **WHEN** any sequence of frames runs through the limiter and the auditor reads its output
 - **THEN** every pixel's decoded tracker state equals the auditor's for that pixel
+
+### Requirement: Per-pixel holds
+
+The frame limiter SHALL show the previous output at exactly the pixels whose trackers would fire
+on the input in a direction the grant did not admit, and the input at every other pixel.
+
+#### Scenario: A held strobe beside a drifting background
+
+- **WHEN** a 10 Hz white strobe over half the TV field is held while the background beside it
+  drifts
+- **THEN** every background pixel, including those in sub-blocks the strobe overlaps, shows the
+  input

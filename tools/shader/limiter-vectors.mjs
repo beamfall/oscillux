@@ -3,7 +3,8 @@
 // (limiter-signals.mjs) through the reference model (limiter-model.mjs) at a fixed 1/60 s step.
 // Per frame the vector keeps the hold mask (run lengths over the 64 x 36 sub-blocks in row order,
 // starting with a run of not-held; "=" when unchanged from the previous frame), the grant word
-// (admitted bits | over bits << 4), the token deficit, and the FNV-1a digest of the output bytes.
+// (admitted bits | over bits << 4), the token deficit, the FNV-1a digest of the output bytes, and
+// the FNV-1a digest of the packed tracker state (RGBA16UI per pixel, little-endian bytes).
 //
 //   node tools/shader/limiter-vectors.mjs --write | --check
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -60,7 +61,17 @@ export function runLengths(mask) {
   return runs.join(',');
 }
 
-/** The frame records of one case: [hold, grant, deficit, digest]. */
+/** The FNV-1a digest of packed tracker state (16-bit values) as little-endian bytes. */
+export function trackDigest(track) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < track.length; i++) {
+    h = Math.imul(h ^ (track[i] & 255), 0x01000193) >>> 0;
+    h = Math.imul(h ^ (track[i] >>> 8), 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+/** The frame records of one case: [hold, grant, deficit, digest, track digest]. */
 export function modelFrames(c) {
   const width = c.width || 320, height = c.height || 180;
   const lim = createLimiter({ width, height, geometry: c.geometry || 'wcag' });
@@ -71,7 +82,7 @@ export function modelFrames(c) {
     renderSignal(c.signal, t, width, height, px);
     const r = lim.step(px, DT);
     const hold = runLengths(r.holdMask);
-    frames.push([hold === last ? '=' : hold, r.grant, r.deficit, fnv1a(r.out)]);
+    frames.push([hold === last ? '=' : hold, r.grant, r.deficit, fnv1a(r.out), trackDigest(r.track)]);
     last = hold;
   }
   return frames;
@@ -86,7 +97,7 @@ export function buildVectors() {
       width: c.width || 320,
       height: c.height || 180,
       geometry: c.geometry || 'wcag',
-      window: windowOf(c.geometry || 'wcag'),
+      window: windowOf(c.geometry || 'wcag', c.width || 320, c.height || 180),
       frameRecords: modelFrames(c),
     })),
   };

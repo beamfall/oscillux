@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Pass 5, grant: one fragment (1 x 1). A direction is over when some window of cols x rows cells
-// (the 10° field) counts more than the area limit (flagged by the windows pass). Luminance over
+// (covering the 10° field) counts more than the area limit (flagged by the windows pass). Luminance over
 // the limit is rationed by one token budget; red has its own, refilled at an eighth of the luma
 // rate, so at most one large-area red transition (either direction) falls in any 1 s window: no
 // saturated-red flash (ITU-R BT.1702, ADR-0232 R5), and a held red change is admitted within
@@ -20,7 +20,7 @@ void main() {
     uint overBits = 0u;
     for (int k = 0; k < GRID_X * GRID_Y; k++) {
         ivec2 cell = ivec2(k % GRID_X, k / GRID_X);
-        asks += LIM_U(uC, cell) >> 5u;
+        asks |= LIM_U(uC, cell) >> 31u;
         overBits |= LIM_U(uW, cell).x;
     }
     bvec4 over = notEqual(uvec4(overBits) & uvec4(1u, 2u, 4u, 8u), uvec4(0u));

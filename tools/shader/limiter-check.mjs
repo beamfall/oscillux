@@ -2,8 +2,8 @@
 // GPU check of the frame flash limiter passes (shaders/limiter/) against the vectors
 // (conformance/limiter/frame/vectors.json) under WebGL2 in the pinned Playwright Chromium.
 // Every case's signal is drawn in the page by limiter-signals.mjs's own source, run through the
-// seven GLSL ES 3.00 passes (limiter.mjs) with the host clock the model uses, and each frame's
-// hold mask, grant word, deficit and output digest must equal the vector's.
+// six GLSL ES 3.00 passes (limiter.mjs) with the host clock the model uses, and each frame's
+// hold mask, grant word, deficit, output digest and tracker-state digest must equal the vector's.
 //
 //   node tools/shader/limiter-check.mjs [--gpu] [--metal] [--time 1920x1080] [--frames 240]
 //
@@ -15,7 +15,7 @@
 // Metal framework). The last line names the legs that ran.
 // The vectors must hold exactly the generator's cases (limiter-vectors.mjs CASES), with unique
 // names and each case's frame count, and every leg must return every case with every frame.
-// --time also times the seven passes on a 10 Hz half-cell checkerboard at that size: WebGL2 wall
+// --time also times the six passes on a 10 Hz half-cell checkerboard at that size: WebGL2 wall
 // time per frame (readback-synchronised) and timer-query GPU time when
 // EXT_disjoint_timer_query_webgl2 is offered; Metal command-buffer GPU time per frame and per
 // pass. SwiftShader timings are CPU emulation and say nothing about GPU cost.
@@ -27,7 +27,8 @@ import { fileURLToPath } from 'node:url';
 import { createClock } from './limiter-model.mjs';
 import { LIMITER_PASSES, limiterFunction, limiterGLSL300, limiterMSL } from './limiter.mjs';
 import { renderSignal } from './limiter-signals.mjs';
-import { CASES, DT, fnv1a, runLengths, VECTORS_PATH } from './limiter-vectors.mjs';
+import { windowOf } from './limiter-geometry.mjs';
+import { CASES, DT, fnv1a, runLengths, trackDigest, VECTORS_PATH } from './limiter-vectors.mjs';
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);
@@ -68,6 +69,7 @@ const clockFrames = n => {
 async function pageMain({ passes, cases, helpers, time }) {
   const helper = s => new Function(`return (${s})`)();
   const renderSignal = helper(helpers.renderSignal), runLengths = helper(helpers.runLengths), fnv1a = helper(helpers.fnv1a);
+  const trackDigest = helper(helpers.trackDigest);
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2', { antialias: false });
   const info = gl.getExtension('WEBGL_debug_renderer_info');
@@ -114,21 +116,24 @@ async function pageMain({ passes, cases, helpers, time }) {
   function makeLimiter(W, H) {
     const two = make => [make(), make()];
     const s = {
-      frame: tex(W, H, false), rows: tex(64, H, 32), S: tex(64, 36, true), C: tex(16, 9, true), Wn: tex(16, 9, true),
-      G: two(() => tex(1, 1, true)), T0: two(() => tex(64, 36, true)), T1: two(() => tex(64, 36, true)),
-      T2: two(() => tex(64, 36, true)), out: two(() => tex(W, H, false)), cur: 0,
+      frame: tex(W, H, false), rows: tex(64, H, 32), S: tex(64, 36, 32), C: tex(16, 9, 32), Wn: tex(16, 9, true),
+      G: two(() => tex(1, 1, true)), track: two(() => tex(W, H, true)), out: two(() => tex(W, H, false)), cur: 0,
     };
     s.fRows = fbo([s.rows]);
     s.fS = fbo([s.S]);
     s.fC = fbo([s.C]);
     s.fW = fbo([s.Wn]);
     s.fG = s.G.map(g => fbo([g]));
-    s.fState = [0, 1].map(i => fbo([s.T0[i], s.T1[i], s.T2[i]]));
-    s.fOut = s.out.map(o => fbo([o]));
-    // The host clears the state to zero: no sub-block tracked yet.
-    for (const f of [...s.fG, ...s.fState]) {
+    s.fOut = [0, 1].map(i => fbo([s.out[i], s.track[i]]));
+    // The host clears the grant to zero and the tracker state to "no state yet".
+    for (const f of s.fG) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, f.f);
-      f.targets.forEach((_, i) => gl.clearBufferuiv(gl.COLOR, i, new Uint32Array(4)));
+      gl.clearBufferuiv(gl.COLOR, 0, new Uint32Array(4));
+    }
+    for (const f of s.fOut) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f.f);
+      gl.clearBufferfv(gl.COLOR, 0, new Float32Array(4));
+      gl.clearBufferuiv(gl.COLOR, 1, new Uint32Array([65535, 0, 255, 0]));
     }
     return s;
   }
@@ -139,17 +144,16 @@ async function pageMain({ passes, cases, helpers, time }) {
     inputs.forEach((x, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, x.t); });
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
-  // The seven passes of one frame, in order; flips the ping-pong state.
+  // The six passes of one frame, in order; flips the ping-pong state.
   function drawFrame(s) {
     const a = s.cur, b = a ^ 1;
-    const [rows, reduce, cells, windows, grant, state, output] = programs;
-    draw(rows, s.fRows, [s.frame, s.out[a]]);
-    draw(reduce, s.fS, [s.rows, s.T0[a], s.T1[a]]);
-    draw(cells, s.fC, [s.S, s.T2[a]]);
+    const [rows, reduce, cells, windows, grant, output] = programs;
+    draw(rows, s.fRows, [s.frame, s.track[a]]);
+    draw(reduce, s.fS, [s.rows]);
+    draw(cells, s.fC, [s.S]);
     draw(windows, s.fW, [s.C]);
     draw(grant, s.fG[b], [s.C, s.Wn, s.G[a]]);
-    draw(state, s.fState[b], [s.S, s.G[b], s.T0[a], s.T1[a], s.T2[a]]);
-    draw(output, s.fOut[b], [s.frame, s.out[a], s.T1[b]]);
+    draw(output, s.fOut[b], [s.frame, s.out[a], s.track[a], s.G[b]]);
     s.cur = b;
   }
   function step(s, px, block) {
@@ -166,23 +170,28 @@ async function pageMain({ passes, cases, helpers, time }) {
     const s = makeLimiter(c.width, c.height);
     const px = new Uint8Array(c.width * c.height * 4);
     const out = new Uint8Array(c.width * c.height * 4);
-    const t1 = new Uint32Array(64 * 36 * 4), g = new Uint32Array(4), mask = new Uint8Array(64 * 36);
+    const sub = new Uint32Array(64 * 36 * 4), g = new Uint32Array(4), mask = new Uint8Array(64 * 36);
+    const track32 = new Uint32Array(c.width * c.height * 4), track = new Uint16Array(track32.length);
     const frames = [];
     let last = '';
     for (let t = 0; t < c.frames; t++) {
       renderSignal(c.signal, t, c.width, c.height, px);
       step(s, px, blockOf(c, c.clock[t]));
-      gl.bindFramebuffer(gl.FRAMEBUFFER, s.fState[s.cur].f);
-      gl.readBuffer(gl.COLOR_ATTACHMENT1);
-      gl.readPixels(0, 0, 64, 36, gl.RGBA_INTEGER, gl.UNSIGNED_INT, t1);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, s.fS.f);
+      gl.readPixels(0, 0, 64, 36, gl.RGBA_INTEGER, gl.UNSIGNED_INT, sub);
       gl.bindFramebuffer(gl.FRAMEBUFFER, s.fG[s.cur].f);
-      gl.readBuffer(gl.COLOR_ATTACHMENT0);
       gl.readPixels(0, 0, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, g);
       gl.bindFramebuffer(gl.FRAMEBUFFER, s.fOut[s.cur].f);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);
       gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
-      for (let k = 0; k < mask.length; k++) mask[k] = t1[4 * k + 3] & 1;
+      gl.readBuffer(gl.COLOR_ATTACHMENT1);
+      gl.readPixels(0, 0, c.width, c.height, gl.RGBA_INTEGER, gl.UNSIGNED_INT, track32);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);
+      track.set(track32);
+      // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
+      for (let k = 0; k < mask.length; k++) mask[k] = sub[4 * k + 2] & ~g[0] & 15 ? 1 : 0;
       const hold = runLengths(mask);
-      frames.push([hold === last ? '=' : hold, g[0] & 255, g[1] + ((g[0] >> 8) & 1) * 65025, fnv1a(out)]);
+      frames.push([hold === last ? '=' : hold, g[0] & 255, g[1] + ((g[0] >> 8) & 1) * 65025, fnv1a(out), trackDigest(track)]);
       last = hold;
     }
     results.push({ name: c.name, frames });
@@ -233,7 +242,7 @@ const cases = vectors.cases.map(c => ({ ...c, frameRecords: undefined, clock: cl
 let time = null;
 if (timeSize) {
   const [width, height] = timeSize.split('x').map(Number);
-  time = { width, height, frames: timeFrames, window: vectors.cases[0].window, clock: clockFrames(timeFrames),
+  time = { width, height, frames: timeFrames, window: windowOf('wcag', width, height), clock: clockFrames(timeFrames),
     signal: { kind: 'checker', hz: 10, size: [1 / 32, 1 / 18], on: [255, 255, 255], off: [0, 0, 0] } };
 }
 let failed = 0;
@@ -271,7 +280,7 @@ const args = gpu ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist
 const browser = await chromium.launch({ args });
 try {
   const page = await browser.newPage();
-  const helpers = { renderSignal: renderSignal.toString(), runLengths: runLengths.toString(), fnv1a: fnv1a.toString() };
+  const helpers = { renderSignal: renderSignal.toString(), runLengths: runLengths.toString(), fnv1a: fnv1a.toString(), trackDigest: trackDigest.toString() };
   const { renderer, results, timing } = await page.evaluate(
     ([src, input]) => new Function(`return (${src})`)()(input),
     [pageMain.toString(), { passes, cases, helpers, time }],
@@ -341,9 +350,9 @@ async function runMetal() {
   ran.push('metal');
   compare('metal', lines.filter(l => l.name).map(l => {
     let last = '';
-    return { name: l.name, frames: l.frames.map(([mask, grant, deficit, digest]) => {
+    return { name: l.name, frames: l.frames.map(([mask, grant, deficit, digest, track]) => {
       const hold = runLengths(Array.from(mask, ch => (ch === '1' ? 1 : 0)));
-      const rec = [hold === last ? '=' : hold, grant, deficit, digest];
+      const rec = [hold === last ? '=' : hold, grant, deficit, digest, track];
       last = hold;
       return rec;
     }) };

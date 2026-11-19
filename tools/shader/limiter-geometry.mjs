@@ -26,15 +26,24 @@ export const GEOMETRY = Object.freeze({
 
 export const GRID_X = 16, GRID_Y = 9, SUB = 4;
 
-/** The window (whole cells) and area limit (sub-blocks) the limiter uses for a geometry. */
-export function windowOf(geometry) {
+// The most cells a run of `len` pixels touches along an axis of `n` pixels split into `cells`
+// cells of SUB sub-blocks each (sub-block of pixel x: floor((cells SUB (x + 1) - 1) / n)).
+function span(len, n, cells) {
+  const cellOf = x => Math.floor(Math.floor((cells * SUB * (x + 1) - 1) / n) / SUB);
+  let most = 1;
+  for (let s = 0; s + len <= n; s++) most = Math.max(most, cellOf(s + len - 1) - cellOf(s) + 1);
+  return most;
+}
+
+/** The window the limiter uses for a geometry on a W x H frame: the field is fwPx x fhPx pixels
+ * (as the auditor rounds it), the window the fewest whole cells that contain the field wherever it
+ * is placed, and the area limit a quarter of the field's pixels (a window is over it when its
+ * changed pixels are strictly more). */
+export function windowOf(geometry, W, H) {
   const g = typeof geometry === 'string' ? GEOMETRY[geometry] : geometry;
   if (!g) throw new Error(`unknown geometry ${geometry}`);
-  const fieldX = g.fw * GRID_X, fieldY = g.fh * GRID_Y;
-  return {
-    cols: Math.min(GRID_X, Math.max(1, Math.round(fieldX))),
-    rows: Math.min(GRID_Y, Math.max(1, Math.round(fieldY))),
-    // 25% of the field's true area, in sub-blocks; a window is over it when strictly greater.
-    limit: Math.fround(0.25 * fieldX * fieldY * SUB * SUB),
-  };
+  if (!(W > 0 && H > 0)) throw new Error('windowOf: frame size required');
+  const fwPx = Math.max(1, Math.min(W, Math.round(g.fw * W)));
+  const fhPx = Math.max(1, Math.min(H, Math.round(g.fh * H)));
+  return { cols: span(fwPx, W, GRID_X), rows: span(fhPx, H, GRID_Y), fwPx, fhPx, limit: Math.floor((fwPx * fhPx) / 4) };
 }

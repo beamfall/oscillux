@@ -13,12 +13,12 @@
 // --audio loud replaces beat-lint's clock values with a loud, full-band mix on the same beat:
 // spectrum 0.9 falling to 0.68 across the bins plus the kick, bass, mid and treble near full
 // scale, as a live rock master drives the mapper. --max-held F fails (exit 3) any visual whose
-// largest held fraction in a frame exceeds F; held sub-blocks show the previous frame, so a
-// large held fraction shows as stale regions (CORE-2409). --max-luma N fails (exit 4) any visual
+// largest held fraction of pixels in a frame exceeds F; held pixels show the previous frame, so
+// a large held fraction shows as stale regions (CORE-2409). --max-luma N fails (exit 4) any visual
 // whose own output, before the limiter, makes more than N large-area luma transitions in a second
 // or any large-area red transition: a visual should keep within the general flash limit itself
 // (WCAG: 3 flashes, so 6 transitions, a second) rather than lean on the limiter, whose holds show
-// as stale tiles. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
+// as stale regions. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
 // `make visual-flash-check` runs the source flash budget.
 //
 //   node tools/shader/limiter-red-audit.mjs [manifest.json ...] [--only id1,id2] [--beats 12]
@@ -78,8 +78,8 @@ async function attach({ W, H }) {
         if (r.stats.over[2] || r.stats.over[3]) s.redOver++;
         const o = s.outLim.step(r.out, 1 / 60).stats;
         if (o.over[2] || o.over[3]) s.redOverOut++;
-        s.held += r.held / (64 * 36);
-        s.heldMax = Math.max(s.heldMax, r.held / (64 * 36));
+        s.held += r.held / (W * H);
+        s.heldMax = Math.max(s.heldMax, r.held / (W * H));
         s.frames++;
       };
       window.audit.state = s;
@@ -167,7 +167,7 @@ async function main() {
     `luma over 6 transitions/s: ${count(r => r.lumaIn > 6)} in, ${count(r => r.lumaOut > 6)} out; ` +
     `${results.length - ok.length} compile failures. Report in ${join(OUT, 'report.json')}`);
   const overHeld = ok.filter(r => r.heldMax > MAX_HELD);
-  for (const r of overHeld) console.log(`${r.id.padEnd(22)} HELD ${r.heldMax} of the sub-blocks in one frame, over --max-held ${MAX_HELD}`);
+  for (const r of overHeld) console.log(`${r.id.padEnd(22)} HELD ${r.heldMax} of the pixels in one frame, over --max-held ${MAX_HELD}`);
   if (Number.isFinite(MAX_HELD)) {
     console.log(`${opts.audio} audio: largest held fraction ${Math.max(0, ...ok.map(r => r.heldMax))}, budget ${MAX_HELD}`);
   }

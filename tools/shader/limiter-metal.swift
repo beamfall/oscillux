@@ -5,7 +5,8 @@
 // with Case { name, width, height, frames, cols, rows, limit, clock: [[tick, deltaMs, refill]] }.
 // Every case's frames arrive on stdin in order as raw RGBA8, top row first; the timing case sends
 // two frames that alternate. Per case it prints one JSON line
-//   { name, frames: [[holdMask ("0"/"1" per sub-block, row order), grant, deficit, outputDigest]] }
+//   { name, frames: [[holdMask ("0"/"1" per sub-block, row order), grant, deficit, outputDigest,
+//     trackDigest]] }
 // and for the timing case { timing: { frameMedianMs, passMedianMs: [per pass], frames } } from
 // command-buffer GPU timestamps. Prints {"skipped":...} without a unified-memory Metal device.
 import Foundation
@@ -77,10 +78,21 @@ func texture(_ kind: String, _ w: Int, _ h: Int) -> MTLTexture {
     d.usage = [.shaderRead, .renderTarget]
     d.storageMode = .shared
     let t = device.makeTexture(descriptor: d)!
-    // The host clears the state to zero: no sub-block tracked yet.
     let row = w * (kind == "uint32" ? 16 : kind == "uint" ? 8 : 4)
     let zero = [UInt8](repeating: 0, count: row * h)
     t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: zero, bytesPerRow: row)
+    return t
+}
+
+/// Tracker state cleared to "no state yet" (65535, 0, 255, 0) per pixel (shaders/limiter/README.md).
+func trackTexture(_ w: Int, _ h: Int) -> MTLTexture {
+    let t = texture("uint", w, h)
+    var px = [UInt16](repeating: 0, count: w * h * 4)
+    for i in 0..<(w * h) {
+        px[4 * i] = 65535
+        px[4 * i + 2] = 255
+    }
+    t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: px, bytesPerRow: w * 8)
     return t
 }
 
@@ -98,7 +110,7 @@ func readStdin(_ n: Int) -> [UInt8] {
 final class Limiter {
     let w: Int, h: Int
     let frame: MTLTexture, rows: MTLTexture, s: MTLTexture, c: MTLTexture, win: MTLTexture
-    let g: [MTLTexture], t0: [MTLTexture], t1: [MTLTexture], t2: [MTLTexture], out: [MTLTexture]
+    let g: [MTLTexture], track: [MTLTexture], out: [MTLTexture]
     var cur = 0
 
     init(_ w: Int, _ h: Int) {
@@ -106,13 +118,11 @@ final class Limiter {
         self.h = h
         frame = texture("float", w, h)
         rows = texture("uint32", 64, h)
-        s = texture("uint", 64, 36)
-        c = texture("uint", 16, 9)
+        s = texture("uint32", 64, 36)
+        c = texture("uint32", 16, 9)
         win = texture("uint", 16, 9)
         g = [texture("uint", 1, 1), texture("uint", 1, 1)]
-        t0 = [texture("uint", 64, 36), texture("uint", 64, 36)]
-        t1 = [texture("uint", 64, 36), texture("uint", 64, 36)]
-        t2 = [texture("uint", 64, 36), texture("uint", 64, 36)]
+        track = [trackTexture(w, h), trackTexture(w, h)]
         out = [texture("float", w, h), texture("float", w, h)]
     }
 
@@ -124,13 +134,12 @@ final class Limiter {
     func passes() -> [(Int, [MTLTexture], [MTLTexture])] {
         let a = cur, b = cur ^ 1
         return [
-            (0, [rows], [frame, out[a]]),
-            (1, [s], [rows, t0[a], t1[a]]),
-            (2, [c], [s, t2[a]]),
+            (0, [rows], [frame, track[a]]),
+            (1, [s], [rows]),
+            (2, [c], [s]),
             (3, [win], [c]),
             (4, [g[b]], [c, win, g[a]]),
-            (5, [t0[b], t1[b], t2[b]], [s, g[b], t0[a], t1[a], t2[a]]),
-            (6, [out[b]], [frame, out[a], t1[b]]),
+            (5, [out[b], track[b]], [frame, out[a], track[a], g[b]]),
         ]
     }
 
@@ -171,7 +180,8 @@ func emit(_ object: Any) {
 for c in cfg.cases {
     let lim = Limiter(c.width, c.height)
     var frames: [[Any]] = []
-    var t1 = [UInt16](repeating: 0, count: 64 * 36 * 4)
+    var sub = [UInt32](repeating: 0, count: 64 * 36 * 4)
+    var track = [UInt16](repeating: 0, count: c.width * c.height * 4)
     var g = [UInt16](repeating: 0, count: 4)
     var out = [UInt8](repeating: 0, count: c.width * c.height * 4)
     for t in 0..<c.frames {
@@ -183,12 +193,16 @@ for c in cfg.cases {
         let b = lim.cur
         cb.commit()
         cb.waitUntilCompleted()
-        lim.t1[b].getBytes(&t1, bytesPerRow: 64 * 8, from: MTLRegionMake2D(0, 0, 64, 36), mipmapLevel: 0)
+        lim.s.getBytes(&sub, bytesPerRow: 64 * 16, from: MTLRegionMake2D(0, 0, 64, 36), mipmapLevel: 0)
+        lim.track[b].getBytes(&track, bytesPerRow: c.width * 8, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
         lim.g[b].getBytes(&g, bytesPerRow: 8, from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
         lim.out[b].getBytes(&out, bytesPerRow: c.width * 4, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
-        let mask = String((0..<(64 * 36)).map { t1[4 * $0 + 3] & 1 != 0 ? Character("1") : Character("0") })
+        // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
+        let grant = UInt32(g[0])
+        let mask = String((0..<(64 * 36)).map { sub[4 * $0 + 2] & ~grant & 15 != 0 ? Character("1") : Character("0") })
+        let trackBytes = track.withUnsafeBytes { [UInt8]($0) }
         // Bit 8 of the grant word carries a second token of luma deficit (grant.glsl).
-        frames.append([mask, Int(g[0] & 255), Int(g[1]) + Int((g[0] >> 8) & 1) * 65025, fnv1a(out)])
+        frames.append([mask, Int(g[0] & 255), Int(g[1]) + Int((g[0] >> 8) & 1) * 65025, fnv1a(out), fnv1a(trackBytes)])
     }
     emit(["name": c.name, "frames": frames])
 }
