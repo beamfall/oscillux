@@ -48,6 +48,19 @@ quarter of the field's pixels.
 - **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
   output
 
+#### Scenario: A red change after a reset counts when it saturates
+
+- **WHEN** the tracker texture is reset to zero over black, a full frame shows (110, 64, 0) for
+  100 frames at 60 Hz, then (90, 0, 0) for one frame, then black
+- **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
+  output
+
+#### Scenario: An unchanged frame makes no transition
+
+- **WHEN** red pixels fall in one area, the next frame raises an adjacent area and a far area, and
+  the frame after that is unchanged
+- **THEN** the pixel auditor records no transition on the unchanged frame
+
 ### Requirement: Flash measure
 
 The frame limiter and the pixel auditor SHALL measure flashes in the same integer codes: luma
@@ -199,9 +212,8 @@ area.
 
 A tracker SHALL fire on a full step back from its extreme since its last transition, or on a
 further full step onward from the level at its last transition, in each case with the darker side
-below the dark limit; an onward step that is not dark enough moves that level without firing. The
-pixel auditor SHALL count the same way. Pixels that started changing at different times can then
-complete a step together, and their joint change is measured over the area.
+below the dark limit. An onward rise not below the dark limit moves that level without firing; a
+fall that ends at or above it keeps its high side. The pixel auditor SHALL count the same way.
 
 #### Scenario: Staggered patches
 

@@ -43,7 +43,12 @@ The uniform block holds two vectors:
     (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
-  - `deltaMs` is the frame interval as float32.
+  - `deltaMs` is the frame interval as float32: a lower bound on the time the previous frame was
+    shown, never more. A host that cannot see paint times takes the shorter of its frame clock's and
+    its wall clock's intervals since the last draw, and no more than the display's refresh period
+    (the Beamfall web host: the shortest draw interval seen, at least 4 ms), since the previous
+    frame may have been painted late and this one on time (Codex rounds 18 and 19). A host that
+    draws slower than its display refreshes then ages evidence slower and holds changes longer.
 
 `windowOf(geometry, width, height)` in `tools/shader/limiter-geometry.mjs` gives `cols`, `rows`
 and `limit` for a device class and frame size. `createClock` in the model gives `tick`, `deltaMs`
@@ -87,10 +92,11 @@ The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma o
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
 deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
 large-area red transitions (no red flash) and a held red change is admitted instead of freezing
-(CORE-2382): within 8 / (2 maxFlashHz) s and one frame (1.333 s and a frame at the default 3 Hz),
-or within 9 frames when a frame is longer than 1 / (2 maxFlashHz) s. A refill period earns one
-unit under a token and a frame's refill is capped at a token, so eight refills repay at most
-65024 of the red token's 65025 (Codex round 17). The bound is per grant: red grants one direction
+(CORE-2382): within (65025 / 65024) · 8 / (2 maxFlashHz) s and one frame (1.333 s and a frame at
+the default 3 Hz), or within 9 frames when a frame is longer than 1 / (2 maxFlashHz) s. A refill
+period earns one unit under a token and a frame's refill is capped at a token, so eight periods
+repay 8 · 65024 / 8 = 65024 of the red token's 65025 and the last unit takes 1/65024 of a period
+more (Codex rounds 17 and 19). The bound is per grant: red grants one direction
 at a time, so an area held both rising and falling is admitted in two steps, the second one bound
 after the first (Codex round 18). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both
@@ -130,12 +136,15 @@ unsaturated reversal left the red tracker unmoved, which hid the transition afte
 
 Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.glsl`):
 
-- `x`: the luma tracker's extreme (15-bit); bit 15 set while the red tracker's latest change has
-  not counted.
+- `x`: the luma tracker's extreme (15-bit); bit 15 is the high bit of the red memory.
 - `y`: the luma tracker's distance (12-bit); bit 12 set when it last fired rising, bit 13 when the
-  pixel has no state yet (the reference model's start), bit 15 when no saturated red state was
-  seen since the red tracker's latest change. The zero texel has seen one, so after a reset the next
-  red change counts whatever the pixel showed before it (Codex round 18).
+  pixel has no state yet (the reference model's start); bit 15 is the low bit of the red memory.
+- The red memory (x bit 15, y bit 15): 00 unknown, 01 the red tracker's latest change counted and
+  no saturated state seen since, 11 that change has not counted, 10 it counted and a saturated
+  state was seen. The zero texel (a reset, or a host's first frame) is unknown: the next red step
+  counts at once and, unless its new state is saturated, counts again at the first saturated state;
+  a saturated state with no step counts the tracker's direction. So a reset never hides a red
+  change, whatever the pixel showed before it (Codex rounds 18 and 19).
 - `z`: the red tracker's extreme | distance << 8 (4-bit) | rising << 12.
 - `w`: four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12); 0 is
   none, else the event's unit `(tick >> 4) + 1`.
@@ -173,7 +182,8 @@ charge), and the clear counts as a write, so the first frame refills 0 (Codex ro
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
 written fully spent, and black presented without the limiter for longer than the coverage
-interval. The zero texel is a tracker falling at 0 with every change counted. (A texel with bit
+interval. The zero texel is a tracker falling at 0 with every luma change counted and the red
+memory unknown. (A texel with bit
 13 of `y` set means no state yet: a pixel with no state takes its first value without firing, as
 if it fell to it. The reference model and the conformance vectors start from it; a host does not,
 because it would pass its first frame, or the first frame after a reset, with no budget charged,

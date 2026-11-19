@@ -912,6 +912,45 @@ test('after a reset the next red change counts (Codex round 18)', () => {
   assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
 });
 
+// Codex round 19: from the zero tracker, an unsaturated (110, 64, 0) rise spent the red token and
+// the tracker forgot it had not seen saturation, so a later (90, 0, 0) on the same red code (the
+// auditor's rise) and the fall to black came 16.7 ms apart. The zero texel's red memory is unknown:
+// the change counts at once and again at the first saturated state.
+test('a red rise from the zero tracker counts again when it saturates (Codex round 19)', () => {
+  const W = 64, H = 36, frames = 300;
+  const lim = model.createLimiter({ width: W, height: H });
+  const audit = createAuditor({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  for (let t = 0; t < frames; t++) {
+    const c = t < 1 ? [0, 0, 0] : t < 101 ? [110, 64, 0] : t === 101 ? [90, 0, 0] : [0, 0, 0];
+    for (let i = 0; i < px.length; i += 4) { px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255; }
+    const r = lim.step(px, DT);
+    if (t === 0) r.track.fill(0); // the host's start: every pixel tracked black
+    audit.push(r.out, DT);
+  }
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 19: a recorded directional red rise left another field's combined area (40 falls
+// and 40 rises) unconsumed, and the auditor charged it again on the next, unchanged frame.
+test('an unchanged frame makes no transition (Codex round 19)', () => {
+  const { input } = scene(64, 36, 30, (t, x, y) => {
+    if (x < 8 && y < 8) return t >= 2 ? [160, 0, 0] : [0, 0, 0];
+    if (x >= 50 && x < 60 && y < 4) return t < 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x >= 50 && x < 60 && y < 8) return t >= 2 ? [160, 0, 0] : [0, 0, 0];
+    return [0, 0, 0];
+  });
+  const red = input.transitions[2].length + input.transitions[3].length + input.transitions[5].length;
+  assert.equal(red, 1, `the auditor records ${red} red transitions`);
+});
+
+// Codex round 19: a tracker started at grey 255 falls to 240 and on to 229, a fall of 7093 codes
+// from the peak ending below 0.8.
+test('a bright fall that goes on below 0.8 fires (Codex round 19)', () => {
+  const { input } = scene(64, 36, 4, t => { const g = [255, 240, 229, 229][t]; return [g, g, g]; });
+  assert.equal(input.transitions[1].length, 1, 'the fall');
+});
+
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
 // count, to show a model change leaves luminance behaviour byte-identical.
 if (process.argv.includes('--luma-digest')) {

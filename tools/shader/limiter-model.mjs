@@ -46,15 +46,16 @@
 //      refilled: CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
 //
 // Tracker state is packed as the GPU stores it, one RGBA16UI texel per pixel:
-//   x  luma extreme (15-bit) | PEND_BIT (the red tracker's latest change has not counted);
-//   y  luma distance (12 bits) | LUMA_UP | UNTRACKED | UNSAT_BIT (no saturated red state since the red
+//   x  luma extreme (15-bit) | RED_MEM_HI;
+//   y  luma distance (12 bits) | LUMA_UP | UNTRACKED | RED_MEM_LO (the red memory: 0 0 unknown,
+//      0 1 counted, 1 1 not counted, 1 0 counted with a saturated state seen, since the red
 //      tracker's latest change); z  red extreme | distance << 8 | RED_UP; w  stamps, 4 bits each
 //      (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the event's unit
 //      (tick >> 4) + 1.
 // Each tracker has a direction (the way it last fired), its extreme since (peak or trough) and its
 // reference (the level at its last transition), stored as the distance from the extreme, which
-// stays under the step (trackStep). The zero texel is tracked black: falling at 0, every change
-// counted. UNTRACKED marks a pixel with no state yet, which takes its first value without firing,
+// stays under the step (trackStep). The zero texel is tracked black: falling at 0, red memory
+// unknown. UNTRACKED marks a pixel with no state yet, which takes its first value without firing,
 // as a fall to it.
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
@@ -72,11 +73,10 @@ const CELLS = GRID_X * GRID_Y;
 // and 20 of WCAG's 320 red scale in 256ths.
 export const LUMA_STEP = 3275, LUMA_DARK = 26215, RED_STEP = 15, NO_DARK = 256;
 // Tracker words (shaders/limiter/common.glsl): x the luma extreme (15-bit codes, 32767 relative
-// luminance) | PEND_BIT while the red tracker's latest change has not counted; y the luma distance
-// (12 bits) | LUMA_UP | UNTRACKED | UNSAT_BIT (no saturated red state seen since the red tracker's latest
-// change); z the red extreme | distance << 8 | RED_UP. The zero texel is tracked black.
-export const LUMA_MAX = 32767, RED_MAX = 255, PEND_BIT = 32768, LUMA_UP = 4096, UNTRACKED = 8192,
-  UNSAT_BIT = 32768, RED_UP = 4096;
+// luminance) | RED_MEM_HI; y the luma distance (12 bits) | LUMA_UP | UNTRACKED | RED_MEM_LO; z the
+// red extreme | distance << 8 | RED_UP. The zero texel is tracked black.
+export const LUMA_MAX = 32767, RED_MAX = 255, RED_MEM_HI = 32768, LUMA_UP = 4096, UNTRACKED = 8192,
+  RED_MEM_LO = 32768, RED_UP = 4096;
 export const TOKEN = 65025;
 export const COVERAGE_MS = 1000 / 15;
 export const TICK_MS = COVERAGE_MS / 64;
@@ -167,24 +167,30 @@ export function trackStep(ext, dist, up, v, step, dark, out) {
 export const lumaStep = (x, y, v, out) => trackStep(x & LUMA_MAX, y & 4095, (y & LUMA_UP) !== 0, v, LUMA_STEP, LUMA_DARK, out);
 
 /** The red tracker's step on tracker words (x, y, z) for red code rv and saturation sat: writes z'
- * to out[0] and returns count (1 rising, -1 falling, 0 none) | counted' << 2 | seen' << 3.
- * A change counts when the new state or one since the previous change is saturated; one that did
- * not count then counts at the first saturated state before the next change. Direction changes
- * never wait for saturation (Codex round 13). */
+ * to out[0] and returns count (1 rising, -1 falling, 0 none) | memory high bit << 2 | memory low
+ * bit << 3. A change counts when the new state or one since the previous change is saturated; one
+ * that did not count then counts at the first saturated state before the next change. With the
+ * memory unknown (a reset) a change counts at once and, unless it ends saturated, again at the
+ * first saturated state (Codex round 19). Direction changes never wait for saturation (Codex
+ * round 13). */
 export function redStep(x, y, z, rv, sat, out) {
   const c = trackStep(z & 255, (z >> 8) & 15, (z & RED_UP) !== 0, rv, RED_STEP, NO_DARK, out);
   const up = out[2];
   out[0] = out[0] | (out[1] << 8) | (up ? RED_UP : 0);
-  let counted = (x & PEND_BIT) === 0, seen = (y & UNSAT_BIT) === 0, count = 0;
+  const hi = (x & RED_MEM_HI) !== 0, lo = (y & RED_MEM_LO) !== 0;
+  let unknown = !hi && !lo, counted = !(hi && lo), seen = hi && !lo, count = 0;
   if (c !== 0) {
+    count = sat || seen || unknown ? c : 0;
     counted = sat || seen;
-    count = counted ? c : 0;
     seen = sat;
-  } else {
-    if (!counted && sat) { count = up ? 1 : -1; counted = true; }
-    seen = seen || sat;
+    unknown = false;
+  } else if (sat) {
+    if (!counted || unknown) count = up ? 1 : -1;
+    counted = seen = true;
+    unknown = false;
   }
-  return (count & 3) | (counted ? 4 : 0) | (seen ? 8 : 0);
+  const mhi = unknown ? 0 : !counted || seen ? 1 : 0, mlo = unknown ? 0 : seen ? 0 : 1;
+  return (count & 3) | (mhi << 2) | (mlo << 3);
 }
 const redCount = r => ((r & 3) === 3 ? -1 : r & 3);
 
@@ -329,15 +335,15 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         const x0 = track[i], y0 = track[i + 1];
         const st = track[i + 3];
         if (y0 & UNTRACKED) {
-          track[i] = v; track[i + 1] = sat ? 0 : UNSAT_BIT; track[i + 2] = rv; track[i + 3] = 0;
+          track[i] = v | (sat ? RED_MEM_HI : 0); track[i + 1] = sat ? 0 : RED_MEM_LO; track[i + 2] = rv; track[i + 3] = 0;
           continue;
         }
         const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp);
         const fr = redCount(r3);
         track[i + 2] = tmp[0];
         const fl = lumaStep(x0, y0, v, tmp);
-        track[i] = tmp[0] | (r3 & 4 ? 0 : PEND_BIT);
-        track[i + 1] = tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? 0 : UNSAT_BIT);
+        track[i] = tmp[0] | (r3 & 4 ? RED_MEM_HI : 0);
+        track[i + 1] = tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? RED_MEM_LO : 0);
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
         let ns = 0;
         for (let d = 0; d < 4; d++) {

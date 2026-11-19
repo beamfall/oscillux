@@ -99,7 +99,19 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   }
 
   const sums = [new Int32Array((W + 1) * (H + 1)), new Int32Array((W + 1) * (H + 1))];
+  const nowSum = new Int32Array((W + 1) * (H + 1));
   const freshIn = c => j => fresh(last[2 * c][j]) || fresh(last[2 * c + 1][j]);
+  const firedIn = cs => j => cs.some(c => last[2 * c][j] === clock || last[2 * c + 1][j] === clock);
+  // The pixels inside some field placement over the limit of pixels fresh in either direction of
+  // channel c in which a pixel of the channel fires now: an area in which nothing changes makes no
+  // transition, so a channel area left over from a frame that charged its channel another way is
+  // not charged again on a frame that shows nothing new (Codex round 19).
+  function channelArea(c) {
+    if (!firedNow[c]) return null;
+    fill(nowSum, firedIn([c]));
+    fill(integral, freshIn(c));
+    return cover(integral, (x, y) => box(nowSum, x, y) > 0);
+  }
   function fill(sum, test) {
     for (let y = 0; y < H; y++) {
       let run = 0;
@@ -112,14 +124,15 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   const box = (sum, x, y) => sum[(y + fhPx) * (W + 1) + x + fwPx] - sum[y * (W + 1) + x + fwPx]
     - sum[(y + fhPx) * (W + 1) + x] + sum[y * (W + 1) + x];
   // The channels with a fresh pixel inside some field placement whose fresh pixels, in any channel
-  // and direction, are over the limit: the combined area is charged to them, whatever happens
-  // elsewhere in the frame (Codex round 15).
+  // and direction, are over the limit and one of which fires now: the combined area is charged to
+  // them, whatever happens elsewhere in the frame (Codex rounds 15, 19).
   function combined() {
     const lumaFresh = freshIn(0), redFresh = freshIn(1);
+    fill(nowSum, firedIn([0, 1]));
     fill(integral, j => lumaFresh(j) || redFresh(j));
     fill(sums[0], lumaFresh);
     fill(sums[1], redFresh);
-    return [0, 1].map(c => cover(integral, (x, y) => box(sums[c], x, y) > 0));
+    return [0, 1].map(c => cover(integral, (x, y) => box(sums[c], x, y) > 0 && box(nowSum, x, y) > 0));
   }
   // Forgets the changes in directions `dirs` inside `area`: they have counted.
   function consume(area, dirs) {
@@ -182,7 +195,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     // Every test reads the counts as they stood before this frame's charges, so a large area in one
     // field cannot hide another field's narrower or combined area (Codex round 15).
     const now = [large([0]), large([1]), large([2]), large([3])];
-    const channel = [large([0, 1]), large([2, 3])];
+    const channel = [channelArea(0), channelArea(1)];
     // The combined area, only on a frame where something changed: it is charged to every channel
     // with a fresh pixel in an over placement, so staggering red a frame behind luma charges both
     // (Codex round 14).

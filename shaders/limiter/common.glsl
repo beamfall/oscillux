@@ -10,14 +10,17 @@
 // Tracker state, one RGBA16UI texel per pixel (uTrack, oTrack). Each measure's tracker has a
 // direction (the way it last fired), its extreme since then (the peak when rising, the trough when
 // falling) and its reference (the level at its last transition), stored as the extreme and the
-// reference's distance from it, which stays under the step. x: luma extreme (15 bits), bit 15 set
-// while the red tracker's latest change has not counted; y: luma distance (12 bits), bit 12 rising,
-// bit 13 no state yet (the reference model's start), bit 15 no saturated red state seen since the
-// red tracker's latest change; z: red extreme (8 bits), red distance << 8 (4 bits), bit 12 rising; w four
-// 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the
-// event's unit (tick >> 4) + 1. The zero texel is tracked black: falling at 0 with every change
-// counted and a saturated state seen, so the next red change counts whatever the pixel showed before
-// a reset (Codex round 18). Hosts start the texture at zero (README.md, "Ping-pong and reset").
+// reference's distance from it, which stays under the step. x: luma extreme (15 bits), bit 15 the
+// red memory's high bit; y: luma distance (12 bits), bit 12 rising, bit 13 no state yet (the
+// reference model's start), bit 15 the red memory's low bit; z: red extreme (8 bits), red distance
+// << 8 (4 bits), bit 12 rising; w four 4-bit recency stamps (luma up, luma down << 4, red up << 8,
+// red down << 12), 0 absent, else the event's unit (tick >> 4) + 1. The red memory (x bit 15, y bit
+// 15) is what the red tracker knows of saturation since its latest change: 0 0 unknown, 0 1 counted
+// with no saturated state seen, 1 1 not counted (so none seen), 1 0 counted with a saturated state
+// seen. The zero texel is tracked black: falling at 0, red memory unknown, so the next red change
+// counts and, unless it ends saturated, counts again at the first saturated state, whatever the
+// pixel showed before a reset (Codex rounds 18, 19). Hosts start the texture at zero (README.md,
+// "Ping-pong and reset").
 
 const int BLOCKS_X = 64;
 const int BLOCKS_Y = 36;
@@ -30,14 +33,13 @@ const int SUB = 4;
 // so the steps are the thresholds less those errors: every WCAG transition fires.
 const int LUMA_STEP = 3275;  // 0.1 relative luminance (3276.75 of 32767.5, less 1.98)
 const int LUMA_DARK = 26215; // 0.8 (26214, plus 0.74): the darker side is below this
-// Luma codes are 15-bit so bit 15 of the luma words carries the red tracker's counted and
-// saturated bits.
+// Luma codes are 15-bit so bit 15 of the luma words carries the red memory.
 const int LUMA_MAX = 32767;
 const uint LUMA_MASK = 32767u;
-const uint PEND_BIT = 32768u;  // x: the red tracker's latest change has not counted
+const uint RED_MEM_HI = 32768u; // x: the red memory's high bit
 const uint LUMA_UP = 4096u;    // y: the luma tracker last fired rising
 const uint UNTRACKED = 8192u;  // y: no state yet
-const uint UNSAT_BIT = 32768u; // y: no saturated red state seen since the red tracker's latest change
+const uint RED_MEM_LO = 32768u; // y: the red memory's low bit
 const uint RED_UP = 4096u;     // z: the red tracker last fired rising
 const int RED_STEP = 15;     // 20 on WCAG's 320 max(0, R - G - B) scale (16 of 256, less 1.01)
 const int NO_DARK = 256;
@@ -85,28 +87,35 @@ ivec4 limiterLumaStep(uvec4 t, int v) {
 }
 
 // The red tracker's step on tracker t for red code rv and saturation sat: returns (z', count,
-// counted', seen'), count 1 rising, -1 falling, 0 none. A change counts as a red transition when the
-// new state or one since the previous change is saturated; one that did not count then counts at the
-// first saturated state before the next change, so a change through an unsaturated state to
-// saturated red is not lost. Direction changes never wait for saturation: a gated direction let an
+// memory high bit, memory low bit), count 1 rising, -1 falling, 0 none. A change counts as a red
+// transition when the new state or one since the previous change is saturated; one that did not
+// count then counts at the first saturated state before the next change, so a change through an
+// unsaturated state to saturated red is not lost. With the memory unknown (a reset) a change counts
+// at once and, unless it ends saturated, again at the first saturated state: either may be the
+// auditor's (Codex round 19). Direction changes never wait for saturation: a gated direction let an
 // unsaturated reversal hide the transition after it (Codex round 13).
 ivec4 limiterRedStep(uvec4 t, int rv, bool sat) {
     ivec4 s = limiterTrackStep(int(t.z & 255u), int((t.z >> 8u) & 15u), (t.z & RED_UP) != 0u ? 1 : 0, rv, RED_STEP, NO_DARK);
-    bool counted = (t.x & PEND_BIT) == 0u;
-    bool seen = (t.y & UNSAT_BIT) == 0u;
+    bool hi = (t.x & RED_MEM_HI) != 0u;
+    bool lo = (t.y & RED_MEM_LO) != 0u;
+    bool unknown = !hi && !lo;
+    bool counted = !(hi && lo);
+    bool seen = hi && !lo;
     int count = 0;
     if (s.w != 0) {
+        count = sat || seen || unknown ? s.w : 0;
         counted = sat || seen;
-        count = counted ? s.w : 0;
         seen = sat;
-    } else {
-        if (!counted && sat) {
-            count = s.z != 0 ? 1 : -1;
-            counted = true;
-        }
-        seen = seen || sat;
+        unknown = false;
+    } else if (sat) {
+        if (!counted || unknown) count = s.z != 0 ? 1 : -1;
+        counted = true;
+        seen = true;
+        unknown = false;
     }
-    return ivec4(s.x | (s.y << 8) | (s.z << 12), count, counted ? 1 : 0, seen ? 1 : 0);
+    int mhi = unknown ? 0 : !counted || seen ? 1 : 0;
+    int mlo = unknown ? 0 : seen ? 0 : 1;
+    return ivec4(s.x | (s.y << 8) | (s.z << 12), count, mhi, mlo);
 }
 
 #ifdef LIMITER_LUT

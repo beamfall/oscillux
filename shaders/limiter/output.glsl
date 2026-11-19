@@ -22,7 +22,7 @@ void main() {
     int rv = limiterRed(c);
     bool sat = limiterSat(c);
     if (limiterUntracked(t)) {
-        oTrack = uvec4(uint(v), sat ? 0u : UNSAT_BIT, uint(rv), 0u);
+        oTrack = uvec4(uint(v) | (sat ? RED_MEM_HI : 0u), sat ? 0u : RED_MEM_LO, uint(rv), 0u);
         return;
     }
     ivec4 fl = limiterLumaStep(t, v);
@@ -36,5 +36,5 @@ void main() {
         uint keep = ((fired >> uint(d)) & 1u) != 0u ? uint(unit + 1) : limiterRecent(s, unit, deltaMs) ? s : 0u;
         stamps |= keep << uint(4 * d);
     }
-    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? 0u : PEND_BIT), uint(fl.y) | (fl.z != 0 ? LUMA_UP : 0u) | (fr.w != 0 ? 0u : UNSAT_BIT), uint(fr.x), stamps);
+    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? RED_MEM_HI : 0u), uint(fl.y) | (fl.z != 0 ? LUMA_UP : 0u) | (fr.w != 0 ? RED_MEM_LO : 0u), uint(fr.x), stamps);
 }
