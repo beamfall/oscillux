@@ -105,8 +105,10 @@ The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma o
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
 deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
 large-area red transitions (no red flash) and a held red change is admitted instead of freezing
-(CORE-2382): by the first frame at which the `deltaMs` of the frames after the spend, each
-counted up to one refill period of 1 / (2 maxFlashHz) s, add up to (65025 / 65024) · 8 periods.
+(CORE-2382): the red token is back by the first frame at which the `deltaMs` of the frames after
+the spend, each counted up to one refill period of 1 / (2 maxFlashHz) s, add up to
+(65025 / 65024) · 8 periods, and the change is admitted on that frame unless it asks luma too and
+the luma token is not ready (below).
 At a steady cadence that is 1.333 s and a frame at the default 3 Hz, or the ninth frame after the
 spend when every frame is longer than a period; a mixed cadence of long and short frames takes
 longer than either, because a long frame earns only one period (Codex round 20). A host write
@@ -114,7 +116,16 @@ of `G` is not a grant: it writes the red token spent and the first frame after i
 so after `setGeometry` a red change held from its first frame at 250 ms frames is admitted on the
 tenth (Codex round 21). A refill period earns 65024 / 8 red units and a frame's refill is capped
 at one period, so eight periods repay 65024 of the red token's 65025 and the last unit takes
-8/65024 of a period more (Codex rounds 17, 19 and 21). The bound is per grant: red grants one direction
+8/65024 of a period more (Codex rounds 17, 19 and 21). The bound is the red token's, not the
+admission's. A frame that asks luma too is admitted only when the luma token is ready as well, so
+a luma grant shortly before the red token returns holds the change until the luma refill after
+that grant, counted the same way: at most (65025 / 65024) · 3 periods, one for a single grant, two
+for a pair, and one of credit when the frame asks both luma directions. At 60 frames a second and
+the default 3 Hz, a white rise two frames before the red token returns holds a full-frame red
+change nine frames past it. A frame grants nothing until every token it asks is ready, so no
+luma is granted while the change is held and it waits for one luma refill, not a train of them
+(Codex round 25). The red
+bound is per grant: red grants one direction
 at a time, so an area held both rising and falling is admitted in two steps, the second one bound
 after the first (Codex round 18). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both
@@ -239,7 +250,9 @@ to black could itself complete a flash with the transition before it. So the hos
 output to black through the limiter at the old size and geometry, keeping the old view size, for
 longer than the red release bound in the `deltaMs` it credits (the Beamfall web host: 2 s of
 credited time, so a slow page that credits less than each interval fades for longer; Codex round
-22); the grant paces the fall like any other and has admitted it by the end. It then switches to the new size with the whole output and tracker state tracked
+22); the grant paces the fall like any other and has admitted it by the end: the fall is asked
+from the fade's first frame and in one luma direction, so a luma token it also waits for is back
+within about two refill periods, inside the red bound. It then switches to the new size with the whole output and tracker state tracked
 black and `G` written fully spent, and presents black, without running the limiter, for longer
 than the coverage interval counted from the first black frame presented at the new size (the
 Beamfall web host: 0.1 s). Every tracker stamp from before has then left the coverage interval,
@@ -253,9 +266,15 @@ become k x k copies, which keeps every physical pixel on screen and every pixel'
 `G` is written spent as on any resize (the Beamfall web host takes one-pixel texels for a view
 narrower than its texel rather than clip a texel, Codex round 22). A view can still cut a
 texel: the old frame during a fade, a divisor copy into a smaller frame, or a side over the
-largest frame. The cut texel is partly on screen, so the host keeps, judges and shows it whole
+largest frame. The cut texel is partly on screen, so the host keeps and judges it whole
 and takes the area limit from the physical pixels shown, which overcounts the cut texel's area
-and never undercounts; clearing it would be an ungranted fall (Codex round 23). The change itself is the user's (a zoom or a move to another display); the
+and never undercounts; clearing it would be an ungranted fall (Codex round 23). Counting the
+texel whole is not showing it whole: the host displays only the physical pixels it has judged in
+view and keeps the rest of the cut texel hidden behind black, the level every tracker starts at.
+When the view grows past a texel it cut, the hidden pixels would appear in the texel's colour with
+no tracker event, so the host does not reveal them: it holds the view, fades the frame out
+through the limiter as above and starts the view again from nothing in view (the Beamfall web
+host clips its canvas to the judged pixels over a black backdrop, Codex rounds 24 and 25). The change itself is the user's (a zoom or a move to another display); the
 browser rescales the last frame before any host can react, which the limiter does not control.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state

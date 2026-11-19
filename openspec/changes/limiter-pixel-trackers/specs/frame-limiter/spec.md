@@ -15,10 +15,13 @@ counts by its pixels instead of a diluted block mean.
 The frame limiter SHALL admit a large-area saturated-red transition, in either direction, only
 when its red token is full, and SHALL then empty it; the token SHALL refill at one eighth of the
 luma token's rate, so that no 1 s window holds more than one large-area red transition (no red
-flash). A held red change SHALL be admitted by the first frame at which the intervals of the
+flash). The red token SHALL be full again by the first frame at which the intervals of the
 frames after the last spend, each counted up to 1 / (2 x maxFlashHz) s, add up to
 (65025 / 65024) x 8 / (2 x maxFlashHz) s; after a host write of `G` the first of them counts
-nothing. The bound is per grant: a held change that needs red grants in both directions has its
+nothing. A held red change SHALL be admitted on that frame, or, when the frame asks luma too, on
+the first frame from it at which the luma token is ready as well: at most
+(65025 / 65024) x 3 / (2 x maxFlashHz) s, counted the same way, after the last luma grant. The
+red bound is per grant: a held change that needs red grants in both directions has its
 second direction admitted within the same bound after the first.
 
 #### Scenario: Red strobe
