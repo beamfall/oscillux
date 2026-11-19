@@ -198,6 +198,13 @@ complete a step together, and their joint change is measured over the area.
 - **THEN** the pixel auditor counts at most 6 large-area luma and 1 red transition in every 1 s
   window of the output
 
+#### Scenario: A dip short of a step, then a step up
+
+- **WHEN** a full frame rises from black to (138, 0, 0), holds, then shows (127, 0, 0), (146, 0, 0)
+  and (127, 0, 0) on consecutive frames
+- **THEN** the pixel auditor counts at least 2 large-area red transitions in the input and at most
+  1 in every 1 s window of the output
+
 #### Scenario: Rise, plateau, rise, fall
 
 - **WHEN** a full frame goes from black to (110, 0, 0), holds, rises to (220, 0, 0) and returns to
@@ -212,6 +219,11 @@ next frame, and the host SHALL carry the fraction of a refill unit to the next f
 maxFlashHz refills at any frame rate. The host SHALL earn one unit under a token a token period, so
 the carried fraction cannot complete a token early, and SHALL refill nothing on the first frame
 after it writes the budget.
+
+#### Scenario: The first frame
+
+- **WHEN** the host starts with `G` cleared to zero
+- **THEN** the first frame refills nothing, as after any other write of `G`
 
 #### Scenario: A tiny maximum flash rate
 

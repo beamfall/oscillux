@@ -55,19 +55,21 @@ bool limiterRecent(uint s, int unit, float deltaMs) {
 // The audit counter's step on a tracker (extreme, distance, rising) for value v: returns
 // (extreme', distance', rising', change), change 1 rising, -1 falling, 0 none. A change of at least
 // stepSize whose darker side is below dark is a transition: against the direction from the extreme
-// (a reversal), or onward from the reference, the level at the previous transition. So a rise, a
-// pause and a further rise of a step are two transitions: a large area can reach a step in one
-// frame after its pixels started rising at different times (Codex round 16).
+// (a reversal), or onward from the reference: the level at the previous transition, or the furthest
+// the value has since gone back short of a step. So a rise, a pause and a further rise of a step
+// are two transitions: a large area can reach a step in one frame after its pixels started rising
+// at different times (Codex round 16). A dip short of a step and a rise of a step from it is a rise
+// (Codex round 17).
 ivec4 limiterTrackStep(int ext, int dist, int up, int v, int stepSize, int dark) {
     if (up != 0) {
         if (ext - v >= stepSize && v < dark) return ivec4(v, 0, 0, -1);
-        int ref = ext - dist;
+        int ref = min(ext - dist, v);
         ext = max(ext, v);
         if (ext - ref < stepSize) return ivec4(ext, ext - ref, 1, 0);
         return ivec4(ext, 0, 1, ref < dark ? 1 : 0);
     }
     if (v - ext >= stepSize && ext < dark) return ivec4(v, 0, 1, 1);
-    int ref = ext + dist;
+    int ref = max(ext + dist, v);
     ext = min(ext, v);
     if (ref - ext < stepSize) return ivec4(ext, ref - ext, 0, 0);
     return ivec4(ext, 0, 0, ext < dark ? -1 : 0);

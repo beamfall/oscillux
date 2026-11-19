@@ -58,7 +58,7 @@
 // as a fall to it.
 //
 // createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
-//   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
+//   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, state (the four grant words), track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
 import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
 
@@ -121,7 +121,7 @@ export function redCode(r, g, b) {
  * unit) never completes a token before a full period has passed since the grant that spent it
  * (Codex round 16). */
 export function createClock(maxFlashHz = 3) {
-  let ms = 0, carry = 0, fresh = false;
+  let ms = 0, carry = 0, fresh = true; // the budget starts spent and written (Codex round 17)
   const clock = dt => {
     ms += dt * 1000;
     const earned = fresh ? 0 : carry + Math.min(1, Math.max(0, 2 * maxFlashHz * dt)) * (TOKEN - 1);
@@ -145,7 +145,7 @@ export function createClock(maxFlashHz = 3) {
 export function trackStep(ext, dist, up, v, step, dark, out) {
   if (up) {
     if (ext - v >= step && v < dark) { out[0] = v; out[1] = 0; out[2] = 0; return -1; }
-    const ref = ext - dist;
+    const ref = Math.min(ext - dist, v);
     ext = Math.max(ext, v);
     out[0] = ext; out[2] = 1;
     if (ext - ref < step) { out[1] = ext - ref; return 0; }
@@ -153,7 +153,7 @@ export function trackStep(ext, dist, up, v, step, dark, out) {
     return ref < dark ? 1 : 0;
   }
   if (v - ext >= step && ext < dark) { out[0] = v; out[1] = 0; out[2] = 1; return 1; }
-  const ref = ext + dist;
+  const ref = Math.max(ext + dist, v);
   ext = Math.min(ext, v);
   out[0] = ext; out[2] = 0;
   if (ref - ext < step) { out[1] = ref - ext; return 0; }
@@ -344,7 +344,11 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         track[i + 3] = ns;
       }
     }
-    return { out, held, holdMask, grant, deficit, redDeficit, track, stats: { requests, asked, over, admitted, fired } };
+    // The grant state as the grant pass writes it (grant.glsl): every word is in the vectors, so a
+    // GPU leg that drops the red remainder, the red deficit or the credit fails (Codex round 17).
+    const high = deficit > TOKEN ? 1 : 0;
+    const state = [grant | (high << 8) | (lastRedDown ? 512 : 0) | (redCarry << 10), deficit - high * TOKEN, redDeficit, credit];
+    return { out, held, holdMask, grant, deficit, redDeficit, state, track, stats: { requests, asked, over, admitted, fired } };
   }
 
   // The viewing geometry may change on a live display. The trackers are kept, and the grant

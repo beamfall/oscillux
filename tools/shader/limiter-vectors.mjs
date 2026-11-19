@@ -2,8 +2,8 @@
 // Frame flash limiter vectors (conformance/limiter/frame/README.md): each case's signal
 // (limiter-signals.mjs) through the reference model (limiter-model.mjs) at a fixed 1/60 s step.
 // Per frame the vector keeps the hold mask (run lengths over the 64 x 36 sub-blocks in row order,
-// starting with a run of not-held; "=" when unchanged from the previous frame), the grant word
-// (admitted bits | over bits << 4), the token deficit, the FNV-1a digest of the output bytes, and
+// starting with a run of not-held; "=" when unchanged from the previous frame), the four grant
+// state words as grant.glsl writes them, the FNV-1a digest of the output bytes, and
 // the FNV-1a digest of the packed tracker state (RGBA16UI per pixel, little-endian bytes).
 //
 //   node tools/shader/limiter-vectors.mjs --write | --check
@@ -71,7 +71,7 @@ export function trackDigest(track) {
   return h.toString(16).padStart(8, '0');
 }
 
-/** The frame records of one case: [hold, grant, deficit, digest, track digest]. */
+/** The frame records of one case: [hold, grant x, y, z, w, digest, track digest]. */
 export function modelFrames(c) {
   const width = c.width || 320, height = c.height || 180;
   const lim = createLimiter({ width, height, geometry: c.geometry || 'wcag' });
@@ -82,7 +82,7 @@ export function modelFrames(c) {
     renderSignal(c.signal, t, width, height, px);
     const r = lim.step(px, DT);
     const hold = runLengths(r.holdMask);
-    frames.push([hold === last ? '=' : hold, r.grant, r.deficit, fnv1a(r.out), trackDigest(r.track)]);
+    frames.push([hold === last ? '=' : hold, ...r.state, fnv1a(r.out), trackDigest(r.track)]);
     last = hold;
   }
   return frames;

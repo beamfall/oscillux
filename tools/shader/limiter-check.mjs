@@ -191,7 +191,7 @@ async function pageMain({ passes, cases, helpers, time }) {
       // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
       for (let k = 0; k < mask.length; k++) mask[k] = sub[4 * k + 1] & ~g[0] & 15 ? 1 : 0;
       const hold = runLengths(mask);
-      frames.push([hold === last ? '=' : hold, g[0] & 255, g[1] + ((g[0] >> 8) & 1) * 65025, fnv1a(out), trackDigest(track)]);
+      frames.push([hold === last ? '=' : hold, ...g, fnv1a(out), trackDigest(track)]);
       last = hold;
     }
     results.push({ name: c.name, frames });
@@ -350,9 +350,9 @@ async function runMetal() {
   ran.push('metal');
   compare('metal', lines.filter(l => l.name).map(l => {
     let last = '';
-    return { name: l.name, frames: l.frames.map(([mask, grant, deficit, digest, track]) => {
+    return { name: l.name, frames: l.frames.map(([mask, ...rest]) => {
       const hold = runLengths(Array.from(mask, ch => (ch === '1' ? 1 : 0)));
-      const rec = [hold === last ? '=' : hold, grant, deficit, digest, track];
+      const rec = [hold === last ? '=' : hold, ...rest];
       last = hold;
       return rec;
     }) };

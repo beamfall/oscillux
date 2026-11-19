@@ -67,7 +67,7 @@ A host that does not know its device class uses `wcag`.
 
 ```
 { model, dt, cases: [{ name, frames, width, height, geometry, window: {cols, rows, limit},
-                       signal, frameRecords: [[hold, grant, deficit, digest, track], ...] }] }
+                       signal, frameRecords: [[hold, gx, gy, gz, gw, digest, track], ...] }] }
 ```
 
 - `width`, `height`: from 64 x 36 to 8192 x 8192; the model refuses other sizes
@@ -77,9 +77,12 @@ A host that does not know its device class uses `wcag`.
 - `window`: `windowOf(geometry, width, height)`.
 - `hold`: run lengths of the held mask over the 64 x 36 sub-blocks in row order (a sub-block is
   set when one of its pixels is held), starting with a run of not-held sub-blocks. It is `"="` when unchanged from the previous frame.
-- `grant`: the grant pass's word, admitted bits | over bits << 4. The direction bits are luma
-  up 1, luma down 2, red up 4, red down 8.
-- `deficit`: the luma token deficit after the frame (65025 is one full token; a paired grant leaves two).
+- `gx`, `gy`, `gz`, `gw`: the grant state the grant pass writes (`shaders/limiter/grant.glsl`).
+  `gx` is admitted bits | over bits << 4 | a second luma token of deficit << 8 | the last red grant
+  was down << 9 | the red refill remainder << 10; the direction bits are luma up 1, luma down 2,
+  red up 4, red down 8. `gy` is the luma token deficit less the token in bit 8 of `gx` (65025 is
+  one full token; a paired grant leaves two), `gz` the red token deficit and `gw` the luma credit.
+  Every word is compared, so a leg that drops the red remainder or deficit fails (Codex round 17).
 - `digest`: FNV-1a 32 of the output RGBA8 bytes.
 - `track`: FNV-1a 32 of the tracker state after the frame, RGBA16UI per pixel as little-endian
   bytes (`shaders/limiter/README.md`).

@@ -846,6 +846,30 @@ test('red refills at an eighth of the rate at a tiny frame interval (Codex round
   assert.ok(deficit > 0.6 * model.TOKEN, `the red budget refilled to ${deficit} in 0.33 s`);
 });
 
+// Codex round 17: after 100 frames of red byte 138 (code 65), a dip to 127 (code 54, under a step)
+// and a rise to 146 (code 73) left the reference at 65, so the rise and the fall after it both
+// passed. The reference now follows a dip short of a step.
+test('a rise from a dip short of a step is a transition (Codex round 17)', () => {
+  const seq = [[0, [0, 0, 0]], [1, [138, 0, 0]], [101, [127, 0, 0]], [102, [146, 0, 0]], [103, [127, 0, 0]]];
+  const { input, audit } = scene(64, 36, 200, t => phase(seq, t));
+  assert.ok(input.maxPerWindow('red') >= 2, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 17: an 80-pixel red rise on the right cleared every red timestamp, so 40 falls on the
+// left and 40 more a frame later (80 in one field, over its limit of 63) went uncounted.
+test('a charge in one field keeps the other field\'s evidence (Codex round 17)', () => {
+  const { input } = scene(64, 36, 30, (t, x, y) => {
+    if (y >= 8) return [0, 0, 0];
+    if (x >= 50 && x < 60) return t >= 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x < 5) return t < 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x < 10) return t < 2 ? [160, 0, 0] : [0, 0, 0];
+    return [0, 0, 0];
+  });
+  assert.equal(input.transitions[2].length, 1, 'the rise');
+  assert.equal(input.transitions[3].length, 1, 'the fall');
+});
+
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
 // count, to show a model change leaves luminance behaviour byte-identical.
 if (process.argv.includes('--luma-digest')) {

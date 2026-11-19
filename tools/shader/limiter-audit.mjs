@@ -53,9 +53,10 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     new Float64Array(N).fill(-Infinity), new Float64Array(N).fill(-Infinity)]; // luma up, down, red up, down
   const integral = new Int32Array((W + 1) * (H + 1));
   const mask = new Uint8Array(N);
-  // Per direction: the time of the last large-area transition charged to it. Pixels that changed
-  // at or before it have been counted.
-  const since = [-Infinity, -Infinity, -Infinity, -Infinity];
+  // A charge consumes only the evidence inside the placements over the limit: a pixel's change is
+  // forgotten once it has counted towards one, and kept everywhere else, so a charge in one field
+  // or direction cannot erase another's pending area (Codex rounds 16, 17).
+  const diff = new Int32Array((W + 1) * (H + 1));
   const firedNow = [false, false];
 
   let live = false, clock = 0;
@@ -64,33 +65,41 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   const times = [[], [], [], [], [], []];
   let frame = -1;
 
-  const fresh = (t, s) => t > s && clock - t <= AUDIT_COVERAGE_MS;
-  // Whether some field placement holds more than the limit of pixels fresh in a direction of `dirs`.
-  function large(dirs) {
-    for (let j = 0; j < N; j++) {
-      let m = 0;
-      for (const d of dirs) if (fresh(last[d][j], since[d])) { m = 1; break; }
-      mask[j] = m;
+  const fresh = t => clock - t <= AUDIT_COVERAGE_MS;
+  // The pixels inside some field placement over the limit of the integral `sum` and passing
+  // `keep(x, y)`, or null when there is none.
+  function cover(sum, keep = () => true) {
+    diff.fill(0);
+    let any = false;
+    for (let y = 0; y + fhPx <= H; y++) {
+      for (let x = 0; x + fwPx <= W; x++) {
+        if (box(sum, x, y) <= limit || !keep(x, y)) continue;
+        any = true;
+        diff[y * (W + 1) + x]++; diff[y * (W + 1) + x + fwPx]--;
+        diff[(y + fhPx) * (W + 1) + x]--; diff[(y + fhPx) * (W + 1) + x + fwPx]++;
+      }
     }
+    if (!any) return null;
+    const out = new Uint8Array(N), row = new Int32Array(W + 1);
     for (let y = 0; y < H; y++) {
       let run = 0;
       for (let x = 0; x < W; x++) {
-        run += mask[y * W + x];
-        integral[(y + 1) * (W + 1) + x + 1] = integral[y * (W + 1) + x + 1] + run;
+        run += diff[y * (W + 1) + x];
+        row[x] += run;
+        out[y * W + x] = row[x] > 0 ? 1 : 0;
       }
     }
-    for (let y = 0; y + fhPx <= H; y++) {
-      for (let x = 0; x + fwPx <= W; x++) {
-        const s = integral[(y + fhPx) * (W + 1) + x + fwPx] - integral[y * (W + 1) + x + fwPx]
-          - integral[(y + fhPx) * (W + 1) + x] + integral[y * (W + 1) + x];
-        if (s > limit) return true;
-      }
-    }
-    return false;
+    return out;
+  }
+  // The pixels inside some field placement holding more than the limit of pixels fresh in a
+  // direction of `dirs`, or null.
+  function large(dirs) {
+    fill(integral, j => dirs.some(d => fresh(last[d][j])));
+    return cover(integral);
   }
 
   const sums = [new Int32Array((W + 1) * (H + 1)), new Int32Array((W + 1) * (H + 1))];
-  const freshIn = c => j => fresh(last[2 * c][j], since[2 * c]) || fresh(last[2 * c + 1][j], since[2 * c + 1]);
+  const freshIn = c => j => fresh(last[2 * c][j]) || fresh(last[2 * c + 1][j]);
   function fill(sum, test) {
     for (let y = 0; y < H; y++) {
       let run = 0;
@@ -110,27 +119,25 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     fill(integral, j => lumaFresh(j) || redFresh(j));
     fill(sums[0], lumaFresh);
     fill(sums[1], redFresh);
-    const charged = [false, false];
-    for (let y = 0; y + fhPx <= H; y++) {
-      for (let x = 0; x + fwPx <= W; x++) {
-        if (box(integral, x, y) <= limit) continue;
-        if (box(sums[0], x, y) > 0) charged[0] = true;
-        if (box(sums[1], x, y) > 0) charged[1] = true;
-      }
-    }
-    return charged;
+    return [0, 1].map(c => cover(integral, (x, y) => box(sums[c], x, y) > 0));
+  }
+  // Forgets the changes in directions `dirs` inside `area`: they have counted.
+  function consume(area, dirs) {
+    if (area) for (let j = 0; j < N; j++) if (area[j]) for (const d of dirs) last[d][j] = -Infinity;
   }
 
   function record(k) { transitions[k].push(frame); times[k].push(clock); }
 
   // One tracker step; returns 1 rising, -1 falling, 0 none. A step of the threshold is a transition
-  // against the last one's direction (from the extreme since it) or onward from the level at it:
-  // a rise, a pause and a further rise of a step are two (Codex round 16).
+  // against the last one's direction (from the extreme since it) or onward from the level at it,
+  // or the furthest the value has gone back since: a rise, a pause and a further rise of a step
+  // are two (Codex round 16), and so are a dip short of a step and a step up from it (round 17).
   function track(c, j, v) {
     const step = c === 0 ? LUMA_STEP : RED_STEP, dark = c === 0 ? LUMA_DARK : Infinity;
     const e = ext[c], r = ref[c], d = dir[c];
     if (d[j] > 0) {
       if (e[j] - v >= step && v < dark) { d[j] = -1; e[j] = r[j] = v; return -1; }
+      r[j] = Math.min(r[j], v);
       e[j] = Math.max(e[j], v);
       if (e[j] - r[j] < step) return 0;
       const darker = r[j];
@@ -138,6 +145,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       return darker < dark ? 1 : 0;
     }
     if (v - e[j] >= step && e[j] < dark) { d[j] = 1; e[j] = r[j] = v; return 1; }
+    r[j] = Math.max(r[j], v);
     e[j] = Math.min(e[j], v);
     if (r[j] - e[j] < step) return 0;
     r[j] = e[j];
@@ -178,17 +186,21 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     // The combined area, only on a frame where something changed: it is charged to every channel
     // with a fresh pixel in an over placement, so staggering red a frame behind luma charges both
     // (Codex round 14).
-    const more = firedNow[0] || firedNow[1] ? combined() : [false, false];
-    for (let d = 0; d < 4; d++) if (now[d]) { record(d); since[d] = clock; }
+    const more = firedNow[0] || firedNow[1] ? combined() : [null, null];
+    const both = [false, false];
+    for (let d = 0; d < 4; d++) if (now[d]) record(d);
     for (let c = 0; c < 2; c++) {
-      if (now[2 * c] || now[2 * c + 1] || !(channel[c] || more[c])) continue;
-      record(4 + c);
-      since[2 * c] = since[2 * c + 1] = clock;
+      both[c] = !now[2 * c] && !now[2 * c + 1] && Boolean(channel[c] || more[c]);
+      if (both[c]) record(4 + c);
     }
-    // A combined charge clears only the channels it was charged to: the others' pixels have not been
-    // counted (Codex round 16).
-    for (let c = 0; c < 2; c++) if (more[c]) since[2 * c] = since[2 * c + 1] = clock;
-    return now;
+    for (let d = 0; d < 4; d++) consume(now[d], [d]);
+    // A combined charge consumes only the channels it was charged to: the others' pixels have not
+    // been counted (Codex round 16).
+    for (let c = 0; c < 2; c++) {
+      if (both[c]) consume(channel[c], [2 * c, 2 * c + 1]);
+      consume(more[c], [2 * c, 2 * c + 1]);
+    }
+    return now.map(Boolean);
   }
 
   /** Most large-area transitions of a channel ('luma' or 'red') in any `seconds` window. */
@@ -206,7 +218,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   /** A new viewing field on a live display: transitions from before it were judged in the old one. */
   function setGeometry(f) {
     shape(f);
-    since.fill(clock);
+    for (const l of last) l.fill(-Infinity);
   }
 
   return { push, maxPerWindow, setGeometry, transitions, get window() { return { fwPx, fhPx, limit }; } };

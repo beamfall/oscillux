@@ -83,8 +83,11 @@ Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 re
 The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma over the limit
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
 deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
-large-area red transitions (no red flash) and a held red change is admitted within
-8 / (2 maxFlashHz) s instead of freezing (CORE-2382). When both red directions are asked, one is
+large-area red transitions (no red flash) and a held red change is admitted instead of freezing
+(CORE-2382): within 8 / (2 maxFlashHz) s and one frame (1.333 s and a frame at the default 3 Hz),
+or within 9 frames when a frame is longer than 1 / (2 maxFlashHz) s. A refill period earns one
+unit under a token and a frame's refill is capped at a token, so eight refills repay at most
+65024 of the red token's 65025 (Codex round 17). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both
 tokens are ready: a pixel changing in both shows the change only when both are admitted, so a
 grant of one alone would spend its token on a held change (Codex round 13). When something
@@ -132,8 +135,10 @@ Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.
   none, else the event's unit `(tick >> 4) + 1`.
 
 Each tracker has a direction (the way it last fired), an extreme since then (the peak after a
-rise, the trough after a fall) and a reference, the level at its last transition, stored as its
-distance from the extreme, which stays under a step. A tracker fires when the pixel moves a full
+rise, the trough after a fall) and a reference, stored as its distance from the extreme, which
+stays under a step. The reference is the level at the last transition, moved back with any change
+short of a step against the direction (the lowest dip since a rise, the highest since a fall), so
+a dip short of a step and a step up from it is a rise (Codex round 17). A tracker fires when the pixel moves a full
 step (luma 0.1, red 20 on WCAG's scale) with the darker side below 0.8: back from the extreme (a
 reversal), or onward from the reference (a further step the same way). A change over many frames
 counts as soon as it adds up to a step, and the area counts pixels exactly whatever share of a
@@ -156,8 +161,8 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 `rows`, `reduce`, `cells` and `windows` write single textures that are rebuilt every frame.
 
-At start the host clears `G` to zero, the output to black and the tracker state to zero:
-tracked black, the value the view showed before the first frame. Content then rises from black
+At start the host clears `G` to zero (fully spent, and a write: the first frame refills 0, Codex
+round 17), the output to black and the tracker state to zero: tracked black, the value the view showed before the first frame. Content then rises from black
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
 written fully spent, and black presented without the limiter for longer than the coverage

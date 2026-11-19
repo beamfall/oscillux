@@ -201,8 +201,8 @@ for c in cfg.cases {
         let grant = UInt32(g[0])
         let mask = String((0..<(64 * 36)).map { sub[4 * $0 + 1] & ~grant & 15 != 0 ? Character("1") : Character("0") })
         let trackBytes = track.withUnsafeBytes { [UInt8]($0) }
-        // Bit 8 of the grant word carries a second token of luma deficit (grant.glsl).
-        frames.append([mask, Int(g[0] & 255), Int(g[1]) + Int((g[0] >> 8) & 1) * 65025, fnv1a(out), fnv1a(trackBytes)])
+        // Every grant word, as grant.glsl writes it (Codex round 17).
+        frames.append([mask, Int(g[0]), Int(g[1]), Int(g[2]), Int(g[3]), fnv1a(out), fnv1a(trackBytes)])
     }
     emit(["name": c.name, "frames": frames])
 }

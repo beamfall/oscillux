@@ -180,11 +180,13 @@ async function main() {
   }
   const flashing = Number.isFinite(MAX_LUMA) ? ok.filter(r => r.lumaIn > MAX_LUMA || r.redIn > 0) : [];
   for (const r of flashing) console.log(`${r.id.padEnd(22)} FLASHES luma/s ${r.lumaIn} red/s ${r.redIn} before the limiter, over --max-luma ${MAX_LUMA} or any red`);
-  if (results.length > ok.length && (Number.isFinite(MAX_HELD) || Number.isFinite(MAX_LUMA))) process.exit(3);
   // The limiter's output keeps WCAG's budgets: 1 red and 6 luma transitions a second (exit 2),
-  // separately from the stricter source budget of --max-luma (Codex round 16).
+  // separately from the stricter source budget of --max-luma (Codex round 16). It is judged
+  // before a compile failure's exit, which would hide it (Codex round 17).
   const overBudget = ok.filter(r => r.redOut > 1 || r.lumaOut > 6);
   for (const r of overBudget) console.log(`${r.id.padEnd(22)} OUTPUT red/s ${r.redOut} luma/s ${r.lumaOut}, over 1 red or 6 luma a second`);
+  if (overBudget.length) process.exit(2);
+  if (results.length > ok.length && (Number.isFinite(MAX_HELD) || Number.isFinite(MAX_LUMA))) process.exit(3);
   process.exit(overBudget.length ? 2 : overHeld.length ? 3 : flashing.length ? 4 : 0);
 }
 
