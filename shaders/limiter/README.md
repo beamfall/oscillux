@@ -246,7 +246,11 @@ same whole number of physical pixels, and it passes the area limit of the physic
 by the texel area. A drop to a divisor of the scale needs neither: each texel and its tracker
 become k x k copies, which keeps every physical pixel on screen and every pixel's evidence, and
 `G` is written spent as on any resize (the Beamfall web host takes one-pixel texels for a view
-narrower than its texel rather than clip a texel, Codex round 22). The change itself is the user's (a zoom or a move to another display); the
+narrower than its texel rather than clip a texel, Codex round 22). A view can still cut a
+texel: the old frame during a fade, a divisor copy into a smaller frame, or a side over the
+largest frame. The cut texel is partly on screen, so the host keeps, judges and shows it whole
+and takes the area limit from the physical pixels shown, which overcounts the cut texel's area
+and never undercounts; clearing it would be an ungranted fall (Codex round 23). The change itself is the user's (a zoom or a move to another display); the
 browser rescales the last frame before any host can react, which the limiter does not control.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state

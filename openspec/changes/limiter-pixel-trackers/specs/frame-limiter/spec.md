@@ -16,9 +16,10 @@ The frame limiter SHALL admit a large-area saturated-red transition, in either d
 when its red token is full, and SHALL then empty it; the token SHALL refill at one eighth of the
 luma token's rate, so that no 1 s window holds more than one large-area red transition (no red
 flash). A held red change SHALL be admitted by the first frame at which the intervals of the
-frames after the spend, each counted up to 1 / (2 x maxFlashHz) s, add up to
+frames after the last spend, each counted up to 1 / (2 x maxFlashHz) s, add up to
 (65025 / 65024) x 8 / (2 x maxFlashHz) s; after a host write of `G` the first of them counts
-nothing.
+nothing. The bound is per grant: a held change that needs red grants in both directions has its
+second direction admitted within the same bound after the first.
 
 #### Scenario: Red strobe
 
@@ -185,7 +186,8 @@ anchor, start the newly exposed area tracked black, and write `G` fully spent.
 
 When the display scale (physical pixels per frame texel) changes, the host SHALL first fade the
 output to black through the limiter at the old size and geometry, keeping the old view size, for
-at most a bounded wait. It SHALL NOT resample or stretch the output or the trackers.
+at most a bounded wait. It SHALL NOT resample or stretch the output or the trackers. A drop to a
+divisor of the scale is exempt (Display-scale drop to a divisor).
 
 #### Scenario: A display-scale change during a strobe
 
@@ -194,9 +196,21 @@ at most a bounded wait. It SHALL NOT resample or stretch the output or the track
   black only through the grant, with no red transition granted within one second after the
   switch
 
+### Requirement: Display-scale drop to a divisor
+
+When the display scale drops to a divisor of the old one, a host that switches at once with no
+fade and no black, copying each texel's output and tracker state to its k x k new texels and
+writing `G` fully spent, SHALL keep every physical pixel and its evidence on screen.
+
+#### Scenario: A drop to a divisor of the scale
+
+- **WHEN** the display scale drops from 2 to 1 while red is shown
+- **THEN** every physical pixel keeps its colour and evidence, nothing turns black, and no red
+  transition is granted within one second after the switch
+
 ### Requirement: Display-scale switch
 
-After the fade, the host SHALL switch to the new size with the whole output and tracker state
+After the fade (any change but a drop to a divisor), the host SHALL switch to the new size with the whole output and tracker state
 tracked black and `G` written fully spent, and SHALL present black, without running the limiter,
 for longer than the coverage interval counted from the first black frame presented at the new size.
 
@@ -293,7 +307,7 @@ after it writes the budget.
 
 - **WHEN** maxFlashHz is 0.003, frames come 60 times a second and a red change spends the red
   budget
-- **THEN** the red deficit falls on the next frame
+- **THEN** the red deficit falls within two frames, once the carried fraction earns a red unit
 
 #### Scenario: A tiny maximum flash rate at a high frame rate
 
