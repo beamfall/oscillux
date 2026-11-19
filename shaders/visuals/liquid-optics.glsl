@@ -32,7 +32,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float rippleEnv = exp(-abs(r - rippleR) * 6.5) * u.bassImpact;
     float ripple = sin((r - rippleR) * 30.0) * rippleEnv;
     vec2 rdir = p / max(r, 1e-3);
-    vec2 n = vec2(gx, gy) * (1.0 + 0.6 * u.mid) + rdir * ripple * 3.0;
+    vec2 nWave = vec2(gx, gy) * (1.0 + 0.6 * u.mid);
+    vec2 n = nWave + rdir * ripple * 3.0;
 
     // ---- refracted artwork with chromatic split ----
     vec2 off = n * refr * (1.0 + 0.9 * u.bassImpact);
@@ -50,15 +51,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 col = art * art * deepTint * depthShade * (0.60 + 0.70 * u.level);
 
     // ---- HDR caustic web: thin bright filaments, black between ----
-    float ca = fbmRidged(w * 0.9 + n * 0.35 + vec2(0.0, t * 0.25));
+    // the web follows the slow waves only: bent by the ripple ring it
+    // reshuffled every filament under the ring, a broad shimmer each beat
+    float ca = fbmRidged(w * 0.9 + nWave * 0.35 + vec2(0.0, t * 0.25));
     float web = pow(saturate(ca * 1.12 - 0.12) / 1.0, 6.0);
     float hue = h0 * 0.35 + 0.08 * u.spectralCentroid + 0.02 * u.time;
     vec3 causticCol = palVisual(hue, u);
     causticCol = accentize(causticCol, u.accent, 0.18);
-    col += causticCol * web * causticAmt * (0.5 + 1.1 * u.mid + 1.6 * u.bassImpact);
+    // a gentle pump: the web covers much of the pool, so a strong mid or
+    // bass swing brightened it all at once
+    col += causticCol * web * causticAmt * (0.7 + 0.35 * u.mid + 0.30 * u.bassImpact);
 
     // secondary coarser web, counter-drifting (depth parallax)
-    float ca2 = fbmRidged(w * 0.55 - n * 0.22 + vec2(t * 0.19, 4.7));
+    float ca2 = fbmRidged(w * 0.55 - nWave * 0.22 + vec2(t * 0.19, 4.7));
     float web2 = pow(saturate(ca2 * 1.10 - 0.10), 6.0);
     col += palVisual(hue + 0.18, u) * web2 * causticAmt * (0.20 + 0.55 * u.mid);
 

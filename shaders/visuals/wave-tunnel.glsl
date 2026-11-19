@@ -2,7 +2,7 @@
 // Wave Tunnel — flying down a tunnel extruded from trace history.
 // The wall cross-section IS the waveform: every depth ring is a past
 // synthesized trace slice, wiggling the ring radius. beatPhase drives forward
-// velocity lurches, onsets flash the nearest ring, spectralCentroid tilts the
+// velocity lurches, spectralCentroid tilts the
 // flight path. Depth fog, HDR ring cores, feedbackTrail speed streaks.
 // param0 = Velocity ; param1 = Ring Density ; param2 = Wall Turbulence
 
@@ -33,14 +33,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float a = atan2_(p.y, p.x);
     float t01 = a / 6.2831853 + 0.5;
 
-    float speed = mix(0.45, 1.9, u.param0);
+    // ring passes per second set how often the near wall flips brightness;
+    // kept low enough that the tube flies without strobing
+    float speed = mix(0.25, 1.0, u.param0);
     float density = mix(3.5, 8.0, u.param1);
     float turb = mix(0.10, 0.42, u.param2);
 
     // Forward travel: cruise + a lurch each beat (beatCount + eased beatPhase
     // is continuous, so the tunnel surges without snapping).
     float lurch = 1.0 - pow(1.0 - saturate(u.beatPhase), 3.0);
-    float travel = u.time * speed + (u.beatCount + lurch) * 0.55;
+    float travel = u.time * speed + (u.beatCount + lurch) * 0.35;
 
     float z = 1.0 / rS;            // depth down the throat
     float q = z * density * 0.30 + travel; // ring coordinate
@@ -61,7 +63,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float d = ff - 0.5 + slice;
         // gaussian profile (not aaLine): spectrum-bin kinks in the slice make
         // fwidth spike, which dotted the rings at the near wall.
-        float coreW = 0.030 + 0.020 * u.bassImpact;
+        float coreW = 0.030 + 0.006 * u.bassImpact;
         float core = exp(-d * d / max(coreW * coreW, 1e-5));
         float haloW = coreW * 4.5;
         float halo = exp(-d * d / max(haloW * haloW, 1e-5)) * 0.16;
@@ -73,11 +75,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         float bandE = bandAtWrapped(u, t01 + age);
         float energy = (0.55 + 2.2 * bandE) * fog;
-        col += rc * (core * (0.8 + 1.1 * near) + halo) * energy;
+        // near rings sweep most of the frame, so they stay dim; the hot
+        // cores live down the throat where they cover little area
+        col += rc * (core * (0.8 - 0.55 * near) + halo * (1.0 - 0.6 * near)) * energy;
 
-        // Onset: the nearest ring flashes white-hot.
-        float nearest = smoothstep(0.60, 0.98, rS);
-        col += peakWhite(rc, 0.45) * core * nearest * u.onset * 2.2;
+        // (No onset flash on the nearest ring: it spans most of the frame,
+        // so even a short white-hot pulse strobed. The lurch carries the beat.)
     }
 
     // ---- wall body: dim spectrum wash between rings so the tube reads ----
@@ -98,7 +101,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- speed streaks: zooming feedback smears rings into motion lines ----
     vec3 outc = feedbackTrail(col, uv,
                               min(u.trailDecay, 0.86),
-                              0.010 + 0.018 * u.bassImpact + 0.006 * speed,
+                              0.008 + 0.004 * u.bassImpact + 0.006 * speed,
                               0.0015);
     return outc; // LINEAR HDR
 }

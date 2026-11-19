@@ -33,6 +33,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 col = vec3(0.0);
     float wing = u.beatPhase * 6.2831853;
+    // soft-attack kick: 0 at the hit, peaks ~100 ms later. bassImpact's
+    // instant attack made every bird jump and brighten in one frame.
+    float kickSoft = 4.0 * u.bassImpact * (1.0 - u.bassImpact);
 
     for (int f = 0; f < 3; ++f) {
         vec2 cf = f == 0 ? c0 : (f == 1 ? c1 : c2);
@@ -52,7 +55,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             // birds drift between shells instead of tracing clean rings
             float radN = vnoise(vec2(fi * 0.73 + ff * 9.1, t * 0.16));
             float rad = spread * (0.30 + 1.35 * h.x) * (0.55 + 0.9 * radN) * (1.0 + bandE * 0.9);
-            float sp  = (0.5 + h.y * 1.4) * wind;
+            float sp  = (0.35 + h.y * 0.8) * wind;
             float dir = h.x > 0.5 ? 1.0 : -1.0;
             float ang = h.y * 6.2831853 + t * sp * dir + radN * 2.4;
             vec2 bp = cf + vec2(cos(ang), sin(ang) * 0.62) * rad;
@@ -67,11 +70,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             // predator rupture: displace along (bird - center), exp falloff
             vec2 rv = bp - rupC;
             float rl = length(rv) + 1e-3;
-            bp += (rv / rl) * u.bassImpact * rupAmt * (0.4 + 0.8 * h.x) * exp(-rl * 1.7);
+            bp += (rv / rl) * kickSoft * rupAmt * 0.7 * (0.4 + 0.8 * h.x) * exp(-rl * 1.7);
             bp.y = max(bp.y, floorY + 0.015);
 
-            float bright = 0.40 + bandE * 1.5 + u.bassImpact * 1.8 + u.beat * 0.4;
-            float flick = 0.75 + 0.25 * sin(t * 9.0 + fi * 2.7 + ff * 5.0);
+            // the beat lives in the rupture motion; brightness only leans on it
+            float bright = 0.55 + bandE * 0.8 + kickSoft * 0.25;
+            float flick = 0.85 + 0.15 * sin(t * 3.0 + fi * 2.7 + ff * 5.0);
 
             // main sprite (soft HDR point). The Lorentzian core keeps the bird
             // soft, but its 1/d^2 tail never reaches zero and 120 tails summed
@@ -80,7 +84,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec2 d = p - bp;
             float d2 = dot(d, d);
             float tailCut = exp(-d2 * 60.0);
-            col += flockCol * (8.5e-5 / (d2 + 5.0e-5)) * tailCut * bright * flick;
+            col += flockCol * (3.5e-5 / (d2 + 2.2e-5)) * tailCut * bright * flick;
 
             // reflection under the floor, dimmed + softened
             vec2 dm = p - vec2(bp.x, 2.0 * floorY - bp.y);
@@ -96,15 +100,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float below = smoothstep(floorY, floorY - 0.5, p.y);
     col *= 1.0 - below * 0.45;
 
-    // rupture flash lifts the flock toward white, briefly. Gate on the pixel's
-    // own luminance: peakWhite is a mix toward HDR white, and applied to the
-    // empty room it lifted the whole frame to grey on every kick.
-    float flash = u.bassImpact * u.bassImpact * 0.10 * saturate(luma(col) * 3.0);
-    col = peakWhite(col, flash);
-
     // strong trails = the murmuration's smoky body
     float decay = min(0.90, u.trailDecay + 0.07);
-    float zoom = 0.010 + 0.020 * u.bassImpact;
+    float zoom = 0.0015 + 0.002 * kickSoft;
     col = feedbackTrail(col, uv, decay, zoom, 0.0025 * sin(t * 0.21));
 
     return col; // LINEAR HDR

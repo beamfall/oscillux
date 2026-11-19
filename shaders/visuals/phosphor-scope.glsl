@@ -38,15 +38,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- Lissajous beam ----
     // figure morphing steered by spectral centroid; complexity from param1
     float comp = mix(1.0, 3.0, u.param1);
-    float fx = 1.0 + comp + 0.85 * sin(u.time * 0.11 + u.spectralCentroid * 2.4);
-    float fy = 2.0 + comp * 0.7 + 0.85 * sin(u.time * 0.073 + 1.9 + u.spectralCentroid * 1.6);
-    float phX = u.time * 0.42 + u.spectralCentroid * 2.2;
+    // The centroid only nudges the figure: it moves with every kick, and at the
+    // old weights each beat re-wound the whole dense trace across the screen.
+    float fx = 1.0 + comp + 0.85 * sin(u.time * 0.11 + u.spectralCentroid * 0.3);
+    float fy = 2.0 + comp * 0.7 + 0.85 * sin(u.time * 0.073 + 1.9 + u.spectralCentroid * 0.2);
+    float phX = u.time * 0.30 + u.spectralCentroid * 0.3;
 
-    // onset kick: amplitude overshoot + fast decaying ring in the deflection
-    float kick = u.onset;
-    float ax = scr.x * (0.52 + 0.30 * u.bass) * (1.0 + 0.16 * kick);
-    float ay = scr.y * (0.52 + 0.30 * u.mid) * (1.0 + 0.22 * kick);
-    float wob = kick * 0.05 * sin(u.time * 34.0);
+    // onset kick: amplitude overshoot + a decaying ring in the deflection.
+    // Kept small and slow: a 34 rad/s wobble and a 20% jump flipped every
+    // trace pixel on each onset, a full-screen flash through the phosphor.
+    float kick = u.bassImpact;
+    // bass and mid breathe the figure only gently: the trace is dense, so a
+    // big per-beat size change sweeps every line across the screen at once
+    float ax = scr.x * (0.62 + 0.12 * u.bass) * (1.0 + 0.05 * kick);
+    float ay = scr.y * (0.62 + 0.12 * u.mid) * (1.0 + 0.07 * kick);
+    float wob = kick * 0.015 * sin(u.time * 9.0);
 
     float fuzz = u.param2 * (0.3 + 1.4 * u.treble);
 
@@ -79,7 +85,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         prev = pos;
     }
 
-    float energy = 0.9 + 1.9 * u.amplitude + 1.4 * u.bassImpact;
+    // level sets the glow; the kick adds only a little so the halo does not pump
+    float energy = 0.9 + 1.2 * u.amplitude + 0.35 * u.bassImpact;
     col += beamCol * core * energy * 1.35 * inScreen * shade;
     col += haloCol * halo * energy * 0.16 * inScreen * shade;
 

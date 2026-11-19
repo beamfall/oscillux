@@ -7,7 +7,9 @@
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
-    p = rot2(u.time * mix(0.02, 0.16, u.param1) + u.beatPhase * 0.05) * p;
+    // eased per-beat twist, continuous across beats (the raw saw snapped)
+    float beatT = u.beatCount + 1.0 - pow(1.0 - saturate(u.beatPhase), 3.0);
+    p = rot2(u.time * mix(0.02, 0.16, u.param1) + beatT * 0.05) * p;
     float r = length(p);
     float a = atan2_(p.y, p.x);
     float ang = a / 6.2831853 + 0.5;
@@ -26,7 +28,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float dash = smoothstep(0.02, 0.10, cell) * smoothstep(0.72, 0.52, cell);
         float line = aaLine(r - rr - bandv * 0.025, 0.0028) * dash;
         vec3 c = palRoleTrace(ang + fk * 0.08 + 0.12 * u.spectralCentroid, u);
-        glow += c * line * (0.35 + bandv * 2.6 + u.bassImpact * 1.8 + u.onset * 1.2);
+        glow += c * line * (0.35 + bandv * 2.2 + u.bassImpact * 0.8 + u.onset * 0.5);
     }
 
     for (int i = 0; i < 32; i++) {
@@ -36,7 +38,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float bandv = bandAt(u, spokeA);
         float spoke = aaLine(ad, 0.0015 + bandv * 0.0012) *
                       smoothstep(0.10, 0.18, r) * (1.0 - smoothstep(0.62 + bandv * 0.22, 0.75 + bandv * 0.22, r));
-        glow += palRoleTreble(spokeA + 0.1 * u.spectralCentroid, u) * spoke * (0.15 + bandv * 2.2 + u.beat * 0.9);
+        glow += palRoleTreble(spokeA + 0.1 * u.spectralCentroid, u) * spoke * (0.15 + bandv * 1.8 + u.beat * 0.4);
     }
 
     glow += palRoleRim(0.58, u) * aaLine(r - 0.085, 0.004) * (0.35 + u.level * 0.6 + u.onset * 1.6 + u.beat * 1.1);

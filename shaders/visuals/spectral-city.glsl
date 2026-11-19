@@ -48,7 +48,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float perspective = mix(0.50, 1.0, hash11(fi * 2.3));
         float bandv = bandAt(u, x);
         float w = mix(0.004, 0.014, perspective);
-        float h = 0.07 + bandv * mix(0.28, 0.62, perspective) + hash11(fi * 5.1) * 0.12;
+        // most of the skyline stands on its own; the band only lifts the
+        // roofline, since the kick jumps every low band at once and a full
+        // band-driven height relit half the sky each beat
+        float h = 0.07 + 0.17 * perspective + bandv * mix(0.07, 0.16, perspective) + hash11(fi * 5.1) * 0.12;
         float base = floorY - 0.01 * perspective;
         vec2 bp = vec2(uv.x - x, uv.y - (base - h * 0.5));
         float tower = boxFillW(bp, vec2(w, h * 0.5), px);
@@ -57,7 +60,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 c = palVisual(x + u.time * 0.018, u);
         col += c * tower * (0.12 + bandv * 0.65);
         col += peakWhite(c, rows * u.treble * 0.08) * rows * (0.7 + bandv * 3.0);
-        col += c * edge * (0.9 + u.onset * 2.0);
+        // edges glint with the kick rather than flare: 72 lit outlines at once
+        // add up to a large area
+        col += c * edge * (0.9 + u.bassImpact * 0.5);
 
         float reflY = floorY + (base - h * 0.5 - uv.y) * 0.34;
         float refl = boxFillW(vec2(uv.x - x, uv.y - reflY), vec2(w, h * 0.18), px * vec2(1.0, 1.34))
@@ -66,6 +71,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
 
     col += palVisual(0.55, u) * aaLine(uv.y - floorY, 0.0015) * 0.65;
-    col = feedbackTrail(col, uv, min(u.trailDecay, 0.82), 0.002 + 0.004 * u.bassImpact, 0.0);
+    // steady zoom: a kick-pumped zoom smeared the lit skyline over the sky
+    col = feedbackTrail(col, uv, min(u.trailDecay, 0.82), 0.002 + 0.001 * u.bassImpact, 0.0);
     return col; // LINEAR HDR — post chain tonemaps
 }

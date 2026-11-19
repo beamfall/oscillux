@@ -38,3 +38,15 @@ and reduce or remove them.
 ## Rollback
 
 Revert the source changes. Release and host adoption remain with the orchestrator.
+
+## Verification evidence
+
+Against `3cc56bd`, the loud-audio source audit first reproduced 28 visuals above six luma
+transitions per second and Volumetric Light's red transitions. With these source changes,
+all 61 release visuals pass at 480x270 over 360 frames: at most six luma transitions per
+second, no red transition, and no increase in any visual's mean held fraction. Reports
+are retained in `out/flash-baseline/report.json` and `out/flash-fixed/report.json`.
+
+This source bound does not resolve CORE-1915: the limiter output still reaches seven
+luma transitions per second for Comets, Ink, Kaleidoscope and Spectral City. Release and
+core-web adoption are not included in this branch.

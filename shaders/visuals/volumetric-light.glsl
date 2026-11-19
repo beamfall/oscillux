@@ -2,7 +2,7 @@
 // Volumetric Light — projector haze, band-driven beam fan, dust, leaks.
 // defined god-rays cut through a
 // dark room from an offscreen projector; drifting smoke breaks the shafts
-// into visible volume, beat slams the fan bright, dust motes spark where
+// into visible volume, beat swells the fan, dust motes spark where
 // they cross a beam. Calm-capable: degrades to slow drifting haze when quiet.
 // param0 = Haze ; param1 = Beam Count ; param2 = Dust
 
@@ -33,7 +33,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         float a0 = mix(-0.55, 0.55, fr)
                  + 0.06 * sin(u.time * (0.11 + 0.05 * fi) + fi * 2.3);
-        float wCore = 0.013 + 0.009 * u.bassImpact;
+        // fixed core width: a kick-widened core lit a whole fan wedge at once
+        float wCore = 0.015;
         float wHalo = wCore + 0.030 + 0.030 * bandE;
 
         float da = ang - a0;
@@ -47,12 +48,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 bc = palVisual(fr * 0.55 + 0.06 * u.spectralCentroid + 0.015 * u.time, u);
         bc = accentize(bc, u.accent, 0.15);
 
-        // beat-driven: each shaft slams on its own phase offset
+        // beat-driven: each shaft swells on its own phase offset. A gentle
+        // swell, not a slam: a whole saturated shaft doubling in brightness on
+        // the kick was a large-area (often red) flash.
         float slam = phasePulse(u, fr * 0.35, 0.10) * u.bassImpact;
-        float energy = 0.10 + 2.4 * bandE * bandE + 2.0 * slam;
+        float energy = 0.10 + 2.4 * bandE * bandE + 0.45 * slam;
 
         col += bc * halo * sh * smoke * fall * haze * energy * 0.40;
-        col += peakWhite(bc, 0.25 + 0.4 * u.onset) * core * smoke * fall * energy * 0.85;
+        // steady white core; onset whitening flipped every shaft's red balance
+        col += peakWhite(bc, 0.35) * core * smoke * fall * energy * 0.85;
         beamSum += (halo * 0.5 + core) * fall * energy;
     }
 

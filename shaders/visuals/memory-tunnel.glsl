@@ -10,9 +10,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float far = mix(4.2, 7.0, u.param1);
     float pulseAmt = mix(0.4, 1.5, u.param2);
 
+    // beat count that surges after each beat and never jumps back at the wrap
+    // (beatPhase alone snapped every print back a fifth of a tile once a beat)
+    float beatSurge = floor(u.beatCount) + 1.0 - pow(1.0 - u.beatPhase, 3.0);
+
     float z = 1.0 / max(0.13, abs(p.y) + 0.22);
     float lane = p.x * z;
-    float depth = z + u.time * (0.38 + u.param0) + u.beatPhase * 0.35;
+    float depth = z + u.time * (0.38 + u.param0) + beatSurge * 0.15;
 
     // tile lattice — slim frames around each photo print
     float cellPhaseX = lane * 1.6 + 0.5;
@@ -34,25 +38,28 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // beat pulse: a bright wave races down the corridor from the horizon
     float wave = fract(depth * 0.15 - u.beatPhase);
-    float pulse = exp(-wave * wave * 18.0) * (0.25 + 0.75 * u.beat) * pulseAmt;
+    float pulse = exp(-wave * wave * 18.0) * (0.45 + 0.35 * u.beat) * pulseAmt;
 
+    // the wave sweeps every print once a beat, so it only tints the photos;
+    // the slim frames carry its light
     float interior = (1.0 - frame);
     vec3 col = photo * interior * fog
-             * (0.22 + 0.12 * u.level + 0.16 * pulse + 0.05 * u.bass);
+             * (0.24 + 0.12 * u.level + 0.06 * pulse + 0.03 * u.bass);
 
     // slim glowing frames between prints — never louder than the prints
     col += palVisual(fract(depth * 0.07 + lane * 0.05), u) * frame * fog
          * (0.06 + 0.22 * u.bass + 0.30 * pulse);
 
-    // luminous horizon at the vanishing line
-    float horizon = exp(-abs(p.y) * 20.0) * (0.5 + 1.2 * u.bassImpact) * pulseAmt;
+    // luminous horizon at the vanishing line; it spans the frame, so the kick
+    // only nudges it
+    float horizon = exp(-abs(p.y) * 20.0) * (0.5 + 0.3 * u.bassImpact) * pulseAmt;
     col += palVisual(0.58 + u.spectralCentroid * 0.2, u) * horizon * 0.35;
     // hot core right at the vanishing point
-    col += peakWhite(palVisual(0.62, u), 0.3 + 0.4 * u.bassImpact)
-         * exp(-(p.x * p.x * 6.0 + p.y * p.y * 90.0) * 2.5) * (0.35 + 0.9 * u.bassImpact);
+    col += peakWhite(palVisual(0.62, u), 0.3 + 0.2 * u.bassImpact)
+         * exp(-(p.x * p.x * 6.0 + p.y * p.y * 90.0) * 2.5) * (0.35 + 0.4 * u.bassImpact);
 
     col *= 0.40 + 0.60 * smoothstep(1.65, 0.30, length(p));
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.68),
-                        0.004 + 0.006 * u.bassImpact, 0.001);
+                        0.003 + 0.002 * u.bassImpact, 0.001);
     return col; // LINEAR HDR — post chain tonemaps
 }

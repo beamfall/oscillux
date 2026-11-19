@@ -332,6 +332,15 @@ limiter-hold-check: tools/shader/node_modules
 
 gate: limiter-hold-check
 
+# Source flash budget: every release-leg visual (shaders/manifest.json) keeps within the general
+# flash limit on its own, before the limiter, under the red audit's loud audio: at most 6
+# large-area luma transitions in any second and no large-area red transition. It takes several
+# minutes on a GPU, so it is not part of gate; run it after changing a visual. Needs Playwright
+# Chromium.
+.PHONY: visual-flash-check
+visual-flash-check: tools/shader/node_modules
+	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --audio loud --max-luma 6 --jobs 4
+
 # Reference hosts (hosts/README.md): the same bundled visuals in a browser and a
 # SwiftUI macOS/iOS app. host-bundle needs the shader-verify toolchain; host-mac
 # and host-ios need Xcode and XcodeGen. Not part of gate.

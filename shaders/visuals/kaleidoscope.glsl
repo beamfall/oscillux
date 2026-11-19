@@ -23,13 +23,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float a = atan2_(p.y, p.x);   // -pi..pi
 
     // ---- bassImpact drives center event-horizon void radius ----
-    float voidR = 0.10 + 0.14 * u.bassImpact;
+    // a small swing: every ring and tooth sits on voidR, so a wide kick moved
+    // the whole mandala at once
+    float voidR = 0.10 + 0.05 * u.bassImpact;
+    // soft attack peaking ~100 ms after the kick, for the wide-area swells
+    float kickSoft = 4.0 * u.bassImpact * (1.0 - u.bassImpact);
 
     // ---- param2 vortex: radius-dependent angle swirl ----
     float vortexTwist = vortex * 1.4 * 0.04 / max(r, 0.05);
 
     // ---- rotation: continuous spin + beatPhase nudge ----
-    float rotAngle = u.time * spinSpd + u.beatPhase * 0.25 * spinSpd;
+    // beat count that surges after each beat and never jumps back at the wrap
+    float beatSurge = floor(u.beatCount) + 1.0 - pow(1.0 - u.beatPhase, 3.0);
+    float rotAngle = u.time * spinSpd + beatSurge * 0.25 * spinSpd;
     float aTwisted = a + rotAngle + vortexTwist;
 
     // ---- kaleidoscope angular fold into one mirrored wedge ----
@@ -51,7 +57,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // LAYER 1 — Radial teeth (spectrum bars from voidR outward)
     // ====================================================================
     float toothBase  = voidR + 0.02;
-    float toothLen   = 0.08 + bSmooth * 0.38 + u.bassImpact * 0.06;
+    float toothLen   = 0.08 + bSmooth * 0.38 + kickSoft * 0.04;
     float toothOuter = toothBase + toothLen;
 
     float angEdge = smoothstep(0.0, 0.06, ang01) * smoothstep(1.0, 0.94, ang01);
@@ -122,8 +128,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ====================================================================
     // FEEDBACK TRAILS — zoom-in rotation produces collapsing tunnel trails
     // ====================================================================
-    float fbZoom = 0.006 + 0.010 * u.bassImpact;
-    float fbRot  = 0.004 * spinSpd + 0.006 * u.beat;
+    float fbZoom = 0.004 + 0.003 * u.bassImpact;
+    float fbRot  = 0.004 * spinSpd + 0.002 * u.beat;
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.76), fbZoom, fbRot);
 
     return col; // LINEAR HDR — post chain tonemaps

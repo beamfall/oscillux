@@ -149,8 +149,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float transient   = saturate(u.onset * 3.0 + u.beat * 0.5);
     float fractureAmt = fracturePow * transient;
 
-    // beatPhase -> slow base rotation on top of the normal yaw
-    float beatRot     = u.beatPhase * 0.4;
+    // beat clock -> slow base rotation on top of the normal yaw; continuous
+    // across beats (beatPhase alone snapped back 0.4 rad on every beat)
+    float beatRot     = mod(u.beatCount + u.beatPhase, 157.07963) * 0.4;
 
     // spectralCentroid -> tint hue bias
     float tintT       = u.spectralCentroid;
@@ -232,7 +233,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // Internal bass glow — colored ember in the heart of the gem, not a wash
         float heart = exp(-dot(pLocal, pLocal) * 2.2);
-        float glow = (u.bassImpact * 0.55 + u.amplitude * 0.12) * heart;
+        float glow = (u.bassImpact * 0.30 + u.amplitude * 0.12) * heart;
         glow *= (1.0 - fres);   // strongest on the interior
         vec3 glowCol = palVisual(0.1 + tintT * 0.3, u);
         glowCol = glowCol * glowCol * 2.2;
@@ -251,10 +252,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // Rim/edge brightening from Fresnel: facet outlines pop
         float rim = pow(1.0 - cosI, 3.5);
         vec3 rimCol = palVisual(tintT + 0.5 + u.beatPhase * 0.2, u);
-        gemCol += rimCol * rim * (0.45 + u.bassImpact * 1.1);
+        gemCol += rimCol * rim * (0.45 + u.bassImpact * 0.5);
 
-        // Beat brightening (overall pulse, kept moderate — bloom does the heavy lift)
-        gemCol += u.accent.rgb * u.beat * 0.18;
+        // Beat brightening: a whisper only — a gem-wide pulse reads as a flash
+        gemCol += u.accent.rgb * u.beat * 0.05;
 
         // --- Crack-flash on transients ---
         if (fractureAmt > 0.001) {

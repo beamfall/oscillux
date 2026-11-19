@@ -10,6 +10,15 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Fixed
+
+- Twenty-nine catalog visuals soften wide-area brightness changes, keep beat-driven motion
+  continuous across beat boundaries, and reduce rapid travel or trail displacement (CORE-2492).
+  The loud-audio source audit now requires at most six large-area luminance transitions per
+  second and no red transitions before the limiter. Run `make visual-flash-check` after source
+  changes; beat-response lint remains required. The Android GLES source digest changes;
+  metadata and the binding contract are unchanged.
+
 ## [0.2.8] - 2026-11-17
 
 ### Fixed
