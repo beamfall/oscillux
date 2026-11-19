@@ -47,7 +47,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   `rows` reads `uFrame` and `uTrack`; `output` reads `uFrame`, `uHist`, `uTrack` and `uG` and
   writes `oColor` and `oTrack` (MRT). Hosts clear the track textures to (65535, 0, 255, 0), copy
   them NEAREST on resize, and pass the window from `windowOf()` and the limit in pixels.
-  `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
+  Frames are supported from 64 x 36 to 8192 x 8192 (sub-block counts are 16-bit); hosts clamp
+  larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
   field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and
   rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled

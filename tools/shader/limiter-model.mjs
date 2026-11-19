@@ -53,6 +53,8 @@
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
 import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
 
+/** The largest frame side the passes support (shaders/limiter/README.md, "Frame size"). */
+export const MAX_SIDE = 8192;
 export const MODEL = 'pixel-10deg';
 export const BLOCKS_X = GRID_X * SUB, BLOCKS_Y = GRID_Y * SUB;
 const BLOCKS = BLOCKS_X * BLOCKS_Y;
@@ -125,6 +127,9 @@ export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
 
 export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlashHz = 3 }) {
   if (W < BLOCKS_X || H < BLOCKS_Y) throw new Error(`limiter: frame ${W}x${H} is under ${BLOCKS_X}x${BLOCKS_Y}`);
+  // The passes pack a sub-block's per-direction counts in 16 bits (reduce.glsl), so a sub-block
+  // holds at most 65535 pixels; 8192 x 8192 keeps it at 29 184.
+  if (W > MAX_SIDE || H > MAX_SIDE) throw new Error(`limiter: frame ${W}x${H} is over ${MAX_SIDE}x${MAX_SIDE}`);
   const N = W * H;
   const win = windowOf(geometry, W, H);
   const clock = createClock(maxFlashHz);

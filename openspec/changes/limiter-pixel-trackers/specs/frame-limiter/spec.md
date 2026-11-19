@@ -36,6 +36,16 @@ quarter of the field's pixels.
 - **WHEN** any sequence of frames runs through the limiter and the auditor reads its output
 - **THEN** every pixel's decoded tracker state equals the auditor's for that pixel
 
+### Requirement: Supported frame size
+
+The frame limiter SHALL support frames from 64 x 36 to 8192 x 8192 pixels, and hosts SHALL clamp
+larger frames to 8192 on each side, because a sub-block's per-direction pixel counts are 16-bit.
+
+#### Scenario: A frame larger than the supported size
+
+- **WHEN** the reference model is asked for a 16384 x 9216 frame
+- **THEN** it refuses the size instead of wrapping a sub-block's count to zero
+
 ### Requirement: Per-pixel holds
 
 The frame limiter SHALL show the previous output at exactly the pixels whose trackers would fire

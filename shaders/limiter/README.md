@@ -40,6 +40,13 @@ The uniform block holds two vectors:
 and `limit` for a device class and frame size. `createClock` in the model gives `tick`, `deltaMs`
 and `refill`.
 
+## Frame size
+
+Frames from 64 x 36 to 8192 x 8192 pixels. The `reduce` pass packs a sub-block's per-direction
+pixel counts in 16 bits, so a sub-block must hold at most 65535 pixels; at 16384 x 9216 a full
+sub-block wraps to zero and the grant admits a held flash. Hosts clamp the frame to 8192 on
+each side.
+
 ## Texture formats
 
 | Type | WebGL2 | Metal |
@@ -97,9 +104,12 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 `rows`, `reduce`, `cells` and `windows` write single textures that are rebuilt every frame.
 
-At start, and whenever the frame size or geometry changes, the host clears `G` and the output
-to zero and the tracker state to (65535, 0, 255, 0): no state yet. A pixel with no state takes
-its first value without firing, so the first frame passes through unchanged.
+At start, and whenever the geometry changes, the host clears `G` and the output to zero and the
+tracker state to (65535, 0, 255, 0): no state yet. A pixel with no state takes its first value
+without firing, so the first frame passes through unchanged. When only the frame size changes,
+the host keeps `G` (the token deficits), copies the current output and tracker state into the
+new size with nearest-neighbour sampling, and passes the new size's window and limit, so a resize
+never hands a strobe a fresh flash budget (CORE-2516).
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

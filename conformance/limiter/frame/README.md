@@ -66,6 +66,8 @@ A host that does not know its device class uses `wcag`.
                        signal, frameRecords: [[hold, grant, deficit, digest, track], ...] }] }
 ```
 
+- `width`, `height`: from 64 x 36 to 8192 x 8192; the model refuses other sizes
+  (`shaders/limiter/README.md`, "Frame size").
 - `signal`: the synthetic frame source, rendered by `tools/shader/limiter-signals.mjs`
   (`renderSignal`). `dt` is 1/60 s and the model's default `maxFlashHz` is 3.
 - `window`: `windowOf(geometry, width, height)`.
