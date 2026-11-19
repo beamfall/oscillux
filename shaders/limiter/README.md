@@ -248,15 +248,29 @@ for every change. Nothing is carried from the old frame to the new one.
    waits for a grant however little of the frame is still in view, and the grant paces the fall
    like any other transition. The fall is asked from the fade's first frame and in one direction
    a channel, so the grant has admitted it once the red token is back: the luma tokens it also
-   waits for return sooner. Run the fade for longer than the red token's refill,
-   8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write refills
-   nothing, and the grant comes on a frame), in the time the limiter is credited with (the
-   Beamfall web host: 2 s, counting each frame's `deltaMs` up to one luma token's refill, the
-   most a frame refills, so a slow page fades for longer; Codex round 22). The output is then
+   waits for return sooner. The fade is over when a frame of it has shown black at every pixel.
+   A host that reads the grant word knows when: a frame of the fade whose held bits (4 to 7 of
+   `oG.x`) are clear showed its input, black, exactly, and the fade ends at the next frame. The
+   first frame of the fade reads the `G` the host wrote, which says nothing; the word that counts
+   is the one a frame of the fade wrote. A frame with no pixel a step above black is black on the
+   fade's first frame, one with luma to drop when the two luma tokens are back
+   (2 / (2 · maxFlashHz) seconds), and one with saturated red when the red token is. A host that
+   does not read the word, and any host as a cap, runs the fade for longer than the red token's
+   refill, 8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write
+   refills nothing, and the grant comes on a frame). Both times are in the time the limiter is
+   credited with, not on the clock (the Beamfall web host: the held bits of the frame before,
+   with a cap of 2 s, counting each frame's `deltaMs` up to one luma token's refill, the most a
+   frame refills, so a slow page fades for longer; Codex rounds 22 and 26). The output is then
    black.
+
+   Credited time runs slower than the clock wherever `deltaMs` is a lower bound. The Beamfall
+   web host cannot read the display's refresh period, so at a steady cadence it credits half of
+   each interval (`limiter1` above): its credited times take about twice as long on the clock.
+   At 60 frames a second and the default 3 Hz a frame with luma to drop is held about 0.7 s and
+   a saturated red one about 2.7 s before it falls, and the cap of 2 s is about 4 s.
 2. **Black.** Free the frame and present black, without running the limiter, for longer than the
    coverage interval counted from the first black frame presented (the Beamfall web host:
-   0.1 s). Every tracker stamp from before has then left the coverage interval. A view with no
+   0.1 s of credited time, about 0.2 s on the clock at 60 frames a second). Every tracker stamp from before has then left the coverage interval. A view with no
    whole texel to show stays black.
 3. **Start.** Start a frame at the size, scale and view asked for then, as at the first start:
    output black, trackers zero, `G` written fully spent. Content returns from black through the

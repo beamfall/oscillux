@@ -205,9 +205,8 @@ one frame to the next, a drop to a divisor of the scale included.
 ### Requirement: Fade through the limiter
 
 For the fade the host SHALL keep the frame's size, scale, place and trackers, write `G` fully
-spent, pass an area limit of 0 and feed the limiter black, for longer than the red token's refill
-in the time the limiter is credited with. Until the start the view of the frame SHALL only
-shrink.
+spent, pass an area limit of 0 and feed the limiter black, until a frame of the fade has shown
+black at every pixel. Until the start the view of the frame SHALL only shrink.
 
 #### Scenario: A fall in a view that shrank
 
@@ -218,6 +217,33 @@ shrink.
 
 - **WHEN** the view shrinks by a pixel column and grows back before the fade ends
 - **THEN** the column stays hidden until the start, where it comes back black
+
+### Requirement: The fade ends when the frame is black
+
+A host that reads the grant word SHALL end the fade at the frame after one of the fade's frames
+whose word holds no direction. Every host SHALL end it once it has run for longer than the red
+token's refill, 8 / (2 · maxFlashHz) seconds, by more than two frames, in the time the limiter
+is credited with, and a host that does not read the word SHALL NOT end it sooner.
+
+#### Scenario: A fade timed to the red refill
+
+- **WHEN** a host that does not read the grant word fades a red frame, drawing a frame each
+  refill period, 1 / (2 · maxFlashHz) seconds
+- **THEN** the first frame after the write refills nothing, the next eight earn 65,024 of the red
+  token's 65,025 units, and the tenth grants the fall: the fade runs for more than two frames
+  past the eight periods
+
+#### Scenario: A dark frame fades in one frame
+
+- **WHEN** the fade starts on a frame with no pixel a luma or red step above black
+- **THEN** the fade's first frame shows black with no direction held, and the fade ends at the
+  next frame
+
+#### Scenario: A lit frame waits for its grant
+
+- **WHEN** the fade starts on a frame with luma to drop and no saturated red
+- **THEN** the frame is held until the two luma tokens are back, the fall is granted on one
+  frame, and the fade ends at the next
 
 ### Requirement: A change during the fade moves the target
 
