@@ -13,7 +13,7 @@
 // more than singles allow (CORE-2515). A single grant forfeits the credit. A frame asking both
 // channels is admitted only when both are ready: a pixel changing in both shows the change only if
 // both are admitted, so a grant of one alone would spend its token on a held change (Codex round
-// 13). Inputs uC, uW, uG (the previous grant); output oG = (admitted bits | over bits << 4 | second
+// 13). Inputs uC, uW, uG (the previous grant); output oG = (admitted bits | held bits << 4 | second
 // luma token << 8 | last red grant was down << 9 | red refill remainder << 10, luma token deficit, red token deficit, luma
 // credit). The deficit can reach two tokens after a pair, more than a 16-bit channel holds, so bit
 // 8 of x carries one token of it.
@@ -70,6 +70,9 @@ void main() {
     uint admitted = (!over || grantUp ? 1u : 0u) | (!over || grantDown ? 2u : 0u)
         | (!over || grantRedUp ? 4u : 0u) | (!over || grantRedDown ? 8u : 0u);
     uint high = deficit > TOKEN ? 1u : 0u;
-    oG = uvec4(admitted | (over ? 240u : 0u) | (high << 8u) | (lastRedDown ? 512u : 0u) | ((redEarned & 7u) << 10u),
+    // Bits 4 to 7: the directions some pixel fires in and the grant did not admit, which hold
+    // pixels; a host may stop drawing a paused frame only when they are clear (Codex round 18).
+    uint held = askBits & 15u & ~admitted;
+    oG = uvec4(admitted | (held << 4u) | (high << 8u) | (lastRedDown ? 512u : 0u) | ((redEarned & 7u) << 10u),
         deficit - high * TOKEN, redDeficit, credit);
 }

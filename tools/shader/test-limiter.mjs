@@ -870,6 +870,48 @@ test('a charge in one field keeps the other field\'s evidence (Codex round 17)',
   assert.equal(input.transitions[3].length, 1, 'the fall');
 });
 
+// Codex round 18: a fall from grey 255 to 240 stayed above 0.8, and the tracker dropped its high
+// side, so 255 -> 240 -> 255 -> 229 (a fall of 0.22 ending below 0.8) went uncounted.
+test('a fall that ends below 0.8 after one above it is a transition (Codex round 18)', () => {
+  const seq = [[0, [255, 255, 255]], [1, [240, 240, 240]], [2, [255, 255, 255]], [3, [229, 229, 229]]];
+  const { input } = scene(64, 36, 10, t => phase(seq, t));
+  assert.equal(input.transitions[1].length, 1, 'the fall to 229');
+});
+
+// Codex round 18: a recorded red rise consumed the combined cover in both directions, erasing 40
+// pending falls in the same field, so 40 more a frame later (80, over 63) went uncounted.
+test('a directional charge keeps the opposite direction\'s evidence in its field (Codex round 18)', () => {
+  const { input } = scene(64, 36, 30, (t, x, y) => {
+    if (y >= 8) return [0, 0, 0];
+    if (x < 10) return t >= 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x < 15) return t < 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x < 20) return t < 2 ? [160, 0, 0] : [0, 0, 0];
+    return [0, 0, 0];
+  });
+  assert.equal(input.transitions[2].length, 1, 'the rise');
+  assert.equal(input.transitions[3].length, 1, 'the fall');
+});
+
+// Codex round 18: after a display-scale reset (trackers zeroed, G spent) the viewer still remembered
+// a saturated (60, 0, 0) under the black, so an unsaturated (110, 64, 0) rise and the fall to
+// (60, 0, 0) were two red transitions while the zero tracker charged only the fall. The zero texel
+// has now seen a saturated state.
+test('after a reset the next red change counts (Codex round 18)', () => {
+  const W = 64, H = 36, frames = 420;
+  const lim = model.createLimiter({ width: W, height: H });
+  const audit = createAuditor({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  let r = null;
+  for (let t = 0; t < frames; t++) {
+    const c = t < 60 ? [60, 0, 0] : t < 300 ? [0, 0, 0] : t === 300 ? [110, 64, 0] : [60, 0, 0];
+    for (let i = 0; i < px.length; i += 4) { px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255; }
+    if (t === 120) { r.track.fill(0); lim.setGeometry(GEOMETRY.wcag); }
+    r = lim.step(px, DT);
+    audit.push(r.out, DT);
+  }
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
 // count, to show a model change leaves luminance behaviour byte-identical.
 if (process.argv.includes('--luma-digest')) {

@@ -12,11 +12,12 @@
 // falling) and its reference (the level at its last transition), stored as the extreme and the
 // reference's distance from it, which stays under the step. x: luma extreme (15 bits), bit 15 set
 // while the red tracker's latest change has not counted; y: luma distance (12 bits), bit 12 rising,
-// bit 13 no state yet (the reference model's start), bit 15 a saturated red state seen since the red
-// tracker's latest change; z: red extreme (8 bits), red distance << 8 (4 bits), bit 12 rising; w four
+// bit 13 no state yet (the reference model's start), bit 15 no saturated red state seen since the
+// red tracker's latest change; z: red extreme (8 bits), red distance << 8 (4 bits), bit 12 rising; w four
 // 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the
 // event's unit (tick >> 4) + 1. The zero texel is tracked black: falling at 0 with every change
-// counted. Hosts start the texture at zero (README.md, "Ping-pong and reset").
+// counted and a saturated state seen, so the next red change counts whatever the pixel showed before
+// a reset (Codex round 18). Hosts start the texture at zero (README.md, "Ping-pong and reset").
 
 const int BLOCKS_X = 64;
 const int BLOCKS_Y = 36;
@@ -36,7 +37,7 @@ const uint LUMA_MASK = 32767u;
 const uint PEND_BIT = 32768u;  // x: the red tracker's latest change has not counted
 const uint LUMA_UP = 4096u;    // y: the luma tracker last fired rising
 const uint UNTRACKED = 8192u;  // y: no state yet
-const uint SAT_BIT = 32768u;   // y: a saturated red state seen since the red tracker's latest change
+const uint UNSAT_BIT = 32768u; // y: no saturated red state seen since the red tracker's latest change
 const uint RED_UP = 4096u;     // z: the red tracker last fired rising
 const int RED_STEP = 15;     // 20 on WCAG's 320 max(0, R - G - B) scale (16 of 256, less 1.01)
 const int NO_DARK = 256;
@@ -72,7 +73,10 @@ ivec4 limiterTrackStep(int ext, int dist, int up, int v, int stepSize, int dark)
     int ref = max(ext + dist, v);
     ext = min(ext, v);
     if (ref - ext < stepSize) return ivec4(ext, ref - ext, 0, 0);
-    return ivec4(ext, 0, 0, ext < dark ? -1 : 0);
+    // A fall of a step that has not reached below dark keeps its high side, clamped a code under a
+    // step: it becomes a transition when the trough goes on below dark (Codex round 18).
+    if (ext >= dark) return ivec4(ext, stepSize - 1, 0, 0);
+    return ivec4(ext, 0, 0, -1);
 }
 
 // The luma tracker's step on tracker t for luma code v.
@@ -89,7 +93,7 @@ ivec4 limiterLumaStep(uvec4 t, int v) {
 ivec4 limiterRedStep(uvec4 t, int rv, bool sat) {
     ivec4 s = limiterTrackStep(int(t.z & 255u), int((t.z >> 8u) & 15u), (t.z & RED_UP) != 0u ? 1 : 0, rv, RED_STEP, NO_DARK);
     bool counted = (t.x & PEND_BIT) == 0u;
-    bool seen = (t.y & SAT_BIT) != 0u;
+    bool seen = (t.y & UNSAT_BIT) == 0u;
     int count = 0;
     if (s.w != 0) {
         counted = sat || seen;

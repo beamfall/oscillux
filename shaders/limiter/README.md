@@ -75,10 +75,13 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 | 2 | `reduce` | 64 x 36 | `uRows` | `oS`, the same layout summed over the sub-block; a sub-block requests each direction one of its pixels fires in now |
 | 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, 0, 0): the cell's pixel count, directions firing now and recent directions << 4 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): 1 when the window with its origin at this cell counts more than the limit |
-| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8 \| last red grant was down << 9 \| red refill remainder << 10, luma token deficit, red token deficit, luma credit) |
+| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| held bits << 4 \| second luma token << 8 \| last red grant was down << 9 \| red refill remainder << 10, luma token deficit, red token deficit, luma credit) |
 | 6 | `output` | frame | `uFrame`, `uHist` (previous output), `uTrack` (previous), `uG` (this frame) | `oColor`, `oTrack` |
 
 Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 red falling.
+The held bits are the directions some pixel fires in that the grant did not admit: while they are
+clear the output shows the input exactly, so a host may stop drawing a paused frame (Codex round
+18). Until v0.2.9 bits 4 to 7 were the over flag, set in every direction together.
 
 The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma over the limit
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
@@ -87,7 +90,9 @@ large-area red transitions (no red flash) and a held red change is admitted inst
 (CORE-2382): within 8 / (2 maxFlashHz) s and one frame (1.333 s and a frame at the default 3 Hz),
 or within 9 frames when a frame is longer than 1 / (2 maxFlashHz) s. A refill period earns one
 unit under a token and a frame's refill is capped at a token, so eight refills repay at most
-65024 of the red token's 65025 (Codex round 17). When both red directions are asked, one is
+65024 of the red token's 65025 (Codex round 17). The bound is per grant: red grants one direction
+at a time, so an area held both rising and falling is admitted in two steps, the second one bound
+after the first (Codex round 18). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both
 tokens are ready: a pixel changing in both shows the change only when both are admitted, so a
 grant of one alone would spend its token on a held change (Codex round 13). When something
@@ -128,8 +133,9 @@ Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.
 - `x`: the luma tracker's extreme (15-bit); bit 15 set while the red tracker's latest change has
   not counted.
 - `y`: the luma tracker's distance (12-bit); bit 12 set when it last fired rising, bit 13 when the
-  pixel has no state yet (the reference model's start), bit 15 when a saturated red state was seen
-  since the red tracker's latest change.
+  pixel has no state yet (the reference model's start), bit 15 when no saturated red state was
+  seen since the red tracker's latest change. The zero texel has seen one, so after a reset the next
+  red change counts whatever the pixel showed before it (Codex round 18).
 - `z`: the red tracker's extreme | distance << 8 (4-bit) | rising << 12.
 - `w`: four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12); 0 is
   none, else the event's unit `(tick >> 4) + 1`.
@@ -142,8 +148,9 @@ a dip short of a step and a step up from it is a rise (Codex round 17). A tracke
 step (luma 0.1, red 20 on WCAG's scale) with the darker side below 0.8: back from the extreme (a
 reversal), or onward from the reference (a further step the same way). A change over many frames
 counts as soon as it adds up to a step, and the area counts pixels exactly whatever share of a
-sub-block moves. An onward step whose darker side is not below 0.8 moves the reference without
-firing. Counting each step of a threshold, not one per direction, matters for areas: pixels that
+sub-block moves. An onward rise whose darker side is not below 0.8 moves the reference without
+firing; an onward fall that ends above 0.8 keeps its high side (a code under a step from the
+trough), so it fires when the trough goes on below 0.8 (Codex round 18). Counting each step of a threshold, not one per direction, matters for areas: pixels that
 started rising at different times can reach a step together, and a large area whose pixels fired
 one at a time under the limit then makes its joint rise and fall uncounted (Codex round 16; until
 then steps in one direction were one transition). The pixel auditor counts the same way.
@@ -161,8 +168,8 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 `rows`, `reduce`, `cells` and `windows` write single textures that are rebuilt every frame.
 
-At start the host clears `G` to zero (fully spent, and a write: the first frame refills 0, Codex
-round 17), the output to black and the tracker state to zero: tracked black, the value the view showed before the first frame. Content then rises from black
+At start the host clears `G` to zero: both budgets full, not spent (nothing has been shown to
+charge), and the clear counts as a write, so the first frame refills 0 (Codex rounds 17, 18). Then the output to black and the tracker state to zero: tracked black, the value the view showed before the first frame. Content then rises from black
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
 written fully spent, and black presented without the limiter for longer than the coverage

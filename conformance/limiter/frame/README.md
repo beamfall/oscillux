@@ -78,8 +78,8 @@ A host that does not know its device class uses `wcag`.
 - `hold`: run lengths of the held mask over the 64 x 36 sub-blocks in row order (a sub-block is
   set when one of its pixels is held), starting with a run of not-held sub-blocks. It is `"="` when unchanged from the previous frame.
 - `gx`, `gy`, `gz`, `gw`: the grant state the grant pass writes (`shaders/limiter/grant.glsl`).
-  `gx` is admitted bits | over bits << 4 | a second luma token of deficit << 8 | the last red grant
-  was down << 9 | the red refill remainder << 10; the direction bits are luma up 1, luma down 2,
+  `gx` is admitted bits | held bits << 4 (the directions some pixel fires in that were not
+  admitted) | a second luma token of deficit << 8 | the last red grant was down << 9 | the red refill remainder << 10; the direction bits are luma up 1, luma down 2,
   red up 4, red down 8. `gy` is the luma token deficit less the token in bit 8 of `gx` (65025 is
   one full token; a paired grant leaves two), `gz` the red token deficit and `gw` the luma credit.
   Every word is compared, so a leg that drops the red remainder or deficit fails (Codex round 17).

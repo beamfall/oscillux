@@ -47,7 +47,7 @@
 //
 // Tracker state is packed as the GPU stores it, one RGBA16UI texel per pixel:
 //   x  luma extreme (15-bit) | PEND_BIT (the red tracker's latest change has not counted);
-//   y  luma distance (12 bits) | LUMA_UP | UNTRACKED | SAT_BIT (a saturated red state since the red
+//   y  luma distance (12 bits) | LUMA_UP | UNTRACKED | UNSAT_BIT (no saturated red state since the red
 //      tracker's latest change); z  red extreme | distance << 8 | RED_UP; w  stamps, 4 bits each
 //      (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the event's unit
 //      (tick >> 4) + 1.
@@ -73,10 +73,10 @@ const CELLS = GRID_X * GRID_Y;
 export const LUMA_STEP = 3275, LUMA_DARK = 26215, RED_STEP = 15, NO_DARK = 256;
 // Tracker words (shaders/limiter/common.glsl): x the luma extreme (15-bit codes, 32767 relative
 // luminance) | PEND_BIT while the red tracker's latest change has not counted; y the luma distance
-// (12 bits) | LUMA_UP | UNTRACKED | SAT_BIT (a saturated red state seen since the red tracker's latest
+// (12 bits) | LUMA_UP | UNTRACKED | UNSAT_BIT (no saturated red state seen since the red tracker's latest
 // change); z the red extreme | distance << 8 | RED_UP. The zero texel is tracked black.
 export const LUMA_MAX = 32767, RED_MAX = 255, PEND_BIT = 32768, LUMA_UP = 4096, UNTRACKED = 8192,
-  SAT_BIT = 32768, RED_UP = 4096;
+  UNSAT_BIT = 32768, RED_UP = 4096;
 export const TOKEN = 65025;
 export const COVERAGE_MS = 1000 / 15;
 export const TICK_MS = COVERAGE_MS / 64;
@@ -157,8 +157,10 @@ export function trackStep(ext, dist, up, v, step, dark, out) {
   ext = Math.min(ext, v);
   out[0] = ext; out[2] = 0;
   if (ref - ext < step) { out[1] = ref - ext; return 0; }
+  // A fall of a step above dark keeps its high side, a code under a step (Codex round 18).
+  if (ext >= dark) { out[1] = step - 1; return 0; }
   out[1] = 0;
-  return ext < dark ? -1 : 0;
+  return -1;
 }
 
 /** The luma tracker's step on tracker words (x, y) for luma code v. */
@@ -173,7 +175,7 @@ export function redStep(x, y, z, rv, sat, out) {
   const c = trackStep(z & 255, (z >> 8) & 15, (z & RED_UP) !== 0, rv, RED_STEP, NO_DARK, out);
   const up = out[2];
   out[0] = out[0] | (out[1] << 8) | (up ? RED_UP : 0);
-  let counted = (x & PEND_BIT) === 0, seen = (y & SAT_BIT) !== 0, count = 0;
+  let counted = (x & PEND_BIT) === 0, seen = (y & UNSAT_BIT) === 0, count = 0;
   if (c !== 0) {
     counted = sat || seen;
     count = counted ? c : 0;
@@ -298,7 +300,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     if (grantRedUp || grantRedDown) { redDeficit = TOKEN; lastRedDown = grantRedDown; }
     const admitted = [!over[0] || grantUp, !over[1] || grantDown, !over[2] || grantRedUp, !over[3] || grantRedDown];
     let grant = 0;
-    for (let d = 0; d < 4; d++) grant |= (admitted[d] ? 1 << d : 0) | (over[d] ? 16 << d : 0);
+    for (let d = 0; d < 4; d++) grant |= admitted[d] ? 1 << d : 0;
+    // Bits 4 to 7: the directions some pixel fires in and the grant did not admit, which hold
+    // pixels; a host may stop drawing a paused frame only when they are clear (Codex round 18).
+    grant |= (askNow & ~grant & 15) << 4;
 
     // A sub-block holds where one of its pixels does (the same as req & ~grant & 15).
     for (let k = 0; k < BLOCKS; k++) holdMask[k] = req[k] & 15 & ~grant ? 1 : 0;
@@ -324,7 +329,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         const x0 = track[i], y0 = track[i + 1];
         const st = track[i + 3];
         if (y0 & UNTRACKED) {
-          track[i] = v; track[i + 1] = sat ? SAT_BIT : 0; track[i + 2] = rv; track[i + 3] = 0;
+          track[i] = v; track[i + 1] = sat ? 0 : UNSAT_BIT; track[i + 2] = rv; track[i + 3] = 0;
           continue;
         }
         const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp);
@@ -332,7 +337,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         track[i + 2] = tmp[0];
         const fl = lumaStep(x0, y0, v, tmp);
         track[i] = tmp[0] | (r3 & 4 ? 0 : PEND_BIT);
-        track[i + 1] = tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? SAT_BIT : 0);
+        track[i + 1] = tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? 0 : UNSAT_BIT);
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
         let ns = 0;
         for (let d = 0; d < 4; d++) {

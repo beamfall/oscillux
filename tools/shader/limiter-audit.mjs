@@ -147,9 +147,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     if (v - e[j] >= step && e[j] < dark) { d[j] = 1; e[j] = r[j] = v; return 1; }
     r[j] = Math.max(r[j], v);
     e[j] = Math.min(e[j], v);
-    if (r[j] - e[j] < step) return 0;
+    if (r[j] - e[j] < step || e[j] >= dark) return 0; // a fall above dark keeps its high side (Codex round 18)
     r[j] = e[j];
-    return e[j] < dark ? -1 : 0;
+    return -1;
   }
 
   function push(px, dt) {
@@ -194,11 +194,10 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (both[c]) record(4 + c);
     }
     for (let d = 0; d < 4; d++) consume(now[d], [d]);
-    // A combined charge consumes only the channels it was charged to: the others' pixels have not
-    // been counted (Codex round 16).
+    // A combined charge consumes only the channels it was charged to, and only when it was recorded:
+    // the others' pixels have not been counted (Codex rounds 16, 18).
     for (let c = 0; c < 2; c++) {
-      if (both[c]) consume(channel[c], [2 * c, 2 * c + 1]);
-      consume(more[c], [2 * c, 2 * c + 1]);
+      if (both[c]) { consume(channel[c], [2 * c, 2 * c + 1]); consume(more[c], [2 * c, 2 * c + 1]); }
     }
     return now.map(Boolean);
   }

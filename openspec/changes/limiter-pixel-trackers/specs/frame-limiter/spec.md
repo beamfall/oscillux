@@ -36,6 +36,18 @@ quarter of the field's pixels.
 - **WHEN** any sequence of frames runs through the limiter and the auditor reads its output
 - **THEN** every pixel's decoded tracker state equals the auditor's for that pixel
 
+#### Scenario: A fall below 0.8 after a bright start
+
+- **WHEN** a full frame starts at grey 255 and shows 240, 255 and 229
+- **THEN** the trackers count the fall from 255 to 229 as a large-area luma transition
+
+#### Scenario: A reset keeps saturated-red memory
+
+- **WHEN** a full frame shows (60, 0, 0), falls to black, the host switches display scale with every pixel tracked black
+  and then shows (110, 64, 0) and (60, 0, 0)
+- **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
+  output
+
 ### Requirement: Flash measure
 
 The frame limiter and the pixel auditor SHALL measure flashes in the same integer codes: luma
@@ -269,3 +281,9 @@ on the input in a direction the grant did not admit, and the input at every othe
   drifts
 - **THEN** every background pixel, including those in sub-blocks the strobe overlaps, shows the
   input
+
+#### Scenario: A paused host settles
+
+- **WHEN** a granted full-frame luma rise holds no pixel
+- **THEN** the grant's held bits (`G.x` bits 4 to 7) are clear, although only the luma-up
+  admission bit is set
