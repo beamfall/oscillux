@@ -6,10 +6,12 @@
 - [x] 1.3 Model tests (a held pixel follows the input; nothing fires outside the grant);
       re-record the vectors
 - [x] 1.4 READMEs, the audit's header and the changelog
+- [ ] 1.5 A denied rise mixes from the previous output (model, passes, tests, vectors, docs)
 
 ## 2. Verify and close
 
 - [x] 2.1 Run `make limiter-check`, `make limiter-hold-check` and the catalogue audit; record
       the per-frame cost
 - [x] 2.2 Contact sheets of catalogue visuals under loud audio, v0.2.9 beside the change
-- [ ] 2.3 Run `openspec archive limiter-dim-hold` after landing
+- [ ] 2.3 Repeat 2.1 and 2.2 for 1.5
+- [ ] 2.4 Run `openspec archive limiter-dim-hold` after landing

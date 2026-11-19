@@ -9,9 +9,11 @@ show a colour on which the pixel's trackers fire only in directions that the inp
 grant admitted, and SHALL step the trackers on that colour. It SHALL choose the first of these
 that qualifies, in 8-bit display codes:
 
-1. the input with its luma code moved the least distance into the band the pixel's luma tracker
-   allows, by scaling the colour toward black to lower it or mixing it with the least of the
-   previous output that raises it there;
+1. the input with its luma code moved into the band the pixel's luma tracker allows. Below the
+   floor: the input mixed with the least of the previous output that reaches the floor. Above
+   the ceiling: the previous output mixed toward the input as far as the ceiling allows, then
+   mixed 32/256 of the way toward the input scaled toward black to the ceiling, or that scaled
+   input alone when the mix is above the ceiling;
 2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
 3. the mix of the input and the previous output that is nearest the input.
 
@@ -36,8 +38,15 @@ tracker's low.
 #### Scenario: A denied rise shows the input dimmed
 
 - **WHEN** a bright bar moves onto black pixels on a frame whose rise is not admitted
-- **THEN** each of those pixels shows the bar's colour scaled toward black, with a luma code
-  above black and less than a step above it, and not the black of the previous output
+- **THEN** each of those pixels shows the bar's colour dimmed, with a luma code above black and
+  less than a step above it, and not the black of the previous output
+
+#### Scenario: A denied rise over a lit background keeps the background's hue
+
+- **WHEN** a near-white line moves onto pixels showing a dim saturated colour on a frame whose
+  rise is not admitted
+- **THEN** each of those pixels shows a luma code less than a step above its tracker's low and a
+  colour nearer the one it showed than the grey of that luma
 
 #### Scenario: A denied fall stays a step below its peak
 

@@ -17,10 +17,15 @@ at an old colour while calm pixels beside them keep updating. In the catalogue u
 
 - A held pixel shows the input moved as little as needed so that its trackers fire only in
   directions the input fires and the grant admitted:
-  1. the input's colour with its luma moved into the band the pixel's luma tracker allows,
-     scaled toward black to lower it or mixed with the least of the previous output that raises
-     it there (mixing toward white was tried: it turns the held remains of coloured content, and
-     the whole frame during a fade, grey);
+  1. the input with its luma moved into the band the pixel's luma tracker allows. To raise it,
+     the input is mixed with the least of the previous output that reaches the band (mixing
+     toward white was tried: it turns the held remains of coloured content, and the whole frame
+     during a fade, grey). To lower it, the previous output is mixed toward the input as far as
+     the band allows, then moved an eighth of the way toward the input scaled toward black to
+     the band's top. Over black that is the input dimmed. Over lit content it keeps the hue the
+     pixel had on the first frame and takes the input's hue over the next few (the input scaled
+     alone was tried: a near-white line crossing a coloured glow showed as a grey line beside
+     it, on laser-tunnel);
   2. if that colour still fires (a red transition, or a rounding edge), the largest safe mix of
      it from the grey of the same luma;
   3. if that grey fires too, the largest safe mix of the input from the previous output, which
@@ -40,14 +45,15 @@ at an old colour while calm pixels beside them keep updating. In the catalogue u
 - More grants. The budget (6 luma, 1 red transition a second) and its counting do not change.
 - Removing every trace of a held frame. A pixel denied a fall must stay within one luma step of
   its peak, so bright content that has moved away stays as a ghost one step dimmer until a fall
-  is granted; a pixel denied a rise shows the input at most one step above its low. Smooth hold
-  edges stay with CORE-2413.
+  is granted; a pixel denied a rise shows at most one step above its low, so a bright line that
+  moves each frame leaves a faint trace of the surrounding hue where it now is. Smooth hold edges
+  stay with CORE-2413.
 
 ## Failure modes
 
 - Held regions show the current frame at reduced contrast, and a bright area that went dark
   stays lit one step lower, in the colour it had, until the next grant.
-- The output pass does more work on a held pixel (up to three 8-step searches). The cost is
+- The output pass does more work on a held pixel (up to four 8-step searches). The cost is
   measured and recorded in `shaders/limiter/README.md`.
 - A held pixel whose tracker has no history (first frames, reset) falls back to the previous
   output, as in v0.2.9.
