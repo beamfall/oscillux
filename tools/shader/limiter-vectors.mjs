@@ -41,7 +41,8 @@ export const CASES = [
   { name: 'odd-size-checker-10hz', frames: 90, width: 331, height: 193, signal: { kind: 'checker', hz: 10, size: [0.05, 0.07], on: W, off: G } },
   { name: 'fine-checker-10hz', frames: 90, width: 640, height: 360, signal: { kind: 'checker', hz: 10, size: [4 / 640, 4 / 360], on: W, off: K } },
   // limiter-dim-hold: a held pixel shows the input dimmed. Colours with no grey in them, over a
-  // drifting background, so the legs agree on the scaled and mixed colours.
+  // drifting background, so the legs agree on the scaled and mixed colours (a denied rise here
+  // mixes from a lit previous output).
   { name: 'colour-10hz-dim', frames: 120, signal: { kind: 'square', hz: 10, on: [120, 200, 255], off: [40, 10, 70], rect: [0.125, 0.125, 0.75, 0.875], bg: [30, 60, 20], bgStep: [1, 0, 1] } },
   { name: 'colour-checker-15hz-dim', frames: 90, signal: { kind: 'checker', hz: 15, size: [0.11, 0.17], on: [255, 140, 0], off: [20, 40, 160] } },
 ];

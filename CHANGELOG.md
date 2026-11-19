@@ -17,14 +17,19 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   showed the previous output. Grants are scarce, so under loud audio most moving pixels froze,
   each on its own frame, and the picture broke into stale fragments over live content. A held
   pixel now shows the input with its luma moved the least distance into the band its tracker
-  allows: scaled toward black when a rise is denied, mixed with the least of the previous output
-  that is needed when a fall is denied, with a mix from the previous output as the fallback when
-  red would still fire. A held region shows the current frame at reduced contrast, and a bright
-  area that went dark stays lit less than a step dimmer, in its own colour, until a fall is
-  granted. The bound is unchanged: the output fires only what the input fires and the grant
-  admitted, so at most the luma flash limit and one large-area red transition a second. Pass
-  bindings, texture formats and the ABI are unchanged; hosts only take the new shaders. Two
-  conformance cases (`colour-10hz-dim`, `colour-checker-15hz-dim`) cover the dimmed colours.
+  allows. When a fall is denied it is mixed with the least of the previous output that is needed.
+  When a rise is denied it is mixed from the previous output as far toward the input as the band
+  allows and then moved an eighth of the way to the input scaled toward black, so over black it is
+  the input dimmed, and over a lit background it keeps the background's hue instead of showing a
+  grey edge where a white line passes. A lit pixel whose input is far brighter than the band stays
+  near what it showed, so a bright ring that moves across a lit fill does not draw a faint second
+  ring. A mix from the previous output is the fallback when red would still fire. A held region
+  shows the current frame at reduced contrast, and a bright area that went dark stays lit less
+  than a step dimmer, in its own colour, until a fall is granted. The bound is unchanged: the
+  output fires only what the input fires and the grant admitted, so at most the luma flash limit
+  and one large-area red transition a second. Pass bindings, texture formats and the ABI are
+  unchanged; hosts only take the new shaders. Two conformance cases (`colour-10hz-dim`,
+  `colour-checker-15hz-dim`) cover the dimmed colours.
 
 ## [0.2.9] - 2026-11-19
 

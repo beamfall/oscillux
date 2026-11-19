@@ -35,8 +35,12 @@ Metal where available) against the vectors.
   change catches up instead of freezing (CORE-2382).
 - A pixel whose trackers would fire on the input in a direction the grant did not admit is held.
   It shows the input dimmed: its luma moved the least distance into the band its luma tracker
-  does not fire in (the colour scaled toward black, or mixed with the least of the previous
-  output that raises it there), then, if a tracker
+  does not fire in. A denied fall mixes the input with the least of the previous output that
+  raises it there. A denied rise shows the furthest mix from the previous output toward the
+  input that stays under a limit, moved an eighth of the way to the input scaled toward black, so
+  it keeps the hue it showed and takes the input's over a few frames. The limit is the top of
+  the band for a pixel that was black or an input just over the band, and near what the pixel
+  showed for a lit pixel whose input is far over it (`shaders/limiter/README.md`). Then, if a tracker
   still fires outside what the input fires and the grant admitted, the nearest safe mix from the
   grey of that luma, or else from the previous output toward the input. So a held region shows
   the current frame at reduced contrast (limiter-dim-hold; v0.2.9 showed the previous output).

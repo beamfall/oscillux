@@ -211,6 +211,9 @@ export function recent(s, u, deltaMs) {
  * colour is searched along (createLimiter, dim). */
 const scale = (c, k) => Math.floor((c * k + 127) / 255);
 const mix = (a, b, k) => (a * (256 - k) + b * k + 128) >> 8;
+/** How far (of 256) a pixel denied a rise moves each frame from the previous output's hue toward
+ * the input's (createLimiter, dim). */
+const CHROMA_K = 32;
 
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
@@ -265,13 +268,23 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   }
 
   // The colour a held pixel shows, into shown: the input with its luma moved into the band its
-  // luma tracker does not fire in (scaled toward black to lower it; to raise it, mixed with the
-  // least of the previous output that reaches the band, since the light a pixel may not yet lose
-  // is the light it showed), then, if a tracker would still fire outside `allowed` (the
+  // luma tracker does not fire in, then, if a tracker would still fire outside `allowed` (the
   // directions the input fires and the grant admitted), the furthest safe step from the grey of
-  // that luma toward it, or else from the previous output (which fires nothing) toward the input. The band, from trackStep: a fall fires from a step
-  // below the tracker's high (its peak when rising, its reference when falling) if that is below
-  // the dark threshold, and a rise from a step above its low unless the low is at or above it.
+  // that luma toward it, or else from the previous output (which fires nothing) toward the input.
+  // To raise the luma the input is mixed with the least of the previous output that reaches the
+  // band, since the light a pixel may not yet lose is the light it showed. To lower it the
+  // previous output is mixed toward the input as far as the band allows, then CHROMA_K / 256 of
+  // the way toward the input scaled toward black to the band's top (that scaled input alone if
+  // the mix is over the band): over black this is the input dimmed, and over lit content the
+  // pixel keeps its hue on the first frame and takes the input's over the next few, so a white
+  // line crossing a coloured glow does not show as a grey one beside it. Both stop at `top`, the
+  // band's ceiling less the room above what the pixel showed times (input - ceiling) / input and
+  // three times the shown luma over the ceiling (at most one): a lit pixel whose input is far
+  // over the band stays near what it showed, so a bright ring crossing a lit fill leaves no
+  // second ring where it now is, and a pixel that was black still goes to the ceiling. The band, from
+  // trackStep: a fall fires from a step below the tracker's high (its peak when rising, its
+  // reference when falling) if that is below the dark threshold, and a rise from a step above its
+  // low unless the low is at or above it.
   function dim(q, allowed, px, history) {
     const r = px[q], g = px[q + 1], b = px[q + 2];
     const ext = track[q] & LUMA_MAX, dist = track[q + 1] & 4095, up = (track[q + 1] & LUMA_UP) !== 0;
@@ -281,12 +294,21 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     const v = lumaCode(r, g, b);
     let d0 = r, d1 = g, d2 = b;
     if (v > ceil) {
+      const h0 = history[q], h1 = history[q + 1], h2 = history[q + 2], was = lumaCode(h0, h1, h2);
+      const top = was < ceil ? ceil - (((ceil - was) * Math.floor(Math.min(256, Math.floor(768 * was / ceil)) * (v - ceil) / v)) >> 8) : ceil;
       let lo = 0, hi = 255;
       for (let n = 0; n < 8; n++) {
         const mid = (lo + hi) >> 1;
-        if (lumaCode(scale(r, mid), scale(g, mid), scale(b, mid)) <= ceil) lo = mid; else hi = mid;
+        if (lumaCode(scale(r, mid), scale(g, mid), scale(b, mid)) <= top) lo = mid; else hi = mid;
       }
       d0 = scale(r, lo); d1 = scale(g, lo); d2 = scale(b, lo);
+      lo = 0; hi = 256;
+      for (let n = 0; n < 8; n++) {
+        const mid = (lo + hi) >> 1;
+        if (lumaCode(mix(h0, r, mid), mix(h1, g, mid), mix(h2, b, mid)) <= top) lo = mid; else hi = mid;
+      }
+      const e0 = mix(mix(h0, r, lo), d0, CHROMA_K), e1 = mix(mix(h1, g, lo), d1, CHROMA_K), e2 = mix(mix(h2, b, lo), d2, CHROMA_K);
+      if (lumaCode(e0, e1, e2) <= top) { d0 = e0; d1 = e1; d2 = e2; }
     } else if (v < floor) {
       const h0 = history[q], h1 = history[q + 1], h2 = history[q + 2];
       let lo = 0, hi = 256;

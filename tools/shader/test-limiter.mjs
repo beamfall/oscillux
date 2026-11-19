@@ -560,10 +560,11 @@ for (const [name, spec] of [
 }
 
 // A held pixel follows the input. A blue-white bar (no red) steps across black faster than the
-// grants admit. A pixel denied a rise shows the bar's colour scaled toward black to the top of its
-// tracker's band (not the black of the previous output); a pixel denied a fall shows black mixed
-// with the least of the previous output that reaches the bottom of its band, less than a step
-// below the luma it had.
+// grants admit. A pixel denied a rise shows the previous output mixed toward the bar as far as its
+// tracker's band allows, then an eighth of the way toward the bar scaled toward black to the top
+// of the band: over black, the bar dimmed (not the black of the previous output). A pixel denied
+// a fall shows black mixed with the least of the previous output that reaches the bottom of its
+// band, less than a step below the luma it had.
 test('a denied rise shows the input dimmed and a denied fall dims to a step below its peak', () => {
   const lim = model.createLimiter({ width: W, height: H });
   const audit = createAuditor({ width: W, height: H });
@@ -597,13 +598,25 @@ test('a denied rise shows the input dimmed and a denied fall dims to a step belo
         if (denied & 1) {
           rises++;
           const ceil = low + model.LUMA_STEP - 1;
-          const k = Array.from({ length: 256 }, (_, n) => n).find(n => BAR.every((c, ch) => scale(c, n) === o[ch]));
-          assert.ok(k !== undefined, `frame ${t}: pixel ${q / 4} shows ${o}, not the bar scaled`);
+          const h = [prev[q], prev[q + 1], prev[q + 2]];
+          const was = model.lumaCode(h[0], h[1], h[2]), bar = model.lumaCode(BAR[0], BAR[1], BAR[2]);
+          const top = was < ceil ? ceil - (((ceil - was) * Math.floor(Math.min(256, Math.floor(768 * was / ceil)) * (bar - ceil) / bar)) >> 8) : ceil;
+          const under = c => model.lumaCode(c[0], c[1], c[2]) <= top;
+          let k = 254, m = 255;
+          while (!under(BAR.map(c => scale(c, k)))) k--;
+          while (m > 0 && !under(BAR.map((c, ch) => mix(h[ch], c, m)))) m--;
+          const d = BAR.map(c => scale(c, k));
+          const e = BAR.map((c, ch) => mix(mix(h[ch], c, m), d[ch], 32));
+          assert.deepEqual(o, under(e) ? e : d, `frame ${t}: pixel ${q / 4} shows ${o} over the previous ${h}`);
           assert.ok(v <= ceil, `frame ${t}: pixel ${q / 4} luma ${v} is over its band ${ceil}`);
-          assert.ok(model.lumaCode(scale(BAR[0], k + 1), scale(BAR[1], k + 1), scale(BAR[2], k + 1)) > ceil, `frame ${t}: pixel ${q / 4} is dimmer than its band needs`);
+          assert.ok(v > top - (model.LUMA_STEP >> 3), `frame ${t}: pixel ${q / 4} luma ${v} is dimmer than its limit ${top} needs`);
+          if (was === 0) assert.equal(top, ceil, `frame ${t}: pixel ${q / 4} was black and its limit ${top} is not its band ${ceil}`);
           if (low === 0) {
             assert.ok(v > 0, `frame ${t}: pixel ${q / 4} stays black under the bar`);
-            if (prev[q] === 0 && prev[q + 1] === 0 && prev[q + 2] === 0) fresh++;
+            if (h[0] === 0 && h[1] === 0 && h[2] === 0) {
+              fresh++;
+              assert.ok(o[0] < o[1] && o[1] < o[2], `frame ${t}: pixel ${q / 4} shows ${o}, not the bar's colour`);
+            }
           }
         } else {
           falls++;
@@ -624,6 +637,50 @@ test('a denied rise shows the input dimmed and a denied fall dims to a step belo
   assert.ok(fresh > 0, 'no black pixel showed the bar dimmed');
   assert.ok(dimmed > 0, 'no pixel denied a fall showed less than the previous output');
   assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
+});
+
+// The grey edges on laser-tunnel (limiter-dim-hold): a near-white line steps across a dim teal
+// glow faster than the grants admit. A pixel denied the rise showed the line scaled toward black,
+// which is a grey at the top of the band beside the teal. It keeps the hue it showed instead: its
+// luma less than a step above the tracker's low, and more than half the spread between its
+// channels that the glow had. The band cannot show a line that bright, so the pixel also stays
+// nearer the glow's luma than the top of its band, and the line leaves little trace where it is.
+test('a denied rise over a lit background keeps the background hue and stays near it', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const GLOW = [34, 84, 86], LINE = [235, 240, 238];
+  const spread = c => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
+  let kept = 0;
+  for (let t = 0; t < 180; t++) {
+    const x0 = (t * 40) % W;
+    for (let y = 0, i = 0; y < H; y++) {
+      for (let x = 0; x < W; x++, i += 4) {
+        const c = t >= 30 && (x - x0 + W) % W < 24 ? LINE : GLOW;
+        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      }
+    }
+    const r = lim.step(px, DT);
+    if (t > 0) {
+      for (let q = 0; q < W * H * 4; q += 4) {
+        if (!(firesOn(before, q, px[q], px[q + 1], px[q + 2]) & ~r.grant & 1)) continue;
+        if (prev[q] !== GLOW[0] || prev[q + 1] !== GLOW[1] || prev[q + 2] !== GLOW[2]) continue;
+        const o = [r.out[q], r.out[q + 1], r.out[q + 2]];
+        const ext = before[q] & model.LUMA_MAX, dist = before[q + 1] & 4095, up = (before[q + 1] & model.LUMA_UP) !== 0;
+        const ceil = (up ? ext - dist : ext) + model.LUMA_STEP - 1;
+        const v = model.lumaCode(o[0], o[1], o[2]);
+        assert.ok(v <= ceil, `frame ${t}: pixel ${q / 4} luma ${v} is over its band ${ceil}`);
+        assert.ok(v > model.lumaCode(GLOW[0], GLOW[1], GLOW[2]), `frame ${t}: pixel ${q / 4} shows ${o}, no brighter than the glow`);
+        assert.ok(2 * spread(o) > spread(GLOW), `frame ${t}: pixel ${q / 4} shows ${o}, a grey beside the glow ${GLOW}`);
+        const glow = model.lumaCode(GLOW[0], GLOW[1], GLOW[2]);
+        assert.ok(3 * glow > ceil, `frame ${t}: the glow ${glow} is not over a third of the band ${ceil}`);
+        assert.ok(2 * v < glow + ceil, `frame ${t}: pixel ${q / 4} luma ${v} is nearer its band ${ceil} than the glow ${glow}`);
+        kept++;
+      }
+    }
+    before.set(r.track);
+    prev.set(r.out);
+  }
+  assert.ok(kept > 0, 'no pixel showing the glow was denied a rise');
 });
 
 // Codex review (CORE-2543): beside a red region held by the red budget, a luma rise admitted at

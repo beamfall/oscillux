@@ -208,9 +208,24 @@ is lower (a fall that ends above 0.8 does not fire), up to less than a step over
 (no upper bound once the low side is at 0.8, or in a direction the grant admitted). The held
 pixel shows, in order of preference:
 
-1. the input with its luma moved the least distance into that band: scaled toward black to
-   lower it, which keeps its hue, or mixed with the least of the previous output that raises it
-   there;
+1. the input with its luma moved the least distance into that band. To raise it (a denied
+   fall) the input is mixed with the least of the previous output that reaches the band. To
+   lower it (a denied rise) there are two colours at the top of the band: the input scaled
+   toward black, which has the input's hue, and the furthest mix from the previous output
+   toward the input, which has the hue the pixel showed. The pixel shows the second moved
+   `CHROMA_K` / 256 (an eighth) of the way to the first, or the first if rounding puts that
+   over the band. Over black the two are the same colour. Over a lit background the pixel keeps
+   the background's hue and takes the input's over a few frames, so a thin bright line crossing
+   a coloured area does not leave the grey of a dimmed white beside it. Both colours stop at a
+   limit, not always at the top of the band. With `L` the luma code the pixel showed, `V` the
+   input's and `C` the top of the band, the limit is
+   `C - (C - L) · min(1, 3 L / C) · (V - C) / V` (in integers, as `limiterDim` writes it). It is
+   `C` for a pixel that was black and close to `C` for an input just over the band, so a dark
+   area that lights up, or a lit area that brightens a little more than a step, still shows as
+   much as the band allows. It is close to `L` for a lit pixel whose input is far over the
+   band: the band cannot show a white line over a lit fill, and a pixel raised to the top of it
+   drew a faint second ring where a bright ring had moved to, beside the ring still held where
+   it was (laser-tunnel);
 2. if a tracker would still fire outside what the input fires and the grant admitted (red
    crossing its own step), the mix of colour 1 and the grey of its luma that is nearest colour 1;
 3. if that grey fires too, the furthest safe mix from the previous output toward the input. The

@@ -178,15 +178,28 @@ ivec3 limiterToward(uvec4 t, uint allowed, ivec3 a, ivec3 b) {
     return limiterMix(a, b, lo);
 }
 
-// The colour a held pixel shows (output.glsl): the input c with its luma moved the least distance
-// into the band the luma tracker does not fire in, scaled toward black to lower it or mixed with
-// the least of the previous output h that raises it there (the light a pixel may not yet lose is
-// the light it showed); then, if a tracker would still fire outside `allowed` (the directions the
-// input fires and the grant admitted), the furthest safe step from the grey of that luma toward
-// it, or else from the previous output, which fires nothing, toward the input. The band, from
-// limiterTrackStep: a fall fires from a step below the tracker's high (its peak when rising, its
-// reference when falling) if that is below the dark threshold, and a rise from a step above its
-// low unless the low is at or above the dark threshold. Every step is integer, as in the model.
+// How far (of 256) a pixel denied a rise moves each frame from the previous output's hue toward
+// the input's (limiterDim).
+const int CHROMA_K = 32;
+
+// The colour a held pixel shows (output.glsl): the input c with its luma moved into the band the
+// luma tracker does not fire in; then, if a tracker would still fire outside `allowed` (the
+// directions the input fires and the grant admitted), the furthest safe step from the grey of that
+// luma toward it, or else from the previous output h, which fires nothing, toward the input. To
+// raise the luma the input is mixed with the least of the previous output that reaches the band
+// (the light a pixel may not yet lose is the light it showed). To lower it the previous output is
+// mixed toward the input as far as the band allows, then CHROMA_K / 256 of the way toward the
+// input scaled toward black to the band's top (that scaled input alone if the mix is over the
+// band): over black this is the input dimmed, and over lit content the pixel keeps its hue on the
+// first frame and takes the input's over the next few, so a white line crossing a coloured glow
+// does not show as a grey one beside it. Both stop at `top`, the band's ceiling less the room
+// above what the pixel showed times (input - ceiling) / input and three times the shown luma over
+// the ceiling (at most one): a lit pixel whose input is far over the band stays near what it
+// showed, so a bright ring crossing a lit fill leaves no second ring where it now is, and a pixel
+// that was black still goes to the ceiling. The band, from limiterTrackStep: a fall fires from a
+// step below the tracker's high (its peak when rising, its reference when falling) if that is
+// below the dark threshold, and a rise from a step above its low unless the low is at or above
+// the dark threshold. Every step is integer, as in the model.
 ivec3 limiterDim(uvec4 t, uint allowed, ivec3 c, ivec3 h) {
     int ext = int(t.x & LUMA_MASK);
     int dist = int(t.y & 4095u);
@@ -198,13 +211,24 @@ ivec3 limiterDim(uvec4 t, uint allowed, ivec3 c, ivec3 h) {
     int v = limiterLuma(c);
     ivec3 d = c;
     if (v > highest) {
+        int was = limiterLuma(h);
+        int top = highest;
+        if (was < highest) top = highest - (((highest - was) * (min(256, 768 * was / highest) * (v - highest) / v)) >> 8);
         int lo = 0;
         int hi = 255;
         for (int n = 0; n < 8; n++) {
             int mid = (lo + hi) >> 1;
-            if (limiterLuma((c * mid + 127) / 255) <= highest) lo = mid; else hi = mid;
+            if (limiterLuma((c * mid + 127) / 255) <= top) lo = mid; else hi = mid;
         }
         d = (c * lo + 127) / 255;
+        lo = 0;
+        hi = 256;
+        for (int n = 0; n < 8; n++) {
+            int mid = (lo + hi) >> 1;
+            if (limiterLuma(limiterMix(h, c, mid)) <= top) lo = mid; else hi = mid;
+        }
+        ivec3 e = limiterMix(limiterMix(h, c, lo), d, CHROMA_K);
+        if (limiterLuma(e) <= top) d = e;
     } else if (v < lowest) {
         int lo = 0;
         int hi = 256;
