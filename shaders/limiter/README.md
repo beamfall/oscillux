@@ -51,7 +51,10 @@ The uniform block holds two vectors:
     to its bound, max(interval / 2, interval - bound), and no more than the bound (the Beamfall web
     host: the bound is the shortest draw interval seen, at least 4 ms and at most a 24 Hz refresh;
     animation frames can run at every other refresh, so a host drawing at its animation-frame rate
-    credits half of each interval) (Codex rounds 18 to 21). A host that credits less than the
+    credits half of each interval) (Codex rounds 18 to 21). R is the period at both paints: a
+    display that changes its refresh rate between them can show the frame for less, which a host
+    without paint times cannot see, so such a host over-credits one interval, by at most its
+    bound, on a refresh-rate change (Codex round 22, OSC-0046). A host that credits less than the
     time shown ages evidence slower and holds changes longer.
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
@@ -228,9 +231,10 @@ The display scale is the number of physical pixels a frame texel covers. When it
 device pixel ratio, page zoom or texel size), a resampled or stretched frame would move patterns
 under fixed display positions, which no copy of the trackers can account for, and an abrupt clear
 to black could itself complete a flash with the transition before it. So the host first fades the
-output to black through the limiter at the old size and geometry, keeping the old view size, with a
-bounded wait (the Beamfall web host: 2 s, then it switches regardless); the grant paces the fall
-like any other. It then switches to the new size with the whole output and tracker state tracked
+output to black through the limiter at the old size and geometry, keeping the old view size, for
+longer than the red release bound in the `deltaMs` it credits (the Beamfall web host: 2 s of
+credited time, so a slow page that credits less than each interval fades for longer; Codex round
+22); the grant paces the fall like any other and has admitted it by the end. It then switches to the new size with the whole output and tracker state tracked
 black and `G` written fully spent, and presents black, without running the limiter, for longer
 than the coverage interval counted from the first black frame presented at the new size (the
 Beamfall web host: 0.1 s). Every tracker stamp from before has then left the coverage interval,
@@ -239,7 +243,10 @@ held the old size stretched to the view, which moved patterns on screen; the fir
 cleared to black at once, Codex rounds 12 and 13.) The host sizes the view to exactly the frame
 times the display scale in physical pixels and letterboxes the rest, so every texel covers the
 same whole number of physical pixels, and it passes the area limit of the physical field divided
-by the texel area. The change itself is the user's (a zoom or a move to another display); the
+by the texel area. A drop to a divisor of the scale needs neither: each texel and its tracker
+become k x k copies, which keeps every physical pixel on screen and every pixel's evidence, and
+`G` is written spent as on any resize (the Beamfall web host takes one-pixel texels for a view
+narrower than its texel rather than clip a texel, Codex round 22). The change itself is the user's (a zoom or a move to another display); the
 browser rescales the last frame before any host can react, which the limiter does not control.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state

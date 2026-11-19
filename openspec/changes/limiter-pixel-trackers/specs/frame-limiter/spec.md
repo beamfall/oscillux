@@ -15,9 +15,10 @@ counts by its pixels instead of a diluted block mean.
 The frame limiter SHALL admit a large-area saturated-red transition, in either direction, only
 when its red token is full, and SHALL then empty it; the token SHALL refill at one eighth of the
 luma token's rate, so that no 1 s window holds more than one large-area red transition (no red
-flash). A held red change SHALL be admitted by the first frame at which the intervals since the
-spend, each counted up to 1 / (2 x maxFlashHz) s and the first not at all, add up to
-(65025 / 65024) x 8 / (2 x maxFlashHz) s.
+flash). A held red change SHALL be admitted by the first frame at which the intervals of the
+frames after the spend, each counted up to 1 / (2 x maxFlashHz) s, add up to
+(65025 / 65024) x 8 / (2 x maxFlashHz) s; after a host write of `G` the first of them counts
+nothing.
 
 #### Scenario: Red strobe
 
@@ -27,7 +28,8 @@ spend, each counted up to 1 / (2 x maxFlashHz) s and the first not at all, add u
 
 #### Scenario: Lasting red change
 
-- **WHEN** a full-frame saturated red changes to cyan and stays cyan, at a steady cadence
+- **WHEN** a full-frame saturated red changes to cyan and stays cyan, at a steady 60 frames a
+  second
 - **THEN** the output shows the cyan input within 1.5 s
 
 #### Scenario: A mixed cadence
@@ -69,7 +71,8 @@ quarter of the field's pixels.
 
 #### Scenario: A host reset is conservative
 
-- **WHEN** the host zeroes the trackers over a presented frame, whose red memory is then unknown
+- **WHEN** the host zeroes the trackers over a presented black frame, whose red memory is then
+  unknown
 - **THEN** the limiter may count red transitions the auditor, which saw the frames before, does
   not, and never fewer
 
@@ -288,7 +291,8 @@ after it writes the budget.
 
 #### Scenario: A tiny maximum flash rate
 
-- **WHEN** maxFlashHz is 0.003 and a red change spends the red budget
+- **WHEN** maxFlashHz is 0.003, frames come 60 times a second and a red change spends the red
+  budget
 - **THEN** the red deficit falls on the next frame
 
 #### Scenario: A tiny maximum flash rate at a high frame rate
