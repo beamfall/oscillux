@@ -54,12 +54,15 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 ## Failure modes
 
 - Hosts must bind and ping-pong `uTrack`, start it at zero (tracked black) with the output
-  black, never clear it or `G` after the start, and follow the resize rule (1:1 copy from the view's
-  anchor at one display scale with the exposed area tracked black and `G` written fully spent; on a
-  display-scale change, first fade the output to black through the limiter at the old size with a
-  bounded wait, then switch with everything tracked black and `G` spent, and present black without
-  running the limiter for longer than the coverage interval, counted from the first black frame
-  presented; after a lost context is restored, start the same way).
+  black and `G` written fully spent, and never clear it or `G` under a frame on screen. Any change
+  to the frame (its size, its display scale or the texels in view) takes one path: fade the frame
+  to black through the limiter (`G` written fully spent, an area limit of 0, black fed in, for
+  longer than the red token's refill), present black without running the limiter for longer than
+  the coverage interval, counted from the first black frame presented, then start again at the
+  latest size. A change during the fade or the black only moves that target. Nothing is copied
+  from one frame to the next, and a lost context restored starts the same way, from the black.
+- A change to the frame costs the picture for the fade and the black (the Beamfall web host:
+  about 2.1 s).
 - A display-scale change is the user's: the browser rescales the last frame before the host can
   react, which the limiter does not control.
 - More holds where many small areas change at once, since partial coverage now counts in full.

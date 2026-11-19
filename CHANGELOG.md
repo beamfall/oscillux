@@ -50,13 +50,14 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   **Host binding change:** six passes (`rows`, `reduce`, `cells`, `windows`, `grant`, `output`).
   `rows` reads `uFrame` and `uTrack`; `output` reads `uFrame`, `uHist`, `uTrack` and `uG` and
   writes `oColor` and `oTrack` (MRT). Hosts start the output black and the track textures at
-  zero (tracked black) and never clear `G` or the trackers after the start; a resize at one
-  display scale copies the overlap 1:1 from the view's anchor, starts the exposed area tracked
-  black and writes `G` fully spent; a geometry change keeps the trackers and writes `G` fully
-  spent; a display-scale change fades the output to black through the limiter at the old size
-  (bounded wait), then switches with everything tracked black, `G` fully spent and black presented
-  for longer than the coverage interval from the first black frame at the new size; nothing is
-  stretched (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from
+  zero (tracked black) with `G` written fully spent, and never clear `G` or the trackers under
+  a frame on screen; a viewing-geometry change keeps the trackers and writes `G` fully spent; any
+  change to the frame (its size, its display scale or the texels in view) fades the frame to
+  black through the limiter (`G` fully spent, an area limit of 0, black fed in), presents black
+  for longer than the coverage interval from the first black frame, then starts again tracked
+  black with `G` fully spent, and a change during the fade or the black only moves that target;
+  nothing is copied or stretched (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass
+  the window from
   `windowOf()` and the limit in pixels, computed from physical pixels and divided by the square of
   the texel size. The area is one count of pixels changing in any channel and direction; the luma
   step is 3275 codes and the red step 15. Hosts carry the fraction of each frame's refill to the next frame, so a small `maxFlashHz` at a high frame rate still refills. A tracker fires on a full step back from its extreme or a further full step onward from its last transition, so an area whose pixels started rising at different times is counted when it rises together, and the reference follows a dip short of a step, so a step up from the dip fires; the refill earns one unit under a token a token period, the red refill carries its remainder exactly, and the first frame after the host writes the budget, the start included, refills nothing. A fall that ends above the dark cutoff keeps its high side, so a later fall from the same peak to below 0.8 still fires, and bits 15 of the track word's x and y hold a red memory (unknown, counted, pending, saturated seen), so a red change counts after a host reset, whatever the pixel showed before, and still counts again when it first saturates. `G.x` bits 4 to 7 are the held directions: those some pixel fires in that the grant did not admit (they were an over flag before this release); a host may stop drawing a paused frame only while they are clear. The auditor (`limiter-audit.mjs`) consumes a combined charge's evidence only when it records the charge, so a directional charge no longer erases the opposite direction's pending area, and records a charge only when some pixel inside its area fires on that frame (by frame, not by timestamp, so a zero interval cannot repeat a charge), so an unchanged frame makes no transition. The red release bound is stated on intervals capped at one refill period, which a mixed cadence of long and short frames stretches past nine frames. `deltaMs` is the least time the previous frame can have been shown when it was painted up to one refresh late: max(interval / 2, interval - R) for a refresh R known only from above, which a host drawing at its animation-frame rate credits as half of each interval. Frames are supported from 64 x 36 to 8192 x 8192;

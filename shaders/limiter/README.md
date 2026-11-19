@@ -37,10 +37,10 @@ The uniform block holds two vectors:
     it every frame floors to 0 and a spent budget never returns (Codex round 15). The rate is one
     unit under a token a token period, so the carry, under one unit, cannot finish a token early
     (Codex round 16).
-  - On the first frame after the host writes `G` (start, a lost context restored, a geometry
-    change or a resize), `refill` is 0 and `carry` restarts at 0: time that passed before `G` was
-    written does not repay it. `deltaMs` stays the real interval, which ages the trackers' stamps
-    (Codex round 16).
+  - On the first frame after the host writes `G` (a start, the fade of a change to the frame, a
+    viewing-geometry change), `refill` is 0 and `carry` restarts at 0: time that passed before
+    `G` was written does not repay it. `deltaMs` stays the real interval, which ages the
+    trackers' stamps (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
   - `deltaMs` is the frame interval as float32: a lower bound on the time the previous frame was
@@ -216,66 +216,82 @@ conformance vectors start from it, and it counts as a write too. The host also s
 black and the tracker state at zero: tracked black, the value the view showed before the first
 frame. Content then rises from black
 through the grant like any other change. After a lost context is restored the view showed content
-before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
-written fully spent, and black presented without the limiter for longer than the coverage
-interval. The zero texel is a tracker falling at 0 with every luma change counted and the red
-memory unknown. (A texel with bit
+before the loss, so the host starts as after the fade of a change to the frame (below): black
+presented without the limiter for longer than the coverage interval, then everything tracked
+black and `G` written fully spent. The zero texel is a tracker falling at 0 with every luma
+change counted and the red memory unknown. (A texel with bit
 13 of `y` set means no state yet: a pixel with no state takes its first value without firing, as
 if it fell to it. The reference model and the conformance vectors start from it; a host does not,
 because it would pass its first frame, or the first frame after a reset, with no budget charged,
 CORE-2516.)
 
-`G` and the tracker state are never cleared after the start. When the viewing geometry changes,
-the host passes the new window and limit, keeps the trackers and writes `G` fully spent (below): a
-smaller window can put pixels that fired recently, each admitted while under the old limit, over
-the new one with no grant paying for them. (Until v0.2.9 `G` was kept, Codex round 12.)
+`G` and the tracker state of a frame on screen are never cleared. When only the window changes
+(the viewing geometry: the same frame at the same display scale, all of it still in view), the
+host passes the new window and limit, keeps the trackers and writes `G` fully spent (x = 256,
+y = 65025, z = 65025, w = 0): two luma tokens and the red token of deficit, so no luma transition
+is granted for 2 / (2 · maxFlashHz) seconds and no red transition for 8 / (2 · maxFlashHz)
+seconds. A smaller window can put pixels that fired recently, each admitted while under the old
+limit, over the new one with no grant paying for them. (Until v0.2.9 `G` was kept, Codex round
+12.)
 
-When the frame size changes at an unchanged display scale (the frame grew or shrank with its
-view), the host keeps `G`, copies the overlap of the output and tracker state 1:1, aligned where
-the view is anchored (its top-left for a view anchored there), and starts the newly exposed area
-as tracked black, so what is drawn there rises through the grant. The newly exposed area is every
-pixel the view did not show the frame before, also when the frame keeps its size: a host that
-clips a fixed frame to a smaller view and later shows more of it clears the newly shown output and
-trackers to zero, or the pixels kept while hidden would appear without a grant (Codex round 16). It then writes `G` fully spent
-(x = 256, y = 65025, z = 65025, w = 0): two luma tokens and the red token of deficit, so no luma
-transition is granted for 2 / (2 · maxFlashHz) seconds and no red transition for
-8 / (2 · maxFlashHz) seconds after any resize. Area that leaves the view is the host page's: the
-limiter cannot hold what is no longer drawn, and spending `G` keeps a granted flash from
-following it.
+### A change to the frame: fade, black, start
 
-The display scale is the number of physical pixels a frame texel covers. When it changes (a new
-device pixel ratio, page zoom or texel size), a resampled or stretched frame would move patterns
-under fixed display positions, which no copy of the trackers can account for, and an abrupt clear
-to black could itself complete a flash with the transition before it. So the host first fades the
-output to black through the limiter at the old size and geometry, keeping the old view size, for
-longer than the red release bound in the `deltaMs` it credits (the Beamfall web host: 2 s of
-credited time, so a slow page that credits less than each interval fades for longer; Codex round
-22); the grant paces the fall like any other and has admitted it by the end: the fall is asked
-from the fade's first frame and in one luma direction, so a luma token it also waits for is back
-within about two refill periods, inside the red bound. It then switches to the new size with the whole output and tracker state tracked
-black and `G` written fully spent, and presents black, without running the limiter, for longer
-than the coverage interval counted from the first black frame presented at the new size (the
-Beamfall web host: 0.1 s). Every tracker stamp from before has then left the coverage interval,
-and content returns through the grant from black as the budget refills. (Until v0.2.9 the host
-held the old size stretched to the view, which moved patterns on screen; the first v0.2.9 drafts
-cleared to black at once, Codex rounds 12 and 13.) The host sizes the view to exactly the frame
-times the display scale in physical pixels and letterboxes the rest, so every texel covers the
-same whole number of physical pixels, and it passes the area limit of the physical field divided
-by the texel area. A drop to a divisor of the scale needs neither: each texel and its tracker
-become k x k copies, which keeps every physical pixel on screen and every pixel's evidence, and
-`G` is written spent as on any resize (the Beamfall web host takes one-pixel texels for a view
-narrower than its texel rather than clip a texel, Codex round 22). A view can still cut a
-texel: the old frame during a fade, a divisor copy into a smaller frame, or a side over the
-largest frame. The cut texel is partly on screen, so the host keeps and judges it whole
-and takes the area limit from the physical pixels shown, which overcounts the cut texel's area
-and never undercounts; clearing it would be an ungranted fall (Codex round 23). Counting the
-texel whole is not showing it whole: the host displays only the physical pixels it has judged in
-view and keeps the rest of the cut texel hidden behind black, the level every tracker starts at.
-When the view grows past a texel it cut, the hidden pixels would appear in the texel's colour with
-no tracker event, so the host does not reveal them: it holds the view, fades the frame out
-through the limiter as above and starts the view again from nothing in view (the Beamfall web
-host clips its canvas to the judged pixels over a black backdrop, Codex rounds 24 and 25). The change itself is the user's (a zoom or a move to another display); the
-browser rescales the last frame before any host can react, which the limiter does not control.
+The display scale is the number of physical pixels a frame texel covers. What the viewer sees is
+fixed by the frame's size in texels, its display scale and the texels of it in view. When any of
+them changes (the view is resized, the device pixel ratio or page zoom changes, the host takes
+another texel size, the view clips more or less of the frame), the host takes one path, the same
+for every change. Nothing is carried from the old frame to the new one.
+
+1. **Fade.** Keep the frame on screen as it is: its size, its scale, its place and its trackers.
+   Write `G` fully spent, pass an area limit of 0 and feed the limiter black in place of the
+   visual. Under a limit of 0 one pixel that fires puts its windows over, so every fall to black
+   waits for a grant however little of the frame is still in view, and the grant paces the fall
+   like any other transition. The fall is asked from the fade's first frame and in one direction
+   a channel, so the grant has admitted it once the red token is back: the luma tokens it also
+   waits for return sooner. Run the fade for longer than the red token's refill,
+   8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write refills
+   nothing, and the grant comes on a frame), in the time the limiter is credited with (the
+   Beamfall web host: 2 s, counting each frame's `deltaMs` up to one luma token's refill, the
+   most a frame refills, so a slow page fades for longer; Codex round 22). The output is then
+   black.
+2. **Black.** Free the frame and present black, without running the limiter, for longer than the
+   coverage interval counted from the first black frame presented (the Beamfall web host:
+   0.1 s). Every tracker stamp from before has then left the coverage interval. A view with no
+   whole texel to show stays black.
+3. **Start.** Start a frame at the size, scale and view asked for then, as at the first start:
+   output black, trackers zero, `G` written fully spent. Content returns from black through the
+   grant as the budget refills.
+
+A further change during the fade or the black only changes what step 3 starts at. It does not
+reallocate, write `G` again or restart either clock, so a view dragged to a new size costs one
+fade and one start, not a reset a frame.
+
+Through the fade the view of the old frame may only shrink. A pixel that leaves the view leaves
+by the host page's clip: the limiter cannot hold what is no longer drawn, and the limit of 0
+covers whatever is left. A pixel the view hid must not come back before the start: it would show
+the frame's colour with no tracker event. So the host keeps the frame at its size and place and
+clips it to the smallest view since the frame started (the Beamfall web host clips its canvas
+over a black backdrop, Codex rounds 24 and 25). Cutting the frame itself to the smaller view
+would drop the lit pixels of a texel still partly on screen to black with no grant.
+
+The host sizes the view to exactly the frame times the display scale in physical pixels and
+letterboxes the rest, so every texel covers the same whole number of physical pixels, and it
+passes the area limit of the physical field divided by the texel area. A frame shows whole
+texels only. A texel the view cuts when the frame starts is not presented: its pixels stay black,
+the level every tracker starts at, and the area limit comes from the texels in view. A view that
+comes to show that texel whole, or to cut a texel it showed, is a change like any other (the
+Beamfall web host takes one-pixel texels for a view narrower than its texel, so it has a whole
+texel to show, Codex round 22). Wherever the view shows no judged pixel (past the frame, through
+the clip, during the black) the host shows black.
+
+Only black crosses a change. Until v0.2.9 the host held the old size stretched to the view, which
+moved patterns on screen, and the first v0.2.9 drafts cleared to black at once, which could
+itself complete a flash with the transition before it (Codex rounds 12 and 13). Later drafts kept
+pixels alive across a change: a 1:1 copy of the overlap at one display scale, a k x k copy on a
+drop to a divisor of the scale, a held view over a cut texel. Each needed its own proof and each
+left a seam for the next (Codex rounds 16 to 25), so they are gone. The change itself is the
+user's (a zoom or a move to another display); the browser rescales the last frame before any
+host can react, which the limiter does not control.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

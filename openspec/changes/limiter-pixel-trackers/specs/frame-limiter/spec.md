@@ -87,8 +87,8 @@ quarter of the field's pixels.
 
 #### Scenario: A reset keeps saturated-red memory
 
-- **WHEN** a full frame shows (60, 0, 0), falls to black, the host switches display scale with every pixel tracked black
-  and then shows (110, 64, 0) and (60, 0, 0)
+- **WHEN** a full frame shows (60, 0, 0), falls to black, the host starts a frame again with
+  every pixel tracked black and then shows (110, 64, 0) and (60, 0, 0)
 - **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
   output
 
@@ -165,61 +165,91 @@ larger frames to 8192 on each side, because the area limit is passed as a float,
 ### Requirement: Limiter state is never cleared
 
 A host SHALL start the output black and the tracker state tracked black (zero), and SHALL NOT
-clear the grant state `G` or the trackers after the start, including when the viewing geometry
-changes.
+clear the grant state `G` or the trackers of a frame on screen, including when the viewing
+geometry changes. They SHALL be replaced only by the start that follows a fade and a black
+(Frame change).
 
 #### Scenario: A geometry change on a live display
 
 - **WHEN** the viewing geometry changes from `wcag` to `desktop` one frame after a granted red rise
 - **THEN** the trackers are kept and a red fall on the next frame is held
 
-### Requirement: Resize at one display scale
+### Requirement: Frame change
 
-At an unchanged display scale a resize SHALL copy the output and tracker state 1:1 from the view's
-anchor, start the newly exposed area tracked black, and write `G` fully spent.
+When the frame size, the display scale (physical pixels per frame texel) or the texels in view
+change, the host SHALL take one path: fade the frame on screen to black through the limiter,
+present black, then start a frame at the size, scale and view asked for then, tracked black with
+`G` written fully spent. It SHALL NOT copy, resample or stretch the output or the trackers from
+one frame to the next, a drop to a divisor of the scale included.
 
-#### Scenario: A strobe in an area that a resize exposes
+#### Scenario: A resize during a strobe
 
-- **WHEN** a left-anchored view alternates between 64 and 128 pixels wide at one display scale and
-  its right half is drawn red whenever it is exposed
-- **THEN** the exposed area starts tracked black, its red rise is held until the budget refills,
-  and no more than one red transition a second is admitted
-
-### Requirement: Display-scale change
-
-When the display scale (physical pixels per frame texel) changes, the host SHALL first fade the
-output to black through the limiter at the old size and geometry, keeping the old view size, for
-at most a bounded wait. It SHALL NOT resample or stretch the output or the trackers. A drop to a
-divisor of the scale is exempt (Display-scale drop to a divisor).
+- **WHEN** a view is resized at one display scale while a red/black pattern plays
+- **THEN** the display falls to black through the grant and shows black for longer than the
+  coverage interval, then content rises from black only through the grant, with no red transition
+  granted within one second after the start
 
 #### Scenario: A display-scale change during a strobe
 
 - **WHEN** the device pixel ratio changes while a red/black pattern plays
-- **THEN** the display shows black for longer than the coverage interval, then content rises from
-  black only through the grant, with no red transition granted within one second after the
-  switch
-
-### Requirement: Display-scale drop to a divisor
-
-When the display scale drops to a divisor of the old one, a host that switches at once with no
-fade and no black, copying each texel's output and tracker state to its k x k new texels and
-writing `G` fully spent, SHALL keep every physical pixel and its evidence on screen.
+- **THEN** the display falls to black through the grant at the old scale and shows black for
+  longer than the coverage interval, then content rises from black only through the grant, with
+  no red transition granted within one second after the start
 
 #### Scenario: A drop to a divisor of the scale
 
 - **WHEN** the display scale drops from 2 to 1 while red is shown
-- **THEN** every physical pixel keeps its colour and evidence, nothing turns black, and no red
-  transition is granted within one second after the switch
+- **THEN** the host fades, presents black and starts at the new scale like any other change, and
+  no texel is copied
 
-### Requirement: Display-scale switch
+### Requirement: Fade through the limiter
 
-After the fade (any change but a drop to a divisor), the host SHALL switch to the new size with the whole output and tracker state
-tracked black and `G` written fully spent, and SHALL present black, without running the limiter,
-for longer than the coverage interval counted from the first black frame presented at the new size.
+For the fade the host SHALL keep the frame's size, scale, place and trackers, write `G` fully
+spent, pass an area limit of 0 and feed the limiter black, for longer than the red token's refill
+in the time the limiter is credited with. Until the start the view of the frame SHALL only
+shrink.
 
-#### Scenario: Black after the switch
-- **WHEN** the host switches to a new display scale
-- **THEN** it presents black for longer than the coverage interval from the first black frame presented
+#### Scenario: A fall in a view that shrank
+
+- **WHEN** a view clipped to one texel column of a red frame shrinks
+- **THEN** the area limit is 0, and the column's fall to black waits for the red grant
+
+#### Scenario: A view that shrinks and grows during the fade
+
+- **WHEN** the view shrinks by a pixel column and grows back before the fade ends
+- **THEN** the column stays hidden until the start, where it comes back black
+
+### Requirement: A change during the fade moves the target
+
+A change during the fade or the black SHALL change only the size, scale and view the next frame
+starts at. The host SHALL NOT reallocate, write `G` or restart the fade or the black for it.
+
+#### Scenario: A view dragged to a new size
+
+- **WHEN** the view's size changes on every frame of a fade
+- **THEN** there is one fade and one start, at the last size asked for
+
+### Requirement: Black before the start
+
+After the fade, the host SHALL free the frame and present black, without running the limiter, for
+longer than the coverage interval counted from the first black frame presented, and for as long
+as the view shows no whole texel.
+
+#### Scenario: Black after the fade
+
+- **WHEN** the fade ends
+- **THEN** the host presents black for longer than the coverage interval from the first black
+  frame presented, then starts
+
+### Requirement: Whole texels in view
+
+A frame SHALL present only the whole texels its view shows when it starts, on black, and the host
+SHALL take the area limit from those texels. A texel the view cuts SHALL NOT be presented.
+
+#### Scenario: A view that cuts a texel
+
+- **WHEN** a frame starts at two physical pixels per texel in a view 3 pixels wide
+- **THEN** one texel column is presented and the third pixel column shows black
 
 ### Requirement: Combined area
 
