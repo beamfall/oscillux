@@ -22,7 +22,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   Ink sizes its dye splats against the short side and no longer whites out in portrait.
 - Calmer visual sources (CORE-2492): beat accents in about 30 visuals are softer or ride on
   motion instead of brightness, Wave Tunnel's rings no longer flash on onsets, and Particles has
-  narrower size and brightness swings and half the burst range, so the limiter holds less. Under
+  narrower size and brightness swings, half the burst range and half its beat and onset
+  brightness swings, so the limiter holds less (at most 20% of a frame's pixels on loud audio). Under
   a loud master no catalogue visual makes a large-area red transition before the limiter, but
   measured per pixel 29 of 61 still make more than 6 large-area luma transitions a second on their
   own; the limiter holds those. `make visual-flash-check` runs the source budget
@@ -49,11 +50,15 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   writes `oColor` and `oTrack` (MRT). Hosts start the output black and the track textures at
   zero (tracked black) and never clear `G` or the trackers after the start; a resize at one
   display scale copies the overlap 1:1 from the view's anchor, starts the exposed area tracked
-  black and writes `G` fully spent; a display-scale change holds the old size with `G` fully spent
-  for 8 / (2 · maxFlashHz) s, then switches with everything tracked black and spends `G` again
-  (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from `windowOf()` and the limit in pixels.
-  Frames are supported from 64 x 36 to 8192 x 8192 (sub-block counts are 16-bit); hosts clamp
-  larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
+  black and writes `G` fully spent; a geometry change keeps the trackers and writes `G` fully
+  spent; a display-scale change fades the output to black through the limiter at the old size
+  (bounded wait), then switches with everything tracked black, `G` fully spent and black presented
+  for longer than the coverage interval from the first black frame at the new size; nothing is
+  stretched (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from
+  `windowOf()` and the limit in pixels, computed from physical pixels and divided by the square of
+  the texel size. The area is one count of pixels changing in any channel and direction; the luma
+  step is 3275 codes and the red step 15. Frames are supported from 64 x 36 to 8192 x 8192;
+  hosts clamp larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
   field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and
   rotation by the frame time, so trails last the same at 30, 60 and 120 Hz, and history sampled

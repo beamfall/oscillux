@@ -199,7 +199,7 @@ for c in cfg.cases {
         lim.out[b].getBytes(&out, bytesPerRow: c.width * 4, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
         // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
         let grant = UInt32(g[0])
-        let mask = String((0..<(64 * 36)).map { sub[4 * $0 + 2] & ~grant & 15 != 0 ? Character("1") : Character("0") })
+        let mask = String((0..<(64 * 36)).map { sub[4 * $0 + 1] & ~grant & 15 != 0 ? Character("1") : Character("0") })
         let trackBytes = track.withUnsafeBytes { [UInt8]($0) }
         // Bit 8 of the grant word carries a second token of luma deficit (grant.glsl).
         frames.append([mask, Int(g[0] & 255), Int(g[1]) + Int((g[0] >> 8) & 1) * 65025, fnv1a(out), fnv1a(trackBytes)])

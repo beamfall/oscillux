@@ -53,7 +53,7 @@ test('v1 contract is complete, ordered, deterministic, and independently digest-
   assert.match(RENDERED, new RegExp(`CATALOG_DOMAIN = "${escapeRegExp(ANDROID_GLES_CATALOG_DOMAIN)}"`));
   assert.match(RENDERED, new RegExp(`SOURCE_DOMAIN = "${escapeRegExp(ANDROID_GLES_SOURCE_DOMAIN)}"`));
   assert.equal(constant(RENDERED, 'CATALOG_SHA256_BASE64'), '0FJd+fNCkM4b2Oz8SnYYe350CImj6I/yILQ7RBA08Kg=');
-  assert.equal(constant(RENDERED, 'SOURCE_SHA256_BASE64'), 'wmzVqj4ZmeMr0dh1cqtDrHLTTMrLydKik7hbh9J4gtE=');
+  assert.equal(constant(RENDERED, 'SOURCE_SHA256_BASE64'), 'yn5LlfG1i5DWyp4AfH3TlkuLgF1qS8AGATrORDrFV60=');
   assert.equal(independentDigest(ANDROID_GLES_CATALOG_DOMAIN, payload(RENDERED, 'CATALOG')),
     constant(RENDERED, 'CATALOG_SHA256_BASE64'));
   assert.equal(independentDigest(ANDROID_GLES_SOURCE_DOMAIN, payload(RENDERED, 'SOURCE')),

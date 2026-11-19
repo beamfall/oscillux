@@ -42,10 +42,10 @@ and `refill`.
 
 ## Frame size
 
-Frames from 64 x 36 to 8192 x 8192 pixels. The `reduce` pass packs a sub-block's per-direction
-pixel counts in 16 bits, so a sub-block must hold at most 65535 pixels; at 16384 x 9216 a full
-sub-block wraps to zero and the grant admits a held flash. Hosts clamp the frame to 8192 on
-each side.
+Frames from 64 x 36 to 8192 x 8192 pixels. The area limit is a quarter of the field's pixels,
+passed as a float, so it is exact only while it stays under 2^24; at 8192 x 8192 it is at most
+2^24. Hosts clamp the frame to 8192 on each side. (Until v0.2.9 the `reduce` pass packed
+per-direction counts in 16 bits; the counts are 32-bit now.)
 
 ## Texture formats
 
@@ -62,46 +62,52 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 
 | # | Pass | Size | Textures | Outputs |
 |---|---|---|---|---|
-| 1 | `rows` | 64 x frame height | `uFrame`, `uTrack` (previous) | `oR` = (luma up \| luma down << 16, red up \| red down << 16, directions firing now, luma either \| red either << 16): per sub-block column and pixel row, the pixels whose tracker fires now or fired within the coverage interval, per direction and per channel in either direction |
+| 1 | `rows` | 64 x frame height | `uFrame`, `uTrack` (previous) | `oR` = (count, directions firing now, 0, 0): per sub-block column and pixel row, the pixels whose tracker fires now or fired within the coverage interval, in any channel and direction |
 | 2 | `reduce` | 64 x 36 | `uRows` | `oS`, the same layout summed over the sub-block; a sub-block requests each direction one of its pixels fires in now |
-| 3 | `cells` | 16 x 9 | `uS` | `oC` = (luma up \| luma down << 16, red up \| red down << 16, luma either \| red either << 16, the six counts' high nibbles \| requests << 24): the cell's pixel counts, 20 bits each |
-| 4 | `windows` | 16 x 9 | `uC` | `oW`: per count, an over bit for the window with its origin at this cell (directions in bits 0-3, luma either 16, red either 32) |
-| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8, luma token deficit, red token deficit, luma credit) |
+| 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, 0, 0): the cell's pixel count and requested directions |
+| 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): 1 when the window with its origin at this cell counts more than the limit |
+| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8 \| last red grant was down << 9, luma token deficit, red token deficit, luma credit) |
 | 6 | `output` | frame | `uFrame`, `uHist` (previous output), `uTrack` (previous), `uG` (this frame) | `oColor`, `oTrack` |
 
 Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 red falling.
 
 The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma over the limit
-takes the luma token when its deficit is zero. Red over the limit, in either direction, takes the
-red token when its deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s
-window holds two large-area red transitions (no red flash) and a held red change is admitted
-within 8 / (2 maxFlashHz) s instead of freezing (CORE-2382). Red never takes or waits for the
-luma token.
+takes the luma token when its deficit is zero. Red over the limit takes the red token when its
+deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
+large-area red transitions (no red flash) and a held red change is admitted within
+8 / (2 maxFlashHz) s instead of freezing (CORE-2382). When both red directions are asked, one is
+admitted, the other than last time. A frame asking both channels is admitted only when both
+tokens are ready: a pixel changing in both shows the change only when both are admitted, so a
+grant of one alone would spend its token on a held change (Codex round 13).
 
-Pixels flash together whichever way they change, so a channel whose either-direction count is
-over the limit puts both its directions over, though each direction alone is under it (WCAG's
-combined area; until v0.2.9 opposite-phase patches passed, Codex round 12).
+Pixels flash together whichever way and in whichever channel they change, so the area is one
+count of pixels changing in any channel and direction; over the limit, every direction is over
+(WCAG's combined area; until v0.2.9 opposite-phase patches and adjacent luma and red patches
+passed, Codex rounds 12 and 13).
 
 ## Flash measure
 
 Luma and red are measured in integer codes, and the codes are the measure: the limiter and the
 pixel auditor both use them, so neither can disagree with the other. A luma code is the sum of
-`round(65535 · Y)` per channel halved to 15 bits, within 1.25 of `32767.5 · Y`; the luma step is
-3276 codes (0.1) and the darker side below 26215 (0.8). A red code is `(R - G - B) >> 8` of the
-linear channel codes wherever `R > G + B`, within one code of WCAG's quantity in 256ths; the red
-step is 16 codes (20 on WCAG's 320 scale). A red change fires only when the new state, or one the
-pixel showed since its red tracker last fired, is saturated red (`R / (R + G + B) >= 0.8`,
-widened by the codes' rounding), so every WCAG transition between saturated red and any other
-state counts, and a change between two unsaturated reds or oranges does not. (Until v0.2.9 the
-thresholds were widened by the codes' rounding and red required saturation on both states, Codex
-rounds 11 to 13.)
+`round(65535 · Y)` per channel halved to 15 bits, 0.74 above to 1.24 below `32767.5 · Y` over
+every 8-bit colour; the luma step is 3275 codes (0.1, 3276.75 less both errors) and the darker
+side below 26215 (0.8, 26214 plus the upper error). A red code is `(R - G - B) >> 8` of the linear
+channel codes wherever `R > G + B`, 0.006 above to 1.002 below WCAG's quantity in 256ths; the red
+step is 15 codes (20 on WCAG's 320 scale, 16 less both errors). So every WCAG transition fires.
+Every change moves the red tracker; it counts as a red transition when a saturated red state
+(`R / (R + G + B) >= 0.8`, widened by the codes' rounding) is the new state or was seen since the
+previous change, or, when it did not count, at the first saturated state before the next change.
+Every WCAG transition between saturated red and any other state counts, and a change between two
+unsaturated reds or oranges does not. (Until v0.2.9 the thresholds were widened by the codes'
+rounding and red required saturation on both states, Codex rounds 11 to 13; until round 13 an
+unsaturated reversal left the red tracker unmoved, which hid the transition after it.)
 
 ## Per-pixel trackers
 
 Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.glsl`):
 
-- `x`, `y`: the luma tracker's low and high marks (15-bit); bit 15 of `y` is the red tracker's
-  saturated bit, set when a saturated red state was seen since it last fired.
+- `x`, `y`: the luma tracker's low and high marks (15-bit); bit 15 of `x` is set when the red
+  tracker's latest change counted, bit 15 of `y` when a saturated red state was seen since it.
 - `z`: the red tracker's low | high << 8.
 - `w`: four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12); 0 is
   none, else the event's unit `(tick >> 4) + 1`.
@@ -125,7 +131,8 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 At start the host clears `G` to zero, the output to black and the tracker state to zero:
 tracked black, the value the view showed before the first frame. Content then rises from black
-through the grant like any other change. (The tracker value (32767, 0, 255, 0) means no state
+through the grant like any other change. After a rise a tracker holds (maximum, peak), after a
+fall (trough, 0), or (2, 1) for a trough of 0. (The tracker value (32767, 0, 255, 0) means no state
 yet: a pixel with no state takes its first value without firing. The reference model and the
 conformance vectors start from it; a host does not, because it would pass its first frame, or the
 first frame after a reset, with no budget charged, CORE-2516.)
@@ -147,16 +154,21 @@ following it.
 
 The display scale is the number of physical pixels a frame texel covers. When it changes (a new
 device pixel ratio, page zoom or texel size), a resampled or stretched frame would move patterns
-under fixed display positions, which no copy of the trackers can account for. The host switches
-to the new size at once, with the whole output and tracker state tracked black and `G` written
-fully spent, and presents black on the display, without running the limiter, for longer than the
-coverage interval (the Beamfall web host: 0.1 s). The display therefore shows one fall to black,
-and every tracker stamp from before it has left the coverage interval before anything rises.
-Content then returns through the grant from black as the budget refills. (Until v0.2.9 the host
-held the old size stretched to the view, which moved patterns on screen, and never showed the
-black frame, Codex round 12.) The change itself is the user's (a zoom or a move to another
-display); the browser rescales the last frame before any host can react, which the limiter does
-not control.
+under fixed display positions, which no copy of the trackers can account for, and an abrupt clear
+to black could itself complete a flash with the transition before it. So the host first fades the
+output to black through the limiter at the old size and geometry, keeping the old view size, with a
+bounded wait (the Beamfall web host: 2 s, then it switches regardless); the grant paces the fall
+like any other. It then switches to the new size with the whole output and tracker state tracked
+black and `G` written fully spent, and presents black, without running the limiter, for longer
+than the coverage interval counted from the first black frame presented at the new size (the
+Beamfall web host: 0.1 s). Every tracker stamp from before has then left the coverage interval,
+and content returns through the grant from black as the budget refills. (Until v0.2.9 the host
+held the old size stretched to the view, which moved patterns on screen; the first v0.2.9 drafts
+cleared to black at once, Codex rounds 12 and 13.) The host sizes the view to exactly the frame
+times the display scale in physical pixels and letterboxes the rest, so every texel covers the
+same whole number of physical pixels, and it passes the area limit of the physical field divided
+by the texel area. The change itself is the user's (a zoom or a move to another display); the
+browser rescales the last frame before any host can react, which the limiter does not control.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

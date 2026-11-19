@@ -189,7 +189,7 @@ async function pageMain({ passes, cases, helpers, time }) {
       gl.readBuffer(gl.COLOR_ATTACHMENT0);
       track.set(track32);
       // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
-      for (let k = 0; k < mask.length; k++) mask[k] = sub[4 * k + 2] & ~g[0] & 15 ? 1 : 0;
+      for (let k = 0; k < mask.length; k++) mask[k] = sub[4 * k + 1] & ~g[0] & 15 ? 1 : 0;
       const hold = runLengths(mask);
       frames.push([hold === last ? '=' : hold, g[0] & 255, g[1] + ((g[0] >> 8) & 1) * 65025, fnv1a(out), trackDigest(track)]);
       last = hold;

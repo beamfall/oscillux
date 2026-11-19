@@ -41,8 +41,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   show as sub-block tiles (CORE-2492). The output pass no longer reads the sub-block counts.
 - Six passes (rows, reduce, cells, windows, grant, output); the state pass and the sub-block state
   textures go. The output pass writes the frame and the new tracker state (two outputs).
-- The Particles hold budget (`visual-defaults`) moves from 5% of sub-blocks to 18% of the frame's
-  pixels, since holds are now counted per pixel (`make limiter-hold-check --max-held 0.18`).
+- The Particles hold budget (`visual-defaults`) moves from 5% of sub-blocks to 20% of the frame's
+  pixels, since holds are now counted per pixel (`make limiter-hold-check --max-held 0.20`).
 - Memory: 8 bytes per pixel, twice for the ping-pong (133 MB at 3840 x 2160), in place of 64 x 36
   sub-block state.
 

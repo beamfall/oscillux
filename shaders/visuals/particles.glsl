@@ -93,7 +93,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // ---- per-particle size: energy + tier ----
         float sizeBase = (tierFrac < 0.1)
-                          ? mix(0.025, 0.045, energy)           // bass: fat embers
+                          ? mix(0.028, 0.040, energy)           // bass: fat embers
                           : ((tierFrac < 0.6)
                              ? mix(0.014, 0.026, energy)        // mid: medium
                              : mix(0.003, 0.012, energy));      // treble: pin-sparks
@@ -120,9 +120,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float streakGlow = perpG * alongG * 0.42 * (1.0 - smoothstep(-pSize, 0.0, along));
 
         // ---- brightness ----
-        float bassBeat    = (tierFrac < 0.1) ? (1.0 + u.beat * 0.3 + u.bassImpact * 0.2) : (1.0 + u.beat * 0.15);
-        float trebleFlash = (tierFrac > 0.9) ? (1.0 + u.onset * 0.3 + u.treble * 0.5) : 1.0;
-        float brightness  = (0.8 + 0.8 * energy) * bassBeat * trebleFlash * visibilityFade;
+        // Half the beat and onset swings of v0.2.8: with one area count across channels the
+        // limiter held over 18% of the frame on loud audio (Codex round 13, CORE-2409).
+        float bassBeat    = (tierFrac < 0.1) ? (1.0 + u.beat * 0.15 + u.bassImpact * 0.1) : (1.0 + u.beat * 0.08);
+        float trebleFlash = (tierFrac > 0.9) ? (1.0 + u.onset * 0.15 + u.treble * 0.3) : 1.0;
+        float brightness  = (0.8 + 0.6 * energy) * bassBeat * trebleFlash * visibilityFade;
         float hdrCap = (tierFrac < 0.1) ? 6.0 : 3.5;
         brightness = min(brightness, hdrCap);
 

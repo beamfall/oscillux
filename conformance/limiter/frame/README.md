@@ -20,14 +20,16 @@ Metal where available) against the vectors.
   cells of 4 x 4) only to sum those counts; the counts are exact, so a change over any share of a
   sub-block, a fine pattern that inverts, or a thin bar is measured at any resolution (CORE-2515,
   CORE-2543, Codex round 7).
-- A direction is over when some window of `cols` x `rows` cells holds more than `limit` such
-  pixels. The window is the fewest whole cells that contain the 10° field for the viewing geometry
+- Every direction is over when some window of `cols` x `rows` cells holds more than `limit`
+  pixels that fire in any channel and direction now or within the coverage interval (the combined
+  area, Codex rounds 12 and 13). The window is the fewest whole cells that contain the 10° field for the viewing geometry
   wherever the field sits, and `limit` is a quarter of the field's pixels, so a field the auditor
   would count over its limit is always inside one window that is over.
 - Luma over the limit is rationed by a token budget (at most `maxFlashHz` flashes, default 3, per
   second). When both luma directions are over in one frame, the grant admits the pair only once the
   token has also stood unspent for a refill period, and leaves two tokens of deficit (CORE-2515).
-  Red over the limit has its own token, refilled at an eighth of the luma rate: at most one
+  Red over the limit also needs its own token, refilled at an eighth of the luma rate, and a
+  pixel asking both is granted only when both are ready (Codex round 13): at most one
   large-area red transition in any 1 s window, so no red flash (ITU-R BT.1702), and a held red
   change catches up instead of freezing (CORE-2382).
 - A pixel whose trackers would fire on the input in a direction the grant did not admit holds
@@ -35,7 +37,8 @@ Metal where available) against the vectors.
   around a hold (CORE-2543). Every pixel's trackers then step on the output, so they hold the
   auditor's state of what was shown.
 
-The model's header comment gives the exact arithmetic.
+The shared shader header (`shaders/limiter/common.glsl`) and the model's header comment give the
+exact arithmetic: luma step 3275 codes with the darker side below 26215, red step 15.
 
 ## Viewing geometry
 

@@ -39,9 +39,21 @@ quarter of the field's pixels.
 ### Requirement: Flash measure
 
 The frame limiter and the pixel auditor SHALL measure flashes in the same integer codes: luma
-steps of 3276 15-bit codes with the darker side below 26215, and red steps of 16 codes of
-`(R - G - B) >> 8` of the linear channel codes wherever `R > G + B`, where a red step counts only
-when the new state, or a state since the pixel's red tracker last fired, is saturated red.
+steps of 3275 15-bit codes with the darker side below 26215, and red steps of 15 codes of
+`(R - G - B) >> 8` of the linear channel codes wherever `R > G + B`, each the WCAG threshold less
+the codes' measured error over every 8-bit colour.
+
+#### Scenario: A fall to zero keeps its direction
+
+- **WHEN** a pixel falls from (80, 0, 0) to black and holds, then shows (110, 60, 0), (45, 0, 0),
+  (80, 0, 0) and black for one frame each
+- **THEN** the limiter's trackers equal the auditor's and both count the saturated rise and fall
+
+#### Scenario: An unsaturated reversal before a saturated change
+
+- **WHEN** a pixel shows (110, 0, 0), then (65, 40, 0) for 1.5 s, then (110, 60, 0), (45, 0, 0)
+  and (110, 60, 0)
+- **THEN** the auditor counts the red fall to (45, 0, 0) and the limiter counts it too
 
 #### Scenario: A strobe one code over the luma step
 
@@ -60,15 +72,26 @@ when the new state, or a state since the pixel's red tracker last fired, is satu
 - **WHEN** a full-frame 3 Hz strobe alternates between (255, 160, 0) and (180, 110, 0)
 - **THEN** the pixel auditor counts no red transitions in the input or the output
 
+### Requirement: Red transition counting
+
+Every red step SHALL move the red tracker. It SHALL count as a red transition when the new state
+or a state since the previous step is saturated red, or, when it did not count, at the first
+saturated state before the next step.
+
+#### Scenario: A saturated state after an uncounted step
+- **WHEN** a red step between unsaturated states is followed, before the next step, by a saturated state
+- **THEN** the step counts as a red transition at that saturated state
+
 ### Requirement: Supported frame size
 
 The frame limiter SHALL support frames from 64 x 36 to 8192 x 8192 pixels, and hosts SHALL clamp
-larger frames to 8192 on each side, because a sub-block's per-direction pixel counts are 16-bit.
+larger frames to 8192 on each side, because the area limit is passed as a float, exact only under
+2^24.
 
 #### Scenario: A frame larger than the supported size
 
 - **WHEN** the reference model is asked for a 16384 x 9216 frame
-- **THEN** it refuses the size instead of wrapping a sub-block's count to zero
+- **THEN** it refuses the size
 
 ### Requirement: Limiter state is never cleared
 
@@ -95,10 +118,9 @@ anchor, start the newly exposed area tracked black, and write `G` fully spent.
 
 ### Requirement: Display-scale change
 
-When the display scale (physical pixels per frame texel) changes, the host SHALL switch to the new
-size at once with the whole output and tracker state tracked black and `G` written fully spent,
-and SHALL present black, without running the limiter, for longer than the coverage interval. It
-SHALL NOT resample or stretch the output or the trackers.
+When the display scale (physical pixels per frame texel) changes, the host SHALL first fade the
+output to black through the limiter at the old size and geometry, keeping the old view size, for
+at most a bounded wait. It SHALL NOT resample or stretch the output or the trackers.
 
 #### Scenario: A display-scale change during a strobe
 
@@ -107,11 +129,21 @@ SHALL NOT resample or stretch the output or the trackers.
   black only through the grant, with no red transition granted within one second after the
   switch
 
+### Requirement: Display-scale switch
+
+After the fade, the host SHALL switch to the new size with the whole output and tracker state
+tracked black and `G` written fully spent, and SHALL present black, without running the limiter,
+for longer than the coverage interval counted from the first black frame presented at the new size.
+
+#### Scenario: Black after the switch
+- **WHEN** the host switches to a new display scale
+- **THEN** it presents black for longer than the coverage interval from the first black frame presented
+
 ### Requirement: Combined area
 
-The frame limiter SHALL put both directions of a channel over the limit when a window holds more
-than the limit of pixels that fire in either direction of that channel now or within the coverage
-interval.
+The frame limiter SHALL count, per window, the pixels that fire in any channel and direction now
+or within the coverage interval, and SHALL put every direction over the limit when that count is
+over it.
 
 #### Scenario: Opposite-phase patches
 
@@ -119,6 +151,23 @@ interval.
   the limit and both together over it
 - **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
   the output
+
+#### Scenario: Adjacent luma and red patches
+
+- **WHEN** two adjacent 5 x 8 patches inside one 21 x 12 field toggle at 10 Hz, one black and gray
+  and one black and (100, 0, 0), each under the limit of 63 and both together over it
+- **THEN** the pixel auditor counts at most 6 large-area transitions in every 1 s window of the
+  output
+
+### Requirement: Joint channel grant
+
+A frame asking both the luma and the red budget SHALL be admitted only when both are ready, and
+when both red directions are asked the grant SHALL admit one, the other than at the last red grant.
+
+#### Scenario: Red rising then falling at 120 Hz
+
+- **WHEN** a frame shows black, then (100, 0, 0), then (255, 0, 0), then black forever at 120 Hz
+- **THEN** the output reaches black within 8 / (2 maxFlashHz) s plus one luma refill period
 
 ### Requirement: Geometry change spends the budget
 

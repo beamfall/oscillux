@@ -173,12 +173,15 @@ test('the codes track WCAG linear light and take its thresholds', () => {
   const lin = k => { const c = k / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const L = Float64Array.from({ length: 256 }, (_, k) => lin(k));
   const C = Int32Array.from(model.LUMA_LUT, v => v[3]);
-  let lumaErr = 0, redErr = 0, redMiss = 0, satMiss = 0;
+  let lumaErr = 0, lumaUp = 0, lumaDown = 0, redErr = 0, redMiss = 0, satMiss = 0;
   for (let r = 0; r < 256; r++) {
     for (let g = 0; g < 256; g++) {
       for (let b = 0; b < 256; b++) {
         const y = 32767.5 * (0.2126 * L[r] + 0.7152 * L[g] + 0.0722 * L[b]);
-        lumaErr = Math.max(lumaErr, Math.abs(model.lumaCode(r, g, b) - y));
+        const e = model.lumaCode(r, g, b) - y;
+        lumaErr = Math.max(lumaErr, Math.abs(e));
+        lumaUp = Math.max(lumaUp, e);
+        lumaDown = Math.max(lumaDown, -e);
         const d = 65535 * (L[r] - L[g] - L[b]);
         redErr = Math.max(redErr, Math.abs(C[r] - C[g] - C[b] - d));
         if (d >= 258 && model.redCode(r, g, b) === 0) redMiss++;
@@ -191,9 +194,16 @@ test('the codes track WCAG linear light and take its thresholds', () => {
   assert.equal(redMiss, 0, `${redMiss} red colours (saturated or not) measure no red`);
   assert.equal(satMiss, 0, `${satMiss} saturated red colours fail the saturation test`);
   assert.equal(model.LUMA_MAX, 32767);
-  assert.equal(model.LUMA_STEP, Math.floor(0.1 * 32767.5));
-  assert.equal(model.LUMA_DARK, Math.ceil(0.8 * 32767.5) + 1);
-  assert.equal(model.RED_STEP, (20 / 320) * 65536 / 256);
+  // The steps are the thresholds less the codes' worst error either way (Codex round 13): a luma
+  // change of 0.1 moves the integer code by at least ceil(3276.75 - up - down), a red change of
+  // 20/320 moves the red code (a >> 8 of the difference) by at least floor((4096 - 3) / 256) = 15,
+  // and a darker side below 0.8 has a code below 26214 + up.
+  assert.ok(model.LUMA_STEP <= Math.ceil(0.1 * 32767.5 - lumaUp - lumaDown), `luma step ${model.LUMA_STEP} (${lumaUp}, ${lumaDown})`);
+  assert.equal(model.LUMA_STEP, 3275);
+  assert.ok(model.LUMA_DARK >= 0.8 * 32767.5 + lumaUp, `luma dark ${model.LUMA_DARK}`);
+  assert.equal(model.LUMA_DARK, 26215);
+  assert.equal(model.RED_STEP, Math.floor((4096 - 2 * redErr) / 256));
+  assert.equal(model.RED_STEP, 15);
 });
 
 // Codex round 12: WCAG counts a transition between saturated red and an unsaturated state, so a
@@ -591,6 +601,104 @@ test('a geometry change that puts recent pixels over the limit spends the budget
     audit.push(r.out, DT);
   }
   assert.equal(rise.stats.admitted[2], false, 'the rise after the change is admitted');
+  assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
+});
+
+/**
+ * Runs a scene of `colour(t, x, y)` through the model at w x h; returns the auditors of the input
+ * and output and the last output frame. `dt(t)` gives each frame's interval in seconds.
+ */
+function scene(w, h, frames, colour, { dt = () => DT, field, before } = {}) {
+  const lim = model.createLimiter({ width: w, height: h });
+  const input = createAuditor({ width: w, height: h, field }), audit = createAuditor({ width: w, height: h, field });
+  const px = new Uint8Array(w * h * 4);
+  let out = null;
+  for (let t = 0; t < frames; t++) {
+    for (let y = 0, i = 0; y < h; y++) {
+      for (let x = 0; x < w; x++, i += 4) {
+        const c = colour(t, x, y);
+        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      }
+    }
+    before?.(t, lim, input, audit);
+    input.push(px, dt(t));
+    out = lim.step(px, dt(t)).out;
+    audit.push(out, dt(t));
+  }
+  return { input, audit, out };
+}
+const phase = (keys, t) => keys.findLast(([from]) => t >= from)[1];
+
+// Codex round 13: a fall to a red code of 0 kept its direction only in the auditor; the packed
+// tracker read (0, 0) back as no direction and missed the rise and fall after it.
+test('a fall to red code 0 keeps its direction (Codex round 13)', () => {
+  const seq = [[0, [0, 0, 0]], [1, [80, 0, 0]], [91, [0, 0, 0]], [181, [110, 60, 0]], [182, [45, 0, 0]],
+    [183, [110, 0, 0]], [184, [0, 0, 0]]];
+  const { input, audit } = scene(64, 36, 260, t => phase(seq, t));
+  assert.ok(input.maxPerWindow('red') >= 2, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 13: an unsaturated rise left the gated tracker falling, so the saturated fall after
+// it was skipped by both the auditor and the limiter.
+test('an unsaturated reversal does not hide the red flash after it (Codex round 13)', () => {
+  const seq = [[0, [110, 0, 0]], [1, [65, 40, 0]], [91, [110, 60, 0]], [92, [45, 0, 0]], [93, [110, 60, 0]]];
+  const { input, audit } = scene(64, 36, 180, t => phase(seq, t));
+  assert.ok(input.maxPerWindow('red') >= 2, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 13: adjacent 5 x 8 luma and red patches in one 21 x 12 field (limit 63) flash 80
+// pixels together, each channel under the limit.
+test('adjacent luma and red patches count as one combined area (Codex round 13)', () => {
+  const { input, audit } = scene(64, 36, 180, (t, x, y) => {
+    const on = Math.floor(t / 3) % 2 === 1;
+    if (!on || y < 10 || y >= 18 || x < 20 || x >= 30) return [0, 0, 0];
+    return x < 25 ? [180, 180, 180] : [100, 0, 0];
+  });
+  assert.ok(input.maxPerWindow('red') >= 2, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 13: colour pairs just over WCAG's thresholds whose rounded codes differ by exactly
+// the old steps.
+for (const [name, a, b, channel, most] of [
+  ['luma 0.100001', [40, 18, 42], [68, 76, 210], 'luma', 6],
+  ['red 20.006', [63, 37, 46], [78, 4, 23], 'red', 1],
+]) {
+  test(`a full-frame 10 Hz strobe just over the ${name} threshold is limited (Codex round 13)`, () => {
+    const { input, audit } = scene(64, 36, 180, t => (Math.floor(t / 3) % 2 ? b : a));
+    assert.ok(input.maxPerWindow(channel) > most, `the input shows ${input.maxPerWindow(channel)} ${channel} per 1 s`);
+    assert.ok(audit.maxPerWindow(channel) <= most, `the output shows ${audit.maxPerWindow(channel)} ${channel} per 1 s`);
+  });
+}
+
+// Codex round 13: at 120 Hz a pixel that needs both budgets froze while luma and red grants never
+// coincided; the joint grant admits both together.
+test('a change needing both budgets reaches the output (Codex round 13)', () => {
+  const seq = [[0, [0, 0, 0]], [1, [100, 0, 0]], [2, [255, 0, 0]], [3, [0, 0, 0]]];
+  const { audit, out } = scene(64, 36, 480, t => phase(seq, t), { dt: () => 1 / 120 });
+  assert.ok(out.every((v, i) => i % 4 === 3 || v === 0), 'the output never reached black in 4 s');
+  assert.ok(audit.maxPerWindow('red') <= 1, `the output shows ${audit.maxPerWindow('red')} red per 1 s`);
+});
+
+// Codex round 13: the auditor's window is measured in time, so two red transitions 700 ms apart
+// at a variable cadence are in one second.
+test('the auditor counts its window in time, not frames (Codex round 13)', () => {
+  const seq = [[0, [0, 0, 0]], [1, [160, 0, 0]], [62, [0, 0, 0]]];
+  const { input } = scene(64, 36, 80, t => phase(seq, t), { dt: t => (t === 30 ? 0.2 : 1 / 120) });
+  assert.equal(input.maxPerWindow('red'), 2);
+});
+
+// Codex round 13: a 7 x 7 fall shown 0.5 s after a full-frame rise, under the wcag limit; the
+// geometry then changes to desktop. The fall was judged in the field shown when it happened, and
+// the limiter holds what follows.
+test('a geometry change after a small fall stays within the red budget (Codex round 13)', () => {
+  const { audit } = scene(64, 36, 150, (t, x, y) => {
+    const red = t > 0 && !((t === 30 || t === 31) && x < 7 && y < 7);
+    return red ? [160, 0, 0] : [0, 0, 0];
+  }, { before: (t, lim, input, out) => { if (t === 31) { lim.setGeometry('desktop'); input.setGeometry(GEOMETRY.desktop); out.setGeometry(GEOMETRY.desktop); } } });
   assert.ok(audit.maxPerWindow('red') <= 1, `red ${audit.maxPerWindow('red')} per 1 s`);
 });
 
