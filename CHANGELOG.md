@@ -59,7 +59,7 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   stretched (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from
   `windowOf()` and the limit in pixels, computed from physical pixels and divided by the square of
   the texel size. The area is one count of pixels changing in any channel and direction; the luma
-  step is 3275 codes and the red step 15. Hosts carry the fraction of each frame's refill to the next frame, so a small `maxFlashHz` at a high frame rate still refills. Steps in one direction are one transition however long they pause. Frames are supported from 64 x 36 to 8192 x 8192;
+  step is 3275 codes and the red step 15. Hosts carry the fraction of each frame's refill to the next frame, so a small `maxFlashHz` at a high frame rate still refills. A tracker fires on a full step back from its extreme or a further full step onward from its last transition, so an area whose pixels started rising at different times is counted when it rises together; the refill earns one unit under a token a token period, the red refill carries its remainder exactly, and the first frame after the host writes the budget refills nothing. Frames are supported from 64 x 36 to 8192 x 8192;
   hosts clamp larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
   field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.
 - Feedback trails (`feedbackTrail`) and Ink's advection and dye, caustic and edge injection scale their per-frame decay, zoom and

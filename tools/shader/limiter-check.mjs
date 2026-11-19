@@ -133,7 +133,7 @@ async function pageMain({ passes, cases, helpers, time }) {
     for (const f of s.fOut) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, f.f);
       gl.clearBufferfv(gl.COLOR, 0, new Float32Array(4));
-      gl.clearBufferuiv(gl.COLOR, 1, new Uint32Array([32767, 0, 255, 0]));
+      gl.clearBufferuiv(gl.COLOR, 1, new Uint32Array([0, 8192, 0, 0]));
     }
     return s;
   }

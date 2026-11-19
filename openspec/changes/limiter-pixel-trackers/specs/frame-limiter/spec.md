@@ -183,12 +183,20 @@ area.
 - **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
   output
 
-### Requirement: Same-direction steps are one transition
+### Requirement: Each threshold step is a transition
 
-A tracker SHALL count steps in one direction, however long it pauses between them, as one
-transition ending at the furthest extreme; only a full step back from that extreme is the next
-transition. A flash is a pair of opposing changes (ITU-R BT.1702, WCAG 2.x), so a rise, a plateau
-and a further rise are one rise, as in the pixel auditor.
+A tracker SHALL fire on a full step back from its extreme since its last transition, or on a
+further full step onward from the level at its last transition, in each case with the darker side
+below the dark limit; an onward step that is not dark enough moves that level without firing. The
+pixel auditor SHALL count the same way. Pixels that started changing at different times can then
+complete a step together, and their joint change is measured over the area.
+
+#### Scenario: Staggered patches
+
+- **WHEN** two adjacent patches, each under the area limit and over it together, step up a frame
+  apart and then rise and fall together, repeating every 16 frames, in grey and in red
+- **THEN** the pixel auditor counts at most 6 large-area luma and 1 red transition in every 1 s
+  window of the output
 
 #### Scenario: Rise, plateau, rise, fall
 
@@ -199,9 +207,11 @@ and a further rise are one rise, as in the pixel auditor.
 
 ### Requirement: Red refills at any rate
 
-Whenever the luma budget refills, the red budget SHALL refill by at least one unit, and the host
-SHALL carry the fraction of a refill unit to the next frame so a small maxFlashHz refills at any
-frame rate.
+The red budget SHALL refill by exactly an eighth of the luma refill, carrying the remainder to the
+next frame, and the host SHALL carry the fraction of a refill unit to the next frame so a small
+maxFlashHz refills at any frame rate. The host SHALL earn one unit under a token a token period, so
+the carried fraction cannot complete a token early, and SHALL refill nothing on the first frame
+after it writes the budget.
 
 #### Scenario: A tiny maximum flash rate
 
@@ -212,7 +222,19 @@ frame rate.
 
 - **WHEN** maxFlashHz is 0.003, frames come 480 times a second and a red change spends the red
   budget
-- **THEN** the red deficit falls within 4 frames
+- **THEN** the red deficit falls within 40 frames
+
+#### Scenario: A carried fraction
+
+- **WHEN** a full frame turns white after 1/60 s and then alternates black and white at intervals
+  just under 1/6 s
+- **THEN** the pixel auditor counts at most 6 large-area luma transitions in every 1 s window of
+  the output
+
+#### Scenario: A tiny frame interval
+
+- **WHEN** frames come every 10 µs at maxFlashHz 3 and a red change spends the red budget
+- **THEN** after 0.33 s the red deficit is still above 60% of a token
 
 ### Requirement: Geometry change spends the budget
 

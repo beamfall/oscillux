@@ -7,14 +7,16 @@
 // include luma-lut.glsl (rows, output), which measure pixels.
 //   lu.limiter0 = (window columns, window rows, area limit in pixels, token refill)
 //   lu.limiter1 = (tick in [0, 240), frame interval in ms, 0, 0)
-// Tracker state, one RGBA16UI texel per pixel (uTrack, oTrack): x, y luma lo, hi (15-bit; bit 15
-// of x is set when the red tracker's latest change was counted, bit 15 of y when a saturated red
-// state was seen since that change); z red lo | hi << 8; w four 4-bit recency stamps (luma up,
-// luma down << 4, red up << 8, red down << 12), 0 absent, else the event's unit (tick >> 4) + 1.
-// After a rise lo is the maximum code and hi the peak; after a fall hi is 0 and lo the trough, or
-// (2, 1) for a trough of 0; lo <= hi is no direction. (32767, 0) in x, y marks a pixel with no state
-// yet (the reference model's start); hosts start the texture at zero, tracked black (README.md,
-// "Ping-pong and reset").
+// Tracker state, one RGBA16UI texel per pixel (uTrack, oTrack). Each measure's tracker has a
+// direction (the way it last fired), its extreme since then (the peak when rising, the trough when
+// falling) and its reference (the level at its last transition), stored as the extreme and the
+// reference's distance from it, which stays under the step. x: luma extreme (15 bits), bit 15 set
+// while the red tracker's latest change has not counted; y: luma distance (12 bits), bit 12 rising,
+// bit 13 no state yet (the reference model's start), bit 15 a saturated red state seen since the red
+// tracker's latest change; z: red extreme (8 bits), red distance << 8 (4 bits), bit 12 rising; w four
+// 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the
+// event's unit (tick >> 4) + 1. The zero texel is tracked black: falling at 0 with every change
+// counted. Hosts start the texture at zero (README.md, "Ping-pong and reset").
 
 const int BLOCKS_X = 64;
 const int BLOCKS_Y = 36;
@@ -31,8 +33,11 @@ const int LUMA_DARK = 26215; // 0.8 (26214, plus 0.74): the darker side is below
 // saturated bits.
 const int LUMA_MAX = 32767;
 const uint LUMA_MASK = 32767u;
-const uint COUNT_BIT = 32768u;
-const uint SAT_BIT = 32768u;
+const uint PEND_BIT = 32768u;  // x: the red tracker's latest change has not counted
+const uint LUMA_UP = 4096u;    // y: the luma tracker last fired rising
+const uint UNTRACKED = 8192u;  // y: no state yet
+const uint SAT_BIT = 32768u;   // y: a saturated red state seen since the red tracker's latest change
+const uint RED_UP = 4096u;     // z: the red tracker last fired rising
 const int RED_STEP = 15;     // 20 on WCAG's 320 max(0, R - G - B) scale (16 of 256, less 1.01)
 const int NO_DARK = 256;
 const int RED_MAX = 255;
@@ -47,36 +52,30 @@ bool limiterRecent(uint s, int unit, float deltaMs) {
     return s > 0u && deltaMs <= COVERAGE_MS && (unit - (int(s) - 1) + 15) % 15 <= 5;
 }
 
-// A fall's packed (lo, hi): the trough in lo and 0 in hi, or (2, 1) for a trough of 0, which
-// (0, 0) would read back as no direction (Codex round 13).
-ivec2 limiterFall(int trough) {
-    return trough > 0 ? ivec2(trough, 0) : ivec2(2, 1);
+// The audit counter's step on a tracker (extreme, distance, rising) for value v: returns
+// (extreme', distance', rising', change), change 1 rising, -1 falling, 0 none. A change of at least
+// stepSize whose darker side is below dark is a transition: against the direction from the extreme
+// (a reversal), or onward from the reference, the level at the previous transition. So a rise, a
+// pause and a further rise of a step are two transitions: a large area can reach a step in one
+// frame after its pixels started rising at different times (Codex round 16).
+ivec4 limiterTrackStep(int ext, int dist, int up, int v, int stepSize, int dark) {
+    if (up != 0) {
+        if (ext - v >= stepSize && v < dark) return ivec4(v, 0, 0, -1);
+        int ref = ext - dist;
+        ext = max(ext, v);
+        if (ext - ref < stepSize) return ivec4(ext, ext - ref, 1, 0);
+        return ivec4(ext, 0, 1, ref < dark ? 1 : 0);
+    }
+    if (v - ext >= stepSize && ext < dark) return ivec4(v, 0, 1, 1);
+    int ref = ext + dist;
+    ext = min(ext, v);
+    if (ref - ext < stepSize) return ivec4(ext, ref - ext, 0, 0);
+    return ivec4(ext, 0, 0, ext < dark ? -1 : 0);
 }
 
-// The audit counter's step on a packed tracker (lo, hi) for value v: returns (lo', hi', change),
-// change 1 rising, -1 falling, 0 none. Every change moves the tracker, whether or not it counts as
-// a transition (limiterRedStep decides that for red). Steps in one direction are one transition
-// however long they pause between them (a flash is a pair of opposing changes, ITU-R BT.1702,
-// WCAG 2.x): a rise, a plateau and a further rise end at one extreme.
-ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCode) {
-    int dir = 0;
-    if (lo > hi) {
-        if (lo == maxCode) {
-            dir = 1;
-            lo = hi;
-        } else {
-            dir = -1;
-            lo = hi == 0 ? lo : 0;
-            hi = lo;
-        }
-    }
-    lo = min(lo, v);
-    hi = max(hi, v);
-    if (dir <= 0 && v - lo >= stepSize && lo < dark) return ivec3(maxCode, v, 1);
-    if (dir >= 0 && hi - v >= stepSize && v < dark) return ivec3(limiterFall(v), -1);
-    if (dir > 0) return ivec3(maxCode, hi, 0);
-    if (dir < 0) return ivec3(limiterFall(lo), 0);
-    return ivec3(lo, hi, 0);
+// The luma tracker's step on tracker t for luma code v.
+ivec4 limiterLumaStep(uvec4 t, int v) {
+    return limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & 4095u), (t.y & LUMA_UP) != 0u ? 1 : 0, v, LUMA_STEP, LUMA_DARK);
 }
 
 // The red tracker's step on tracker t for red code rv and saturation sat: returns (z', count,
@@ -86,23 +85,22 @@ ivec3 limiterTrackStep(int lo, int hi, int v, int stepSize, int dark, int maxCod
 // saturated red is not lost. Direction changes never wait for saturation: a gated direction let an
 // unsaturated reversal hide the transition after it (Codex round 13).
 ivec4 limiterRedStep(uvec4 t, int rv, bool sat) {
-    ivec3 s = limiterTrackStep(int(t.z & 255u), int(t.z >> 8u), rv, RED_STEP, NO_DARK, RED_MAX);
-    bool counted = (t.x & COUNT_BIT) != 0u;
+    ivec4 s = limiterTrackStep(int(t.z & 255u), int((t.z >> 8u) & 15u), (t.z & RED_UP) != 0u ? 1 : 0, rv, RED_STEP, NO_DARK);
+    bool counted = (t.x & PEND_BIT) == 0u;
     bool seen = (t.y & SAT_BIT) != 0u;
     int count = 0;
-    if (s.z != 0) {
+    if (s.w != 0) {
         counted = sat || seen;
-        count = counted ? s.z : 0;
+        count = counted ? s.w : 0;
         seen = sat;
     } else {
-        int dir = s.x > s.y ? (s.x == RED_MAX ? 1 : -1) : 0;
-        if (dir != 0 && !counted && sat) {
-            count = dir;
+        if (!counted && sat) {
+            count = s.z != 0 ? 1 : -1;
             counted = true;
         }
         seen = seen || sat;
     }
-    return ivec4(s.x | (s.y << 8), count, counted ? 1 : 0, seen ? 1 : 0);
+    return ivec4(s.x | (s.y << 8) | (s.z << 12), count, counted ? 1 : 0, seen ? 1 : 0);
 }
 
 #ifdef LIMITER_LUT
@@ -131,14 +129,14 @@ int limiterRed(ivec3 c) {
 }
 
 bool limiterUntracked(uvec4 t) {
-    return (t.x & LUMA_MASK) == uint(LUMA_MAX) && (t.y & LUMA_MASK) == 0u;
+    return (t.y & UNTRACKED) != 0u;
 }
 
 // The directions (luma up 1, luma down 2, red up 4, red down 8) tracker t fires in on the pixel
 // with display values c; none for a pixel with no state yet.
 uint limiterFires(uvec4 t, ivec3 c) {
     if (limiterUntracked(t)) return 0u;
-    int fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), limiterLuma(c), LUMA_STEP, LUMA_DARK, LUMA_MAX).z;
+    int fl = limiterLumaStep(t, limiterLuma(c)).w;
     int fr = limiterRedStep(t, limiterRed(c), limiterSat(c)).y;
     return (fl > 0 ? 1u : 0u) | (fl < 0 ? 2u : 0u) | (fr > 0 ? 4u : 0u) | (fr < 0 ? 8u : 0u);
 }

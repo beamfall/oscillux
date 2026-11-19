@@ -42,8 +42,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     limit = fraction * fwPx * fhPx;
   };
   shape(field);
-  // Per pixel and channel (0 luma, 1 red): lo, hi, dir, and the time of the last up/down transition.
-  const lo = [new Float64Array(N), new Float64Array(N)], hi = [new Float64Array(N), new Float64Array(N)];
+  // Per pixel and channel (0 luma, 1 red): the direction of the last transition (1 up, -1 down;
+  // a pixel starts as if it fell to its first value), the extreme since it and the level at it.
+  const ext = [new Float64Array(N), new Float64Array(N)], ref = [new Float64Array(N), new Float64Array(N)];
   const dir = [new Int8Array(N), new Int8Array(N)];
   // Per pixel: whether the red tracker's latest step counted, and whether a saturated red state
   // was seen since it.
@@ -122,14 +123,25 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
 
   function record(k) { transitions[k].push(frame); times[k].push(clock); }
 
-  // One tracker step; returns 1 rising, -1 falling, 0 none.
+  // One tracker step; returns 1 rising, -1 falling, 0 none. A step of the threshold is a transition
+  // against the last one's direction (from the extreme since it) or onward from the level at it:
+  // a rise, a pause and a further rise of a step are two (Codex round 16).
   function track(c, j, v) {
     const step = c === 0 ? LUMA_STEP : RED_STEP, dark = c === 0 ? LUMA_DARK : Infinity;
-    lo[c][j] = Math.min(lo[c][j], v);
-    hi[c][j] = Math.max(hi[c][j], v);
-    if (dir[c][j] <= 0 && v - lo[c][j] >= step && lo[c][j] < dark) { dir[c][j] = 1; lo[c][j] = hi[c][j] = v; return 1; }
-    if (dir[c][j] >= 0 && hi[c][j] - v >= step && v < dark) { dir[c][j] = -1; lo[c][j] = hi[c][j] = v; return -1; }
-    return 0;
+    const e = ext[c], r = ref[c], d = dir[c];
+    if (d[j] > 0) {
+      if (e[j] - v >= step && v < dark) { d[j] = -1; e[j] = r[j] = v; return -1; }
+      e[j] = Math.max(e[j], v);
+      if (e[j] - r[j] < step) return 0;
+      const darker = r[j];
+      r[j] = e[j];
+      return darker < dark ? 1 : 0;
+    }
+    if (v - e[j] >= step && e[j] < dark) { d[j] = 1; e[j] = r[j] = v; return 1; }
+    e[j] = Math.min(e[j], v);
+    if (r[j] - e[j] < step) return 0;
+    r[j] = e[j];
+    return e[j] < dark ? -1 : 0;
   }
 
   function push(px, dt) {
@@ -139,7 +151,11 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     for (let j = 0, i = 0; j < N; j++, i += 4) {
       const r = px[i], g = px[i + 1], b = px[i + 2];
       const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
-      if (!live) { lo[0][j] = hi[0][j] = v; lo[1][j] = hi[1][j] = rv; anySat[j] = sat ? 1 : 0; continue; }
+      if (!live) {
+        ext[0][j] = ref[0][j] = v; ext[1][j] = ref[1][j] = rv; dir[0][j] = dir[1][j] = -1;
+        redCounted[j] = 1; anySat[j] = sat ? 1 : 0;
+        continue;
+      }
       const fl = track(0, j, v);
       if (fl !== 0) { last[fl > 0 ? 0 : 1][j] = clock; firedNow[0] = true; }
       const fr = track(1, j, rv);
@@ -149,7 +165,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
         if (redCounted[j]) count = fr;
         anySat[j] = sat ? 1 : 0;
       } else {
-        if (dir[1][j] !== 0 && !redCounted[j] && sat) { count = dir[1][j]; redCounted[j] = 1; }
+        if (!redCounted[j] && sat) { count = dir[1][j]; redCounted[j] = 1; }
         if (sat) anySat[j] = 1;
       }
       if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firedNow[1] = true; }
@@ -169,7 +185,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       record(4 + c);
       since[2 * c] = since[2 * c + 1] = clock;
     }
-    if (more[0] || more[1]) since.fill(clock);
+    // A combined charge clears only the channels it was charged to: the others' pixels have not been
+    // counted (Codex round 16).
+    for (let c = 0; c < 2; c++) if (more[c]) since[2 * c] = since[2 * c + 1] = clock;
     return now;
   }
 

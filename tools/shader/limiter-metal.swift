@@ -84,13 +84,13 @@ func texture(_ kind: String, _ w: Int, _ h: Int) -> MTLTexture {
     return t
 }
 
-/// Tracker state cleared to "no state yet" (32767, 0, 255, 0) per pixel (shaders/limiter/README.md).
+/// Tracker state cleared to "no state yet" (0, UNTRACKED = 8192, 0, 0) per pixel, the reference
+/// model's start (shaders/limiter/common.glsl).
 func trackTexture(_ w: Int, _ h: Int) -> MTLTexture {
     let t = texture("uint", w, h)
     var px = [UInt16](repeating: 0, count: w * h * 4)
     for i in 0..<(w * h) {
-        px[4 * i] = 32767
-        px[4 * i + 2] = 255
+        px[4 * i + 1] = 8192
     }
     t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: px, bytesPerRow: w * 8)
     return t

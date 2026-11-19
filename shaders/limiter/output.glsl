@@ -22,12 +22,12 @@ void main() {
     int rv = limiterRed(c);
     bool sat = limiterSat(c);
     if (limiterUntracked(t)) {
-        oTrack = uvec4(uint(v), uint(v) | (sat ? SAT_BIT : 0u), uint(rv | (rv << 8)), 0u);
+        oTrack = uvec4(uint(v), sat ? SAT_BIT : 0u, uint(rv), 0u);
         return;
     }
-    ivec3 fl = limiterTrackStep(int(t.x & LUMA_MASK), int(t.y & LUMA_MASK), v, LUMA_STEP, LUMA_DARK, LUMA_MAX);
+    ivec4 fl = limiterLumaStep(t, v);
     ivec4 fr = limiterRedStep(t, rv, sat);
-    uint fired = (fl.z > 0 ? 1u : 0u) | (fl.z < 0 ? 2u : 0u) | (fr.y > 0 ? 4u : 0u) | (fr.y < 0 ? 8u : 0u);
+    uint fired = (fl.w > 0 ? 1u : 0u) | (fl.w < 0 ? 2u : 0u) | (fr.y > 0 ? 4u : 0u) | (fr.y < 0 ? 8u : 0u);
     int unit = int(lu.limiter1.x) >> 4;
     float deltaMs = lu.limiter1.y;
     uint stamps = 0u;
@@ -36,5 +36,5 @@ void main() {
         uint keep = ((fired >> uint(d)) & 1u) != 0u ? uint(unit + 1) : limiterRecent(s, unit, deltaMs) ? s : 0u;
         stamps |= keep << uint(4 * d);
     }
-    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? COUNT_BIT : 0u), uint(fl.y) | (fr.w != 0 ? SAT_BIT : 0u), uint(fr.x), stamps);
+    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? 0u : PEND_BIT), uint(fl.y) | (fl.z != 0 ? LUMA_UP : 0u) | (fr.w != 0 ? SAT_BIT : 0u), uint(fr.x), stamps);
 }

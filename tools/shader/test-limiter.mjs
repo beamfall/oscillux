@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Model tests for the frame flash limiter (tools/shader/limiter-model.mjs): synthetic signals
 // through the model, its output audited pixel by pixel (limiter-audit.mjs). --model <path> runs
-// the same cases against another model file, for parent-commit failure proofs.
+// the same cases against another model file, for parent-commit failure proofs; --grep <text> runs
+// only the cases whose names contain it.
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -719,9 +720,9 @@ test('red a frame ahead of luma is charged to the red budget (Codex round 14)', 
   assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
 });
 
-// Codex round 14: a rise, a plateau and a further rise is one transition; with the fall after it,
-// the staircase still flashes at most once a second through the red budget.
-test('a red staircase rise and fall is rationed as one flash (Codex rounds 14, 15)', () => {
+// Codex round 14: a rise, a plateau, a further rise and a fall still flash at most once a second
+// through the red budget (each step of the threshold is a transition since Codex round 16).
+test('a red staircase rise and fall is rationed through the red budget (Codex rounds 14, 15)', () => {
   const seq = [[0, [0, 0, 0]], [1, [110, 0, 0]], [9, [220, 0, 0]], [17, [0, 0, 0]]];
   const { input, audit } = scene(64, 36, 240, t => phase(seq, t % 24));
   assert.ok(input.maxPerWindow('red') >= 6, `the input shows ${input.maxPerWindow('red')} red per 1 s`);
@@ -779,9 +780,70 @@ test('the refill carries its fraction at a high frame rate (Codex round 15)', ()
   lim.step(px, dt);
   for (let i = 0; i < px.length; i += 4) { px[i] = 160; px[i + 3] = 255; }
   assert.equal(lim.step(px, dt).redDeficit, model.TOKEN, 'the first red change spends the red budget');
+  // Under one luma unit a step, so red (an eighth of the rate) carries its remainder for ~10 steps.
   let deficit = model.TOKEN;
-  for (let f = 0; f < 4; f++) deficit = lim.step(px, dt).redDeficit;
+  for (let f = 0; f < 40; f++) deficit = lim.step(px, dt).redDeficit;
   assert.ok(deficit < model.TOKEN, 'the red budget never refills at 480 Hz');
+});
+
+// Codex round 16: adjacent 4 x 10 patches A and B (80 pixels, over the 63-pixel limit together,
+// 40 each) step up a frame apart and then rise and fall together. Trackers that counted one
+// transition per direction fired on the staggered half-patches and let the joint 100-170 rise and
+// 140-0 fall through. An onward step of the threshold from the last transition counts again.
+for (const [name, paint] of [['grey', v => [v, v, v]], ['red', v => [v, 0, 0]]]) {
+  test(`staggered ${name} patches rising and falling together are limited (Codex round 16)`, () => {
+    const level = (t, b) => {
+      if (t === 0) return 0;
+      const k = ((t - 1) % 16) + 1;
+      if (k === 16) return 0;
+      if (b) return k < 7 ? 0 : k < 8 ? 100 : k < 9 ? 170 : 140;
+      return k < 8 ? 100 : k < 15 ? 170 : 140;
+    };
+    const { input, audit } = scene(64, 36, 240, (t, x, y) => {
+      if (y < 10 || y >= 20 || x < 20 || x >= 28) return [0, 0, 0];
+      return paint(level(t, x >= 24));
+    });
+    const channel = name === 'red' ? 'red' : 'luma', most = name === 'red' ? 1 : 6;
+    assert.ok(input.maxPerWindow(channel) > most, `the input shows ${input.maxPerWindow(channel)} ${channel} per 1 s`);
+    assert.ok(audit.maxPerWindow(channel) <= most, `the output shows ${audit.maxPerWindow(channel)} ${channel} per 1 s`);
+  });
+}
+
+// Codex round 16: a luma charge in the right-hand field cleared the red evidence of every field,
+// so 40 + 40 red rises a frame apart in the left field (80, over its limit of 63) went uncounted.
+test('a luma charge elsewhere keeps pending red evidence (Codex round 16)', () => {
+  const { input } = scene(64, 36, 30, (t, x, y) => {
+    if (y >= 10) return [0, 0, 0];
+    const red1 = t >= 1 && t < 11, red2 = t >= 2 && t < 12, white = t >= 1 && t < 11;
+    if (x < 4) return red1 ? [160, 0, 0] : [0, 0, 0];
+    if (x < 8) return red2 ? [160, 0, 0] : [0, 0, 0];
+    if (x >= 56) return white ? [255, 255, 255] : [0, 0, 0];
+    return [0, 0, 0];
+  });
+  assert.equal(input.maxPerWindow('red'), 2);
+});
+
+// Codex round 16: half a refill unit carried from a 1/60 s first step rounded every later refill up
+// to a token, admitting seven full-frame luma transitions in 999.9991 ms. The clock earns
+// TOKEN - 1 units a token period, so a carry of under one unit cannot finish a token early.
+test('the carried fraction cannot finish a token early (Codex round 16)', () => {
+  const gap = 1 / 6 - 0.00000015;
+  const { audit } = scene(64, 36, 16, t => (t % 2 === 1 ? WHITE : BLACK), { dt: t => (t < 2 ? 1 / 60 : gap) });
+  assert.ok(audit.maxPerWindow('luma') <= 6, `the output shows ${audit.maxPerWindow('luma')} luma per 1 s`);
+});
+
+// Codex round 16: at 10 us a step the red refill rounded up to one unit a step and the red token
+// returned in 650 ms. Red now carries its remainder exactly.
+test('red refills at an eighth of the rate at a tiny frame interval (Codex round 16)', () => {
+  const lim = model.createLimiter({ width: 64, height: 36 });
+  const px = new Uint8Array(64 * 36 * 4), dt = 0.00001;
+  lim.step(px, dt);
+  for (let i = 0; i < px.length; i += 4) { px[i] = 160; px[i + 3] = 255; }
+  assert.equal(lim.step(px, dt).redDeficit, model.TOKEN, 'the red change spends the red budget');
+  // 0.33 s earns about 0.33 of a red token; rounding each step up had returned half of it.
+  let deficit = 0;
+  for (let f = 0; f < 33000; f++) deficit = lim.step(px, dt).redDeficit;
+  assert.ok(deficit > 0.6 * model.TOKEN, `the red budget refilled to ${deficit} in 0.33 s`);
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold
@@ -805,8 +867,11 @@ if (process.argv.includes('--luma-digest')) {
   process.exit(0);
 }
 
+// --grep <text> runs only the cases whose names contain it.
+const grep = process.argv.indexOf('--grep');
+const chosen = grep > 0 ? cases.filter(c => c.name.includes(process.argv[grep + 1])) : cases;
 let failed = 0;
-for (const c of cases) {
+for (const c of chosen) {
   try {
     c.fn();
     console.log(`ok   ${c.name}`);
@@ -815,5 +880,5 @@ for (const c of cases) {
     console.log(`FAIL ${c.name}: ${e.message.split('\n')[0]}`);
   }
 }
-console.log(`limiter model (${model.MODEL}): ${cases.length - failed}/${cases.length} cases pass`);
+console.log(`limiter model (${model.MODEL}): ${chosen.length - failed}/${chosen.length} cases pass`);
 process.exit(failed ? 1 : 0);

@@ -12,8 +12,9 @@ Metal where available) against the vectors.
 - Every pixel carries the pixel auditor's trackers (WCAG 2.2 SC 2.3.1 general flash): a luma
   tracker with a step of 0.1 relative luminance whose darker side is below 0.8, and a red tracker
   with a step of 20 on WCAG's 320 * max(0, R - G - B) scale for saturated red (R / (R + G + B) >=
-  0.8 in linear light). A tracker fires when the pixel has moved a full step from its low or high
-  mark, so a change spread over many frames counts once it adds up. WCAG 2.2's extra u'v' rule
+  0.8 in linear light). A tracker fires when the pixel has moved a full step back from its extreme
+  or onward from the level at its last transition, so a change spread over many frames counts
+  once it adds up. WCAG 2.2's extra u'v' rule
   for red is not modelled.
 - The area of a direction is the number of pixels whose tracker fires now or fired within the
   coverage interval (1/15 s, in 16.7 ms units). The frame is reduced to 64 x 36 sub-blocks (16 x 9

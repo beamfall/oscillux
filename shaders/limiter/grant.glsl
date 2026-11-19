@@ -14,7 +14,7 @@
 // channels is admitted only when both are ready: a pixel changing in both shows the change only if
 // both are admitted, so a grant of one alone would spend its token on a held change (Codex round
 // 13). Inputs uC, uW, uG (the previous grant); output oG = (admitted bits | over bits << 4 | second
-// luma token << 8 | last red grant was down << 9, luma token deficit, red token deficit, luma
+// luma token << 8 | last red grant was down << 9 | red refill remainder << 10, luma token deficit, red token deficit, luma
 // credit). The deficit can reach two tokens after a pair, more than a 16-bit channel holds, so bit
 // 8 of x carries one token of it.
 
@@ -42,8 +42,11 @@ void main() {
     uint previous = last.y + ((last.x >> 8u) & 1u) * TOKEN;
     uint deficit = previous > refill ? previous - refill : 0u;
     uint credit = min(TOKEN, last.w + (refill > previous ? refill - previous : 0u));
-    // At least one unit whenever luma refills: a tiny maxFlashHz must not freeze red (Codex round 14).
-    uint redRefill = refill == 0u ? 0u : max(1u, refill / 8u);
+    // An eighth of the luma refill, its remainder carried in bits 10 to 12 of x: exact at any frame
+    // interval, so a tiny maxFlashHz does not freeze red (Codex round 14) and a very short one does
+    // not refill it early (Codex round 16).
+    uint redEarned = ((last.x >> 10u) & 7u) + refill;
+    uint redRefill = redEarned / 8u;
     uint redDeficit = last.z > redRefill ? last.z - redRefill : 0u;
     bool lastRedDown = ((last.x >> 9u) & 1u) != 0u;
     bool askUp = over && asks.x, askDown = over && asks.y;
@@ -67,6 +70,6 @@ void main() {
     uint admitted = (!over || grantUp ? 1u : 0u) | (!over || grantDown ? 2u : 0u)
         | (!over || grantRedUp ? 4u : 0u) | (!over || grantRedDown ? 8u : 0u);
     uint high = deficit > TOKEN ? 1u : 0u;
-    oG = uvec4(admitted | (over ? 240u : 0u) | (high << 8u) | (lastRedDown ? 512u : 0u),
+    oG = uvec4(admitted | (over ? 240u : 0u) | (high << 8u) | (lastRedDown ? 512u : 0u) | ((redEarned & 7u) << 10u),
         deficit - high * TOKEN, redDeficit, credit);
 }

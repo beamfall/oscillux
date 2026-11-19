@@ -32,9 +32,15 @@ The uniform block holds two vectors:
   - `limit` is the area limit in pixels, a quarter of the field's pixels; a window is over when
     its count is strictly greater.
   - `refill` is the token refill this frame: `earned = carry + clamp(2 * maxFlashHz * dt, 0, 1) *
-    65025`, `refill = min(65025, floor(earned))`, then `carry = min(1, earned - refill)`, starting
+    65024`, `refill = min(65025, floor(earned))`, then `carry = min(1, earned - refill)`, starting
     at 0. Carrying the fraction keeps a small `maxFlashHz` at a high frame rate refilling; without
-    it every frame floors to 0 and a spent budget never returns (Codex round 15).
+    it every frame floors to 0 and a spent budget never returns (Codex round 15). The rate is one
+    unit under a token a token period, so the carry, under one unit, cannot finish a token early
+    (Codex round 16).
+  - On the first frame after the host writes `G` (start, a lost context restored, a geometry
+    change or a resize), `refill` is 0 and `carry` restarts at 0: time that passed before `G` was
+    written does not repay it. `deltaMs` stays the real interval, which ages the trackers' stamps
+    (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
   - `deltaMs` is the frame interval as float32.
@@ -69,7 +75,7 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 | 2 | `reduce` | 64 x 36 | `uRows` | `oS`, the same layout summed over the sub-block; a sub-block requests each direction one of its pixels fires in now |
 | 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, 0, 0): the cell's pixel count, directions firing now and recent directions << 4 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): 1 when the window with its origin at this cell counts more than the limit |
-| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8 \| last red grant was down << 9, luma token deficit, red token deficit, luma credit) |
+| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second luma token << 8 \| last red grant was down << 9 \| red refill remainder << 10, luma token deficit, red token deficit, luma credit) |
 | 6 | `output` | frame | `uFrame`, `uHist` (previous output), `uTrack` (previous), `uG` (this frame) | `oColor`, `oTrack` |
 
 Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 red falling.
@@ -85,9 +91,10 @@ grant of one alone would spend its token on a held change (Codex round 13). When
 fires now, a channel firing nowhere but changed recently in the frame is asked too, in one
 direction (rising when it rose), so its own token pays for the combined area: red changing alone
 under the limit and luma over it a frame later cannot spend only the luma token (Codex round 14).
-The red refill is at least one unit whenever luma refills, so a tiny `maxFlashHz` never freezes
-red. The floor can only shorten red's refill when luma's is under 8 units a frame, that is at a
-`maxFlashHz` far below 1, where a red token still takes over a second.
+The red refill is exactly an eighth of the luma refill: the remainder of each division by 8
+carries to the next frame in bits 10 to 12 of `oG.x`, so a tiny `maxFlashHz` or a tiny frame
+interval neither freezes red nor returns its token early. (The first v0.2.9 drafts rounded each
+red refill up to one unit, which at a 10 µs interval returned the token in 650 ms; Codex round 16.)
 
 Pixels flash together whichever way and in whichever channel they change, so the area is one
 count of pixels changing in any channel and direction; over the limit, every direction is over
@@ -115,18 +122,26 @@ unsaturated reversal left the red tracker unmoved, which hid the transition afte
 
 Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.glsl`):
 
-- `x`, `y`: the luma tracker's low and high marks (15-bit); bit 15 of `x` is set when the red
-  tracker's latest change counted, bit 15 of `y` when a saturated red state was seen since it.
-- `z`: the red tracker's low | high << 8.
+- `x`: the luma tracker's extreme (15-bit); bit 15 set while the red tracker's latest change has
+  not counted.
+- `y`: the luma tracker's distance (12-bit); bit 12 set when it last fired rising, bit 13 when the
+  pixel has no state yet (the reference model's start), bit 15 when a saturated red state was seen
+  since the red tracker's latest change.
+- `z`: the red tracker's extreme | distance << 8 (4-bit) | rising << 12.
 - `w`: four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12); 0 is
   none, else the event's unit `(tick >> 4) + 1`.
 
-A tracker fires when the pixel moves a full step (luma 0.1, red 20 on WCAG's scale) from its
-low or high mark with the darker side below 0.8, so a change over many frames counts as soon as
-it adds up to a step, and the area counts pixels exactly whatever share of a sub-block moves.
-A tracker past a rise keeps its peak, however long the rise pauses: steps in one direction are
-one transition, and only a full step back from the peak is the next (a flash is a pair of opposing
-changes, ITU-R BT.1702, WCAG 2.x). The pixel auditor counts the same way.
+Each tracker has a direction (the way it last fired), an extreme since then (the peak after a
+rise, the trough after a fall) and a reference, the level at its last transition, stored as its
+distance from the extreme, which stays under a step. A tracker fires when the pixel moves a full
+step (luma 0.1, red 20 on WCAG's scale) with the darker side below 0.8: back from the extreme (a
+reversal), or onward from the reference (a further step the same way). A change over many frames
+counts as soon as it adds up to a step, and the area counts pixels exactly whatever share of a
+sub-block moves. An onward step whose darker side is not below 0.8 moves the reference without
+firing. Counting each step of a threshold, not one per direction, matters for areas: pixels that
+started rising at different times can reach a step together, and a large area whose pixels fired
+one at a time under the limit then makes its joint rise and fall uncounted (Codex round 16; until
+then steps in one direction were one transition). The pixel auditor counts the same way.
 `output` shows history at a pixel whose trackers would fire on the input in a direction the grant
 did not admit and the input everywhere else (until v0.2.9 the whole sub-block held, so holds
 showed as tiles), then steps every pixel's trackers on the colour it shows. The trackers
@@ -146,11 +161,11 @@ tracked black, the value the view showed before the first frame. Content then ri
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
 written fully spent, and black presented without the limiter for longer than the coverage
-interval. After a rise a tracker holds (maximum, peak), after a
-fall (trough, 0), or (2, 1) for a trough of 0. (The tracker value (32767, 0, 255, 0) means no state
-yet: a pixel with no state takes its first value without firing. The reference model and the
-conformance vectors start from it; a host does not, because it would pass its first frame, or the
-first frame after a reset, with no budget charged, CORE-2516.)
+interval. The zero texel is a tracker falling at 0 with every change counted. (A texel with bit
+13 of `y` set means no state yet: a pixel with no state takes its first value without firing, as
+if it fell to it. The reference model and the conformance vectors start from it; a host does not,
+because it would pass its first frame, or the first frame after a reset, with no budget charged,
+CORE-2516.)
 
 `G` and the tracker state are never cleared after the start. When the viewing geometry changes,
 the host passes the new window and limit, keeps the trackers and writes `G` fully spent (below): a
@@ -160,7 +175,10 @@ the new one with no grant paying for them. (Until v0.2.9 `G` was kept, Codex rou
 When the frame size changes at an unchanged display scale (the frame grew or shrank with its
 view), the host keeps `G`, copies the overlap of the output and tracker state 1:1, aligned where
 the view is anchored (its top-left for a view anchored there), and starts the newly exposed area
-as tracked black, so what is drawn there rises through the grant. It then writes `G` fully spent
+as tracked black, so what is drawn there rises through the grant. The newly exposed area is every
+pixel the view did not show the frame before, also when the frame keeps its size: a host that
+clips a fixed frame to a smaller view and later shows more of it clears the newly shown output and
+trackers to zero, or the pixels kept while hidden would appear without a grant (Codex round 16). It then writes `G` fully spent
 (x = 256, y = 65025, z = 65025, w = 0): two luma tokens and the red token of deficit, so no luma
 transition is granted for 2 / (2 · maxFlashHz) seconds and no red transition for
 8 / (2 · maxFlashHz) seconds after any resize. Area that leaves the view is the host page's: the

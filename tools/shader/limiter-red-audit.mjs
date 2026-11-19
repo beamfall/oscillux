@@ -5,7 +5,8 @@
 // Each frame goes through the reference model (limiter-model.mjs, WCAG geometry, bit-identical to
 // the GPU passes by conformance/limiter/frame/) and the independent pixel auditor
 // (limiter-audit.mjs, WCAG field) runs on both the input and the limiter's output. Per visual it
-// reports the most large-area red and luma transitions in any 1 s window, input and output;
+// reports the most large-area red and luma transitions in any 1 s window, input and output (exit
+// 2 when the output exceeds 1 red or 6 luma transitions a second);
 // the frames where the model found red over the area limit, on the input and (a second model
 // instance) on the limiter's output; the output auditor's red transition frames; and the mean
 // and largest held fraction.
@@ -180,7 +181,11 @@ async function main() {
   const flashing = Number.isFinite(MAX_LUMA) ? ok.filter(r => r.lumaIn > MAX_LUMA || r.redIn > 0) : [];
   for (const r of flashing) console.log(`${r.id.padEnd(22)} FLASHES luma/s ${r.lumaIn} red/s ${r.redIn} before the limiter, over --max-luma ${MAX_LUMA} or any red`);
   if (results.length > ok.length && (Number.isFinite(MAX_HELD) || Number.isFinite(MAX_LUMA))) process.exit(3);
-  process.exit(ok.some(r => r.redOut > 0) ? 2 : overHeld.length ? 3 : flashing.length ? 4 : 0);
+  // The limiter's output keeps WCAG's budgets: 1 red and 6 luma transitions a second (exit 2),
+  // separately from the stricter source budget of --max-luma (Codex round 16).
+  const overBudget = ok.filter(r => r.redOut > 1 || r.lumaOut > 6);
+  for (const r of overBudget) console.log(`${r.id.padEnd(22)} OUTPUT red/s ${r.redOut} luma/s ${r.lumaOut}, over 1 red or 6 luma a second`);
+  process.exit(overBudget.length ? 2 : overHeld.length ? 3 : flashing.length ? 4 : 0);
 }
 
 await main();
