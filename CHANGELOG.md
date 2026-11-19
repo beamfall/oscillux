@@ -10,6 +10,18 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Fixed
+
+- Fine reversing checkerboards and stripes now request both luminance directions; paired
+  grants spend two tokens and preserve the six-transition-per-second budget (CORE-2515).
+
+### Changed
+
+- **Host binding change:** the frame limiter rows pass now reads previous output `uHist` at
+  texture unit 1 (Metal texture 1). Hosts must bind it when adopting these shaders. Grant bit 8
+  carries a second token of luminance deficit; the conformance harness decodes it before
+  comparing the model. The C ABI is unchanged.
+
 ## [0.2.8] - 2026-11-17
 
 ### Fixed

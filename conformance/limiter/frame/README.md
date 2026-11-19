@@ -99,3 +99,7 @@ node tools/shader/limiter-vectors.mjs --write   # after a deliberate model chang
 node tools/shader/test-limiter.mjs              # model acceptance tests and pixel auditor
 make limiter-check                              # all of the above, plus the GPU passes
 ```
+
+Fine-pattern cases include a 4 px checker at 640x360 and 1 px reversing stripes. The rows
+pass reads previous output at texture unit 1. Grant bit 8 carries the second luma deficit
+token; vector records compare the low eight grant bits and the decoded full deficit.

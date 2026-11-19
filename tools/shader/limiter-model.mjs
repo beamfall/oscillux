@@ -102,16 +102,27 @@ export function recent(r, tick, deltaMs) {
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
 
-export function reduce(px, W, H, L, R) {
+/** Sub-block means of luma (L) and red (R) codes. With the previous output `hist`, also P: per
+ * sub-block, 3 (luma up and down) when at least 7/16 of its pixels rose by a luma step
+ * against it and at least 7/16 fell (the darker side below LUMA_DARK), else 0. A sub-block
+ * mean cancels such opposing changes (a fine pattern reversing), so the pixel counts catch them
+ * (CORE-2515); a change in one direction moves the mean and the trackers catch it. */
+export function reduce(px, W, H, L, R, hist, P) {
   for (let j = 0; j < BLOCKS_Y; j++) {
     const y0 = Math.floor((j * H) / BLOCKS_Y), y1 = Math.floor(((j + 1) * H) / BLOCKS_Y);
     for (let i = 0; i < BLOCKS_X; i++) {
       const x0 = Math.floor((i * W) / BLOCKS_X), x1 = Math.floor(((i + 1) * W) / BLOCKS_X);
-      let sy = 0, sr = 0;
+      let sy = 0, sr = 0, up = 0, down = 0;
       for (let y = y0; y < y1; y++) {
         for (let x = x0, p = (y * W + x0) * 4; x < x1; x++, p += 4) {
           const r = px[p], g = px[p + 1], b = px[p + 2];
-          sy += LR[r] + LG[g] + LB[b];
+          const v = LR[r] + LG[g] + LB[b];
+          sy += v;
+          if (hist) {
+            const h = LR[hist[p]] + LG[hist[p + 1]] + LB[hist[p + 2]];
+            if (v - h >= LUMA_STEP && h < LUMA_DARK) up++;
+            if (h - v >= LUMA_STEP && v < LUMA_DARK) down++;
+          }
           const R = LIN[r], G = LIN[g], B = LIN[b], s = R + G + B;
           if (s > 0 && 5 * R >= 4 * s && R > G + B) sr += R - G - B;
         }
@@ -120,6 +131,7 @@ export function reduce(px, W, H, L, R) {
       const k = j * BLOCKS_X + i;
       L[k] = Math.min(65535, Math.floor((sy + (n >> 1)) / n));
       R[k] = Math.min(65535, Math.floor((sr + (n >> 1)) / n));
+      if (P) P[k] = 16 * up >= 7 * n && 16 * down >= 7 * n ? 3 : 0;
     }
   }
 }
@@ -128,7 +140,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   if (W < BLOCKS_X || H < BLOCKS_Y) throw new Error(`limiter: frame ${W}x${H} is under ${BLOCKS_X}x${BLOCKS_Y}`);
   const win = windowOf(geometry);
   const clock = createClock(maxFlashHz);
-  const L = new Int32Array(BLOCKS), R = new Int32Array(BLOCKS);
+  const L = new Int32Array(BLOCKS), R = new Int32Array(BLOCKS), P = new Uint8Array(BLOCKS);
   // Tracker state: luma lo/hi/dir, red lo/hi/dir, live, recency stamps (4 per sub-block).
   const lumaT = Array.from({ length: BLOCKS }, () => ({ lo: 0, hi: 0, dir: 0 }));
   const redT = Array.from({ length: BLOCKS }, () => ({ lo: 0, hi: 0, dir: 0 }));
@@ -139,6 +151,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const cnt = new Int32Array(CELLS * 4);
   const scratch = { lo: 0, hi: 0, dir: 0 };
   let deficit = 0;
+  let credit = 0;
   let redDeficit = 0;
   const bufs = [new Uint8Array(W * H * 4), new Uint8Array(W * H * 4)];
   let flip = 0;
@@ -173,7 +186,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
 
   function step(px, dt) {
     const { tick, deltaMs, refill } = clock(dt);
-    reduce(px, W, H, L, R);
+    reduce(px, W, H, L, R, bufs[flip], P);
     const requests = [0, 0, 0, 0];
     cnt.fill(0);
     for (let k = 0; k < BLOCKS; k++) {
@@ -181,7 +194,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       if (live[k]) {
         const fl = fires(lumaT[k], L[k], LUMA_STEP, LUMA_DARK);
         const fr = fires(redT[k], R[k], RED_STEP, NO_DARK);
-        bits = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
+        bits = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0) | P[k];
       }
       req[k] = bits;
       const cell = Math.floor(Math.floor(k / BLOCKS_X) / SUB) * GRID_X + Math.floor((k % BLOCKS_X) / SUB);
@@ -206,11 +219,18 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     // so it never takes or waits for the luminance token and no 1 s window holds two large-area
     // red transitions: no saturated-red flash (ITU-R BT.1702, ADR-0232 R5), and a held red change
     // is admitted within 8 / (2 maxFlashHz) s instead of freezing (R7, CORE-2382).
+    // Both luma directions may be admitted in one frame (a pattern reversing: some pixels rise,
+    // others fall). That spends two tokens: the pair waits until the budget has also stood
+    // unspent for one refill period (credit, at most one token) and leaves two tokens of deficit,
+    // so no 1 s window holds more transitions than singles allow (CORE-2515). A single grant
+    // forfeits the credit.
+    credit = Math.min(TOKEN, credit + Math.max(0, refill - deficit));
     deficit = Math.max(0, deficit - refill);
-    const grantUp = over[0] && requests[0] > 0 && deficit <= 0;
-    if (grantUp) deficit = TOKEN;
-    const grantDown = over[1] && requests[1] > 0 && deficit <= 0;
-    if (grantDown) deficit = TOKEN;
+    const askUp = over[0] && requests[0] > 0, askDown = over[1] && requests[1] > 0;
+    const pair = askUp && askDown;
+    const grantUp = askUp && deficit <= 0 && (!pair || credit >= TOKEN);
+    const grantDown = askDown && deficit <= 0 && (!pair || credit >= TOKEN);
+    if (grantUp || grantDown) { deficit = grantUp && grantDown ? 2 * TOKEN : TOKEN; credit = 0; }
     redDeficit = Math.max(0, redDeficit - Math.floor(refill / 8));
     const grantRedUp = over[2] && requests[2] > 0 && redDeficit <= 0;
     if (grantRedUp) redDeficit = TOKEN;
@@ -237,12 +257,13 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         for (let d = 0; d < 4; d++) rec[4 * k + d] = recent(rec[4 * k + d], tick, deltaMs);
         continue;
       }
-      const fl = trackStep(lumaT[k], L[k], LUMA_STEP, LUMA_DARK);
-      const fr = trackStep(redT[k], R[k], RED_STEP, NO_DARK);
-      const f = [fl > 0, fl < 0, fr > 0, fr < 0];
+      trackStep(lumaT[k], L[k], LUMA_STEP, LUMA_DARK);
+      trackStep(redT[k], R[k], RED_STEP, NO_DARK);
+      // Include transitions detected by opposing pixel counts, even with a constant mean.
       for (let d = 0; d < 4; d++) {
-        rec[4 * k + d] = f[d] ? tick + 1 : recent(rec[4 * k + d], tick, deltaMs);
-        fired[d] += f[d] ? 1 : 0;
+        const f = (req[k] >> d) & 1;
+        rec[4 * k + d] = f ? tick + 1 : recent(rec[4 * k + d], tick, deltaMs);
+        fired[d] += f;
       }
     }
 

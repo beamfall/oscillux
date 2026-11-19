@@ -52,17 +52,27 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 
 | # | Pass | Size | Textures | Outputs |
 |---|---|---|---|---|
-| 1 | `rows` | 64 x frame height | `uFrame` | `oR` (RGBA32UI): per sub-block column and pixel row, the luma sum, linear-light red-excess sum, pixel count |
+| 1 | `rows` | 64 x frame height | `uFrame`, `uHist` (previous output) | `oR` (RGBA32UI): per sub-block column and pixel row, the luma sum, linear-light red-excess sum, pixel count, packed up/down pixel counts |
 | 2 | `reduce` | 64 x 36 | `uRows`, `uT0`, `uT1` | `oS` = (luma code, red code, request bits, 0) |
 | 3 | `cells` | 16 x 9 | `uS`, `uT2` | `oC`: per direction, the count (0..16) of sub-blocks requesting now or within the coverage interval, \| requests << 5 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW`: per direction, an over bit for the window with its origin at this cell |
-| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4, token deficit, 0, 0) |
+| 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| over bits << 4 \| second token << 8, luma deficit remainder, red deficit, luma credit) |
 | 6 | `state` | 64 x 36 | `uS`, `uG` (this frame), `uT0`, `uT1`, `uT2` | `oT0`, `oT1`, `oT2` |
 | 7 | `output` | frame | `uFrame`, `uHist` (previous output), `uT1` (this frame) | `oColor` |
 
 Directions are bit 0 luma rising, bit 1 luma falling, bit 2 red rising, bit 3 red falling.
 
-The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma over the limit
+The rows pass counts pixels that rise/fall by at least `LUMA_STEP` against previous output
+(with the darker state below `LUMA_DARK`). When at least 7/16 of a sub-block rises and at
+least 7/16 falls, reduce requests both luma directions even if the mean stays constant.
+Admitted pixel-count requests update the recency stamps just like mean-based requests.
+
+A paired luma grant waits for one token of unspent credit and leaves two tokens of deficit.
+Because two tokens exceed RGBA16UI capacity, `G.x` bit 8 carries one token: the total deficit
+is `G.y + ((G.x >> 8) & 1) * 65025`. `G.w` holds the credit. Single grants clear that credit.
+
+The `grant` pass keeps two token deficits: luma split across `oG.x` bit 8 and `oG.y`, red
+in `oG.z`. Luma over the limit
 takes the luma token when its deficit is zero. Red over the limit, in either direction, takes the
 red token when its deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s
 window holds two large-area red transitions (no red flash) and a held red change is admitted

@@ -143,7 +143,7 @@ async function pageMain({ passes, cases, helpers, time }) {
   function drawFrame(s) {
     const a = s.cur, b = a ^ 1;
     const [rows, reduce, cells, windows, grant, state, output] = programs;
-    draw(rows, s.fRows, [s.frame]);
+    draw(rows, s.fRows, [s.frame, s.out[a]]);
     draw(reduce, s.fS, [s.rows, s.T0[a], s.T1[a]]);
     draw(cells, s.fC, [s.S, s.T2[a]]);
     draw(windows, s.fW, [s.C]);
@@ -182,7 +182,7 @@ async function pageMain({ passes, cases, helpers, time }) {
       gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
       for (let k = 0; k < mask.length; k++) mask[k] = t1[4 * k + 3] & 1;
       const hold = runLengths(mask);
-      frames.push([hold === last ? '=' : hold, g[0], g[1], fnv1a(out)]);
+      frames.push([hold === last ? '=' : hold, g[0] & 255, g[1] + ((g[0] >> 8) & 1) * 65025, fnv1a(out)]);
       last = hold;
     }
     results.push({ name: c.name, frames });

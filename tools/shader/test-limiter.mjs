@@ -189,6 +189,72 @@ test('10 Hz half-cell checkerboard is limited', () => {
   assert.ok(held.some(h => h > 0), 'nothing was held');
 });
 
+// A full-frame 10 Hz checkerboard of 4 px squares: every sub-block holds both phases, so its mean
+// never changes; only the per-pixel up and down counts against the previous output see the
+// reversal (CORE-2515).
+test('10 Hz fine (4 px) checkerboard is limited', () => {
+  const spec = { kind: 'checker', hz: 10, size: [4 / W, 4 / H], on: WHITE, off: BLACK };
+  const input = createAuditor({ width: W, height: H });
+  const { audit, held } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
+  assert.ok(input.maxPerWindow('luma') >= 10, `input luma ${input.maxPerWindow('luma')} per 1 s`);
+  assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
+  assert.ok(held.some(h => h > 0), 'nothing was held');
+});
+
+// Codex review of CORE-2515: a full-frame step spends the luma token; a pair of grants for a fine
+// pattern must still wait as long as two singles would, so no 1 s window holds more than 6.
+test('a full-frame step before a fine checkerboard stays within 6 transitions a second', () => {
+  const checker = { kind: 'checker', hz: 10, size: [4 / W, 4 / H], on: WHITE, off: BLACK };
+  for (let start = 30; start <= 36; start += 2) {
+    const lim = model.createLimiter({ width: W, height: H });
+    const audit = createAuditor({ width: W, height: H });
+    const px = new Uint8Array(W * H * 4);
+    for (let t = 0; t < start + 120; t++) {
+      if (t > start) renderSignal(checker, t, W, H, px);
+      else px.fill(t < start ? 0 : 255).forEach((_, i) => { if (i % 4 === 3) px[i] = 255; });
+      audit.push(lim.step(px, DT).out, DT);
+    }
+    assert.ok(audit.maxPerWindow('luma') <= 6, `step at ${start}: luma ${audit.maxPerWindow('luma')} per 1 s`);
+  }
+});
+
+// Codex review of CORE-2515: a pair that falls once the token is full must still count as two
+// grants, or full-frame flashes every 11 frames after it fit a seventh transition in 1 s.
+test('a fine-pattern pair before full-frame flashes stays within 6 transitions a second', () => {
+  const lims = [30, 31, 32, 33].map(at => {
+    const lim = model.createLimiter({ width: W, height: H });
+    const audit = createAuditor({ width: W, height: H });
+    const px = new Uint8Array(W * H * 4);
+    for (let t = 0; t < at + 140; t++) {
+      for (let y = 0, i = 0; y < H; y++) {
+        for (let x = 0; x < W; x++, i += 4) {
+          const check = (Math.floor(x / 4) + Math.floor(y / 4) + (t >= at ? 1 : 0)) % 2;
+          const v = t > at + 10 ? (Math.floor((t - at - 11) / 11) % 2 ? 0 : 255) : check ? 255 : 0;
+          px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
+        }
+      }
+      audit.push(lim.step(px, DT).out, DT);
+    }
+    return [at, audit.maxPerWindow('luma')];
+  });
+  lims.forEach(([at, n]) => assert.ok(n <= 6, `pair at ${at}: luma ${n} per 1 s`));
+});
+
+// The reported 640x360 case and 1-3 px reversing stripes must be detected even
+// when every sub-block mean cancels. Audit actual output, including every sliding 1 s window.
+for (const size of [1, 2, 3, 4]) {
+  test(`fine pattern ${size} px at 640x360 stays within the flash budget`, () => {
+    const width = 640, height = 360;
+    const spec = { kind: 'checker', hz: 10, size: [size / width, size === 4 ? size / height : 1], on: WHITE, off: BLACK };
+    const input = createAuditor({ width, height });
+    const { audit, held } = run(spec, { width, height, frames: 240, onFrame: (t, px) => input.push(px, DT) });
+    assert.ok(input.maxPerWindow('luma') > 6, 'fixture must exceed the flash budget');
+    assert.ok(held.some(h => h > 0), 'detector must hold the pattern');
+    assert.ok(audit.maxPerWindow('luma') <= 6, `output luma ${audit.maxPerWindow('luma')}/s`);
+    assert.equal(audit.maxPerWindow('red'), 0);
+  });
+}
+
 // A grey bar one cell wide (W / 16, 35% linear white) on black, moving 0.0071 W a frame,
 // area-antialiased in linear light: each pixel's byte is the one whose linear value is nearest its
 // coverage. At 4K every 1080p pixel is exactly four pixels, so the same scene must make the same

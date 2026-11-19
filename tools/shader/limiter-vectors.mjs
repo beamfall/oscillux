@@ -35,6 +35,8 @@ export const CASES = [
   { name: 'desktop-field-10hz', frames: 90, geometry: 'desktop', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.375, 1 / 3, 0.5625, 2 / 3], bg: G } },
   { name: 'phone-field-10hz', frames: 90, geometry: 'phone', signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.25, 0.25, 0.5, 0.75], bg: K } },
   { name: 'checker-half-cell-10hz', frames: 120, signal: { kind: 'checker', hz: 10, size: [1 / 32, 1 / 18], on: W, off: K } },
+  { name: 'fine-checker-4px-10hz', frames: 240, width: 640, height: 360, signal: { kind: 'checker', hz: 10, size: [4 / 640, 4 / 360], on: W, off: K } },
+  { name: 'fine-stripes-1px-10hz', frames: 120, width: 640, height: 360, signal: { kind: 'checker', hz: 10, size: [1 / 640, 1], on: W, off: K } },
   { name: 'odd-size-checker-10hz', frames: 90, width: 331, height: 193, signal: { kind: 'checker', hz: 10, size: [0.05, 0.07], on: W, off: G } },
 ];
 
