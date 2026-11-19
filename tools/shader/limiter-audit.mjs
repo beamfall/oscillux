@@ -19,9 +19,12 @@ import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode } from './limiter-mod
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
 // The measures are the limiter's 16-bit codes (limiter-model.mjs: lumaCode, redCode) and the
-// thresholds WCAG's on them: luma 6553 codes (0.1) with the darker side below 52429 (0.8, both
-// widened by the codes' rounding); red 16 codes (20 on the 320 scale; any change of 20 moves the
-// red code by at least 16). Until v0.2.9 the auditor measured in floating point, so a change
+// thresholds WCAG's on them, widened by the codes' rounding so a change at a threshold always
+// fires: luma 6550 codes (0.1 is 6553.5 and a difference of two codes is off by at most 3) with
+// the darker side below 52430 (0.8 is 52428); red 15 codes (20 on the 320 scale is 4096 linear
+// codes, 16 red codes less one for the >> 8 floor) on pixels with R + 4 >= 4 (G + B) (saturated
+// red, R / (R + G + B) >= 0.8, less 4.5 codes of rounding). Until v0.2.9 the widening missed the
+// saturation test and was a code short, Codex round 11. Until v0.2.9 the auditor measured in floating point, so a change
 // within a rounding of a threshold could fire one tracker and not the other.
 export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 / 3 }, fraction = 0.25 }) {
   const N = W * H;

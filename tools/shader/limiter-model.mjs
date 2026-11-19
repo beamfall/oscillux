@@ -4,7 +4,7 @@
 // bit. Per frame:
 //   1. Measures: each pixel's luma code is min(65535, LUMA_LUT[r][0] + LUMA_LUT[g][1] +
 //      LUMA_LUT[b][2]) (65535 relative luminance) and its red code (R - G - B) >> 8 on the
-//      saturated-red pixels, 5 R >= 4 (R + G + B) and R > G + B, else 0, where R, G, B are the
+//      saturated-red pixels, R + 4 >= 4 (G + B) and R > G + B, else 0, where R, G, B are the
 //      linear channel codes LUMA_LUT[k][3] = round(65535 linear(k / 255)) (256 red codes are
 //      1.25 on WCAG's 320 max(0, R - G - B) scale). Both are linear light, as WCAG 2.x defines
 //      them. The auditor (limiter-audit.mjs) measures with the same codes.
@@ -13,8 +13,9 @@
 //      nonlinear division and a 2-D distance, which integer codes cannot carry bit for bit
 //      (GLSL ES 3.00 has no 64-bit integers and no correctly rounded float division).
 //   2. Trackers: every pixel has the auditor's transition tracker on each measure (lo, hi,
-//      direction; luma step 6553 codes, 0.1, with the darker side below 52429, 0.8; red step 16
-//      codes, 20 on the 320 scale) and four recency stamps (luma up, luma down, red up, red down)
+//      direction; luma step 6550 codes, 0.1, with the darker side below 52430, 0.8; red step 15
+//      codes, 20 on the 320 scale; each widened by the codes' rounding so a change at a WCAG
+//      threshold always fires) and four recency stamps (luma up, luma down, red up, red down)
 //      kept while inside the coverage interval (1000/15 ms). A pixel requests a direction when
 //      the frame would fire its tracker in it. Until v0.2.9 the trackers ran on 64 x 36 sub-block
 //      means and missed changes that build up over frames or cover part of a sub-block, which the
@@ -59,7 +60,7 @@ export const MODEL = 'pixel-10deg';
 export const BLOCKS_X = GRID_X * SUB, BLOCKS_Y = GRID_Y * SUB;
 const BLOCKS = BLOCKS_X * BLOCKS_Y;
 const CELLS = GRID_X * GRID_Y;
-export const LUMA_STEP = 6553, LUMA_DARK = 52429, RED_STEP = 16, NO_DARK = 256;
+export const LUMA_STEP = 6550, LUMA_DARK = 52430, RED_STEP = 15, NO_DARK = 256;
 export const LUMA_MAX = 65535, RED_MAX = 255;
 export const TOKEN = 65025;
 export const COVERAGE_MS = 1000 / 15;
@@ -88,7 +89,7 @@ export const lumaCode = (r, g, b) => Math.min(LUMA_MAX, LR[r] + LG[g] + LB[b]);
 /** A pixel's red code: (R - G - B) >> 8 when saturated red, else 0. */
 export function redCode(r, g, b) {
   const R = LIN[r], G = LIN[g], B = LIN[b];
-  return 5 * R >= 4 * (R + G + B) && R > G + B ? (R - G - B) >> 8 : 0;
+  return R + 4 >= 4 * (G + B) && R > G + B ? (R - G - B) >> 8 : 0;
 }
 
 /** The host clock: tick in [0, 240), the frame interval in ms, and the token refill. */

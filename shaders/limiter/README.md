@@ -104,24 +104,32 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 `rows`, `reduce`, `cells` and `windows` write single textures that are rebuilt every frame.
 
-At start, and whenever the geometry changes, the host clears `G` and the output to zero and the
-tracker state to (65535, 0, 255, 0): no state yet. A pixel with no state takes its first value
-without firing, so the first frame passes through unchanged.
+At start the host clears `G` to zero, the output to black and the tracker state to zero:
+tracked black, the value the view showed before the first frame. Content then rises from black
+through the grant like any other change. (The tracker value (65535, 0, 255, 0) means no state
+yet: a pixel with no state takes its first value without firing. The reference model and the
+conformance vectors start from it; a host does not, because it would pass its first frame, or the
+first frame after a reset, with no budget charged, CORE-2516.)
 
-When only the frame size changes, the host keeps `G` (the token deficits), carries the current
-output and tracker state into the new size, and passes the new size's window and limit, so a
-resize never hands a strobe a fresh flash budget (CORE-2516). The carried state follows what is on
-screen, so the trackers keep counting at each display position. At an unchanged display scale
-(the frame grew or shrank with its view) the host copies the overlap 1:1, aligned where the view
-is anchored (its top-left for a view anchored there), and the newly exposed area starts with no
-state. Rescaling instead would move fine patterns under fixed display positions without the
-trackers seeing it. Only when the display scale changes (a new device pixel ratio or page zoom) does the host
-rescale the state with nearest-neighbour sampling. A rescale can itself move a pattern under
-fixed display positions, so it is charged to the budget like a granted flash: for
-8 / (2 · maxFlashHz) seconds (one red token's refill) the host keeps rendering at the old size,
-stretched to the view, and writes `G` as fully spent (x = 256, y = 65025, z = 65025, w = 0)
-before every frame; then it rescales and writes `G` fully spent once more. No granted flash then
-shares a one-second window with the rescale.
+`G` and the tracker state are never cleared after the start. When the viewing geometry changes,
+the host only passes the new window and limit.
+
+When the frame size changes at an unchanged display scale (the frame grew or shrank with its
+view), the host keeps `G`, copies the overlap of the output and tracker state 1:1, aligned where
+the view is anchored (its top-left for a view anchored there), and starts the newly exposed area
+as tracked black, so what is drawn there rises through the grant. It then writes `G` fully spent
+(x = 256, y = 65025, z = 65025, w = 0), so no flash is granted for 8 / (2 · maxFlashHz) seconds
+(one red token's refill) after any resize. Area that leaves the view is the host page's: the
+limiter cannot hold what is no longer drawn, and spending `G` keeps a granted flash from
+following it.
+
+When the display scale changes (a new device pixel ratio or page zoom), a resampled frame would
+move patterns under fixed display positions, which no copy of the trackers can account for. The
+host instead keeps rendering at the old size, stretched to the view, and writes `G` fully spent
+before every frame for 8 / (2 · maxFlashHz) seconds. Then it switches to the new size with the
+whole output and tracker state tracked black and writes `G` fully spent once more. The switch
+shows only falls to black, in a window with no other granted transition, and content returns
+through the grant as the budget refills.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

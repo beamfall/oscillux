@@ -16,8 +16,9 @@ must make only the transitions the trackers counted.
 
 ## What Changes
 
-- The output pass shows the previous output on a held sub-block and the input exactly on every
-  other pixel. The hold field, its feather and the red feather guard are removed.
+- The output pass shows the previous output on a held pixel and the input exactly on every
+  other pixel (per-pixel holds since limiter-pixel-trackers; this change first held whole
+  sub-blocks). The hold field, its feather and the red feather guard are removed.
 - `T1.w` holds only the hold bit. No pass gains or loses a texture or uniform; hosts take the
   change by re-vendoring the generated passes.
 - The unreleased `limiter-red-feather` change is dropped.

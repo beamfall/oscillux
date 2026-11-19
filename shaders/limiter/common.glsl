@@ -11,17 +11,18 @@
 // hi << 8; w four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12),
 // 0 absent, else the event's unit (tick >> 4) + 1. After a rise lo is the maximum code and hi
 // the reference; after a fall hi is 0 and lo the reference; lo <= hi is no direction. (65535, 0)
-// in x, y marks a pixel with no state yet; hosts clear the texture to (65535, 0, 255, 0).
+// in x, y marks a pixel with no state yet (the reference model's start); hosts start the texture at
+// zero, tracked black (README.md, "Ping-pong and reset").
 
 const int BLOCKS_X = 64;
 const int BLOCKS_Y = 36;
 const int GRID_X = 16;
 const int GRID_Y = 9;
 const int SUB = 4;
-const int LUMA_STEP = 6553;  // 0.1 relative luminance
-const int LUMA_DARK = 52429; // 0.8: the darker side of a luminance transition is below this
+const int LUMA_STEP = 6550;  // 0.1 relative luminance (6553.5) less the codes' rounding (up to 3), rounded down
+const int LUMA_DARK = 52430; // 0.8 (52428) plus rounding: the darker side is below this
 const int LUMA_MAX = 65535;
-const int RED_STEP = 16;     // 20 on WCAG's 320 max(0, R - G - B) scale
+const int RED_STEP = 15;     // 20 on WCAG's 320 max(0, R - G - B) scale, less rounding
 const int NO_DARK = 256;
 const int RED_MAX = 255;
 const uint TOKEN = 65025u;
@@ -34,12 +35,13 @@ int limiterLuma(ivec3 c) {
 }
 
 // A pixel's red code: (R - G - B) >> 8 of the linear channel codes when saturated red
-// (5 R >= 4 (R + G + B) and R > G + B), else 0.
+// (R / (R + G + B) >= 0.8, that is R >= 4 (G + B), widened by the codes' rounding of 4.5, and
+// R > G + B), else 0.
 int limiterRed(ivec3 c) {
     int r = LUMA_LUT[c.r].w;
     int g = LUMA_LUT[c.g].w;
     int b = LUMA_LUT[c.b].w;
-    return 5 * r >= 4 * (r + g + b) && r > g + b ? (r - g - b) >> 8 : 0;
+    return r + 4 >= 4 * (g + b) && r > g + b ? (r - g - b) >> 8 : 0;
 }
 
 // The audit counter's step on a packed tracker (lo, hi) for value v: returns (lo', hi', fired),

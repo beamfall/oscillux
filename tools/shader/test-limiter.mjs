@@ -164,6 +164,51 @@ test('full-frame [120,50,0]/[0,50,120] 10 Hz is red in linear light and admits <
   assert.ok(audit.maxPerWindow('red') <= 1, `auditor counts ${audit.maxPerWindow('red')} red per 1 s`);
 });
 
+// The codes never under-measure WCAG's linear-light thresholds (Codex round 11): over every 8-bit
+// colour, the luma code is within 1.5 of 65535 Y and R - G - B of the linear codes within 1.5 of
+// 65535 (R - G - B), so a luma change of 0.1 (6553.5) moves the code by at least 6550 (LUMA_STEP),
+// a darker side under 0.8 (52428) reads under 52430 (LUMA_DARK), a red change of 20 on the 320
+// scale (4096 linear codes) moves the red code by at least 15 (RED_STEP), and every saturated
+// colour (R >= 4 (G + B)) passes the code's saturation test.
+test('the 16-bit codes are conservative against WCAG linear-light thresholds', () => {
+  const lin = k => { const c = k / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const L = Float64Array.from({ length: 256 }, (_, k) => lin(k));
+  const C = Int32Array.from(model.LUMA_LUT, v => v[3]);
+  let lumaErr = 0, redErr = 0, satMiss = 0;
+  for (let r = 0; r < 256; r++) {
+    for (let g = 0; g < 256; g++) {
+      for (let b = 0; b < 256; b++) {
+        const y = 65535 * (0.2126 * L[r] + 0.7152 * L[g] + 0.0722 * L[b]);
+        lumaErr = Math.max(lumaErr, Math.abs(model.lumaCode(r, g, b) - y));
+        const d = 65535 * (L[r] - L[g] - L[b]);
+        redErr = Math.max(redErr, Math.abs(C[r] - C[g] - C[b] - d));
+        if (L[r] >= 4 * (L[g] + L[b]) && d >= 256 && model.redCode(r, g, b) === 0) satMiss++;
+      }
+    }
+  }
+  assert.ok(lumaErr <= 1.5, `luma code off by ${lumaErr}`);
+  assert.ok(redErr <= 1.5, `red difference off by ${redErr}`);
+  assert.equal(satMiss, 0, `${satMiss} saturated-red colours fail the code's saturation test`);
+  assert.ok(model.LUMA_STEP <= Math.floor(6553.5 - 2 * lumaErr), `LUMA_STEP ${model.LUMA_STEP}`);
+  assert.ok(model.LUMA_DARK > Math.floor(52428 + lumaErr), `LUMA_DARK ${model.LUMA_DARK}`);
+  assert.ok(model.RED_STEP <= Math.ceil((4096 - 2 * redErr) / 256) - 1, `RED_STEP ${model.RED_STEP}`);
+});
+
+// Codex round 11's two strobes just over a threshold: red 28 on the 320 scale at a red fraction
+// of 0.8000025, and a luma excursion of 0.1000026. Both read as flashing in the input and are
+// limited in the output.
+test('10 Hz strobes just over the red and luma thresholds are limited', () => {
+  for (const [spec, channel, budget] of [
+    [{ kind: 'square', hz: 10, on: [96, 40, 22], off: [0, 0, 0] }, 'red', 1],
+    [{ kind: 'square', hz: 10, on: [65, 77, 193], off: [22, 4, 11] }, 'luma', 6],
+  ]) {
+    const input = createAuditor({ width: W, height: H });
+    const { audit } = run(spec, { frames: 300, onFrame: (t, px) => input.push(px, DT) });
+    assert.ok(input.maxPerWindow(channel) >= 18, `${spec.on}: the input shows ${input.maxPerWindow(channel)} ${channel} per 1 s`);
+    assert.ok(audit.maxPerWindow(channel) <= budget, `${spec.on}: the output shows ${audit.maxPerWindow(channel)} ${channel} per 1 s`);
+  }
+});
+
 test('full-frame luma-only 3 Hz still admits <= 3 flashes in every 1 s window', () => {
   const { audit } = run({ kind: 'square', hz: 3, on: WHITE, off: BLACK }, { frames: 300 });
   assert.equal(audit.maxPerWindow('luma'), 6, `luma ${audit.maxPerWindow('luma')} transitions per 1 s`);
@@ -336,10 +381,12 @@ test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
 
-// The output is exact: a pixel of a held sub-block shows history and every other pixel shows the
-// input, so the output makes only the transitions the trackers counted. A 10 Hz strobe over half
-// a TV 10° field is held while the background drifts a level a frame. (Until v0.2.9 the pixels
-// around a hold blended toward history, which delayed admitted changes: CORE-2541, CORE-2543.)
+// The output is exact: a held pixel shows history and every other pixel shows the input, so the
+// output makes only the transitions the trackers counted. A 10 Hz strobe over half a TV 10° field
+// is held while the background drifts below a step. The strobe's edges fall inside sub-blocks, so
+// background pixels share sub-blocks with held ones and must still show their input (per-pixel
+// holds, Codex round 11). (Until v0.2.9 the pixels around a hold blended toward history, which
+// delayed admitted changes: CORE-2541, CORE-2543.)
 function exactness(bg) {
   const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
   const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
@@ -348,16 +395,17 @@ function exactness(bg) {
     const on = Math.floor(t / 3) % 2 === 1, c = bg(t);
     for (let y = 0; y < H; y++) {
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        const inRect = x >= W / 4 && x < W * 11 / 16 && y >= H / 3 && y < H * 13 / 18;
+        const inRect = x >= W / 4 + 2 && x < W * 11 / 16 + 3 && y >= H / 3 + 1 && y < H * 13 / 18 + 2;
         const v = inRect ? (on ? WHITE : BLACK) : c;
         px[i] = v[0]; px[i + 1] = v[1]; px[i + 2] = v[2]; px[i + 3] = 255;
       }
     }
     const r = lim.step(px, DT);
+    // Every strobe pixel changes alike, so they hold together; the background never fires.
     for (let y = 0; y < H; y++) {
-      const by = model.blockOf(y, H, model.BLOCKS_Y);
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
-        const h = r.holdMask[by * model.BLOCKS_X + model.blockOf(x, W, model.BLOCKS_X)];
+        const inRect = x >= W / 4 + 2 && x < W * 11 / 16 + 3 && y >= H / 3 + 1 && y < H * 13 / 18 + 2;
+        const h = inRect && r.held > 0 ? 1 : 0;
         held += h;
         const src = h ? prev : px;
         for (let ch = 0; ch < 3; ch++) {
@@ -369,10 +417,10 @@ function exactness(bg) {
   }
   return held;
 }
-test('a held sub-block shows history and every other pixel the input', () => {
-  assert.ok(exactness(t => { const v = 60 + (t % 60); return [v, v, v]; }) > 0, 'nothing was held');
-  assert.ok(exactness(t => [255, 150 + (t % 60), 0]) > 0, 'nothing was held');
-  assert.ok(exactness(t => [200, 20 + (t % 60), 0]) > 0, 'nothing was held');
+test('a held pixel shows history and every other pixel the input', () => {
+  assert.ok(exactness(t => { const v = 60 + (t % 8); return [v, v, v]; }) > 0, 'nothing was held');
+  assert.ok(exactness(t => [255, 150 + (t % 8), 0]) > 0, 'nothing was held');
+  assert.ok(exactness(t => [200, 20 + (t % 8), 0]) > 0, 'nothing was held');
 });
 
 // Codex review (CORE-2543): beside a red region held by the red budget, a luma rise admitted at

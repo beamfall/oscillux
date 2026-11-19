@@ -46,24 +46,41 @@ larger frames to 8192 on each side, because a sub-block's per-direction pixel co
 - **WHEN** the reference model is asked for a 16384 x 9216 frame
 - **THEN** it refuses the size instead of wrapping a sub-block's count to zero
 
-### Requirement: Limiter state across a resize
+### Requirement: Limiter state is never cleared
 
-A host SHALL keep the grant state `G` across a frame resize. At an unchanged display scale it
-SHALL copy the output and tracker state 1:1 from the view's anchor, with the newly exposed area
-starting untracked. When the display scale changes it SHALL keep rendering at the old size with `G`
-written fully spent for 8 / (2 · maxFlashHz) seconds, then nearest-neighbour rescale the state and
-write `G` fully spent again.
+A host SHALL start the output black and the tracker state tracked black (zero), and SHALL NOT
+clear the grant state `G` or the trackers after the start, including when the viewing geometry
+changes.
 
-#### Scenario: A strobe across alternating frame widths
+#### Scenario: A geometry change on a live display
 
-- **WHEN** a full-frame red/black strobe plays while the frame width alternates between 64 and 65
-  at one display scale
-- **THEN** the carried trackers and budget admit no more than one red transition a second
+- **WHEN** the viewing geometry changes from `wcag` to `desktop` one frame after a granted red rise
+- **THEN** the trackers and `G` are kept and a red fall on the next frame is held
+
+### Requirement: Resize at one display scale
+
+At an unchanged display scale a resize SHALL copy the output and tracker state 1:1 from the view's
+anchor, start the newly exposed area tracked black, and write `G` fully spent.
+
+#### Scenario: A strobe in an area that a resize exposes
+
+- **WHEN** a left-anchored view alternates between 64 and 128 pixels wide at one display scale and
+  its right half is drawn red whenever it is exposed
+- **THEN** the exposed area starts tracked black, its red rise is held until the budget refills,
+  and no more than one red transition a second is admitted
+
+### Requirement: Display-scale change
+
+When the display scale changes the host SHALL keep rendering at the old size with `G` written fully
+spent for 8 / (2 · maxFlashHz) seconds, then switch to the new size with the whole output and
+tracker state tracked black and write `G` fully spent again. It SHALL NOT resample the output or
+the trackers.
 
 #### Scenario: A display-scale change during a strobe
 
 - **WHEN** the device pixel ratio changes while a red/black pattern plays
-- **THEN** no red transition is granted within one second of the rescale
+- **THEN** the switch shows only falls to black, and no red transition is granted within one
+  second before or after it
 
 ### Requirement: Per-pixel holds
 

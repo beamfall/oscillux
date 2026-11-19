@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+## MODIFIED Requirements
+
+### Requirement: Particles holds little under loud audio
+
+The catalogue Particles (`shaders/manifest.json`) SHALL keep its beat response under the frame
+limiter's area budget: through the limiter model with the red audit's loud audio, no frame SHALL
+hold more than 15% of the frame's pixels. It SHALL still pass `beat-lint`.
+
+#### Scenario: Loud audio
+
+- **WHEN** `make limiter-hold-check` runs the release-leg Particles through
+  `tools/shader/limiter-red-audit.mjs --audio loud --max-held 0.15`
+- **THEN** the largest held fraction of pixels in any frame is at most 0.15 and the check exits 0
+
+#### Scenario: Beat response kept
+
+- **WHEN** `beat-lint` runs on the release-leg Particles
+- **THEN** it passes

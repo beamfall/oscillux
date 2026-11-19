@@ -45,10 +45,12 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   Interference (32%). Cost on an M2 Max: 0.31 ms a frame at 1080p, 0.87 ms at 4K.
   **Host binding change:** six passes (`rows`, `reduce`, `cells`, `windows`, `grant`, `output`).
   `rows` reads `uFrame` and `uTrack`; `output` reads `uFrame`, `uHist`, `uTrack` and `uG` and
-  writes `oColor` and `oTrack` (MRT). Hosts clear the track textures to (65535, 0, 255, 0), carry
-  them across a resize (1:1 from the view's anchor at one display scale, NEAREST-rescaled when
-  the scale changes, after holding the old size with `G` fully spent for 8 / (2 · maxFlashHz) s
-  and spending it again at the switch), and pass the window from `windowOf()` and the limit in pixels.
+  writes `oColor` and `oTrack` (MRT). Hosts start the output black and the track textures at
+  zero (tracked black) and never clear `G` or the trackers after the start; a resize at one
+  display scale copies the overlap 1:1 from the view's anchor, starts the exposed area tracked
+  black and writes `G` fully spent; a display-scale change holds the old size with `G` fully spent
+  for 8 / (2 · maxFlashHz) s, then switches with everything tracked black and spends `G` again
+  (shaders/limiter/README.md, "Ping-pong and reset"). Hosts pass the window from `windowOf()` and the limit in pixels.
   Frames are supported from 64 x 36 to 8192 x 8192 (sub-block counts are 16-bit); hosts clamp
   larger frames. `state.glsl` is removed. Frame conformance vectors re-recorded with a track digest and window
   field, and new `fine-checker-10hz` and `tv-half-field-10hz-orange-drift` cases.

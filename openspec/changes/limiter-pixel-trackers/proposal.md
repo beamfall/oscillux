@@ -35,6 +35,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   show as sub-block tiles (CORE-2492). The output pass no longer reads the sub-block counts.
 - Six passes (rows, reduce, cells, windows, grant, output); the state pass and the sub-block state
   textures go. The output pass writes the frame and the new tracker state (two outputs).
+- The Particles hold budget (`visual-defaults`) moves from 5% of sub-blocks to 15% of the frame's
+  pixels, since holds are now counted per pixel (`make limiter-hold-check --max-held 0.15`).
 - Memory: 8 bytes per pixel, twice for the ping-pong (133 MB at 3840 x 2160), in place of 64 x 36
   sub-block state.
 
@@ -45,10 +47,11 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 
 ## Failure modes
 
-- Hosts must bind and ping-pong `uTrack`, clear it to "no state yet" (luma lo 65535, hi 0, red
-  255 | 0 << 8, stamps 0) on creation, and carry it across a resize (1:1 from the view's anchor at one display
-  scale, nearest-neighbour rescaled when the display scale changes, after holding the old size with `G` fully
-  spent for 8 / (2 · maxFlashHz) s and spending it again at the switch).
+- Hosts must bind and ping-pong `uTrack`, start it at zero (tracked black) with the output
+  black, never clear it or `G` after the start, and follow the resize rule (1:1 copy from the view's anchor
+  at one display scale with the exposed area tracked black and `G` written fully spent; on a display-scale
+  change, hold the old size with `G` fully spent for 8 / (2 · maxFlashHz) s, then switch with everything
+  tracked black and spend `G` again).
 - More holds where many small areas change at once, since partial coverage now counts in full.
 
 ## Acceptance evidence
