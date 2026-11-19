@@ -106,10 +106,17 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 At start, and whenever the geometry changes, the host clears `G` and the output to zero and the
 tracker state to (65535, 0, 255, 0): no state yet. A pixel with no state takes its first value
-without firing, so the first frame passes through unchanged. When only the frame size changes,
-the host keeps `G` (the token deficits), copies the current output and tracker state into the
-new size with nearest-neighbour sampling, and passes the new size's window and limit, so a resize
-never hands a strobe a fresh flash budget (CORE-2516).
+without firing, so the first frame passes through unchanged.
+
+When only the frame size changes, the host keeps `G` (the token deficits), carries the current
+output and tracker state into the new size, and passes the new size's window and limit, so a
+resize never hands a strobe a fresh flash budget (CORE-2516). The carried state follows what is on
+screen, so the trackers keep counting at each display position. At an unchanged display scale
+(the frame grew or shrank with its view) the host copies the overlap 1:1, aligned where the view
+is anchored (its top-left for a view anchored there), and the newly exposed area starts with no
+state. Rescaling instead would move fine patterns under fixed display positions without the
+trackers seeing it. Only when the display scale changes (a new device pixel ratio) does the host
+rescale the state with nearest-neighbour sampling.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

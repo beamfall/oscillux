@@ -46,7 +46,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
 ## Failure modes
 
 - Hosts must bind and ping-pong `uTrack`, clear it to "no state yet" (luma lo 65535, hi 0, red
-  255 | 0 << 8, stamps 0) on creation, and carry it across a resize (nearest-neighbour copy).
+  255 | 0 << 8, stamps 0) on creation, and carry it across a resize (1:1 from the view's anchor at one display
+  scale, nearest-neighbour rescaled when the display scale changes).
 - More holds where many small areas change at once, since partial coverage now counts in full.
 
 ## Acceptance evidence
