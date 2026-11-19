@@ -45,11 +45,14 @@ The uniform block holds two vectors:
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
   - `deltaMs` is the frame interval as float32: a lower bound on the time the previous frame was
     shown, never more. A host that cannot see paint times takes the shorter of its frame clock's and
-    its wall clock's intervals since the last draw, and no more than the display's refresh period
-    (the Beamfall web host: the shortest draw interval seen, at least 4 ms and at most a 24 Hz
-    refresh, since a host that only draws slowly cannot measure its display), since the previous
-    frame may have been painted late and this one on time (Codex rounds 18 to 20). A host that
-    draws slower than its display refreshes then ages evidence slower and holds changes longer.
+    its wall clock's intervals since the last draw. The previous frame may have been painted one
+    refresh late and this one on time, so it was shown for max(R, interval - R) for the display's
+    refresh period R. A host that knows R only from above takes the least of that over every R up
+    to its bound, max(interval / 2, interval - bound), and no more than the bound (the Beamfall web
+    host: the bound is the shortest draw interval seen, at least 4 ms and at most a 24 Hz refresh;
+    animation frames can run at every other refresh, so a host drawing at its animation-frame rate
+    credits half of each interval) (Codex rounds 18 to 21). A host that credits less than the
+    time shown ages evidence slower and holds changes longer.
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
     a step the screen never showed, and a transition the screen does show can then go uncounted.
@@ -99,14 +102,16 @@ The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma o
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
 deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
 large-area red transitions (no red flash) and a held red change is admitted instead of freezing
-(CORE-2382): by the first frame at which the intervals since the spend, each counted up to one
-refill period of 1 / (2 maxFlashHz) s and the first not at all, add up to (65025 / 65024) · 8
-periods. At a steady cadence that is 1.333 s and a frame at the default 3 Hz, or 9 frames when
-every frame is longer than a period; a mixed cadence of long and short frames takes longer than
-either, because a long frame earns only one period (Codex round 20). A refill period earns one
-unit under a token and a frame's refill is capped at a token, so eight periods repay
-8 · 65024 / 8 = 65024 of the red token's 65025 and the last unit takes 1/65024 of a period more
-(Codex rounds 17 and 19). The bound is per grant: red grants one direction
+(CORE-2382): by the first frame at which the `deltaMs` of the frames after the spend, each
+counted up to one refill period of 1 / (2 maxFlashHz) s, add up to (65025 / 65024) · 8 periods.
+At a steady cadence that is 1.333 s and a frame at the default 3 Hz, or the ninth frame after the
+spend when every frame is longer than a period; a mixed cadence of long and short frames takes
+longer than either, because a long frame earns only one period (Codex round 20). A host write
+of `G` is not a grant: it writes the red token spent and the first frame after it earns nothing,
+so after `setGeometry` a red change held from its first frame at 250 ms frames is admitted on the
+tenth (Codex round 21). A refill period earns 65024 / 8 red units and a frame's refill is capped
+at one period, so eight periods repay 65024 of the red token's 65025 and the last unit takes
+8/65024 of a period more (Codex rounds 17, 19 and 21). The bound is per grant: red grants one direction
 at a time, so an area held both rising and falling is admitted in two steps, the second one bound
 after the first (Codex round 18). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both

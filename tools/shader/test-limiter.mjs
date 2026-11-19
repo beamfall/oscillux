@@ -132,8 +132,8 @@ test('a lasting full-frame red-to-cyan change reaches the output within 1.5 s', 
 
 // Codex round 20: the red release bound at a mixed cadence. A frame's refill is capped at one
 // refill period, so a long frame earns less than its length. A full-frame red rise spends the
-// token; the fall to black is held until the frames' intervals, each counted up to one refill
-// period and the first after the spend not at all, add up to (65025 / 65024) 8 periods.
+// token; the fall to black is held until the intervals of the frames after the spend, each
+// counted up to one refill period, add up to (65025 / 65024) 8 periods (Codex round 21).
 test('a held red fall is admitted within the capped-interval bound at a mixed cadence (Codex round 20)', () => {
   const lim = model.createLimiter({ width: W, height: H });
   const px = new Uint8Array(W * H * 4);
@@ -147,13 +147,36 @@ test('a held red fall is admitted within the capped-interval bound at a mixed ca
   let counted = 0, bound = -1, released = -1;
   for (let t = 0; t < 40; t++) {
     const dt = t % 2 ? 0.010 : 0.250;
-    if (t > 0) counted += Math.min(dt, period);
+    counted += Math.min(dt, period);
     if (bound < 0 && counted >= need) bound = t;
     const r = lim.step(px, dt);
     if (released < 0 && r.held === 0 && r.out[0] === 0) released = t;
   }
   assert.ok(bound > 9, `the cadence is mixed enough to exceed nine frames (bound at frame ${bound})`);
-  assert.ok(released >= 0 && released <= bound + 1, `released at frame ${released}, bound frame ${bound}`);
+  assert.equal(released, bound, `released at frame ${released}, bound frame ${bound}`);
+});
+
+// Codex round 21: at a steady 250 ms cadence a held red fall is released on the ninth frame after
+// the spend. setGeometry writes the red token spent and its first frame earns nothing, so a red
+// rise held from that frame is admitted on the tenth.
+test('a held red change is released on the ninth frame after a grant, the tenth after setGeometry (Codex round 21)', () => {
+  const px = new Uint8Array(W * H * 4);
+  const fill = rgb => { for (let i = 0; i < px.length; i += 4) px.set([...rgb, 255], i); };
+  const admitted = (lim, rgb) => {
+    fill(rgb);
+    for (let t = 1; t < 40; t++) {
+      const r = lim.step(px, 0.25);
+      if (r.held === 0 && r.out[0] === rgb[0]) return t;
+    }
+    return -1;
+  };
+  const lim = model.createLimiter({ width: W, height: H });
+  fill(BLACK); lim.step(px, 0.25);
+  fill([255, 0, 0]);
+  assert.equal(lim.step(px, 0.25).redDeficit, model.TOKEN, 'the red rise spends the red token');
+  assert.equal(admitted(lim, BLACK), 9);
+  lim.setGeometry('wcag');
+  assert.equal(admitted(lim, [255, 0, 0]), 10);
 });
 
 // CORE-1616: red that covers part of every sub-block. One pixel column in three switches between

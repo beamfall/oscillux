@@ -27,7 +27,7 @@ spend, each counted up to 1 / (2 x maxFlashHz) s and the first not at all, add u
 
 #### Scenario: Lasting red change
 
-- **WHEN** a full-frame saturated red changes to cyan and stays cyan
+- **WHEN** a full-frame saturated red changes to cyan and stays cyan, at a steady cadence
 - **THEN** the output shows the cyan input within 1.5 s
 
 #### Scenario: A mixed cadence
@@ -62,9 +62,16 @@ quarter of the field's pixels.
 
 #### Scenario: The limiter's trackers are the auditor's
 
-- **WHEN** any sequence of frames runs through the limiter and the auditor reads its output
+- **WHEN** any sequence of frames runs through the limiter and the auditor reads its output, both
+  starting from the same tracker state
 - **THEN** every pixel's tracker makes the auditor's transition decisions for that pixel, on every
   frame, although a compressed tracker may decode to a different reference
+
+#### Scenario: A host reset is conservative
+
+- **WHEN** the host zeroes the trackers over a presented frame, whose red memory is then unknown
+- **THEN** the limiter may count red transitions the auditor, which saw the frames before, does
+  not, and never fewer
 
 #### Scenario: A fall below 0.8 after a bright start
 
