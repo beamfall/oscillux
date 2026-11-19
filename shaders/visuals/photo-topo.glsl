@@ -7,29 +7,39 @@
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     p.y = -p.y; // y-up world (raw +p.y is down-screen)
-    // slow enough that contour lines pass a pixel well under 3 times a second:
-    // faster, the whole field strobes as the lines sweep over it
-    float speed    = mix(0.08, 0.40, u.param0);
+    // Contour lines sweep the land at speed * contours lines a second. Each
+    // passing line edge is a luma transition, so at the top of both ranges
+    // (1.3 lines/s, plus the beat surge) a third of the frame still changes
+    // less than a quarter of its pixels in 1/15 s: well inside the source
+    // flash budget. Faster, the whole field strobes as the lines sweep it.
+    float speed    = mix(0.04, 0.14, u.param0);
     float hAmt     = mix(0.22, 0.55, u.param1);
-    float contours = mix(5.0, 12.0, u.param2);
+    float contours = mix(4.0, 9.0, u.param2);
 
     // ground plane: horizon high in frame, near field at the bottom
     float horizonY = 0.62;
     float z = 1.0 / max(0.09, horizonY - p.y); // depth: small near, huge at horizon
     vec2 world = vec2(p.x * z * 1.45, z * 0.85 + u.time * speed);
-    vec2 wUV = fract(world * 0.22 + 0.5);
+    // mirrored tiling: no seam where the photo's opposite edges meet, which
+    // otherwise rolls toward the viewer as a bright slope-lit band
+    vec2 wUV = 1.0 - abs(1.0 - mod(world * 0.22 + 0.5, 2.0));
 
     vec3 photoC = max(IMG(photoCover(wUV, u.resolution, IMGSIZE)).rgb, vec3(0.0));
     float lum = luma(photoC);
     // slope shade from a second luminance tap slightly "north"
-    float lum2 = luma(max(IMG(photoCover(fract(wUV + vec2(0.0, 0.03)), u.resolution, IMGSIZE)).rgb, vec3(0.0)));
+    vec2 wUV2 = 1.0 - abs(1.0 - mod(world * 0.22 + 0.5 + vec2(0.0, 0.03), 2.0));
+    float lum2 = luma(max(IMG(photoCover(wUV2, u.resolution, IMGSIZE)).rgb, vec3(0.0)));
     float shade = clamp(0.62 + (lum - lum2) * 5.0, 0.25, 1.35);
 
-    float h = lum * hAmt + bandAt(u, fract(world.x * 0.22 + 0.5)) * 0.28;
-    // contours lurch forward on each beat (eased, continuous across beats):
-    // the beat moves the lines instead of pumping their brightness
+    // the spectrum only ripples the ridges: a kick moves the low bands by
+    // ~0.15 at once, and at full weight that swept every line across the
+    // field within a frame or two
+    float h = lum * hAmt + bandAt(u, fract(world.x * 0.22 + 0.5)) * 0.05;
+    // contours surge forward on each beat (eased, continuous across beats):
+    // the beat moves the lines instead of pumping their brightness. A small
+    // step keeps the surge's sweep within the flash budget.
     float beatT = u.beatCount + 1.0 - pow(1.0 - saturate(u.beatPhase), 3.0);
-    float contour = aaLineCyclic((world.y + h) * contours - beatT * 0.15,
+    float contour = aaLineCyclic((world.y + h) * contours - beatT * 0.06,
                                  0.045);
     float cross = aaLineCyclic(world.x * 6.0, 0.020) * 0.30;
 

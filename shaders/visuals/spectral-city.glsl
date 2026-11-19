@@ -32,7 +32,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float z = 1.0 / max(0.045, uv.y - floorY + 0.05);
         float lane = (uv.x - 0.5) * z;
         float grid = aaLineCyclic(lane * 0.34, 0.018) + aaLineCyclic(z * 0.10 - u.time * 0.22, 0.018);
-        col += palVisual(fract(lane * 0.04 + z * 0.02), u) * grid * road * 0.26 * smoothstep(13.0, 1.2, z);
+        // lift green under the warm end so the red-orange lane lines never
+        // read as saturated red
+        vec3 rc = palVisual(fract(lane * 0.04 + z * 0.02), u);
+        rc.g = max(rc.g, 0.6 * rc.r - rc.b);
+        col += rc * grid * road * 0.26 * smoothstep(13.0, 1.2, z);
     }
 
     // Towers sit on a 72-cell grid with half-width <= 0.014 (~1 cell),
@@ -60,8 +64,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec2 bp = vec2((uv.x - x) * sx, uv.y - (base - h * 0.5));
         float tower = boxFillW(bp, vec2(w, h * 0.5), px);
         float edge = aaLineW(abs(bp.x) - w, 0.0014, px.x) * step(abs(bp.y), h * 0.52);
-        float rows = aaLineCyclicW((uv.y - base + h) * 42.0, 0.03, px.y * 42.0) * tower;
+        // window rows are anchored to the base, not the roof: tied to the
+        // band-driven height, every sub-pixel row line in the tower slid and
+        // aliased each time the band moved, relighting the skyline (18 luma/s)
+        float rows = aaLineCyclicW((uv.y - base) * 42.0, 0.03, px.y * 42.0) * tower;
         vec3 c = palVisual(x + u.time * 0.018, u);
+        // keep G+B >= 0.6 R: the warm end of the palette drifting across a
+        // tower made a large saturated-red area
+        c.g = max(c.g, 0.6 * c.r - c.b);
         col += c * tower * (0.12 + bandv * 0.65);
         col += peakWhite(c, rows * u.treble * 0.08) * rows * (0.7 + bandv * 3.0);
         // edges glint with the kick rather than flare: 72 lit outlines at once

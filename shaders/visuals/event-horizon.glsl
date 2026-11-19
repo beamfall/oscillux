@@ -7,6 +7,27 @@
 // visual: this stays an opaque vortex tunnel.
 // param0 = Pull ; param1 = Spin ; param2 = Disk Detail
 
+// Flash budget (limiter-red-audit --audio loud --max-luma 6): no brightness,
+// radius or hue here follows an instant kick value (bassImpact, onset, bass,
+// the low spectrum bins) or jumps at the beatPhase wrap. The beat reaches the
+// picture as ehSwell, a ~180 ms attack and slow release that is continuous
+// across the wrap: horizon breathing, photon-ring flare, ember glints and a
+// thin ripple, kept small over the disk.
+
+// palVisual without its free-mode beatPhase nudge, which steps at the wrap.
+vec3 ehPal(float t, VisualUniforms u) {
+    return palVisual(t - (u.palette.x >= 0.0 ? 0.0 : 0.015 * u.beatPhase), u);
+}
+
+// 0 on the beat, rising fastest on it and peaking ~180 ms later (at 120 BPM),
+// easing back to 0 by the next beat; continuous across the wrap and scaled by
+// the smoothed level, never by an instant kick value.
+float ehSwell(VisualUniforms u) {
+    float bp = fract(u.beatPhase);
+    float k = 1.0 - saturate(bp / 0.36);
+    return (1.0 - k * k) * (1.0 - smoothstep(0.36, 1.0, bp)) * saturate(u.level * 1.15);
+}
+
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     p = rot2(-0.12) * p;
@@ -20,10 +41,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float spin   = mix(0.12, 0.75, u.param1);
     float detail = mix(2.5, 7.0, u.param2);
 
-    float coreR = 0.165 + 0.012 * sin(u.time * 0.7) + 0.045 * u.bassImpact;
+    float swell = ehSwell(u);
+    float coreR = 0.165 + 0.012 * sin(u.time * 0.7) + 0.012 * swell;
 
-    // gravitational shear — inner material orbits faster
-    float swirl = a + pull / (rS + 0.11) + u.time * spin;
+    // gravitational shear — inner material orbits faster. The arms turn at
+    // half the spin rate: at full rate their bright edges sweep enough of the
+    // disk per frame that the flash limiter holds (ghosts) large areas.
+    float swirl = a + pull / (rS + 0.11) + u.time * spin * 0.5;
 
     vec3 col = vec3(0.0);
 
@@ -48,50 +72,59 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // doppler beaming — the approaching side burns brighter and bluer
     float dopp = 0.5 + 0.5 * sin(a + u.time * spin * 0.6);
 
-    float bandE = bandAt(u, saturate((rS - coreR) * 1.1)); // bass feeds the horizon
     float hue = fract(0.04 + heat * 0.22 + dopp * 0.10 + 0.06 * u.spectralCentroid);
-    vec3 hot = palRoleBass(hue, u);
-    vec3 cold = palVisual(hue + 0.34, u);
+    vec3 hot = mix(ehPal(hue + 0.10, u), ehPal(0.03 + hue * 0.18, u), 0.7);
+    vec3 cold = ehPal(hue + 0.34, u);
     vec3 armCol = mix(cold, hot, saturate(heat * 1.2));
 
-    float exposure = 0.65 + 1.3 * u.level + 1.6 * u.bassImpact * heat;
-    col += armCol * disk * win * (0.55 + 2.6 * heat) * (0.5 + 0.9 * dopp) * exposure * (0.6 + 0.8 * bandE);
+    float exposure = 0.65 + 1.3 * u.level + 0.5 * swell * heat;
+    col += armCol * disk * win * (0.55 + 2.6 * heat) * (0.5 + 0.9 * dopp) * exposure * 1.2;
 
     // ---- infalling ember streams ----
     for (int i = 0; i < 36; ++i) {
         float fi = float(i);
         vec2 h = hash22(vec2(fi, 5.7));
-        float life = fract(h.y + u.time * (0.10 + 0.22 * h.x) + u.beatCount * 0.05);
+        float life = fract(h.y + u.time * (0.10 + 0.22 * h.x));
         float er = mix(1.25, coreR * 1.05, life); // falls inward
         float ea = h.x * 6.2831853 + pull / (er + 0.11) * 0.9 + u.time * spin;
         vec2 ep = vec2(cos(ea), sin(ea)) * er;
-        float dd = length(p - ep);
-        float ember = min(2.2, 3.5e-4 / (dd * dd + 3.5e-4));
-        vec3 ec = palRoleBass(h.x * 0.3, u);
-        ec = peakWhite(ec, life * u.onset * 0.25);
-        col += ec * ember * life * (0.4 + 1.8 * u.mid) * smoothstep(coreR, coreR * 1.5, er);
+        // compact core only: a halo or long tail sums, over 36 embers, into
+        // a glow wide enough that the limiter holds the disk around it
+        vec2 dv = p - ep;
+        float dd2 = dot(dv, dv);
+        float ember = exp(-dd2 * 4500.0);
+        // fade in at the rim and out before the final whip round the horizon,
+        // where an ember's streak would flash a ring of pixels every frame
+        float fade = smoothstep(0.0, 0.2, life) * (1.0 - smoothstep(0.55, 0.85, life));
+        vec3 ec = mix(ehPal(h.x * 0.3 + 0.10, u), ehPal(0.03 + h.x * 0.054, u), 0.7);
+        ec = peakWhite(ec, life * swell * 0.25);
+        col += ec * ember * fade * life * (0.25 + 1.1 * u.mid) * smoothstep(coreR, coreR * 1.5, er);
     }
 
     // ---- HDR photon ring ----
-    float ring = aaLine(r - coreR * 1.06, 0.006 + 0.004 * u.bassImpact);
-    vec3 ringCol = peakWhite(palVisual(0.07 + 0.05 * u.spectralCentroid, u),
-                             0.35 + 0.45 * u.bassImpact);
-    col += ringCol * ring * (3.5 + 4.5 * u.bassImpact) * (0.55 + 0.45 * dopp);
+    float ring = aaLine(r - coreR * 1.06, 0.006 + 0.004 * swell);
+    vec3 ringCol = peakWhite(ehPal(0.07 + 0.05 * u.spectralCentroid, u),
+                             0.35 + 0.45 * swell);
+    col += ringCol * ring * (3.5 + 4.5 * swell) * (0.55 + 0.45 * dopp);
 
     // faint lensed halo just outside the ring
-    col += palRoleRim(0.12, u) * exp(-abs(r - coreR * 1.06) * 22.0) * (0.5 + 1.4 * u.bass);
+    vec3 rimCol = mix(ehPal(0.12, u), peakWhite(ehPal(0.30, u), 0.2), 0.45);
+    col += rimCol * exp(-abs(r - coreR * 1.06) * 22.0) * (0.5 + 0.9 * u.level + 0.3 * swell);
 
-    // onset flare: a shockwave ripple racing outward
-    float shockR = coreR * 1.1 + fract(u.beatPhase) * 0.9;
-    col += palRolePeak(0.2, u) * aaLine(r - shockR, 0.010) * u.onset * 2.4
-         * (1.0 - smoothstep(0.6, 1.1, r));
+    // beat ripple: a thin, soft ring leaving the horizon, faint and fading
+    // as it widens so it never sweeps a bright band over the disk
+    float bp = fract(u.beatPhase);
+    float shockR = coreR * 1.1 + bp * 0.9;
+    float shockA = smoothstep(0.0, 0.12, bp) * (1.0 - smoothstep(0.25, 0.75, bp));
+    col += ehPal(0.2, u) * aaLine(r - shockR, 0.004) * shockA * 0.6 * saturate(u.level * 1.15)
+         * (1.0 - smoothstep(0.45, 0.9, r));
 
     // ---- absolute black core ----
     col *= smoothstep(coreR * 0.70, coreR * 1.00, r);
 
     // swirl smear trails
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.88),
-                        0.006 + 0.011 * u.bassImpact,
+                        0.006 + 0.004 * swell,
                         0.004 + 0.004 * spin);
     return col; // LINEAR HDR
 }

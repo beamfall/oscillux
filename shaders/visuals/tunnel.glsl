@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Tunnel "Event Horizon".
 // A tilted polar tunnel: concentric rings fly toward a black core, a circular
-// spectrum equalizer rings the void, bass throws radial spikes, embers stream
-// outward, feedback zoom makes warp trails.
+// spectrum equalizer rings the void, the beat throws radial spikes, embers
+// stream outward, feedback zoom makes warp trails.
 // param0 = Flight Speed ; param1 = Twist ; param2 = Ring Detail
+//
+// Flash budget (CORE-2659): under loud audio the visual keeps within the
+// general flash limit on its own. The music moves things (ring surge, tick
+// length, spike reach, embers) instead of switching large areas bright and
+// dark, beat-driven reach has a ~200 ms attack, and palette reads stay off the
+// red end of the ramp so nothing large turns red and back.
+
+// Mirror the palette coordinate into [0, 0.74]: continuous, and clear of the
+// red stop at the top of the default ramp.
+vec3 tunnelPal(float t, VisualUniforms u) {
+    return palVisual(0.74 * abs(fract(t) * 2.0 - 1.0), u);
+}
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
@@ -22,62 +34,75 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 col = vec3(0.0);
 
-    // beat count that surges after each beat and never jumps back at the wrap
-    // (beatPhase alone snapped every ring and ember back once a beat)
-    float beatSurge = floor(u.beatCount) + 1.0 - pow(1.0 - u.beatPhase, 3.0);
+    // beat count that surges after each beat and never jumps back at the wrap;
+    // the surge takes 40% of a beat (200 ms at 120 BPM), so it reads as a push
+    float beatSurge = floor(u.beatCount) + smoothstep(0.0, 0.4, u.beatPhase);
+    // beat envelope for the spikes: ~200 ms rise, release over the rest of the beat
+    float beatEnv = smoothstep(0.0, 0.4, u.beatPhase) * (1.0 - smoothstep(0.4, 1.0, u.beatPhase));
 
     // radius window: keep the action in a ring band, fade to black elsewhere
-    float band01 = smoothstep(0.12, 0.22, r) * (1.0 - smoothstep(0.9, 1.3, r));
+    float band01 = smoothstep(0.12, 0.22, r) * (1.0 - smoothstep(0.85, 1.25, r));
 
     // ---- flythrough concentric rings ----
+    // Thin in screen space at every radius (depth changes as 1/r^2), so the
+    // outer rings sweep past as lines rather than wide bands. Every pixel sees
+    // a ring pass about once a second, so the rings stay bright only in the
+    // small throat inside the equalizer and fade to faint guides beyond it:
+    // bright rings over the whole band were ~30 large-area flashes a second.
     float depth = 1.0 / max(r, 0.05) + u.time * speed + beatSurge * 0.12;
-    float ringLine = aaLineCyclic(depth, 0.08) * band01;
-    vec3 ringCol = palVisual(fract(depth * 0.12 + ang01 * 0.1 + 0.03 * u.time), u);
-    col += ringCol * ringLine * (0.2 + 0.4 * u.amplitude);
+    float ringD = abs(fract(depth) - 0.5) * r * r;
+    float ringLine = aaLine(ringD, 0.0035) * band01;
+    vec3 ringCol = tunnelPal(floor(depth) * 0.17 + ang01 * 0.1 + 0.02 * u.time, u);
+    col += ringCol * ringLine * mix(0.9, 0.06, smoothstep(0.2, 0.36, r));
 
     // ---- circular spectrum equalizer around a base radius ----
     float baseR = 0.40;
     int   bi = int(ang01 * float(NBANDS)) % NBANDS;
     float bandH = band(u, bi);
-    float tickOuter = baseR + 0.02 + bandH * 0.40;
-    float tickMask  = step(baseR, r) * step(r, tickOuter);
+    float tickOuter = baseR + 0.03 + bandH * 0.30;
+    float h = r - baseR;
     float cell = fract(ang01 * detail * 2.0);
-    tickMask *= smoothstep(0.0, 0.12, cell) * smoothstep(1.0, 0.88, cell);
-    vec3 tickCol = palVisual(ang01 + 0.1 * u.spectralCentroid, u);
+    float cellMask = smoothstep(0.08, 0.22, cell) * smoothstep(0.92, 0.78, cell);
+    float body = step(0.0, h) * (1.0 - smoothstep(tickOuter - 0.012, tickOuter, r)) * cellMask;
+    vec3 tickCol = tunnelPal(ang01 + 0.1 * u.spectralCentroid, u);
     tickCol = accentize(tickCol, u.accent, 0.15);
-    col += tickCol * tickMask * (1.2 + bandH * 5.0);
+    // dim body that fades toward the tip, bright cap that rides the level
+    col += tickCol * body * (0.42 * exp(-h * 5.0) + 0.06);
+    float cap = aaLine(r - (tickOuter - 0.008), 0.005) * cellMask;
+    col += mix(tickCol, vec3(1.0), 0.25) * cap * 1.5;
 
     // base rim line at the equalizer radius
-    col += palVisual(ang01, u) * aaLine(r - baseR, 0.004) * 2.5;
+    col += tunnelPal(ang01, u) * aaLine(r - baseR, 0.004) * 2.0;
 
-    // ---- bass radial spikes ----
+    // ---- beat radial spikes: thin rays that reach out on the beat ----
     float spikeCell = fract(ang01 * 24.0);
-    float spike = smoothstep(0.10, 0.0, abs(spikeCell - 0.5)) * step(baseR, r);
-    // kept as accents: at full strength the 24 spikes lit a third of the frame per kick
-    col += palVisual(ang01 + 0.25, u) * spike * (1.0 - smoothstep(baseR, 1.5, r)) * u.bassImpact * 1.2;
+    float spike = smoothstep(0.06, 0.0, abs(spikeCell - 0.5)) * step(baseR, r);
+    float reach = baseR + 0.45 + 0.5 * beatEnv * (0.4 + 0.6 * u.bass);
+    float spikeFade = 1.0 - smoothstep(baseR + 0.2, reach, r);
+    col += tunnelPal(ang01 + 0.25, u) * spike * spikeFade * 0.9;
 
     // ---- ember sparks streaming outward ----
     for (int i = 0; i < 44; i++) {
         float fi = float(i);
-        vec2 h = hash22(vec2(fi, 7.0));
-        float sa = h.x * 6.2831853 + 0.3 * sin(u.time * 0.2 + fi);
-        float life = fract(h.y + u.time * (0.15 + 0.45 * h.x) + beatSurge * 0.07);
+        vec2 hh = hash22(vec2(fi, 7.0));
+        float sa = hh.x * 6.2831853 + 0.3 * sin(u.time * 0.2 + fi);
+        float life = fract(hh.y + u.time * (0.15 + 0.45 * hh.x) + beatSurge * 0.07);
         float sr = mix(baseR, 1.7, life);
         vec2 sp = vec2(cos(sa), sin(sa)) * sr;
         float d = length(p - sp);
-        float spark = min(2.0, 0.0004 / (d * d + 4e-4));
-        vec3 sparkCol = palVisual(h.x, u);
+        float spark = min(2.0, 0.0003 / (d * d + 3e-4));
+        vec3 sparkCol = tunnelPal(hh.x, u);
         sparkCol = peakWhite(sparkCol, u.treble * (1.0 - life) * 0.18);
-        col += sparkCol * spark * (1.0 - life) * (0.5 + u.treble * 2.2);
+        col += sparkCol * spark * (1.0 - life) * (0.5 + u.treble * 1.5);
     }
 
     // ---- black event-horizon core + inner rim glow ----
     col *= smoothstep(0.0, 0.18, r);
-    col += palVisual(0.72, u) * aaLine(r - 0.16, 0.015) * (0.6 + u.bass) * 1.8;
+    col += tunnelPal(0.72, u) * aaLine(r - 0.16, 0.012) * (1.2 + 0.4 * u.level);
 
     // ---- stable feedback warp trails (subtle zoom -> content flies outward) ----
-    col = feedbackTrail(col, uv,
-                        min(u.trailDecay, 0.88), 0.003 + 0.002 * u.bassImpact, 0.003 * twist + 0.002 * u.beat);
+    // Constant zoom and twist: a kick-driven zoom moved the whole trail field at once.
+    col = feedbackTrail(col, uv, min(u.trailDecay, 0.86), 0.004, 0.003 * twist);
 
     return col; // LINEAR HDR — post chain tonemaps
 }
