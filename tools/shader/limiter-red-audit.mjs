@@ -14,12 +14,13 @@
 // --audio loud replaces beat-lint's clock values with a loud, full-band mix on the same beat:
 // spectrum 0.9 falling to 0.68 across the bins plus the kick, bass, mid and treble near full
 // scale, as a live rock master drives the mapper. --max-held F fails (exit 3) any visual whose
-// largest held fraction of pixels in a frame exceeds F; held pixels show the previous frame, so
-// a large held fraction shows as stale regions (CORE-2409). --max-luma N fails (exit 4) any visual
+// largest held fraction of pixels in a frame exceeds F; held pixels show the input dimmed (the
+// previous frame until v0.2.9), so a large held fraction shows as flattened regions and ghosts
+// (CORE-2409). --max-luma N fails (exit 4) any visual
 // whose own output, before the limiter, makes more than N large-area luma transitions in a second
 // or any large-area red transition: a visual should keep within the general flash limit itself
 // (WCAG: 3 flashes, so 6 transitions, a second) rather than lean on the limiter, whose holds show
-// as stale regions. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
+// as flattened regions. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
 // `make visual-flash-check` runs the source flash budget.
 //
 //   node tools/shader/limiter-red-audit.mjs [manifest.json ...] [--only id1,id2] [--beats 12]

@@ -10,6 +10,22 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Fixed
+
+- The frame flash limiter dims a held pixel instead of freezing it (CORE-2543, CORE-2492,
+  openspec/changes/limiter-dim-hold/). In 0.2.9 a pixel whose change the grant did not admit
+  showed the previous output. Grants are scarce, so under loud audio most moving pixels froze,
+  each on its own frame, and the picture broke into stale fragments over live content. A held
+  pixel now shows the input with its luma moved the least distance into the band its tracker
+  allows: scaled toward black when a rise is denied, mixed with the least of the previous output
+  that is needed when a fall is denied, with a mix from the previous output as the fallback when
+  red would still fire. A held region shows the current frame at reduced contrast, and a bright
+  area that went dark stays lit less than a step dimmer, in its own colour, until a fall is
+  granted. The bound is unchanged: the output fires only what the input fires and the grant
+  admitted, so at most the luma flash limit and one large-area red transition a second. Pass
+  bindings, texture formats and the ABI are unchanged; hosts only take the new shaders. Two
+  conformance cases (`colour-10hz-dim`, `colour-checker-15hz-dim`) cover the dimmed colours.
+
 ## [0.2.9] - 2026-11-19
 
 ### Changed

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 # Frame flash limiter passes
 
-Portable GLSL for the frame flash limiter: six fragment passes that hold back any part of the
-frame whose luminance or red transitions would exceed the flash-area limit. They reproduce the
+Portable GLSL for the frame flash limiter: six fragment passes that dim any part of the frame
+whose luminance or red transitions would exceed the flash-area limit. They reproduce the
 reference model `tools/shader/limiter-model.mjs` (model `pixel-10deg`) bit for bit. The
 conformance vectors in `conformance/limiter/frame/` are the spec. `make limiter-check` checks the
 model, the generated GLSL ES 3.00 and Metal, and the WebGL2 and Metal passes against those vectors.
@@ -200,11 +200,31 @@ trough), so it fires when the trough goes on below 0.8 (Codex round 18). Countin
 started rising at different times can reach a step together, and a large area whose pixels fired
 one at a time under the limit then makes its joint rise and fall uncounted (Codex round 16; until
 then steps in one direction were one transition). The pixel auditor counts the same way.
-`output` shows history at a pixel whose trackers would fire on the input in a direction the grant
-did not admit and the input everywhere else (until v0.2.9 the whole sub-block held, so holds
-showed as tiles), then steps every pixel's trackers on the colour it shows. The trackers
-therefore hold the auditor's state of the output, and the output makes only the transitions the
-grant admitted. (Until v0.2.9 the limiter tracked 64 x 36 sub-block means: a change over a fifth
+`output` shows the input everywhere except at a pixel whose trackers would fire on it in a
+direction the grant did not admit. That pixel is held: it shows the input dimmed
+(`limiterDim` in `common.glsl`, openspec/changes/limiter-dim-hold/). The luma tracker allows a
+band of codes without firing: from less than a step under the pixel's high side, or 0.8 if that
+is lower (a fall that ends above 0.8 does not fire), up to less than a step over its low side
+(no upper bound once the low side is at 0.8, or in a direction the grant admitted). The held
+pixel shows, in order of preference:
+
+1. the input with its luma moved the least distance into that band: scaled toward black to
+   lower it, which keeps its hue, or mixed with the least of the previous output that raises it
+   there;
+2. if a tracker would still fire outside what the input fires and the grant admitted (red
+   crossing its own step), the mix of colour 1 and the grey of its luma that is nearest colour 1;
+3. if that grey fires too, the furthest safe mix from the previous output toward the input. The
+   previous output fires nothing, so this always exists.
+
+Each search is an eight-step bisection in integers, the same in the model and on every leg. So a
+held region shows the current frame at reduced contrast: a pixel denied a rise shows the new
+content at most a step brighter than it was, and a pixel denied a fall keeps its colour less than
+a step dimmer than its peak until a fall is granted. (v0.2.9 showed the previous output at a held
+pixel. Grants are scarce, about three a second, so under loud audio most moving pixels froze
+where they were, each on its own frame, and the picture broke into stale fragments. Until v0.2.9
+the whole sub-block held, so holds showed as tiles.) `output` then steps every pixel's trackers
+on the colour it shows. The trackers therefore hold the auditor's state of the output, and the
+output makes only the transitions the grant admitted. (Until v0.2.9 the limiter tracked 64 x 36 sub-block means: a change over a fifth
 of a sub-block, or a slow cycle under a step a frame, escaped it; Codex round 7, CORE-2543.)
 
 ## Ping-pong and reset
@@ -267,7 +287,10 @@ for every change. Nothing is carried from the old frame to the new one.
    8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write refills
    nothing, and the grant comes on a frame). A host that reads it keeps a cap no sooner than
    that, for a word that never clears and for a cleared word no read of which finishes. Both
-   times are in the time the limiter is credited with, not on the clock (the Beamfall web host:
+   times are in the time the limiter is credited with, not on the clock. While the fall waits,
+   a held pixel shows what it showed, dimmed to the bottom of its luma band (less than a step
+   under its peak, or 0.8), so the frame dims once at the fade's first frame and then stands
+   still (the Beamfall web host:
    the held bits of the fade's last frame, read into a pixel-pack buffer behind a fence that
    closes the frame and taken at the next frame only if the GPU has finished that one, so the
    page waits behind none of its own frames, which ends the fade a frame after the grant, with a
@@ -329,5 +352,10 @@ costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).
 ## Cost
 
 Measured with `node tools/shader/limiter-check.mjs --metal --time 1920x1080`. On an M2 Max the
-passes cost 0.31 ms of GPU time per frame at 1080p and 0.87 ms at 4K. The `rows` and `output`
-passes scale with resolution; the rest are fixed size.
+passes cost 0.31 ms of GPU time per frame at 1080p and 0.87 ms at 4K (v0.2.9). The `rows` and
+`output` passes scale with resolution; the rest are fixed size. The dimmed hold adds work only at
+held pixels (up to four eight-step searches). On the timing pattern, where every pixel is held
+most frames, runs of this tree and of v0.2.9 on the same busy machine on 2026-11-19 overlapped:
+0.49 to 0.61 ms against 0.36 to 0.45 ms a frame at 1080p (the `output` pass 0.17 to 0.26 ms
+against 0.14 to 0.18 ms) and 1.50 ms against 1.35 to 1.43 ms at 4K (`output` 0.62 ms against
+0.67 ms), with the unchanged `rows` pass varying as much between runs.

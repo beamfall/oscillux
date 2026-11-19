@@ -33,10 +33,15 @@ Metal where available) against the vectors.
   pixel asking both is granted only when both are ready (Codex round 13): at most one
   large-area red transition in any 1 s window, so no red flash (ITU-R BT.1702), and a held red
   change catches up instead of freezing (CORE-2382).
-- A pixel whose trackers would fire on the input in a direction the grant did not admit holds
-  the previous output. Every other pixel shows the input exactly; nothing blends
-  around a hold (CORE-2543). Every pixel's trackers then step on the output, so they hold the
-  auditor's state of what was shown.
+- A pixel whose trackers would fire on the input in a direction the grant did not admit is held.
+  It shows the input dimmed: its luma moved the least distance into the band its luma tracker
+  does not fire in (the colour scaled toward black, or mixed with the least of the previous
+  output that raises it there), then, if a tracker
+  still fires outside what the input fires and the grant admitted, the nearest safe mix from the
+  grey of that luma, or else from the previous output toward the input. So a held region shows
+  the current frame at reduced contrast (limiter-dim-hold; v0.2.9 showed the previous output).
+  Every other pixel shows the input exactly; nothing blends around a hold (CORE-2543). Every
+  pixel's trackers then step on the output, so they hold the auditor's state of what was shown.
 
 The shared shader header (`shaders/limiter/common.glsl`) and the model's header comment give the
 exact arithmetic: luma step 3275 codes with the darker side below 26215, red step 15.
@@ -103,6 +108,7 @@ A host that does not know its device class uses `wcag`.
 | `tv-half-field-10hz-orange-drift` | a drifting background beside a held strobe shows the input (CORE-2413, CORE-2543) |
 | `odd-size-checker-10hz` | sub-block partition at a frame size not divisible by 64 x 36 |
 | `fine-checker-10hz` | a 4 px checkerboard inversion at 640 x 360 is limited |
+| `colour-10hz-dim`, `colour-checker-15hz-dim` | held pixels of coloured content show the input dimmed, byte for byte (limiter-dim-hold) |
 
 ## Commands
 

@@ -471,15 +471,17 @@ test('a one-cell-wide moving bar counts the same at 1080p and 4K', () => {
   assert.ok(hd.some(v => !v.startsWith('0,0,')), 'the bar made no requests');
 });
 
-// The output is exact: a held pixel shows history and every other pixel shows the input, so the
+// The output is exact where nothing is held: a pixel that is not held shows the input, so the
 // output makes only the transitions the trackers counted. A 10 Hz strobe over half a TV 10° field
 // is held while the background drifts below a step. The strobe's edges fall inside sub-blocks, so
 // background pixels share sub-blocks with held ones and must still show their input (per-pixel
 // holds, Codex round 11). (Until v0.2.9 the pixels around a hold blended toward history, which
-// delayed admitted changes: CORE-2541, CORE-2543.)
+// delayed admitted changes: CORE-2541, CORE-2543.) The held strobe pixels change alike, so they
+// show one colour, a grey (white scaled down, or black mixed with the grey shown before:
+// limiter-dim-hold).
 function exactness(bg) {
   const lim = model.createLimiter({ width: W, height: H, geometry: 'tv' });
-  const px = new Uint8Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const px = new Uint8Array(W * H * 4);
   let held = 0;
   for (let t = 0; t < 120; t++) {
     const on = Math.floor(t / 3) % 2 === 1, c = bg(t);
@@ -492,25 +494,136 @@ function exactness(bg) {
     }
     const r = lim.step(px, DT);
     // Every strobe pixel changes alike, so they hold together; the background never fires.
+    let grey = -1;
     for (let y = 0; y < H; y++) {
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {
         const inRect = x >= W / 4 + 2 && x < W * 11 / 16 + 3 && y >= H / 3 + 1 && y < H * 13 / 18 + 2;
-        const h = inRect && r.held > 0 ? 1 : 0;
-        held += h;
-        const src = h ? prev : px;
-        for (let ch = 0; ch < 3; ch++) {
-          assert.equal(r.out[i + ch], src[i + ch], `frame ${t}: pixel ${x},${y} shows neither ${h ? 'history' : 'the input'}`);
+        if (inRect && r.held > 0) {
+          held++;
+          if (grey < 0) grey = r.out[i];
+          for (let ch = 0; ch < 3; ch++) assert.equal(r.out[i + ch], grey, `frame ${t}: held pixel ${x},${y} is not the strobe's one grey`);
+        } else {
+          for (let ch = 0; ch < 3; ch++) assert.equal(r.out[i + ch], px[i + ch], `frame ${t}: pixel ${x},${y} does not show the input`);
         }
       }
     }
-    prev.set(r.out);
   }
   return held;
 }
-test('a held pixel shows history and every other pixel the input', () => {
+test('a pixel that is not held shows the input, and a held strobe one grey', () => {
   assert.ok(exactness(t => { const v = 60 + (t % 8); return [v, v, v]; }) > 0, 'nothing was held');
   assert.ok(exactness(t => [255, 150 + (t % 8), 0]) > 0, 'nothing was held');
   assert.ok(exactness(t => [200, 20 + (t % 8), 0]) > 0, 'nothing was held');
+});
+
+// limiter-dim-hold. The directions a packed tracker (four words at q) fires in on a colour, as the
+// model's output pass computes them.
+function firesOn(track, q, r, g, b) {
+  if (track[q + 1] & model.UNTRACKED) return 0;
+  const tmp = [0, 0, 0];
+  const fl = model.lumaStep(track[q], track[q + 1], model.lumaCode(r, g, b), tmp);
+  const rr = model.redStep(track[q], track[q + 1], track[q + 2], model.redCode(r, g, b), model.redSat(r, g, b), tmp) & 3;
+  return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (rr === 1 ? 4 : 0) | (rr === 3 ? 8 : 0);
+}
+
+// The bound, per pixel and by construction: on every frame a pixel's trackers fire on the output
+// only in directions they fire on the input and the grant admitted (what v0.2.9 guaranteed by
+// showing the previous output). Signals that hold luma, red and both, with colour.
+for (const [name, spec] of [
+  ['a 10 Hz white strobe', { kind: 'square', hz: 10, on: WHITE, off: BLACK }],
+  ['a 10 Hz saturated-red strobe', { kind: 'square', hz: 10, on: [230, 0, 0], off: BLACK }],
+  ['a 12 Hz red and cyan strobe over a drifting background', { kind: 'square', hz: 12, on: [255, 20, 0], off: [0, 220, 255], rect: [0.1, 0.1, 0.8, 0.9], bg: [40, 30, 90], bgStep: [1, 0, 1] }],
+  ['a 15 Hz orange and blue checkerboard', { kind: 'checker', hz: 15, size: [0.11, 0.17], on: [255, 140, 0], off: [20, 40, 160] }],
+]) {
+  test(`a held pixel fires only what the input fires and the grant admitted: ${name}`, () => {
+    const lim = model.createLimiter({ width: W, height: H });
+    const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4);
+    let held = 0, moved = 0;
+    for (let t = 0; t < 150; t++) {
+      renderSignal(spec, t, W, H, px);
+      const r = lim.step(px, DT);
+      if (t > 0) {
+        for (let q = 0; q < W * H * 4; q += 4) {
+          const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2]);
+          const shown = firesOn(before, q, r.out[q], r.out[q + 1], r.out[q + 2]);
+          assert.equal(shown & ~(asked & r.grant), 0, `frame ${t}: pixel ${q / 4} fires ${shown}, input ${asked}, grant ${r.grant & 15}`);
+          if (asked & ~r.grant & 15) held++;
+          else for (let ch = 0; ch < 3; ch++) assert.equal(r.out[q + ch], px[q + ch], `frame ${t}: pixel ${q / 4} is not held and does not show the input`);
+        }
+        moved += r.held;
+      }
+      before.set(r.track);
+    }
+    assert.ok(held > 0, 'nothing was held');
+    assert.equal(held, moved, 'the held count is the pixels that would fire outside the grant');
+  });
+}
+
+// A held pixel follows the input. A blue-white bar (no red) steps across black faster than the
+// grants admit. A pixel denied a rise shows the bar's colour scaled toward black to the top of its
+// tracker's band (not the black of the previous output); a pixel denied a fall shows black mixed
+// with the least of the previous output that reaches the bottom of its band, less than a step
+// below the luma it had.
+test('a denied rise shows the input dimmed and a denied fall dims to a step below its peak', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const audit = createAuditor({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const BAR = [120, 200, 255];
+  const scale = (c, k) => Math.floor((c * k + 127) / 255);
+  const mix = (a, b, k) => (a * (256 - k) + b * k + 128) >> 8;
+  const band = q => {
+    const ext = before[q] & model.LUMA_MAX, dist = before[q + 1] & 4095, up = (before[q + 1] & model.LUMA_UP) !== 0;
+    return { high: up ? ext : ext + dist, low: up ? ext - dist : ext };
+  };
+  let rises = 0, falls = 0, fresh = 0, dimmed = 0;
+  for (let t = 0; t < 180; t++) {
+    const x0 = (t * 40) % W;
+    for (let y = 0, i = 0; y < H; y++) {
+      for (let x = 0; x < W; x++, i += 4) {
+        const c = (x - x0 + W) % W < 120 ? BAR : BLACK;
+        px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      }
+    }
+    const r = lim.step(px, DT);
+    audit.push(r.out, DT);
+    if (t > 0) {
+      for (let q = 0; q < W * H * 4; q += 4) {
+        const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2]);
+        const denied = asked & ~r.grant & 15;
+        if (!denied) continue;
+        const o = [r.out[q], r.out[q + 1], r.out[q + 2]];
+        const v = model.lumaCode(o[0], o[1], o[2]);
+        const { high, low } = band(q);
+        if (denied & 1) {
+          rises++;
+          const ceil = low + model.LUMA_STEP - 1;
+          const k = Array.from({ length: 256 }, (_, n) => n).find(n => BAR.every((c, ch) => scale(c, n) === o[ch]));
+          assert.ok(k !== undefined, `frame ${t}: pixel ${q / 4} shows ${o}, not the bar scaled`);
+          assert.ok(v <= ceil, `frame ${t}: pixel ${q / 4} luma ${v} is over its band ${ceil}`);
+          assert.ok(model.lumaCode(scale(BAR[0], k + 1), scale(BAR[1], k + 1), scale(BAR[2], k + 1)) > ceil, `frame ${t}: pixel ${q / 4} is dimmer than its band needs`);
+          if (low === 0) {
+            assert.ok(v > 0, `frame ${t}: pixel ${q / 4} stays black under the bar`);
+            if (prev[q] === 0 && prev[q + 1] === 0 && prev[q + 2] === 0) fresh++;
+          }
+        } else {
+          falls++;
+          const floor = Math.min(high - model.LUMA_STEP + 1, model.LUMA_DARK);
+          const h = [prev[q], prev[q + 1], prev[q + 2]];
+          const k = Array.from({ length: 257 }, (_, n) => n).find(n => h.every((c, ch) => mix(0, c, n) === o[ch]));
+          assert.ok(k !== undefined, `frame ${t}: pixel ${q / 4} shows ${o}, not black mixed with the previous ${h}`);
+          assert.ok(v >= floor, `frame ${t}: pixel ${q / 4} luma ${v} is under its band ${floor}`);
+          assert.ok(k === 0 || model.lumaCode(mix(0, h[0], k - 1), mix(0, h[1], k - 1), mix(0, h[2], k - 1)) < floor, `frame ${t}: pixel ${q / 4} is brighter than its band needs`);
+          if (model.lumaCode(h[0], h[1], h[2]) > floor + 64) dimmed++;
+        }
+      }
+    }
+    before.set(r.track);
+    prev.set(r.out);
+  }
+  assert.ok(rises > 0 && falls > 0, `denied rises ${rises}, falls ${falls}`);
+  assert.ok(fresh > 0, 'no black pixel showed the bar dimmed');
+  assert.ok(dimmed > 0, 'no pixel denied a fall showed less than the previous output');
+  assert.ok(audit.maxPerWindow('luma') <= 6, `luma ${audit.maxPerWindow('luma')} per 1 s`);
 });
 
 // Codex review (CORE-2543): beside a red region held by the red budget, a luma rise admitted at

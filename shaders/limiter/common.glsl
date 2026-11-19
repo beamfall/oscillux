@@ -155,6 +155,77 @@ uint limiterFires(uvec4 t, ivec3 c) {
     int fr = limiterRedStep(t, limiterRed(c), limiterSat(c)).y;
     return (fl > 0 ? 1u : 0u) | (fl < 0 ? 2u : 0u) | (fr > 0 ? 4u : 0u) | (fr < 0 ? 8u : 0u);
 }
+
+// Whether tracker t fires on display values c in no direction outside `allowed`.
+bool limiterSafe(uvec4 t, uint allowed, ivec3 c) {
+    return (limiterFires(t, c) & ~allowed & 15u) == 0u;
+}
+
+// Display values a mixed k / 256 of the way to b.
+ivec3 limiterMix(ivec3 a, ivec3 b, int k) {
+    return (a * (256 - k) + b * k + 128) >> 8;
+}
+
+// The furthest of 256 steps from a toward b, found by bisection, at which tracker t is safe. a is
+// safe (step 0), so the result always is.
+ivec3 limiterToward(uvec4 t, uint allowed, ivec3 a, ivec3 b) {
+    int lo = 0;
+    int hi = 256;
+    for (int n = 0; n < 8; n++) {
+        int mid = (lo + hi) >> 1;
+        if (limiterSafe(t, allowed, limiterMix(a, b, mid))) lo = mid; else hi = mid;
+    }
+    return limiterMix(a, b, lo);
+}
+
+// The colour a held pixel shows (output.glsl): the input c with its luma moved the least distance
+// into the band the luma tracker does not fire in, scaled toward black to lower it or mixed with
+// the least of the previous output h that raises it there (the light a pixel may not yet lose is
+// the light it showed); then, if a tracker would still fire outside `allowed` (the directions the
+// input fires and the grant admitted), the furthest safe step from the grey of that luma toward
+// it, or else from the previous output, which fires nothing, toward the input. The band, from
+// limiterTrackStep: a fall fires from a step below the tracker's high (its peak when rising, its
+// reference when falling) if that is below the dark threshold, and a rise from a step above its
+// low unless the low is at or above the dark threshold. Every step is integer, as in the model.
+ivec3 limiterDim(uvec4 t, uint allowed, ivec3 c, ivec3 h) {
+    int ext = int(t.x & LUMA_MASK);
+    int dist = int(t.y & 4095u);
+    bool up = (t.y & LUMA_UP) != 0u;
+    int high = up ? ext : ext + dist;
+    int low = up ? ext - dist : ext;
+    int lowest = (allowed & 2u) != 0u ? 0 : min(high - LUMA_STEP + 1, LUMA_DARK);
+    int highest = (allowed & 1u) != 0u || low >= LUMA_DARK ? LUMA_MAX : low + LUMA_STEP - 1;
+    int v = limiterLuma(c);
+    ivec3 d = c;
+    if (v > highest) {
+        int lo = 0;
+        int hi = 255;
+        for (int n = 0; n < 8; n++) {
+            int mid = (lo + hi) >> 1;
+            if (limiterLuma((c * mid + 127) / 255) <= highest) lo = mid; else hi = mid;
+        }
+        d = (c * lo + 127) / 255;
+    } else if (v < lowest) {
+        int lo = 0;
+        int hi = 256;
+        for (int n = 0; n < 8; n++) {
+            int mid = (lo + hi) >> 1;
+            if (limiterLuma(limiterMix(c, h, mid)) >= lowest) hi = mid; else lo = mid;
+        }
+        d = limiterMix(c, h, hi);
+    }
+    if (limiterSafe(t, allowed, d)) return d;
+    int w = limiterLuma(d);
+    int lo = 0;
+    int hi = 256;
+    for (int n = 0; n < 8; n++) {
+        int mid = (lo + hi) >> 1;
+        if (limiterLuma(ivec3(mid)) <= w) lo = mid; else hi = mid;
+    }
+    if (limiterLuma(ivec3(lo)) < lowest) lo++;
+    if (limiterSafe(t, allowed, ivec3(lo))) return limiterToward(t, allowed, ivec3(lo), d);
+    return limiterToward(t, allowed, h, c);
+}
 #endif
 
 

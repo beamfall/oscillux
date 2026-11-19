@@ -37,13 +37,20 @@
 //      transitions (no red flash) and held red catches up instead of freezing (CORE-2382). Both
 //      red directions asked admit one, alternating; a frame asking both channels is admitted only
 //      when both are ready, since a pixel changing in both shows only if both are admitted.
-//   6. Hold: a pixel that would fire in a direction that is not admitted shows the previous
-//      output frame; every other pixel shows the input exactly (no tiles: until v0.2.9 a whole
-//      sub-block held, CORE-2492). The trackers then step
-//      on the output, so they hold exactly the auditor's state: a held pixel shows the value its
-//      tracker last took and does not move it. (Until v0.2.9 the pixels around a hold blended
-//      toward the previous output; a blended change appeared after the token it spent had
-//      refilled: CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
+//   6. Hold: a pixel that would fire in a direction that is not admitted is held; every other
+//      pixel shows the input exactly (no tiles: until v0.2.9 a whole sub-block held, CORE-2492).
+//      A held pixel shows the input dimmed (dim): its luma moved the least distance into the
+//      band its tracker does not fire in, scaled toward black to lower it or mixed with the
+//      least of the previous output that raises it there; if a tracker still fires outside what
+//      the input fires and the grant admitted, the furthest safe step from the grey of that luma
+//      toward it, or else from the previous output (which fires nothing) toward the input. So a
+//      held region shows the current frame at reduced contrast (a denied rise at most a step
+//      above the pixel's low, a denied fall a step below its peak) and fires nothing the grant
+//      did not admit. (v0.2.9 showed the previous output, which froze moving content in place
+//      pixel by pixel: openspec/changes/limiter-dim-hold/.) The trackers then step on the
+//      output, so they hold exactly the auditor's state. (Until v0.2.9 the pixels around a hold
+//      blended toward the previous output; a blended change appeared after the token it spent
+//      had refilled: CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
 //
 // Tracker state is packed as the GPU stores it, one RGBA16UI texel per pixel:
 //   x  luma extreme (15-bit) | RED_MEM_HI;
@@ -200,6 +207,11 @@ export function recent(s, u, deltaMs) {
 }
 
 
+/** Display byte c scaled by k / 255, and a mixed k / 256 of the way to b: the steps a held pixel's
+ * colour is searched along (createLimiter, dim). */
+const scale = (c, k) => Math.floor((c * k + 127) / 255);
+const mix = (a, b, k) => (a * (256 - k) + b * k + 128) >> 8;
+
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
 
@@ -220,6 +232,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const area = new Int32Array(CELLS);
   let lastRedDown = false;
   const tmp = [0, 0, 0];
+  const shown = [0, 0, 0];
   let deficit = 0;
   let credit = 0;
   let redDeficit = 0;
@@ -235,6 +248,64 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     const fl = lumaStep(track[q], track[q + 1], v, tmp);
     const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp));
     return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
+  }
+
+  // Whether the pixel's trackers fire on (r, g, b) in no direction outside `allowed`.
+  const safe = (q, allowed, r, g, b) => !(fires(q, lumaCode(r, g, b), redCode(r, g, b), redSat(r, g, b)) & ~allowed & 15);
+
+  // The furthest of 256 steps from colour a toward colour b (three bytes each) found by bisection
+  // at which the pixel is safe, into shown. a is safe (step 0), so the result always is.
+  function toward(q, allowed, a0, a1, a2, b0, b1, b2) {
+    let lo = 0, hi = 256;
+    for (let n = 0; n < 8; n++) {
+      const mid = (lo + hi) >> 1;
+      if (safe(q, allowed, mix(a0, b0, mid), mix(a1, b1, mid), mix(a2, b2, mid))) lo = mid; else hi = mid;
+    }
+    shown[0] = mix(a0, b0, lo); shown[1] = mix(a1, b1, lo); shown[2] = mix(a2, b2, lo);
+  }
+
+  // The colour a held pixel shows, into shown: the input with its luma moved into the band its
+  // luma tracker does not fire in (scaled toward black to lower it; to raise it, mixed with the
+  // least of the previous output that reaches the band, since the light a pixel may not yet lose
+  // is the light it showed), then, if a tracker would still fire outside `allowed` (the
+  // directions the input fires and the grant admitted), the furthest safe step from the grey of
+  // that luma toward it, or else from the previous output (which fires nothing) toward the input. The band, from trackStep: a fall fires from a step
+  // below the tracker's high (its peak when rising, its reference when falling) if that is below
+  // the dark threshold, and a rise from a step above its low unless the low is at or above it.
+  function dim(q, allowed, px, history) {
+    const r = px[q], g = px[q + 1], b = px[q + 2];
+    const ext = track[q] & LUMA_MAX, dist = track[q + 1] & 4095, up = (track[q + 1] & LUMA_UP) !== 0;
+    const high = up ? ext : ext + dist, low = up ? ext - dist : ext;
+    const floor = allowed & 2 ? 0 : Math.min(high - LUMA_STEP + 1, LUMA_DARK);
+    const ceil = allowed & 1 || low >= LUMA_DARK ? LUMA_MAX : low + LUMA_STEP - 1;
+    const v = lumaCode(r, g, b);
+    let d0 = r, d1 = g, d2 = b;
+    if (v > ceil) {
+      let lo = 0, hi = 255;
+      for (let n = 0; n < 8; n++) {
+        const mid = (lo + hi) >> 1;
+        if (lumaCode(scale(r, mid), scale(g, mid), scale(b, mid)) <= ceil) lo = mid; else hi = mid;
+      }
+      d0 = scale(r, lo); d1 = scale(g, lo); d2 = scale(b, lo);
+    } else if (v < floor) {
+      const h0 = history[q], h1 = history[q + 1], h2 = history[q + 2];
+      let lo = 0, hi = 256;
+      for (let n = 0; n < 8; n++) {
+        const mid = (lo + hi) >> 1;
+        if (lumaCode(mix(r, h0, mid), mix(g, h1, mid), mix(b, h2, mid)) >= floor) hi = mid; else lo = mid;
+      }
+      d0 = mix(r, h0, hi); d1 = mix(g, h1, hi); d2 = mix(b, h2, hi);
+    }
+    if (safe(q, allowed, d0, d1, d2)) { shown[0] = d0; shown[1] = d1; shown[2] = d2; return; }
+    const w = lumaCode(d0, d1, d2);
+    let lo = 0, hi = 256;
+    for (let n = 0; n < 8; n++) {
+      const mid = (lo + hi) >> 1;
+      if (lumaCode(mid, mid, mid) <= w) lo = mid; else hi = mid;
+    }
+    if (lumaCode(lo, lo, lo) < floor) lo++;
+    if (safe(q, allowed, lo, lo, lo)) toward(q, allowed, lo, lo, lo, d0, d1, d2);
+    else toward(q, allowed, history[q], history[q + 1], history[q + 2], r, g, b);
   }
 
   function step(px, dt) {
@@ -320,7 +391,8 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     for (let k = 0; k < BLOCKS; k++) holdMask[k] = req[k] & 15 & ~grant ? 1 : 0;
     let held = 0;
 
-    // Output, then the trackers step on it: a held pixel shows the value its tracker last took.
+    // Output, then the trackers step on it. A pixel that would fire in a direction the grant did
+    // not admit is held and dimmed (dim): it fires only what the input fires and the grant admitted.
     const fired = [0, 0, 0, 0];
     const history = bufs[flip];
     flip ^= 1;
@@ -329,12 +401,13 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p;
-        // Held: the pixel would fire in a direction the grant did not admit.
-        const hold = holdMask[by * BLOCKS_X + colBlock[x]]
-          && fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2])) & ~grant & 15;
-        if (hold) held++;
-        const src = hold ? history : px;
-        const r = src[i], g = src[i + 1], b = src[i + 2];
+        let r = px[i], g = px[i + 1], b = px[i + 2];
+        const now = holdMask[by * BLOCKS_X + colBlock[x]] ? fires(i, lumaCode(r, g, b), redCode(r, g, b), redSat(r, g, b)) : 0;
+        if (now & ~grant & 15) {
+          held++;
+          dim(i, now & grant, px, history);
+          r = shown[0]; g = shown[1]; b = shown[2];
+        }
         out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
         const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
         const x0 = track[i], y0 = track[i + 1];

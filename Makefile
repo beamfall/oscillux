@@ -325,7 +325,8 @@ gate: limiter-check
 
 # Hold budget (CORE-2409, openspec/specs/visual-defaults/spec.md): the release-leg Particles
 # (shaders/manifest.json, as the glsl300 bundle ships it) through the limiter model under the red
-# audit's loud audio holds at most 20% of the pixels in any frame (19% peak, 13% mean at v0.2.9,
+# audit's loud audio holds at most 20% of the pixels in any frame (measured 2026-11-19: 14.3% peak
+# with limiter-dim-hold, 13.6% on the v0.2.9 tree; recorded for v0.2.9: 19% peak, 13% mean,
 # after the limiter gained the half-offset windows, a fifth recent unit and one area count across
 # channels, and Particles was calmed to match; what remains is particles crossing black, which the
 # per-pixel trackers count as flashes; until v0.2.9 the budget was 5% of sub-blocks, with
