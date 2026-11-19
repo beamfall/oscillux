@@ -115,8 +115,13 @@ screen, so the trackers keep counting at each display position. At an unchanged 
 (the frame grew or shrank with its view) the host copies the overlap 1:1, aligned where the view
 is anchored (its top-left for a view anchored there), and the newly exposed area starts with no
 state. Rescaling instead would move fine patterns under fixed display positions without the
-trackers seeing it. Only when the display scale changes (a new device pixel ratio) does the host
-rescale the state with nearest-neighbour sampling.
+trackers seeing it. Only when the display scale changes (a new device pixel ratio or page zoom) does the host
+rescale the state with nearest-neighbour sampling. A rescale can itself move a pattern under
+fixed display positions, so it is charged to the budget like a granted flash: for
+8 / (2 · maxFlashHz) seconds (one red token's refill) the host keeps rendering at the old size,
+stretched to the view, and writes `G` as fully spent (x = 256, y = 65025, z = 65025, w = 0)
+before every frame; then it rescales and writes `G` fully spent once more. No granted flash then
+shares a one-second window with the rescale.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).

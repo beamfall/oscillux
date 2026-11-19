@@ -46,6 +46,25 @@ larger frames to 8192 on each side, because a sub-block's per-direction pixel co
 - **WHEN** the reference model is asked for a 16384 x 9216 frame
 - **THEN** it refuses the size instead of wrapping a sub-block's count to zero
 
+### Requirement: Limiter state across a resize
+
+A host SHALL keep the grant state `G` across a frame resize. At an unchanged display scale it
+SHALL copy the output and tracker state 1:1 from the view's anchor, with the newly exposed area
+starting untracked. When the display scale changes it SHALL keep rendering at the old size with `G`
+written fully spent for 8 / (2 · maxFlashHz) seconds, then nearest-neighbour rescale the state and
+write `G` fully spent again.
+
+#### Scenario: A strobe across alternating frame widths
+
+- **WHEN** a full-frame red/black strobe plays while the frame width alternates between 64 and 65
+  at one display scale
+- **THEN** the carried trackers and budget admit no more than one red transition a second
+
+#### Scenario: A display-scale change during a strobe
+
+- **WHEN** the device pixel ratio changes while a red/black pattern plays
+- **THEN** no red transition is granted within one second of the rescale
+
 ### Requirement: Per-pixel holds
 
 The frame limiter SHALL show the previous output at exactly the pixels whose trackers would fire
