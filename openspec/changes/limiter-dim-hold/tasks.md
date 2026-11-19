@@ -7,11 +7,12 @@
       re-record the vectors
 - [x] 1.4 READMEs, the audit's header and the changelog
 - [ ] 1.5 A denied rise mixes from the previous output (model, passes, tests, vectors, docs)
+- [ ] 1.6 The limit of a denied rise over a lit pixel (model, passes, tests, vectors, docs)
 
 ## 2. Verify and close
 
 - [x] 2.1 Run `make limiter-check`, `make limiter-hold-check` and the catalogue audit; record
       the per-frame cost
 - [x] 2.2 Contact sheets of catalogue visuals under loud audio, v0.2.9 beside the change
-- [ ] 2.3 Repeat 2.1 and 2.2 for 1.5
+- [ ] 2.3 Repeat 2.1 and 2.2 for 1.5 and 1.6
 - [ ] 2.4 Run `openspec archive limiter-dim-hold` after landing

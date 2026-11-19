@@ -25,7 +25,13 @@ at an old colour while calm pixels beside them keep updating. In the catalogue u
      the band's top. Over black that is the input dimmed. Over lit content it keeps the hue the
      pixel had on the first frame and takes the input's hue over the next few (the input scaled
      alone was tried: a near-white line crossing a coloured glow showed as a grey line beside
-     it, on laser-tunnel);
+     it, on laser-tunnel). Both searches stop at a limit that is the band's top over black and
+     lower over a lit pixel whose input is far above the band: the band's room above what the
+     pixel showed shrinks by (input - top) / input, times three times the shown luma over the
+     top, at most one. The band cannot show such an input anyway, so the pixel stays near what
+     it showed; a pixel that rose from black, or whose input is just over the band, still goes
+     to the top (the top everywhere was tried: the true position of a bright ring crossing a
+     lit fill showed as a faint second ring, on laser-tunnel);
   2. if that colour still fires (a red transition, or a rounding edge), the largest safe mix of
      it from the grey of the same luma;
   3. if that grey fires too, the largest safe mix of the input from the previous output, which

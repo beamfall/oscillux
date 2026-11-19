@@ -11,9 +11,11 @@ that qualifies, in 8-bit display codes:
 
 1. the input with its luma code moved into the band the pixel's luma tracker allows. Below the
    floor: the input mixed with the least of the previous output that reaches the floor. Above
-   the ceiling: the previous output mixed toward the input as far as the ceiling allows, then
-   mixed 32/256 of the way toward the input scaled toward black to the ceiling, or that scaled
-   input alone when the mix is above the ceiling;
+   the ceiling: the previous output mixed toward the input as far as a limit allows, then
+   mixed 32/256 of the way toward the input scaled toward black to the limit, or that scaled
+   input alone when the mix is above the limit. With L the luma code of the previous output,
+   V that of the input and C the ceiling, the limit is C when L is not below C, else
+   C - (((C - L) * floor(min(256, floor(768 * L / C)) * (V - C) / V)) >> 8);
 2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
 3. the mix of the input and the previous output that is nearest the input.
 
@@ -47,6 +49,12 @@ tracker's low.
   rise is not admitted
 - **THEN** each of those pixels shows a luma code less than a step above its tracker's low, with
   more than half the difference between its greatest and least channel that it showed
+
+#### Scenario: A bright line over a lit background leaves little trace
+
+- **WHEN** a near-white line moves onto pixels showing a colour whose luma code is over a third
+  of their ceiling on a frame whose rise is not admitted
+- **THEN** each of those pixels shows a luma code nearer the one it showed than its ceiling
 
 #### Scenario: A denied fall stays a step below its peak
 
