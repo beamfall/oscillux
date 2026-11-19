@@ -11,14 +11,21 @@
 // lands on the thin seams and vertex glints. Pane hues stay out of the red end
 // of the palette and a red guard keeps any accent or palette off saturated red.
 
-// Fold a hue into the palette's span off the red end (0.14..0.94 of palHeatIce)
-// with a triangle wave, so a drifting hue turns back instead of wrapping (no jump).
-float safeHue(float h) {
-    return 0.14 + 0.80 * abs(fract(h) * 2.0 - 1.0);
+// Hue wheel over palHeatIce that skips its two bad spans: the red end (0..0.14),
+// which must not fill large changing areas, and the green middle (0.55..0.78),
+// which the wrapper's green-cast suppression greys out. The wheel runs
+// magenta, blue, cyan, (short bridge) yellow, orange, salmon, then a pink
+// bridge back to magenta, so a hue drifting through fract() never jumps.
+vec3 wheel(float h, VisualUniforms u) {
+    float x = fract(h) * 0.76;
+    if (x < 0.40) return palVisual(0.14 + x, u);
+    if (x < 0.43) return mix(palVisual(0.54, u), palVisual(0.79, u), smoothstep(0.40, 0.43, x));
+    if (x < 0.64) return palVisual(0.79 + (x - 0.43), u);
+    return mix(palVisual(1.0, u), palVisual(0.14, u), smoothstep(0.64, 0.76, x));
 }
 
 vec3 spectral(float h, VisualUniforms u) {
-    vec3 c = palVisual(safeHue(h), u);
+    vec3 c = wheel(h, u);
     c = clamp(mix(vec3(luma(c)), c, 1.45), vec3(0.0), vec3(4.0));
     return c * c;
 }
@@ -61,19 +68,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // ---- glass pane fill ----
     // hue drifts slowly on the clock; each pane turns within its own span
-    float hue = cid * 0.55 + row * 0.055 + u.time * 0.012;
-    vec3 pane = accentize(spectral(hue, u) * 0.85, u.accent, 0.15);
+    float hue = cid * 0.90 + row * 0.055 + u.time * 0.012;
+    vec3 pane = accentize(spectral(hue, u) * 1.6, u.accent, 0.15);
 
-    // internal gradient: light pools toward the pane's outer edge, the rest
-    // of the pane stays smoked glass over darkness
-    float grad = mix(0.18, 1.0, rl * rl);
+    // internal gradient: light pools toward the pane's outer edge
+    float grad = mix(0.45, 1.0, rl * rl);
     float roomWin = smoothstep(0.10, 0.30, r) * (1.0 - smoothstep(0.85, 1.35, r));
-    float heart = mix(1.0, 0.38, smoothstep(0.40, 1.10, r));
-    // a hot band turns its pane from smoked to clear spectral glass: the
-    // colour deepens while the glow moves within one brightness band
+    float heart = mix(1.0, 0.70, smoothstep(0.40, 1.10, r));
+    // every pane is clear spectral glass at a steady brightness; a hot band
+    // only lifts its glow a little, so the room stays in one brightness band
     float lit = smoothstep(0.20, 0.90, bandE);
-    vec3 smoke = mix(vec3(luma(pane)), pane, 0.45);
-    vec3 glass = mix(smoke, pane, lit) * (0.50 + 0.38 * lit + 0.14 * u.level);
+    vec3 glass = pane * (1.0 + 0.18 * lit + 0.08 * u.level);
     col += glass * grad * roomWin * heart;
 
     // ---- caustic sweep washing outward through the rows ----
@@ -90,7 +95,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // row seams
     float dRow = min(rl, 1.0 - rl) * rowW;
     float edgeR = aaLine(dRow, 0.0030);
-    vec3 rim = palVisual(safeHue(hue + 0.12), u);
+    vec3 rim = wheel(hue + 0.12, u);
     rim = clamp(mix(vec3(luma(rim)), rim, 1.4), vec3(0.0), vec3(4.0));
     // the kick lives here: thin seams can pulse without a large-area flash
     float edgeE = edgeGlow * (0.45 + 0.9 * u.bassImpact + 0.8 * bandE);
