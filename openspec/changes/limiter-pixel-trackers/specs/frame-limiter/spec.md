@@ -300,7 +300,7 @@ after it writes the budget.
 
 #### Scenario: The first frame
 
-- **WHEN** the host starts with `G` cleared to zero
+- **WHEN** the host starts, with `G` written fully spent or cleared to zero
 - **THEN** the first frame refills nothing, as after any other write of `G`
 
 #### Scenario: A tiny maximum flash rate

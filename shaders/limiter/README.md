@@ -197,8 +197,13 @@ copy `b`, then the host swaps them. `output` reads this frame's `G` (copy `b`).
 
 `rows`, `reduce`, `cells` and `windows` write single textures that are rebuilt every frame.
 
-At start the host clears `G` to zero: both budgets full, not spent (nothing has been shown to
-charge), and the clear counts as a write, so the first frame refills 0 (Codex rounds 17, 18). Then the output to black and the tracker state to zero: tracked black, the value the view showed before the first frame. Content then rises from black
+At start the host writes `G` fully spent, as on every later write, so the first frame is rationed
+like any other and refills 0 (Codex rounds 17, 18, 24): a host cannot rule out that its view showed
+content before its first frame (a remount, a reused surface). `G` cleared to zero, both budgets
+full, is safe only where the view showed black until the first frame; the reference model and the
+conformance vectors start from it, and it counts as a write too. The host also starts the output
+black and the tracker state at zero: tracked black, the value the view showed before the first
+frame. Content then rises from black
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after a display-scale change: everything tracked black, `G`
 written fully spent, and black presented without the limiter for longer than the coverage

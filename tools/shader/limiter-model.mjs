@@ -280,8 +280,12 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     const over = [isOver, isOver, isOver, isOver];
     // Luminance shares one token budget; red has its own, refilled at an eighth of the luma rate,
     // so no 1 s window holds two large-area red transitions: no saturated-red flash (ITU-R
-    // BT.1702, ADR-0232 R5), and a held red change is admitted within 8 / (2 maxFlashHz) s instead
-    // of freezing (R7, CORE-2382). Both red directions asked admit one, the other than last time.
+    // BT.1702, ADR-0232 R5), and a held red change is admitted instead of freezing (R7,
+    // CORE-2382): by the first frame at which the frames after the red token was last spent,
+    // each counted up to one refill period of 1 / (2 maxFlashHz) s, have earned
+    // (65025 / 65024) · 8 periods. The bound is per grant and in periods the frames earn, not on
+    // the wall clock (README.md, Codex round 24). Both red directions asked admit one, the other
+    // than last time.
     // Both luma directions may be admitted in one frame (a pattern reversing: some pixels rise,
     // others fall). That spends two tokens: the pair waits until the budget has also stood
     // unspent for one refill period (credit, at most one token) and leaves two tokens of deficit,
