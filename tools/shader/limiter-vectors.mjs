@@ -45,6 +45,13 @@ export const CASES = [
   // mixes from a lit previous output).
   { name: 'colour-10hz-dim', frames: 120, signal: { kind: 'square', hz: 10, on: [120, 200, 255], off: [40, 10, 70], rect: [0.125, 0.125, 0.75, 0.875], bg: [30, 60, 20], bgStep: [1, 0, 1] } },
   { name: 'colour-checker-15hz-dim', frames: 90, signal: { kind: 'checker', hz: 15, size: [0.11, 0.17], on: [255, 140, 0], off: [20, 40, 160] } },
+  // limiter-dim-hold (Codex review): rounded mixes cross a threshold more than once. A denied
+  // fall one step of the previous output raises into the band, a denied rise whose furthest mix
+  // under the limit lies past three over it, and a red change with a safe mix twelve steps from
+  // the input past unsafe ones (test-limiter.mjs asserts the colours).
+  { name: 'dim-fall-first-step', frames: 40, signal: { kind: 'steps', colors: [K, [240, 123, 247], [31, 167, 125]] } },
+  { name: 'dim-rise-past-a-gap', frames: 40, signal: { kind: 'steps', colors: [K, [23, 189, 209], [12, 250, 58]] } },
+  { name: 'dim-red-near-input', frames: 40, signal: { kind: 'steps', colors: [K, [154, 194, 79], [251, 130, 9]] } },
 ];
 
 export function fnv1a(bytes) {

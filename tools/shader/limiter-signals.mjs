@@ -6,6 +6,7 @@
 // Specs (colours are 8-bit display values [r, g, b]; rect and size are frame fractions):
 //   { kind: 'solid', color }
 //   { kind: 'gradient' }                      static horizontal/vertical ramp
+//   { kind: 'steps', colors }                 the whole frame shows colors[t], the last from then on
 //   { kind: 'square', hz, on, off, bg?, bgStep?, rect?, until?, after? }
 //       rect (default the whole frame) shows `on` in the first half period and `off` in the second,
 //       at 60 frames a second; from frame `until` on it shows `after` ('on' or 'off'). bgStep
@@ -30,6 +31,8 @@ export function renderSignal(spec, t, W, H, out) {
   const halves = hz => Math.floor((2 * hz * t) / 60);
   if (spec.kind === 'solid') {
     fill(0, 0, W, H, spec.color);
+  } else if (spec.kind === 'steps') {
+    fill(0, 0, W, H, spec.colors[Math.min(t, spec.colors.length - 1)]);
   } else if (spec.kind === 'gradient') {
     for (let y = 0; y < H; y++) {
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {

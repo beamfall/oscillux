@@ -166,16 +166,51 @@ ivec3 limiterMix(ivec3 a, ivec3 b, int k) {
     return (a * (256 - k) + b * k + 128) >> 8;
 }
 
-// The furthest of 256 steps from a toward b, found by bisection, at which tracker t is safe. a is
-// safe (step 0), so the result always is.
+// The steps a held pixel's searches try along a mix, counted from the input (1 is one step from
+// it, 256 the other end): the 16 nearest, then every 16th (n from 1 to NEAR_STEPS), then the
+// NEAR_FILL between the first of those that qualifies and the one tried before it. No order is
+// assumed along the mix: the luma and the trackers of rounded mixes cross a threshold more than
+// once (Codex review of limiter-dim-hold).
+const int NEAR_STEPS = 30;
+const int NEAR_FILL = 15;
+
+int limiterNearStep(int n) {
+    return n <= 16 ? n : 16 * (n - 15);
+}
+
+// The step nearest b, of those searched (limiterNearStep) along the mix from a, at which tracker
+// t is safe. a is safe (step 0), so the result always is.
 ivec3 limiterToward(uvec4 t, uint allowed, ivec3 a, ivec3 b) {
-    int lo = 0;
-    int hi = 256;
-    for (int n = 0; n < 8; n++) {
-        int mid = (lo + hi) >> 1;
-        if (limiterSafe(t, allowed, limiterMix(a, b, mid))) lo = mid; else hi = mid;
+    int at = 256;
+    for (int n = 1; n <= NEAR_STEPS; n++) {
+        int s = limiterNearStep(n);
+        if (limiterSafe(t, allowed, limiterMix(a, b, 256 - s))) { at = s; break; }
     }
-    return limiterMix(a, b, lo);
+    int far = at;
+    for (int n = NEAR_FILL; n >= 1; n--) {
+        if (far > 16 && limiterSafe(t, allowed, limiterMix(a, b, 256 - (far - n)))) { at = far - n; break; }
+    }
+    return limiterMix(a, b, 256 - at);
+}
+
+// Whether luma code v is at most lim (atMost) or at least lim.
+bool limiterLumaOk(int v, int lim, bool atMost) {
+    return atMost ? v <= lim : v >= lim;
+}
+
+// How many steps from b the nearest mix from a is, of those searched (limiterNearStep), whose
+// luma is at most lim (atMost) or at least lim; 256, a itself, when none is.
+int limiterLumaToward(ivec3 a, ivec3 b, int lim, bool atMost) {
+    int at = 256;
+    for (int n = 1; n <= NEAR_STEPS; n++) {
+        int s = limiterNearStep(n);
+        if (limiterLumaOk(limiterLuma(limiterMix(a, b, 256 - s)), lim, atMost)) { at = s; break; }
+    }
+    int far = at;
+    for (int n = NEAR_FILL; n >= 1; n--) {
+        if (far > 16 && limiterLumaOk(limiterLuma(limiterMix(a, b, 256 - (far - n))), lim, atMost)) { at = far - n; break; }
+    }
+    return at;
 }
 
 // How far (of 256) a pixel denied a rise moves each frame from the previous output's hue toward
@@ -221,22 +256,10 @@ ivec3 limiterDim(uvec4 t, uint allowed, ivec3 c, ivec3 h) {
             if (limiterLuma((c * mid + 127) / 255) <= top) lo = mid; else hi = mid;
         }
         d = (c * lo + 127) / 255;
-        lo = 0;
-        hi = 256;
-        for (int n = 0; n < 8; n++) {
-            int mid = (lo + hi) >> 1;
-            if (limiterLuma(limiterMix(h, c, mid)) <= top) lo = mid; else hi = mid;
-        }
-        ivec3 e = limiterMix(limiterMix(h, c, lo), d, CHROMA_K);
+        ivec3 e = limiterMix(limiterMix(h, c, 256 - limiterLumaToward(h, c, top, true)), d, CHROMA_K);
         if (limiterLuma(e) <= top) d = e;
     } else if (v < lowest) {
-        int lo = 0;
-        int hi = 256;
-        for (int n = 0; n < 8; n++) {
-            int mid = (lo + hi) >> 1;
-            if (limiterLuma(limiterMix(c, h, mid)) >= lowest) hi = mid; else lo = mid;
-        }
-        d = limiterMix(c, h, hi);
+        d = limiterMix(h, c, 256 - limiterLumaToward(h, c, lowest, false));
     }
     if (limiterSafe(t, allowed, d)) return d;
     int w = limiterLuma(d);

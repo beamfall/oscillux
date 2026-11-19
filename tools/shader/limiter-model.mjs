@@ -214,6 +214,13 @@ const mix = (a, b, k) => (a * (256 - k) + b * k + 128) >> 8;
 /** How far (of 256) a pixel denied a rise moves each frame from the previous output's hue toward
  * the input's (createLimiter, dim). */
 const CHROMA_K = 32;
+/** The steps a held pixel's searches try along a mix, counted from the input (1 is one step from
+ * it, 256 the other end): the 16 nearest, then every 16th (n from 1 to NEAR_STEPS), then the
+ * NEAR_FILL between the first of those that qualifies and the one tried before it. No order is
+ * assumed along the mix: the luma and the trackers of rounded mixes cross a threshold more than
+ * once (Codex review of limiter-dim-hold). */
+const NEAR_STEPS = 30, NEAR_FILL = 15;
+const nearStep = n => (n <= 16 ? n : 16 * (n - 15));
 
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
@@ -256,15 +263,37 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   // Whether the pixel's trackers fire on (r, g, b) in no direction outside `allowed`.
   const safe = (q, allowed, r, g, b) => !(fires(q, lumaCode(r, g, b), redCode(r, g, b), redSat(r, g, b)) & ~allowed & 15);
 
-  // The furthest of 256 steps from colour a toward colour b (three bytes each) found by bisection
-  // at which the pixel is safe, into shown. a is safe (step 0), so the result always is.
+  // The step nearest colour b (three bytes each), of those searched (nearStep) along the mix from
+  // colour a, at which the pixel is safe, into shown. a is safe (step 0), so the result always is.
   function toward(q, allowed, a0, a1, a2, b0, b1, b2) {
-    let lo = 0, hi = 256;
-    for (let n = 0; n < 8; n++) {
-      const mid = (lo + hi) >> 1;
-      if (safe(q, allowed, mix(a0, b0, mid), mix(a1, b1, mid), mix(a2, b2, mid))) lo = mid; else hi = mid;
+    const ok = s => safe(q, allowed, mix(a0, b0, 256 - s), mix(a1, b1, 256 - s), mix(a2, b2, 256 - s));
+    let at = 256;
+    for (let n = 1; n <= NEAR_STEPS; n++) {
+      if (ok(nearStep(n))) { at = nearStep(n); break; }
     }
-    shown[0] = mix(a0, b0, lo); shown[1] = mix(a1, b1, lo); shown[2] = mix(a2, b2, lo);
+    const far = at;
+    for (let n = NEAR_FILL; n >= 1; n--) {
+      if (far > 16 && ok(far - n)) { at = far - n; break; }
+    }
+    shown[0] = mix(a0, b0, 256 - at); shown[1] = mix(a1, b1, 256 - at); shown[2] = mix(a2, b2, 256 - at);
+  }
+
+  // How many steps from colour b the nearest mix from colour a is, of those searched (nearStep),
+  // whose luma is at most lim (atMost) or at least lim; 256, colour a, when none is.
+  function lumaToward(a0, a1, a2, b0, b1, b2, lim, atMost) {
+    const ok = s => {
+      const v = lumaCode(mix(a0, b0, 256 - s), mix(a1, b1, 256 - s), mix(a2, b2, 256 - s));
+      return atMost ? v <= lim : v >= lim;
+    };
+    let at = 256;
+    for (let n = 1; n <= NEAR_STEPS; n++) {
+      if (ok(nearStep(n))) { at = nearStep(n); break; }
+    }
+    const far = at;
+    for (let n = NEAR_FILL; n >= 1; n--) {
+      if (far > 16 && ok(far - n)) { at = far - n; break; }
+    }
+    return at;
   }
 
   // The colour a held pixel shows, into shown: the input with its luma moved into the band its
@@ -302,21 +331,13 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         if (lumaCode(scale(r, mid), scale(g, mid), scale(b, mid)) <= top) lo = mid; else hi = mid;
       }
       d0 = scale(r, lo); d1 = scale(g, lo); d2 = scale(b, lo);
-      lo = 0; hi = 256;
-      for (let n = 0; n < 8; n++) {
-        const mid = (lo + hi) >> 1;
-        if (lumaCode(mix(h0, r, mid), mix(h1, g, mid), mix(h2, b, mid)) <= top) lo = mid; else hi = mid;
-      }
-      const e0 = mix(mix(h0, r, lo), d0, CHROMA_K), e1 = mix(mix(h1, g, lo), d1, CHROMA_K), e2 = mix(mix(h2, b, lo), d2, CHROMA_K);
+      const k = 256 - lumaToward(h0, h1, h2, r, g, b, top, true);
+      const e0 = mix(mix(h0, r, k), d0, CHROMA_K), e1 = mix(mix(h1, g, k), d1, CHROMA_K), e2 = mix(mix(h2, b, k), d2, CHROMA_K);
       if (lumaCode(e0, e1, e2) <= top) { d0 = e0; d1 = e1; d2 = e2; }
     } else if (v < floor) {
       const h0 = history[q], h1 = history[q + 1], h2 = history[q + 2];
-      let lo = 0, hi = 256;
-      for (let n = 0; n < 8; n++) {
-        const mid = (lo + hi) >> 1;
-        if (lumaCode(mix(r, h0, mid), mix(g, h1, mid), mix(b, h2, mid)) >= floor) hi = mid; else lo = mid;
-      }
-      d0 = mix(r, h0, hi); d1 = mix(g, h1, hi); d2 = mix(b, h2, hi);
+      const k = 256 - lumaToward(h0, h1, h2, r, g, b, floor, false);
+      d0 = mix(h0, r, k); d1 = mix(h1, g, k); d2 = mix(h2, b, k);
     }
     if (safe(q, allowed, d0, d1, d2)) { shown[0] = d0; shown[1] = d1; shown[2] = d2; return; }
     const w = lumaCode(d0, d1, d2);

@@ -8,7 +8,7 @@
 - [x] 1.4 READMEs, the audit's header and the changelog
 - [x] 1.5 A denied rise mixes from the previous output (model, passes, tests, vectors, docs)
 - [x] 1.6 The limit of a denied rise over a lit pixel (model, passes, tests, vectors, docs)
-- [ ] 1.7 Mix searches that assume no order along the mix (model, passes, tests, vectors, docs)
+- [x] 1.7 Mix searches that assume no order along the mix (model, passes, tests, vectors, docs)
 
 ## 2. Verify and close
 

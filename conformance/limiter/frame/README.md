@@ -113,6 +113,7 @@ A host that does not know its device class uses `wcag`.
 | `odd-size-checker-10hz` | sub-block partition at a frame size not divisible by 64 x 36 |
 | `fine-checker-10hz` | a 4 px checkerboard inversion at 640 x 360 is limited |
 | `colour-10hz-dim`, `colour-checker-15hz-dim` | held pixels of coloured content show the input dimmed, byte for byte (limiter-dim-hold) |
+| `dim-fall-first-step`, `dim-rise-past-a-gap`, `dim-red-near-input` | a held pixel takes a mix step near the input that qualifies past steps that do not: black, one colour, then another held (limiter-dim-hold) |
 
 ## Commands
 

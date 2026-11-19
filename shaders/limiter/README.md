@@ -231,10 +231,15 @@ pixel shows, in order of preference:
 3. if that grey fires too, the furthest safe mix from the previous output toward the input. The
    previous output fires nothing, so this always exists.
 
-Each search is an eight-step bisection in integers, the same in the model and on every leg. So a
-held region shows the current frame at reduced contrast: a pixel denied a rise shows the new
-content at most a step brighter than it was, and a pixel denied a fall keeps its colour less than
-a step dimmer than its peak until a fall is granted. (v0.2.9 showed the previous output at a held
+The scale toward black and the grey are eight-step bisections. The three mixes are searched
+without assuming an order along them, since the luma and the trackers of rounded mixes cross a
+threshold more than once: the 16 steps (of 256) nearest the input, then every 16th, then the 15
+between the first of those that qualifies and the one tried before it, taking the first that
+qualifies (at most 45 tests; `limiterNearStep`). All are in integers, the same in the model and
+on every leg. So a held region shows the current frame at reduced contrast: a pixel denied a rise
+shows the new content at most a step brighter than it was, and a pixel denied a fall keeps its
+colour less than a step dimmer than its peak until a fall is granted. (v0.2.9 showed the previous
+output at a held
 pixel. Grants are scarce, about three a second, so under loud audio most moving pixels froze
 where they were, each on its own frame, and the picture broke into stale fragments. Until v0.2.9
 the whole sub-block held, so holds showed as tiles.) `output` then steps every pixel's trackers
@@ -369,7 +374,8 @@ costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).
 Measured with `node tools/shader/limiter-check.mjs --metal --time 1920x1080`. On an M2 Max the
 passes cost 0.31 ms of GPU time per frame at 1080p and 0.87 ms at 4K (v0.2.9). The `rows` and
 `output` passes scale with resolution; the rest are fixed size. The dimmed hold adds work only at
-held pixels (up to four eight-step searches). On the timing pattern, where every pixel is held
+held pixels (two eight-step searches and up to two mix searches of at most 45 tests each, which
+were eight-step bisections when these times were taken). On the timing pattern, where every pixel is held
 most frames, runs of this tree and of v0.2.9 on the same busy machine on 2026-11-19 overlapped:
 0.49 to 0.61 ms against 0.36 to 0.45 ms a frame at 1080p (the `output` pass 0.17 to 0.26 ms
 against 0.14 to 0.18 ms) and 1.50 ms against 1.35 to 1.43 ms at 4K (`output` 0.62 ms against

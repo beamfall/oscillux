@@ -683,6 +683,35 @@ test('a denied rise over a lit background keeps the background hue and stays nea
   assert.ok(kept > 0, 'no pixel showing the glow was denied a rise');
 });
 
+// Codex review of limiter-dim-hold: the luma and the trackers of rounded mixes cross a threshold
+// more than once, and a bisection along the mix stopped at the wrong crossing. Uniform frames:
+// black, a colour, then one whose change is denied. A denied fall needs one step (of 256) of the
+// previous output to reach its floor, though the next valid mix is 140 steps away. A denied rise
+// has its furthest mix under the limit at step 90, past three steps over it; an eighth from there
+// toward the scaled input is over the limit, so the pixel shows the scaled input. A red change
+// has a safe mix from the grey 12 steps from the dimmed input, past unsafe steps on both sides.
+for (const [name, from, to, want] of [
+  ['a denied fall takes one step of the previous output', [240, 123, 247], [31, 167, 125], [32, 167, 125]],
+  ['a denied rise finds the furthest mix under its limit', [23, 189, 209], [12, 250, 58], [10, 214, 50]],
+  ['a denied red change finds the safe mix beside the input', [154, 194, 79], [251, 130, 9], [247, 132, 16]],
+]) {
+  test(`a held pixel's search does not stop at the first crossing: ${name}`, () => {
+    const width = 64, height = 36;
+    const lim = model.createLimiter({ width, height });
+    const px = new Uint8Array(width * height * 4), before = new Uint16Array(width * height * 4);
+    let r;
+    for (const c of [BLACK, from, to]) {
+      if (r) before.set(r.track);
+      renderSignal({ kind: 'solid', color: c }, 0, width, height, px);
+      r = lim.step(px, DT);
+    }
+    assert.equal(r.held, width * height, 'the frame is not held');
+    const asked = firesOn(before, 0, to[0], to[1], to[2]), shown = firesOn(before, 0, r.out[0], r.out[1], r.out[2]);
+    assert.equal(shown & ~(asked & r.grant), 0, `the output fires ${shown}, input ${asked}, grant ${r.grant & 15}`);
+    assert.deepEqual([r.out[0], r.out[1], r.out[2]], want);
+  });
+}
+
 // Codex review (CORE-2543): beside a red region held by the red budget, a luma rise admitted at
 // frame 10 was blended toward history until the hold released at frame 82, after the luma token it
 // spent had refilled, and the black/colour alternation from frame 84 then made seven luma

@@ -29,7 +29,11 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   output fires only what the input fires and the grant admitted, so at most the luma flash limit
   and one large-area red transition a second. Pass bindings, texture formats and the ABI are
   unchanged; hosts only take the new shaders. Two conformance cases (`colour-10hz-dim`,
-  `colour-checker-15hz-dim`) cover the dimmed colours.
+  `colour-checker-15hz-dim`) cover the dimmed colours. The searches along a mix of two colours
+  assume no order, since rounding can make a step qualify past ones that do not: each tests the
+  16 steps nearest the input, then every 16th, then the 15 before the first that qualified (at
+  most 45 tests, was 8), so a held pixel is no longer left far from the input when a nearer step
+  is safe (cases `dim-fall-first-step`, `dim-rise-past-a-gap`, `dim-red-near-input`).
 
 ## [0.2.9] - 2026-11-19
 
