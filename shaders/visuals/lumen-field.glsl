@@ -3,19 +3,33 @@
 // bottom-anchored light stalks, one per
 // spectrum slice, HDR tip orbs, rising energy pulses, rippled floor reflection.
 // param0 = Pillars ; param1 = Bloom ; param2 = Sway
+//
+// Flash budget (CORE-2659): the wide halos glow from the floor up on a fixed vertical profile and
+// fade out well below each tip, so a band that jumps moves only the thin spine and the small orb.
+// Beat response is a swell with a ~150 ms attack (from beatPhase, continuous across the wrap)
+// scaled by level, never an instant kick, onset or bassImpact over a large area.
+
+// 0 at the beat, up over ~0.3 beat, back down by the next beat: continuous at the wrap.
+float lumenSwell(VisualUniforms u) {
+    float bp = u.beatPhase;
+    return smoothstep(0.0, 0.3, bp) * (1.0 - smoothstep(0.3, 1.0, bp)) * saturate(u.level * 1.15);
+}
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     int nP = int(mix(7.0, 13.0, u.param0) + 0.5);
     float bloom = mix(0.6, 2.2, u.param1);
     float sway = mix(0.012, 0.10, u.param2);
+    float sw = lumenSwell(u);
+    // monotonic beat surge for the rising pulses: beatCount + eased phase is continuous at the wrap
+    float surge = (u.beatCount + smoothstep(0.0, 0.6, u.beatPhase)) * 0.4 * saturate(u.level * 1.15);
 
     float floorY = 0.42; // +y is down (origin top-left)
     float below = p.y - floorY;
     float isRefl = step(0.0, below);
     // mirror coordinate + water ripple in the reflection
     float yA = mix(p.y, floorY - below, isRefl);
-    float rippleX = isRefl * sin(p.y * 34.0 + u.time * 1.7) * 0.010 * (1.0 + 2.0 * u.bass);
+    float rippleX = isRefl * sin(p.y * 34.0 + u.time * 1.7) * 0.010 * (1.0 + 0.8 * sw);
 
     vec3 col = vec3(0.0);
 
@@ -29,44 +43,53 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                  + sin(u.time * (0.30 + 0.11 * fi) + fi * 1.9) * sway;
         float dx = p.x + rippleX - x0;
 
-        float wCore = 0.011 + 0.010 * bandE;
-        float wHalo = wCore * (3.2 + 1.5 * bloom);
+        float wCore = 0.012 + 0.004 * bandE;
+        float wHalo = 0.021 * (3.2 + 1.5 * bloom);
         float core = exp(-dx * dx / max(wCore * wCore, 1e-6));
         float halo = exp(-dx * dx / max(wHalo * wHalo, 1e-6));
 
-        float hgt = 0.22 + 1.00 * bandE + 0.14 * u.bassImpact;
+        float hgt = 0.30 + 0.56 * bandE + 0.04 * sw;
         float tipY = floorY - hgt;
-        float ywin = smoothstep(tipY - 0.06, tipY + 0.14, yA)
-                   * (1.0 - smoothstep(floorY - 0.005, floorY + 0.03, yA));
-        // brighter toward the tip
-        float vshade = mix(0.35, 1.15, saturate((floorY - yA) / max(hgt, 1e-3)));
+        float up = floorY - yA; // height above the floor
+        float floorCut = 1.0 - smoothstep(floorY - 0.005, floorY + 0.03, yA);
+        // spine: sharp top that follows the band
+        float ywin = smoothstep(tipY - 0.03, tipY + 0.06, yA) * floorCut;
+        // halo: fixed glow from the floor that dies out well below the tip, so a jump in
+        // height never lights or darkens a wide area
+        float hwin = smoothstep(tipY - 0.05, tipY + 0.45, yA) * floorCut * exp(-max(up, 0.0) * 1.3);
+        // spine brighter higher up (absolute, so it does not rescale when the band jumps)
+        float vshade = mix(0.45, 1.10, saturate(up / 0.9));
 
-        // rising energy pulses inside the stalk
-        float pulse = 0.6 + 0.4 * sin((floorY - yA) * 16.0 + u.time * (2.0 + 3.0 * bandE) + fi);
+        // rising energy pulses inside the stalk; the beat pushes them up a step
+        float pulse = 0.80 + 0.20 * sin(up * 16.0 - u.time * 2.4 - surge + fi * 1.3);
 
-        float hue = fr * 0.7 + 0.08 * u.spectralCentroid + 0.02 * u.time;
+        float hue = fr * 0.7 + 0.08 * u.spectralCentroid + 0.02 * u.time + 0.015 * sw;
         vec3 c = palVisual(hue, u);
         c = accentize(c, u.accent, 0.10);
 
         float refDim = mix(1.0, 0.34 * saturate(1.0 - below * 1.8), isRefl);
-        float energy = (0.35 + 1.9 * bandE) * refDim;
+        float eHalo = (0.85 + 0.30 * bandE) * refDim;
+        float eCore = (0.70 + 0.80 * bandE) * refDim;
 
-        col += c * halo * ywin * vshade * pulse * energy * 0.45 * bloom;
-        col += peakWhite(c, 0.25 * u.onset) * core * ywin * vshade * energy * 1.4; // HDR spine
+        // pale hues glow no brighter than saturated ones, so the bright halos keep one band
+        vec3 ch = c / (1.0 + 1.2 * max(luma(c) - 0.30, 0.0));
+        col += ch * halo * hwin * pulse * eHalo * 0.55 * bloom;
+        col += mix(c, vec3(2.2, 2.0, 1.85), 0.25) * core * ywin * vshade * eCore * 1.3; // HDR spine
 
-        // HDR tip orb
-        float tdx = p.x + rippleX - x0;
+        // HDR tip orb: a tight soft core plus a faint tail, so a jumping tip moves little light
         float tdy = yA - tipY;
-        float td2 = tdx * tdx + tdy * tdy;
-        float orb = min(3.0, 2.2e-4 / (td2 + 2.2e-4));
-        vec3 oc = palRoleTreble(hue + 0.2, u);
-        col += oc * orb * (0.8 + 2.4 * bandE + 1.6 * u.bassImpact) * refDim * bloom;
+        float td2 = dx * dx + tdy * tdy;
+        float orb = 1.3 * exp(-td2 / 2.2e-4) + 0.08 * exp(-td2 / 4.0e-3);
+        vec3 oc = palVisual(0.62 + (hue + 0.2) * 0.28 + 0.10 * u.spectralCentroid, u);
+        oc = mix(oc, vec3(2.2, 2.0, 1.85), 0.15);
+        col += oc * orb * (1.0 + 0.4 * bandE) * refDim * bloom;
     }
 
     // floor line + soft haze hugging it
-    col += palRoleRim(0.5 + 0.1 * u.spectralCentroid, u)
-         * aaLine(p.y - floorY, 0.0028) * (1.2 + 2.0 * u.bassImpact);
-    col += palRoleFog(0.55, u) * exp(-abs(p.y - floorY) * 5.5) * (0.06 + 0.30 * u.bass);
+    float rimT = 0.5 + 0.1 * u.spectralCentroid;
+    vec3 rim = mix(palVisual(rimT, u), palVisual(rimT + 0.18, u), 0.4);
+    col += rim * aaLine(p.y - floorY, 0.0028) * (1.6 + 0.5 * sw);
+    col += palRoleFog(0.55, u) * exp(-abs(p.y - floorY) * 5.5) * (0.10 + 0.05 * sw) * saturate(u.level * 1.15 + 0.2);
 
     // dark ceiling / edge falloff keeps the room black
     col *= 1.0 - smoothstep(0.75, 1.45, length(p * vec2(0.75, 1.15))) * 0.85;
