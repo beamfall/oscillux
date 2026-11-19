@@ -44,15 +44,39 @@ The nebula visual SHALL run `6 + round(6 * detail)` volumetric shells, where `de
 
 The catalogue Particles (`shaders/manifest.json`) SHALL keep its beat response under the frame
 limiter's area budget: through the limiter model with the red audit's loud audio, no frame SHALL
-hold more than 5% of the limiter's sub-blocks. It SHALL still pass `beat-lint`.
+hold more than 20% of the frame's pixels. It SHALL still pass `beat-lint`.
 
 #### Scenario: Loud audio
 
 - **WHEN** `make limiter-hold-check` runs the release-leg Particles through
-  `tools/shader/limiter-red-audit.mjs --audio loud --max-held 0.05`
-- **THEN** the largest held fraction of any frame is at most 0.05 and the check exits 0
+  `tools/shader/limiter-red-audit.mjs --audio loud --max-held 0.20`
+- **THEN** the largest held fraction of pixels in any frame is at most 0.20 and the check exits 0
 
 #### Scenario: Beat response kept
 
 - **WHEN** `beat-lint` runs on the release-leg Particles
 - **THEN** it passes
+
+### Requirement: Visuals fit the frame's aspect
+
+Each visual in the reference set SHALL keep its main subject in frame and its repeated detail
+(bars, columns, lines) at least about 4 px wide at any frame aspect from a portrait phone
+(9:19.5) to ultrawide (21:9). The `centered()` and `motionCentered()` coordinate helpers SHALL
+lean toward the frame's short side. Bar visuals SHALL choose their column count from the
+frame aspect with `fitColumns`. At aspect 16:9 and wider a visual's output SHALL be unchanged by this fit.
+
+#### Scenario: A phone held upright
+
+- **WHEN** a centered visual renders at 390 x 844
+- **THEN** coordinates scale by aspect^-0.7, so a subject authored within radius 0.8 fits the
+  frame's width
+
+#### Scenario: Bars on a narrow frame
+
+- **WHEN** Spectrum renders at 390 x 844
+- **THEN** it draws fewer, wider columns than at 16:9, each at least 4 px wide
+
+#### Scenario: Landscape unchanged
+
+- **WHEN** a visual renders at 480 x 270
+- **THEN** its frame matches the frame before the change to within 1/255

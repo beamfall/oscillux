@@ -18,4 +18,4 @@
 ## 3. Verify and close
 
 - [x] 3.1 Run `make limiter-check`, `make limiter-hold-check` and `make visual-flash-check`
-- [ ] 3.2 Run `openspec archive limiter-pixel-trackers` after landing
+- [x] 3.2 Run `openspec archive limiter-pixel-trackers` after landing

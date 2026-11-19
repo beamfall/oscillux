@@ -8,4 +8,4 @@
 ## 2. Verify and close
 
 - [x] 2.1 Run `make shader-test` and regenerate the legs
-- [ ] 2.2 Run `openspec archive feedback-frame-rate` after landing
+- [x] 2.2 Run `openspec archive feedback-frame-rate` after landing

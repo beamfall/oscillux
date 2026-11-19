@@ -10,4 +10,4 @@
 - [x] 2.1 Catalog audit at 1/4, 3/8 and 7/16; with the exact output (CORE-2543) only 1/4 keeps
   every visual within 6 transitions/s
 - [x] 2.2 Run `make limiter-check` and `make limiter-hold-check`
-- [ ] 2.3 Run `openspec archive limiter-fine-pattern` after landing
+- [x] 2.3 Run `openspec archive limiter-fine-pattern` after landing
