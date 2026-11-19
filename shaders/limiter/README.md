@@ -49,10 +49,13 @@ The uniform block holds two vectors:
     refresh late and this one on time, so it was shown for max(R, interval - R) for the display's
     refresh period R. A host that knows R only from above takes the least of that over every R up
     to its bound, max(interval / 2, interval - bound), and no more than the bound (the Beamfall web
-    host: the bound is the shortest of its last 32 draw intervals, at least 4 ms and at most a
-    24 Hz refresh, so a cadence that slows is measured again; animation frames can run at every
-    other refresh, as Safari's do at 60 a second on a 120 Hz display, so a host drawing at its
-    animation-frame rate credits half of each interval) (Codex rounds 18 to 21, 27). A steady
+    host: the bound is the shortest draw interval since it was mounted, at least 4 ms and at
+    most a 24 Hz refresh, and is never forgotten, since a bound taken over recent draws rises
+    when the page slows on the same display and then over-credits a late frame; animation
+    frames can run at every other refresh, as Safari's do at 60 a second on a 120 Hz display, so
+    a host drawing at its animation-frame rate credits half of each interval) (Codex rounds 18
+    to 21, 27, 28). A host that has never drawn faster than every third refresh of its display
+    can still over-credit a frame painted late; only paint times close that. A steady
     draw cadence is therefore not a measurement of R, and does not earn more than half: only
     paint times, or an R the platform reports, do. R is the period at both paints: a
     display that changes its refresh rate between them can show the frame for less, which a host
@@ -260,14 +263,17 @@ for every change. Nothing is carried from the old frame to the new one.
    the fade's first frame (a dark frame can still hold an earlier peak a step above black, and
    its fall then waits like any other), one with luma to drop when the two luma tokens are back
    (2 / (2 · maxFlashHz) seconds), and one with saturated red when the red token is. A host that
-   does not read the word, and any host as a cap, runs the fade for longer than the red token's
-   refill, 8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write
-   refills nothing, and the grant comes on a frame). Both times are in the time the limiter is
-   credited with, not on the clock (the Beamfall web host: the held bits of an earlier frame of
-   the fade, read through a pixel-pack buffer and a fence polled once a frame so the page never
-   waits on the GPU, which ends the fade a frame or two after the grant, with a cap of 2 s,
-   counting each frame's `deltaMs` up to one luma token's refill, the most a frame refills, so a
-   slow page fades for longer; Codex rounds 22, 26 and 27). The output is then black.
+   does not read the word runs the fade for longer than the red token's refill,
+   8 / (2 · maxFlashHz) seconds, by more than two frames (the first after the write refills
+   nothing, and the grant comes on a frame). A host that reads it keeps a cap no sooner than
+   that, for a word that never clears and for a cleared word no read of which finishes. Both
+   times are in the time the limiter is credited with, not on the clock (the Beamfall web host:
+   the held bits of the fade's last frame, read into a pixel-pack buffer behind a fence that
+   closes the frame and taken at the next frame only if the GPU has finished that one, so the
+   page waits behind none of its own frames, which ends the fade a frame after the grant, with a
+   cap of 2 s, counting each frame's `deltaMs` up to one luma token's refill, the most a frame
+   refills, so a slow page fades for longer and a GPU more than a frame behind fades to the
+   cap; Codex rounds 22 and 26 to 28). The output is then black.
 
    Credited time runs slower than the clock wherever `deltaMs` is a lower bound. The Beamfall
    web host cannot read the display's refresh period or measure it from its animation frames,

@@ -59,7 +59,8 @@ did. The owner's priority is no flashes, so the limiter must count what the audi
   to black through the limiter (`G` written fully spent, an area limit of 0, black fed in, until
   a frame of the fade shows black at every pixel, which the grant word's held bits report; a
   host that does not read the word fades for more than two frames past the red token's refill,
-  in the time the limiter is credited with, and no host fades for longer than that), present
+  in the time the limiter is credited with, and a host that reads it ends the fade at a cap no
+  sooner than that when the word never clears or no read of a cleared word finishes), present
   black without running the limiter for longer than
   the coverage interval, counted from the first black frame presented, then start again at the
   latest size. A change during the fade or the black only moves that target. Nothing is copied

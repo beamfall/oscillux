@@ -222,17 +222,7 @@ black at every pixel. Until the start the view of the frame SHALL only shrink.
 
 A host that reads the grant word SHALL end the fade once it has read, from one of the fade's
 frames, a word that holds no direction: at the frame after that one at the soonest, and later if
-it reads the word without waiting on the GPU. Every host SHALL end it once it has run for longer
-than the red token's refill, 8 / (2 · maxFlashHz) seconds, by more than two frames, in the time
-the limiter is credited with, and a host that does not read the word SHALL NOT end it sooner.
-
-#### Scenario: A fade timed to the red refill
-
-- **WHEN** a host that does not read the grant word fades a red frame, drawing a frame each
-  refill period, 1 / (2 · maxFlashHz) seconds
-- **THEN** the first frame after the write refills nothing, the next eight earn 65,024 of the red
-  token's 65,025 units, and the tenth grants the fall: the fade runs for more than two frames
-  past the eight periods
+it reads the word without waiting on the GPU.
 
 #### Scenario: A dark frame fades in one frame
 
@@ -253,6 +243,28 @@ the limiter is credited with, and a host that does not read the word SHALL NOT e
 - **WHEN** the fade starts on a frame with luma to drop and no saturated red
 - **THEN** the frame is held until the two luma tokens are back, the fall is granted on one
   frame, and the fade ends at the next or once the host has read that frame's word
+
+### Requirement: A fade with no clear word read ends at a cap
+
+Without a read of a word that holds no direction (the host does not read the word, the word
+never clears, or a word that cleared sits behind a read that has not finished) a host SHALL NOT
+end the fade before it has run for longer than the red token's refill, 8 / (2 · maxFlashHz)
+seconds, by more than two frames, in the time the limiter is credited with. It SHALL end the
+fade at a cap it sets no sooner than that (the Beamfall web host: 2 s at the default 3 Hz).
+
+#### Scenario: A fade timed to the red refill
+
+- **WHEN** a host that does not read the grant word fades a red frame, drawing a frame each
+  refill period, 1 / (2 · maxFlashHz) seconds
+- **THEN** the first frame after the write refills nothing, the next eight earn 65,024 of the red
+  token's 65,025 units, and the tenth grants the fall: the fade runs for more than two frames
+  past the eight periods
+
+#### Scenario: A cleared word that is never read
+
+- **WHEN** a host that reads the grant word without waiting on the GPU fades a frame whose word
+  clears, and no read of it finishes
+- **THEN** the fade ends at the host's cap, as for a word that never clears
 
 ### Requirement: A change during the fade moves the target
 
