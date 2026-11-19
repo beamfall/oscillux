@@ -10,7 +10,7 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
-## [0.2.9] - 2026-11-18
+## [0.2.9] - 2026-11-19
 
 ### Changed
 
