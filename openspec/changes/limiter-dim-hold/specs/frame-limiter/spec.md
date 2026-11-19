@@ -45,8 +45,8 @@ tracker's low.
 
 - **WHEN** a near-white line moves onto pixels showing a dim saturated colour on a frame whose
   rise is not admitted
-- **THEN** each of those pixels shows a luma code less than a step above its tracker's low and a
-  colour nearer the one it showed than the grey of that luma
+- **THEN** each of those pixels shows a luma code less than a step above its tracker's low, with
+  more than half the difference between its greatest and least channel that it showed
 
 #### Scenario: A denied fall stays a step below its peak
 
