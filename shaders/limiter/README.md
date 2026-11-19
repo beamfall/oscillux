@@ -46,9 +46,16 @@ The uniform block holds two vectors:
   - `deltaMs` is the frame interval as float32: a lower bound on the time the previous frame was
     shown, never more. A host that cannot see paint times takes the shorter of its frame clock's and
     its wall clock's intervals since the last draw, and no more than the display's refresh period
-    (the Beamfall web host: the shortest draw interval seen, at least 4 ms), since the previous
-    frame may have been painted late and this one on time (Codex rounds 18 and 19). A host that
+    (the Beamfall web host: the shortest draw interval seen, at least 4 ms and at most a 24 Hz
+    refresh, since a host that only draws slowly cannot measure its display), since the previous
+    frame may have been painted late and this one on time (Codex rounds 18 to 20). A host that
     draws slower than its display refreshes then ages evidence slower and holds changes longer.
+  - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
+    it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
+    a step the screen never showed, and a transition the screen does show can then go uncounted.
+    Browsers do not report a dropped canvas paint; the web host draws once per animation frame,
+    which a browser presents or delays rather than replaces. Presentation feedback, where a
+    platform gives it, is tracked in OSC-0046.
 
 `windowOf(geometry, width, height)` in `tools/shader/limiter-geometry.mjs` gives `cols`, `rows`
 and `limit` for a device class and frame size. `createClock` in the model gives `tick`, `deltaMs`
@@ -92,11 +99,14 @@ The `grant` pass keeps two token deficits: luma in `oG.y`, red in `oG.z`. Luma o
 takes the luma token when its deficit is zero. Red over the limit takes the red token when its
 deficit is zero; the red token refills at an eighth of the luma rate, so no 1 s window holds two
 large-area red transitions (no red flash) and a held red change is admitted instead of freezing
-(CORE-2382): within (65025 / 65024) · 8 / (2 maxFlashHz) s and one frame (1.333 s and a frame at
-the default 3 Hz), or within 9 frames when a frame is longer than 1 / (2 maxFlashHz) s. A refill
-period earns one unit under a token and a frame's refill is capped at a token, so eight periods
-repay 8 · 65024 / 8 = 65024 of the red token's 65025 and the last unit takes 1/65024 of a period
-more (Codex rounds 17 and 19). The bound is per grant: red grants one direction
+(CORE-2382): by the first frame at which the intervals since the spend, each counted up to one
+refill period of 1 / (2 maxFlashHz) s and the first not at all, add up to (65025 / 65024) · 8
+periods. At a steady cadence that is 1.333 s and a frame at the default 3 Hz, or 9 frames when
+every frame is longer than a period; a mixed cadence of long and short frames takes longer than
+either, because a long frame earns only one period (Codex round 20). A refill period earns one
+unit under a token and a frame's refill is capped at a token, so eight periods repay
+8 · 65024 / 8 = 65024 of the red token's 65025 and the last unit takes 1/65024 of a period more
+(Codex rounds 17 and 19). The bound is per grant: red grants one direction
 at a time, so an area held both rising and falling is admitted in two steps, the second one bound
 after the first (Codex round 18). When both red directions are asked, one is
 admitted, the other than last time. A frame asking both channels is admitted only when both
@@ -127,8 +137,10 @@ step is 15 codes (20 on WCAG's 320 scale, 16 less both errors). So every WCAG tr
 Every change moves the red tracker; it counts as a red transition when a saturated red state
 (`R / (R + G + B) >= 0.8`, widened by the codes' rounding) is the new state or was seen since the
 previous change, or, when it did not count, at the first saturated state before the next change.
-Every WCAG transition between saturated red and any other state counts, and a change between two
-unsaturated reds or oranges does not. (Until v0.2.9 the thresholds were widened by the codes'
+Every WCAG transition between saturated red and any other state counts. A change between two
+unsaturated reds or oranges counts only when a saturated state was seen since the previous change,
+so a pixel that left saturated red through an uncounted step still pays for the step after it
+(Codex round 20); a strobe between two oranges never counts. (Until v0.2.9 the thresholds were widened by the codes'
 rounding and red required saturation on both states, Codex rounds 11 to 13; until round 13 an
 unsaturated reversal left the red tracker unmoved, which hid the transition after it.)
 

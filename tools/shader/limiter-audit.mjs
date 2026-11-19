@@ -58,6 +58,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // or direction cannot erase another's pending area (Codex rounds 16, 17).
   const diff = new Int32Array((W + 1) * (H + 1));
   const firedNow = [false, false];
+  // The channels (bit 0 luma, bit 1 red) each pixel fires in on this frame: a pixel fires now by
+  // frame identity, not by its stamp, which an earlier frame shares when dt is 0 (Codex round 20).
+  const firing = new Uint8Array(N);
 
   let live = false, clock = 0;
   // Frame indices and times: luma up, luma down, red up, red down, then combined-only luma and red.
@@ -101,7 +104,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   const sums = [new Int32Array((W + 1) * (H + 1)), new Int32Array((W + 1) * (H + 1))];
   const nowSum = new Int32Array((W + 1) * (H + 1));
   const freshIn = c => j => fresh(last[2 * c][j]) || fresh(last[2 * c + 1][j]);
-  const firedIn = cs => j => cs.some(c => last[2 * c][j] === clock || last[2 * c + 1][j] === clock);
+  const firedIn = cs => j => cs.some(c => (firing[j] >> c) & 1);
   // The pixels inside some field placement over the limit of pixels fresh in either direction of
   // channel c in which a pixel of the channel fires now: an area in which nothing changes makes no
   // transition, so a channel area left over from a frame that charged its channel another way is
@@ -169,6 +172,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     frame++;
     clock += dt * 1000;
     firedNow[0] = firedNow[1] = false;
+    firing.fill(0);
     for (let j = 0, i = 0; j < N; j++, i += 4) {
       const r = px[i], g = px[i + 1], b = px[i + 2];
       const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
@@ -178,7 +182,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
         continue;
       }
       const fl = track(0, j, v);
-      if (fl !== 0) { last[fl > 0 ? 0 : 1][j] = clock; firedNow[0] = true; }
+      if (fl !== 0) { last[fl > 0 ? 0 : 1][j] = clock; firing[j] |= 1; firedNow[0] = true; }
       const fr = track(1, j, rv);
       let count = 0;
       if (fr !== 0) {
@@ -189,7 +193,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
         if (!redCounted[j] && sat) { count = dir[1][j]; redCounted[j] = 1; }
         if (sat) anySat[j] = 1;
       }
-      if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firedNow[1] = true; }
+      if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firing[j] |= 2; firedNow[1] = true; }
     }
     live = true;
     // Every test reads the counts as they stood before this frame's charges, so a large area in one

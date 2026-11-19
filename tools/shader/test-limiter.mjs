@@ -130,6 +130,32 @@ test('a lasting full-frame red-to-cyan change reaches the output within 1.5 s', 
   assert.ok(caught >= 60 && caught - 60 <= 90, `cyan reached the output at frame ${caught} (change at 60)`);
 });
 
+// Codex round 20: the red release bound at a mixed cadence. A frame's refill is capped at one
+// refill period, so a long frame earns less than its length. A full-frame red rise spends the
+// token; the fall to black is held until the frames' intervals, each counted up to one refill
+// period and the first after the spend not at all, add up to (65025 / 65024) 8 periods.
+test('a held red fall is admitted within the capped-interval bound at a mixed cadence (Codex round 20)', () => {
+  const lim = model.createLimiter({ width: W, height: H });
+  const px = new Uint8Array(W * H * 4);
+  const fill = rgb => { for (let i = 0; i < px.length; i += 4) px.set([...rgb, 255], i); };
+  const period = 1 / (2 * 3);
+  const need = (model.TOKEN / (model.TOKEN - 1)) * 8 * period;
+  fill(BLACK); lim.step(px, DT);
+  fill([255, 0, 0]);
+  assert.equal(lim.step(px, DT).redDeficit, model.TOKEN, 'the red rise spends the red token');
+  fill(BLACK);
+  let counted = 0, bound = -1, released = -1;
+  for (let t = 0; t < 40; t++) {
+    const dt = t % 2 ? 0.010 : 0.250;
+    if (t > 0) counted += Math.min(dt, period);
+    if (bound < 0 && counted >= need) bound = t;
+    const r = lim.step(px, dt);
+    if (released < 0 && r.held === 0 && r.out[0] === 0) released = t;
+  }
+  assert.ok(bound > 9, `the cadence is mixed enough to exceed nine frames (bound at frame ${bound})`);
+  assert.ok(released >= 0 && released <= bound + 1, `released at frame ${released}, bound frame ${bound}`);
+});
+
 // CORE-1616: red that covers part of every sub-block. One pixel column in three switches between
 // [110, 0, 0] and black: each pixel's red change is 50 on the auditor's scale (step 20) and the
 // stripes cover a third of every 10° window, but a sub-block's mean red moves by a third of that,
@@ -940,6 +966,20 @@ test('an unchanged frame makes no transition (Codex round 19)', () => {
     if (x >= 50 && x < 60 && y < 8) return t >= 2 ? [160, 0, 0] : [0, 0, 0];
     return [0, 0, 0];
   });
+  const red = input.transitions[2].length + input.transitions[3].length + input.transitions[5].length;
+  assert.equal(red, 1, `the auditor records ${red} red transitions`);
+});
+
+// Codex round 20: a frame shown no time after the last fires nothing in the red area its
+// predecessor raised; a grey pixel far away must not make that area fire again by sharing its stamp.
+test('a zero-interval frame does not refire the last frame\'s area (Codex round 20)', () => {
+  const { input } = scene(64, 36, 4, (t, x, y) => {
+    if (t === 3 && x === 0 && y === 35) return [128, 128, 128];
+    if (x < 8 && y < 8) return t >= 2 ? [160, 0, 0] : [0, 0, 0];
+    if (x >= 50 && x < 60 && y < 4) return t < 1 ? [160, 0, 0] : [0, 0, 0];
+    if (x >= 50 && x < 60 && y < 8) return t >= 2 ? [160, 0, 0] : [0, 0, 0];
+    return [0, 0, 0];
+  }, { dt: t => (t === 3 ? 0 : DT) });
   const red = input.transitions[2].length + input.transitions[3].length + input.transitions[5].length;
   assert.equal(red, 1, `the auditor records ${red} red transitions`);
 });

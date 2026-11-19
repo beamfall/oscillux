@@ -8,6 +8,35 @@ counts by its pixels instead of a diluted block mean.
 
 **Migration**: Hosts bind the `uTrack` state texture; see "Per-pixel transition trackers".
 
+## MODIFIED Requirements
+
+### Requirement: Rationed red transitions
+
+The frame limiter SHALL admit a large-area saturated-red transition, in either direction, only
+when its red token is full, and SHALL then empty it; the token SHALL refill at one eighth of the
+luma token's rate, so that no 1 s window holds more than one large-area red transition (no red
+flash). A held red change SHALL be admitted by the first frame at which the intervals since the
+spend, each counted up to 1 / (2 x maxFlashHz) s and the first not at all, add up to
+(65025 / 65024) x 8 / (2 x maxFlashHz) s.
+
+#### Scenario: Red strobe
+
+- **WHEN** a full-frame saturated-red and black square wave at 3 Hz or 10 Hz runs for 5 s
+- **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
+  output
+
+#### Scenario: Lasting red change
+
+- **WHEN** a full-frame saturated red changes to cyan and stays cyan
+- **THEN** the output shows the cyan input within 1.5 s
+
+#### Scenario: A mixed cadence
+
+- **WHEN** a full-frame red rise spends the red token and black follows at intervals alternating
+  250 ms and 10 ms at 3 Hz
+- **THEN** the fall is admitted by the frame the capped intervals reach the bound, later than nine
+  frames
+
 ## ADDED Requirements
 
 ### Requirement: Per-pixel transition trackers
@@ -34,7 +63,8 @@ quarter of the field's pixels.
 #### Scenario: The limiter's trackers are the auditor's
 
 - **WHEN** any sequence of frames runs through the limiter and the auditor reads its output
-- **THEN** every pixel's decoded tracker state equals the auditor's for that pixel
+- **THEN** every pixel's tracker makes the auditor's transition decisions for that pixel, on every
+  frame, although a compressed tracker may decode to a different reference
 
 #### Scenario: A fall below 0.8 after a bright start
 
