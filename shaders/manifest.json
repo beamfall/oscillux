@@ -2315,9 +2315,9 @@
         "hlsl"
       ],
       "imageInput": false,
-      "header": "// Phosphor Scope: Vintage CRT oscilloscope in a dark room: bass-vs-mid Lissajous figures morph with timbre, the beam kicks on onsets, and phosphor persistence smears the trace into glowing memory.",
+      "header": "// Phosphor Scope: Vintage CRT oscilloscope in a dark room: a slowly morphing Lissajous figure held in phosphor memory, redrawn by a white-hot beam whose head lands on the kick while the beat breathes the glow.",
       "name": "Phosphor Scope",
-      "blurb": "Vintage CRT oscilloscope in a dark room: bass-vs-mid Lissajous figures morph with timbre, the beam kicks on onsets, and phosphor persistence smears the trace into glowing memory.",
+      "blurb": "Vintage CRT oscilloscope in a dark room: a slowly morphing Lissajous figure held in phosphor memory, redrawn by a white-hot beam whose head lands on the kick while the beat breathes the glow.",
       "tier": "standard",
       "input": "spectrum",
       "overlay": false,
