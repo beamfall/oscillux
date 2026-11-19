@@ -58,12 +58,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 rupC = (c0 + c1 + c2) / 3.0;
 
     vec3 col = vec3(0.0);
+    vec3 glow = vec3(0.0);
     float wing = u.beatPhase * 6.2831853;
     // soft-attack kick: bassImpact's instant attack made every bird jump and
     // brighten in one frame.
     float kickSoft = swell(u);
     // bird core: at least ~1.4 px wide so a moving bird glides across pixels
-    // instead of popping on and off between them
+    // instead of popping on and off between them; the glow and reflection go
+    // to their own sum so only the halo is compressed, not the bright heads
     float px = 2.0 / max(u.resolution.y, 1.0);
     float core2 = max(2.2e-5, (1.4 * px) * (1.4 * px));
 
@@ -109,30 +111,32 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float bright = 0.55 + bandE * 0.8 + kickSoft * 0.12;
             float flick = 0.85 + 0.15 * sin(t * 3.0 + fi * 2.7 + ff * 5.0);
 
-            // main sprite: a soft core below white (cut at 3 core radii) plus
+            // main sprite: a bright, tight core (gaussian cut at ~1.2 core
+            // radii, so the bright area a moving head sweeps stays small) plus
             // a faint Lorentzian glow. The glow's 1/d^2 tail never reaches zero
             // and 120 tails summed fill the frame with haze -- gate it with a
             // gaussian so the room beyond ~0.15 stays black.
             vec2 d = p - bp;
             float d2 = dot(d, d);
             float tailCut = exp(-d2 * 60.0);
-            float bird = 0.9 * core2 / (d2 + core2) * exp(-d2 / (core2 * 9.0))
-                       + 1.2e-5 / (d2 + core2) * tailCut;
-            col += flockCol * bird * bright * flick;
+            col  += flockCol * (1.9 * core2 / (d2 + core2) * exp(-d2 / (core2 * 1.5))) * bright * flick;
+            glow += flockCol * (2.0e-5 / (d2 + core2) * tailCut) * bright * flick;
 
             // reflection under the floor, dimmed + softened
             vec2 dm = p - vec2(bp.x, 2.0 * floorY - bp.y);
             float dm2 = dot(dm, dm);
             float refCut = exp(-dm2 * 40.0);
-            col += flockCol * (5.0e-5 / (dm2 + 3.0e-4)) * refCut * bright * 0.28;
+            glow += flockCol * (5.0e-5 / (dm2 + 3.0e-4)) * refCut * bright * 0.28;
         }
     }
 
-    // Soft-knee the summed flock below white. Where birds bunch up their sum
-    // used to blow out, and the dense core then switched large areas between
-    // black and white every few frames as birds crossed (input luma 27/s
-    // under loud audio). Each bird keeps its colour; only the sum is capped.
-    col /= 1.0 + 5.0 * dot(col, vec3(0.2126, 0.7152, 0.0722));
+    // Soft-knee the heads above 0.7 luma toward 1.2, so bunched birds read as
+    // white sparks rather than a blown-out patch; the summed glow is
+    // compressed harder, since its broad haze is what bunches into area.
+    float Lc = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    float kn = 0.7, lm = 1.2;
+    if (Lc > kn) col *= (kn + (Lc - kn) / (1.0 + (Lc - kn) / (lm - kn))) / Lc;
+    col += glow / (1.0 + 3.0 * dot(glow, vec3(0.2126, 0.7152, 0.0722)));
 
     // faint reflective floor line + haze below horizon
     float floorGlow = exp(-abs(p.y - floorY) * 26.0);
@@ -140,14 +144,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float below = smoothstep(floorY, floorY - 0.5, p.y);
     col *= 1.0 - below * 0.45;
 
-    // strong trails = the murmuration's smoky body
+    // Trails = the murmuration's smoky body, held below 0.075 luma. A trail
+    // brighter than one 0.1 luminance step flashes again as it decays, after
+    // the head has gone; at full head brightness every streak in the dense
+    // core did, which was most of the 27 large-area luma transitions/s under
+    // loud audio. Capped, the decay never makes a step of its own: the heads
+    // sparkle and the trails stay dimmer, in the flock's colours.
     float decay = min(0.90, u.trailDecay + 0.07);
     float zoom = 0.0015 + 0.002 * kickSoft;
-    col = feedbackTrail(col, uv, decay, zoom, 0.0025 * sin(t * 0.21));
+    vec3 tr = feedbackTrail(vec3(0.0), uv, decay, zoom, 0.0025 * sin(t * 0.21));
+    float Lt = dot(tr, vec3(0.2126, 0.7152, 0.0722));
+    tr *= min(1.0, 0.075 / max(Lt, 1e-6));
+    col = max(col, tr);
 
-    // Fade the last of each trail to grey: amber decaying to near black
+    // Fade the very last of each trail to grey: amber decaying to near black
     // quantises to pure red codes, which counts as a red flash.
     float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    col = mix(vec3(l), col, smoothstep(0.0, 0.03, l));
+    col = mix(vec3(l), col, smoothstep(0.0, 0.012, l));
     return col; // LINEAR HDR
 }
