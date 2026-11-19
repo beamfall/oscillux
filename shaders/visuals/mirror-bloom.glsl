@@ -19,8 +19,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // slow timbral palette drift
     float drift = 0.16 * u.spectralCentroid + 0.05 * sin(u.time * 0.043);
 
+    // beat swell: ~180 ms attack after the beat, back to zero at the wrap, so it never steps
+    float swell = smoothstep(0.0, 0.36, u.beatPhase) * (1.0 - smoothstep(0.36, 1.0, u.beatPhase));
+
     // ---- silhouette: layered synthesized traces around the fold ----
-    float breath = 0.40 * massAmt * (0.70 + 0.45 * u.amplitude + 0.14 * u.bassImpact);
+    float breath = 0.40 * massAmt * (0.92 + 0.25 * u.amplitude + 0.10 * swell);
     float R = breath;
     for (int i = 0; i < 5; ++i) {
         float fi = float(i);
@@ -48,8 +51,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // rim glow: the wet edge catches light, feathered by treble
     float rim = exp(-((r - R) / max(feather * 1.6, 1e-3))*((r - R) / max(feather * 1.6, 1e-3)));
-    vec3 rimCol = palRoleRim(drift + 0.55, u);
-    vec3 col = ink * mass + rimCol * rim * (0.25 + 1.0 * u.treble) * mass
+    // Rim colour without palRoleRim: its peak role whitens instantly on onset/bass, which strobed the
+    // whole wet edge. A steady pale tint of the palette instead; treble and a smooth beat swell lift it.
+    vec3 rimCol = palVisual(drift + 0.55, u) * 1.2 + vec3(0.16, 0.12, 0.14);
+    vec3 col = ink * mass + rimCol * rim * (0.70 + 0.30 * u.treble + 0.20 * swell) * mass
              + rimCol * rim * 0.14;                          // faint outer wet halo
 
     // heartbeat: interior brightens softly on the beat pulse
