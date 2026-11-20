@@ -10,18 +10,19 @@ writer. Record SHALL be allocation-, lock-, and I/O-free. Hosts SHALL own which 
 
 #### Scenario: A host records one telemetry window
 
-- **WHEN** a host supplies optional p95 and p99 durations, the current interval, whether a lower step is available, a prospective promotion budget (zero when unavailable), delivery flags, and a monotonic timestamp
+- **WHEN** a host supplies optional p95 and p99 durations, the current interval, a prospective promotion budget (zero when unavailable), delivery flags, and a monotonic timestamp
 - **THEN** the governor returns HOLD, DEMOTE, or PROMOTE, the window's over-budget classification, and the post-record counts of consecutive over-budget windows, consecutive promotion-eligible windows, and stable windows since a change
+- **AND** `at_floor` defaults to zero and the host sets it to one when no lower step is available
 
 #### Scenario: Sustained budget pressure
 
 - **WHEN** both percentiles are present and p95 exceeds 0.85 times the current interval, p99 exceeds the current interval, or either delivery flag is set
 - **THEN** the default governor classifies the window as over budget and clears the promotion streak
-- **AND** it returns DEMOTE once at least 30 consecutive windows are over budget and a lower step is available
+- **AND** it returns DEMOTE once at least 30 consecutive windows are over budget and `at_floor` is zero
 
 #### Scenario: Sustained pressure with no lower step
 
-- **WHEN** the over-budget streak reaches or exceeds the demotion threshold and the host has no lower step
+- **WHEN** the over-budget streak reaches or exceeds the demotion threshold and the host sets `at_floor` to one
 - **THEN** the governor returns HOLD and continues to count over-budget windows
 - **AND** it preserves the stable count and the timestamp of the most recent change
 
