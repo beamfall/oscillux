@@ -55,24 +55,33 @@ The uniform block holds two vectors:
     red transitions a second against a limit of 1); and a late first paint shortens the span of
     the grants that follow, so seven luma transitions a second apart on the draw clock fit inside
     a second on screen. Such a host SHALL therefore:
-    - pass `deltaMs = max(0, interval - L)`; and
-    - credit the clock and `refill` with `interval * k`, `k = min(1000 / (1000 + L),
-      (1000/15 + 1000/60) / (1000/15 + L))`. A span the clock counts as a second was then at
+    - pass `deltaMs = max(0, interval - Lr)`; and
+    - credit the clock and `refill` with `interval * k`, `k = min(1000 / (1000 + Lw),
+      (1000/15 + 1000/60) / (1000/15 + Lr))`. A span the clock counts as a second was then at
       least a second on screen. Recency reaches 5 units (83.3 ms), so a stamp under the coverage
       interval old on screen stays recent on the clock.
+    `Lw` and `Lr` both bound paint lag (next item); they differ in how long a late paint is
+    remembered, since the window term looks back a second and the recency term only the
+    coverage interval.
     At 120 Hz `k` is 0.992 and at 60 Hz 0.984, so the limiter is about a refresh a second
     stricter than `maxFlashHz`. A per-frame lower bound (the Beamfall web host credited
     `max(interval / 2, interval - bound)`, Codex rounds 18 to 21, 27, 28) is half of each interval
     at a steady cadence. It ran the clock at half speed and held ragged areas of moving visuals
     (CORE-2744).
-  - `L` SHALL bound the paint lag of every frame whose stamps or grants the current frame can
-    still see, not only the current one. A host that estimates it from its refresh takes the
-    largest interval of at least the last second and a quarter, plus a margin for a paint later
-    than any interval measured, and assumes the coverage interval before it has measured one. A
-    median, or the current refresh alone, lets a late paint at a slow refresh be forgotten once
-    the refresh speeds up, crowding a seventh luma transition into a second, and underestimates
-    a single late paint enough to clear a stamp still recent on screen (Codex round 2 of
-    CORE-2744; OSC-0046).
+  - `Lw` SHALL bound the paint lag of every frame drawn in at least the last second, whose
+    grants the current frame can still count, and `Lr` that of every frame drawn in at least the
+    last coverage interval and a refresh, whose stamps it can still see. A host that estimates
+    them from its refresh takes the largest animation-frame interval over each hold (the web
+    host: 1.25 s and 1000/15 + 1000/60 ms), plus a margin for a paint later than any interval
+    measured, and assumes the coverage interval before it has measured one. It samples every
+    interval, drawn or not, so a pause or a wait between draws is not taken for one long
+    interval, and it keeps no interval while the page is hidden. It keeps the maxima in time
+    buckets, not a fixed count of samples, so a fast refresh cannot push a slow one out before
+    its hold ends. A median, a count-bounded history or the current refresh alone lets a late
+    paint be forgotten early, crowding a seventh luma transition into a second, or clearing a
+    stamp still recent on screen (Codex rounds 2 and 3 of CORE-2744; OSC-0046). Holding the
+    recency bound only the coverage interval keeps a stall of 100 ms every second at about 83%
+    credit, not 49%.
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
     a step the screen never showed, and a transition the screen does show can then go uncounted.
