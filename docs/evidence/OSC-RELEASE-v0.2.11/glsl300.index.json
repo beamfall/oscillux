@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 1,
+  "producer": "oscillux",
+  "leg": "glsl300",
+  "release": "v0.2.11",
+  "rev": "b6fcba35ef58aad41143ab6cd5aed3ec1c8bca08",
+  "license": "AGPL-3.0-only",
+  "generator": "tools/shader/bundle-legs.mjs glsl300 at the pinned rev",
+  "files": [
+    {
+      "path": "catalog.json",
+      "sha256": "5561fcf63b38697e675c499cccb83a6ada9f5325bfa4c02f6de92fb2022501f0",
+      "bytes": 112146
+    },
+    {
+      "path": "limiter/cells.frag",
+      "sha256": "cdbd9d320c25110383d83965fa8fbf0d9265fd57abc2ca0083bd6b581793c291",
+      "bytes": 15534
+    },
+    {
+      "path": "limiter/grant.frag",
+      "sha256": "f2fd9411ece946db2d1c7c82fa3349907d47d95edd815951e9ca606283639e00",
+      "bytes": 20203
+    },
+    {
+      "path": "limiter/output.frag",
+      "sha256": "2a9b4baef121604ebced3b8bea6e65ccd86ac109b369cd4dee27060269e05633",
+      "bytes": 26189
+    },
+    {
+      "path": "limiter/reduce.frag",
+      "sha256": "b0a7368ba4bf0381486e23bd2d399b83fa764fbced9c975e8312be2b554bf292",
+      "bytes": 15711
+    },
+    {
+      "path": "limiter/rows.frag",
+      "sha256": "cbaf2be1b4049a192c562eb0a6491151f465a1200df7106c5e2bc3c5028085ef",
+      "bytes": 25341
+    },
+    {
+      "path": "limiter/windows.frag",
+      "sha256": "1a3960aa6fc1c76fdf6ae6f17895556fd1a07adf9a914f465fffa300df6c6dbc",
+      "bytes": 15924
+    },
+    {
+      "path": "post/bloom-down.frag",
+      "sha256": "c9de3b132e895cb0b1d6dccd01312d0210e2d972bcef4c191c4ba3432e6f91fa",
+      "bytes": 4897
+    },
+    {
+      "path": "post/bloom-prefilter.frag",
+      "sha256": "b2dcbbbad6c808d58c9ccf50a0364b572367fc05936e061b7410a2ef8c9c1c9a",
+      "bytes": 4955
+    },
+    {
+      "path": "post/bloom-up.frag",
+      "sha256": "e3930471875df89c947917cb9be919fe34629036379e1c01bb5dcfb4e03ee721",
+      "bytes": 4897
+    },
+    {
+      "path": "post/present.frag",
+      "sha256": "8b1d056b72716883e74c60ec9bbc20cf96131148943626cb6042de92769c7fcd",
+      "bytes": 14276
+    },
+    {
+      "path": "switch/switch.frag",
+      "sha256": "81d08c2fec7c9111cf70e46377e70c772463843c46db087e2c3c2ded7449bb71",
+      "bytes": 7904
+    },
+    {
+      "path": "visuals/aurora.web.frag",
+      "sha256": "7e7a9664081d775bc0638a603c0f88b26481a1335958a43bd80c99cd74f35186",
+      "bytes": 34091
+    },
+    {
+      "path": "visuals/bloom.web.frag",
+      "sha256": "e213055ea57eeb8640679040b473b6b1361dac2a7fe63c529f76dbc2ee9dd55e",
+      "bytes": 31054
+    },
+    {
+      "path": "visuals/braid.web.frag",
+      "sha256": "0601394afda128b1bd86f342954c4aedb9a455cdbb339d5af40b908479d9e3c9",
+      "bytes": 32694
+    },
+    {
+      "path": "visuals/chrome.web.frag",
+      "sha256": "0165d142bb94344c323bd914e3026340f33db3e6f7ca9a64944970235f4bbc72",
+      "bytes": 36261
+    },
+    {
+      "path": "visuals/circuit.web.frag",
+      "sha256": "afcf48c3e7c6161402890a4ad29353f5689014728fa0f573a1610096a892cf51",
+      "bytes": 27531
+    },
+    {
+      "path": "visuals/comets.web.frag",
+      "sha256": "ebd0135383eb5094362cd38a89e920920a8b92ba70208c348f39865fddbaad7b",
+      "bytes": 30665
+    },
+    {
+      "path": "visuals/constellation.web.frag",
+      "sha256": "5fa85937d9b114700f72a7ca2dc3cab6e23ba8edd96766055ce65209c0bdfb8b",
+      "bytes": 27936
+    },
+    {
+      "path": "visuals/crystal.web.frag",
+      "sha256": "16c72cde614715cbce4eae0ba8339a5143b47680679cf7970adedba1d17ac48d",
+      "bytes": 39517
+    },
+    {
+      "path": "visuals/cymatics-prism.web.frag",
+      "sha256": "756a81ec15674186ae41a0d7656be8ef97c5a39e39409d8606136664b15acd5f",
+      "bytes": 28713
+    },
+    {
+      "path": "visuals/drift.web.frag",
+      "sha256": "8307f04284818393758165cb1170da760fdae00c9128f2cac1ee0941e557b74e",
+      "bytes": 31541
+    },
+    {
+      "path": "visuals/dunes.web.frag",
+      "sha256": "618e5de6f23ae8712b7289fd04f2a744a70348ca597c7fb94a8863f2dc4d5d98",
+      "bytes": 31525
+    },
+    {
+      "path": "visuals/event-horizon.web.frag",
+      "sha256": "5a5d2decd7ac0a9161e8cd5173c2373311d73a9c7245dab8e7472f734c5bb857",
+      "bytes": 31899
+    },
+    {
+      "path": "visuals/filament.web.frag",
+      "sha256": "18ff12010c7e9151b05233a7c83a6a6618cf6723196b0ee98ac229f690bf17e3",
+      "bytes": 32891
+    },
+    {
+      "path": "visuals/glyph.web.frag",
+      "sha256": "bb95454340bbabe7c12b7d6be3b02d90ea61ccb2aaa376404dab4557c257b336",
+      "bytes": 29269
+    },
+    {
+      "path": "visuals/helix.web.frag",
+      "sha256": "ad0153f6e678044a42f12477f1c1896ca36e5bc91508ab24b9076b7dc717453c",
+      "bytes": 29493
+    },
+    {
+      "path": "visuals/ink.web.frag",
+      "sha256": "25f04c63f8fbddfc6a67a716027d3f4b744794558aee4ee5520d2013c4f1c113",
+      "bytes": 31779
+    },
+    {
+      "path": "visuals/interference.web.frag",
+      "sha256": "887f6662c9c486684dfbc980a76c65066a7cfca84b20891d3829533cec78d292",
+      "bytes": 31638
+    },
+    {
+      "path": "visuals/kaleidoscope.web.frag",
+      "sha256": "876cd48e01b3421dfee95a8b51828bd324e5e095c55d1850135858d1537f4d3c",
+      "bytes": 33346
+    },
+    {
+      "path": "visuals/laser-tunnel.web.frag",
+      "sha256": "e8afa148c2fec1c7dcc4c492d22cabc729755a3f661326f1d94fbc068303b9be",
+      "bytes": 32882
+    },
+    {
+      "path": "visuals/lattice.web.frag",
+      "sha256": "c1c9a6d835aa78102af3a7bd01447b2cc1ed44cedefcb26800a13b96636822bd",
+      "bytes": 32305
+    },
+    {
+      "path": "visuals/lens.web.frag",
+      "sha256": "c71e1e6d638bdf4afa64b55ad7590eb895017f4218eb81ee549d34d3b2af1716",
+      "bytes": 34662
+    },
+    {
+      "path": "visuals/liquid-optics.web.frag",
+      "sha256": "8e9b2d1e955967fb43bfeadffd73b7d7fef07c6bb412b3caef00a61a79ccb77e",
+      "bytes": 30946
+    },
+    {
+      "path": "visuals/loom.web.frag",
+      "sha256": "af0c3a815a3b018a804ba82274c41f8bd69b886cb704cf4ae0636627d2e65e1e",
+      "bytes": 32875
+    },
+    {
+      "path": "visuals/lumen-field.web.frag",
+      "sha256": "dd7180467010f2b068e95c24d009ae3f1fa3625a4f7e217ed7ec61e1f20e6563",
+      "bytes": 32328
+    },
+    {
+      "path": "visuals/memory-tunnel.web.frag",
+      "sha256": "4c706604b934d17251cd87cb0911088e18365e3db7814671c6f11bd06285f040",
+      "bytes": 30261
+    },
+    {
+      "path": "visuals/mirror-bloom.web.frag",
+      "sha256": "4234d8d64f4cc187dcb4dff83e8c274698796ca297409ea2001102b715ae8f71",
+      "bytes": 30511
+    },
+    {
+      "path": "visuals/murmuration.web.frag",
+      "sha256": "abee30eb44b6036b5bc6ba4bab6b14281ef04239624011a166a5e40752f68de8",
+      "bytes": 33946
+    },
+    {
+      "path": "visuals/nebula.web.frag",
+      "sha256": "9accb29ef833ac78939f9b12d93e37863963b31ad32c8193d57e0f25768d1f7f",
+      "bytes": 34957
+    },
+    {
+      "path": "visuals/oscillo-ring.web.frag",
+      "sha256": "fa703d28baf7c761ea988b735a2315fc1bbda5fd532c92a37597b1f0792cfd3b",
+      "bytes": 30497
+    },
+    {
+      "path": "visuals/particles.web.frag",
+      "sha256": "089448e32f604cb155db3b3c287fdc506444a50d6616b790c02a8e0257fce9bd",
+      "bytes": 33209
+    },
+    {
+      "path": "visuals/petals.web.frag",
+      "sha256": "fd564a5140ec4024d82bf01cd32d3a3e09cfa5c9f16035c0b1a99d94ba0103f7",
+      "bytes": 29495
+    },
+    {
+      "path": "visuals/phosphor-scope.web.frag",
+      "sha256": "cacf6dfc557c265211e007616cf41ab59a9790aa983c43a17edff509b8b8558a",
+      "bytes": 32176
+    },
+    {
+      "path": "visuals/photo-curtain.web.frag",
+      "sha256": "8022526b72f292fa2850a33aef798c5a8c94867adef7d3666989468b40ffdabe",
+      "bytes": 28928
+    },
+    {
+      "path": "visuals/photo-gallery.web.frag",
+      "sha256": "22d4a7d0ec88ef9cef670e049161ada7bd00f551a2000e54a24de18549d71c97",
+      "bytes": 28937
+    },
+    {
+      "path": "visuals/photo-glass.web.frag",
+      "sha256": "3d905c2a30fe9bad3d72665b3adb7991409207bd625fe50f66e69542d14b075c",
+      "bytes": 29944
+    },
+    {
+      "path": "visuals/photo-lens.web.frag",
+      "sha256": "b4382817ee5f9d13ccde3abc1016748701b06a6084a9a4f39230f000742fd957",
+      "bytes": 29288
+    },
+    {
+      "path": "visuals/photo-liquid.web.frag",
+      "sha256": "17de2f37e1425f2e2b9c4944781a4c6ec40c85c9c9aac72474f0d4ac2a2a6851",
+      "bytes": 28364
+    },
+    {
+      "path": "visuals/photo-particles.web.frag",
+      "sha256": "3458a834ee691ce33892e8be5fa2f78485fcc3b187e70be2b62f108f87f14d5c",
+      "bytes": 28046
+    },
+    {
+      "path": "visuals/photo-prism.web.frag",
+      "sha256": "d3fdf7a8c48ef911e7845e714ac385c64b009352206384c5bdaacaf3989bf64e",
+      "bytes": 30487
+    },
+    {
+      "path": "visuals/photo-topo.web.frag",
+      "sha256": "630d391a36d10cbf2fe6ac8b14d8fce2e0f12a886d330a2291a8dc78ab4860b2",
+      "bytes": 30108
+    },
+    {
+      "path": "visuals/photo-veil.web.frag",
+      "sha256": "c98dc0ece03ac185c5b283b1ef6cdd624f26d468ae743df184a6266b3a4ac7d5",
+      "bytes": 28206
+    },
+    {
+      "path": "visuals/plasma.web.frag",
+      "sha256": "179de3a39e9087511016a3b5714f19d67c7bc4b4c058915bff9e95042399ea9b",
+      "bytes": 30775
+    },
+    {
+      "path": "visuals/prism-room.web.frag",
+      "sha256": "db3410ccae99ffc8f28450433ff3d23aa080eb7b7f1b7f280744f5e6991ce2c7",
+      "bytes": 31172
+    },
+    {
+      "path": "visuals/pulse.web.frag",
+      "sha256": "5a8e3e9ab3ea5ec8aca6de834cd46f5917acc53ed39468730348318377847171",
+      "bytes": 33534
+    },
+    {
+      "path": "visuals/rain.web.frag",
+      "sha256": "6eb6d14df4b4b33a3044e88fe000c32522596f67b7bee3fda98736eb4bcc9d24",
+      "bytes": 30703
+    },
+    {
+      "path": "visuals/reactor.web.frag",
+      "sha256": "7cb5b9df1ee25f5a7f527ee703fa483cc2077e3b223fbbbcbbdda110f5706201",
+      "bytes": 30015
+    },
+    {
+      "path": "visuals/ribbons.web.frag",
+      "sha256": "406f3224c76e73cd91bb185bfe47e1c682e0f9dfdbc1c0aea850ad99a2c139e0",
+      "bytes": 29708
+    },
+    {
+      "path": "visuals/ripple.web.frag",
+      "sha256": "2e4b31a12a2791792d9a9b2ab80b611a553169da66ee7e3efd2caac03362bb28",
+      "bytes": 32258
+    },
+    {
+      "path": "visuals/seismograph.web.frag",
+      "sha256": "0bb91b7c0d097339854b93698abe0ccbabad08b8221714f7a15e83c6ff18eed8",
+      "bytes": 29678
+    },
+    {
+      "path": "visuals/spectral-city.web.frag",
+      "sha256": "474360f72470645905ca8b8ef2af847f1789a75a38713b3f3be783e6f1e122c5",
+      "bytes": 30516
+    },
+    {
+      "path": "visuals/spectrum.web.frag",
+      "sha256": "ff779ad8757f24a2a082c9b3573d7d7288feb6556cb9862adddf9eafed729c7e",
+      "bytes": 32361
+    },
+    {
+      "path": "visuals/starfield.web.frag",
+      "sha256": "49e0924d24e16f277e4e779bf379f2d6c5355ac897ca61a71e24163ea7a5f13c",
+      "bytes": 35659
+    },
+    {
+      "path": "visuals/strata-ridge.web.frag",
+      "sha256": "1123b8f3a1ec1916e375a92b87b541db3b05035351990fc20369b6a98aa047aa",
+      "bytes": 30584
+    },
+    {
+      "path": "visuals/terrain.web.frag",
+      "sha256": "2e56ef482fa9a97e363a0460f6f935b809412d26a8f40f76eaa3e09544a76f5b",
+      "bytes": 33480
+    },
+    {
+      "path": "visuals/tunnel.web.frag",
+      "sha256": "ddb64c031b55b840fb6fe56773af39d59a32024f245efa26754f8c4c150b35e0",
+      "bytes": 31763
+    },
+    {
+      "path": "visuals/vault.web.frag",
+      "sha256": "aed2ff5a0819ae0439dc66b40dfbd2c1e878194d118a1a8cfad0b3f5ef0d569c",
+      "bytes": 31943
+    },
+    {
+      "path": "visuals/vertex.web.vert",
+      "sha256": "64ccb8f37410b6002c5d2401c1bb7d72c2fecef3fae0d187bddfbe9c724f7682",
+      "bytes": 209
+    },
+    {
+      "path": "visuals/vinyl.web.frag",
+      "sha256": "7cafdf35766016459fecdd4002322eac1f75c1a791f3474b3c2010ac0ff87790",
+      "bytes": 32017
+    },
+    {
+      "path": "visuals/volumetric-light.web.frag",
+      "sha256": "35fdb5bbcda4c0f682e7e56ed43a4caea595e1afd96fca0b67f7843ae71cad2b",
+      "bytes": 30602
+    },
+    {
+      "path": "visuals/wave-cascade.web.frag",
+      "sha256": "2e21e098d2bebba0e87452127ae5523ecc4216d013deb2571b8130163c1aabd5",
+      "bytes": 32105
+    },
+    {
+      "path": "visuals/wave-tunnel.web.frag",
+      "sha256": "698ea2152667004ccc77ece97e90fe6699d3810a74f26f6f17cbbee7ee70f6d6",
+      "bytes": 32260
+    },
+    {
+      "path": "visuals/waveform.web.frag",
+      "sha256": "52c58dfcefc897ad59c3547726230e941a71553ef63eae173129f942706c3b23",
+      "bytes": 31360
+    }
+  ]
+}
