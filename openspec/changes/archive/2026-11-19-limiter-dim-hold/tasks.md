@@ -16,5 +16,5 @@
       the per-frame cost
 - [x] 2.2 Contact sheets of catalogue visuals under loud audio, v0.2.9 beside the change
 - [x] 2.3 Repeat 2.1 and 2.2 for 1.5 and 1.6
-- [ ] 2.5 Repeat 2.1 and 2.2 for 1.7
-- [ ] 2.4 Run `openspec archive limiter-dim-hold` after landing
+- [x] 2.5 Repeat 2.1 and 2.2 for 1.7
+- [x] 2.4 Run `openspec archive limiter-dim-hold` after landing
