@@ -25,37 +25,43 @@ vec3 visual(vec2 uv, VisualUniforms u) {
          * (0.05 + 0.14 * u.level);
 
     float span = 1.62;
+    float soft = 0.10;
+    // The photo is pinned to the screen, not stretched to each tower's height, so a tower that
+    // grows or shrinks only uncovers or covers the picture at its top instead of rescaling it.
+    float sky = 1.50;
+    float hy = clamp((p.y - floorY) / sky, 0.0, 1.0);
     for (int i = 0; i < 34; i++) {
         float fi = float(i);
         if (fi >= count) { break; }
         float x = mix(-span, span, (fi + 0.5) / count);
         float w = span / count * mix(0.62, 0.92, hash11(fi * 9.1));
         float b = bandAt(u, fi / max(count - 1.0, 1.0));
-        float h = (0.28 + b * 1.00 + hash11(fi * 2.7) * 0.34) * hAmt
-                + u.bassImpact * 0.07 * hash11(fi);
+        float h = (0.28 + b * 1.00 + hash11(fi * 2.7) * 0.34) * hAmt;
         vec2 halfSz = vec2(w, h * 0.5);
         vec2 cq = vec2(p.x - x, p.y - (floorY + h * 0.5));
         float sd = sdRoundRect2(cq, halfSz, 0.012);
-        float rect = aaFill(sd);
-        float edge = aaLine(sd, 0.004);
+        // Frosted top: the glass thins out over its upper part, so when the spectrum moves a
+        // tower's top the pixels there brighten or dim by a little instead of switching.
+        float top = floorY + h;
+        float frost = smoothstep(top, top - soft, p.y);
+        float rect = aaFill(sd) * frost;
+        float edge = aaLine(sd, 0.004) * frost;
 
-        // photo spans the whole skyline: continuous in x, tower height in y
-        float vert = clamp((p.y - floorY) / max(h, 0.05), 0.0, 1.0);
-        vec2 imgUV = vec2((x + cq.x + span) / (2.0 * span), 1.0 - vert);
+        vec2 imgUV = vec2((x + cq.x + span) / (2.0 * span), 1.0 - hy);
         vec3 photo = max(IMG(photoCover(clamp(imgUV, 0.001, 0.999), u.resolution, IMGSIZE)).rgb, vec3(0.0));
 
-        // glass shading: photo carries the tower, lit toward its top
-        col = mix(col, photo * (0.40 + 0.40 * b + 0.18 * vert + 0.10 * u.level), rect);
-        col += edge * palVisual(fi / count + 0.05 * u.time, u) * (0.25 + 1.1 * b);
+        // glass shading: photo carries the tower, lit toward the sky
+        col = mix(col, photo * (0.78 + 0.22 * hy + 0.10 * u.level), rect);
+        col += edge * palVisual(fi / count + 0.05 * u.time, u) * (0.80 + 0.30 * b);
 
         // mirrored photo reflection under the floor, rippled and fading
         vec2 rq = vec2(cq.x, (2.0 * floorY - p.y) - (floorY + h * 0.5));
         float refl = aaFill(sdRoundRect2(rq, halfSz, 0.012));
-        vec2 rimg = vec2(imgUV.x + sin(p.y * 60.0 + u.time * 1.4) * 0.004,
-                         clamp(1.0 - (floorY - p.y) / max(h, 0.05), 0.0, 1.0));
+        float ry = clamp((floorY - p.y) / sky, 0.0, 1.0);
+        vec2 rimg = vec2(imgUV.x + sin(p.y * 60.0 + u.time * 1.4) * 0.004, 1.0 - ry);
         vec3 rphoto = max(IMG(photoCover(clamp(rimg, 0.001, 0.999), u.resolution, IMGSIZE)).rgb, vec3(0.0));
         float rfade = exp(-max(floorY - p.y, 0.0) * 4.5);
-        col += refl * rphoto * reflAmt * 0.30 * rfade * (0.5 + 0.6 * b);
+        col += refl * rphoto * reflAmt * 0.30 * rfade;
     }
 
     // below-floor darkening keeps the mirror moody
