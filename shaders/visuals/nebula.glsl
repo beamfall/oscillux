@@ -5,16 +5,17 @@
 // Performance path: layered analytic shells, not a full raymarch: 12 shells at full
 // detail, down to 6 as the host raises presentation1.y, each weighted to keep density.
 // DARK CORE enforced: radial carve + density clamp keeps the center black.
-// Bold spectrum rays fan out of the core; the beat turns the cloud and the thin rays.
+// Bold spectrum rays fan out of the core; the beat turns the cloud.
 //
 // Flash budget (Makefile visual-flash-check): the rays are bright and large, so their brightness
-// holds steady and they barely move: the fan drifts slowly, only the thin rays take the beat's
-// notch turn, and each ray fades in and out over a twelve-beat life, staggered across the fan.
-// The beat moves the smoke and swells the core through a smooth envelope (about 150 ms attack,
-// the rest of the beat to release), never as a brightness step. Kick-gated signals (bassImpact,
-// flux, onset, the low bins) do not touch brightness, geometry or hue over large areas, and
-// nothing is re-seeded per frame or per beat. Ray and smoke colours keep G + B above R, so no
-// large area reads as saturated red.
+// holds steady and they barely move: the fan drifts slowly and each ray fades in and out over a
+// 10 s life, staggered across the fan. The life runs on time, not beats, so a fast tempo does
+// not quicken the fades into large-area luma steps.
+// The beat moves the smoke and swells its dark core through a smooth envelope (about 150 ms
+// attack, the rest of the beat to release), never as a brightness step. Kick-gated signals
+// (bassImpact, flux, onset, the low bins, the spectral centroid, which dips with each kick) do
+// not touch brightness, geometry or hue over large areas, and nothing is re-seeded per frame or
+// per beat. Ray and smoke colours keep G + B above R, so no large area reads as saturated red.
 //
 // param0  Density    (0..1) — cloud thickness/opacity scale
 // param1  Swirl      (0..1) — rotational domain-warp strength
@@ -87,7 +88,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // Ridge glints: treble lights the crests; fixed to the smoke, so they drift, not sparkle.
         float ridgeLine = smoothstep(0.78, 0.97, ridgeA) * (0.25 + trebleBand * 0.9 + trebleE * 0.35);
 
-        vec3 smokeCol = accentize(palVisual(fi * 0.55 + specCentroid * 0.22 + t * 0.04, u), u.accent, 0.10);
+        vec3 smokeCol = accentize(palVisual(fi * 0.55 + t * 0.04, u), u.accent, 0.10);
         vec3 litCol = palVisual(0.75 + specCentroid * 0.2 - fi * 0.15, u);
         // Keep G + B above R: orange smoke leans gold, never toward saturated red.
         smokeCol.g = max(smokeCol.g, smokeCol.r - smokeCol.b + 0.03);
@@ -104,20 +105,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- spectrum rays (screen-space, on top of volume) ---------------------
     // Bold tapered beams fanning out of the core, each its own palette hue. They are large and
     // bright, so they hold still: brightness never follows the beat, the fan drifts slowly, and
-    // each beam fades in and out over a sixteen-beat life, staggered so one changes at a time.
+    // each beam fades in and out over a 10 s life, staggered so one changes at a time.
     {
         float ang = atan(p0.y, p0.x);
-        float rayStart = smoothstep(coreRadius - 0.02, coreRadius + 0.16, radius);
+        // The beams start at the resting core edge: following the swell, every beam's bright
+        // root would step in and out together on each beat, a large area at a fast tempo.
+        float rayStart = smoothstep(0.22, 0.40, radius);
         for (int j = 0; j < 16; ++j) {
             float fj = float(j);
-            float cyc = (u.beatCount + ph - fj * (12.0 / 16.0)) / 12.0;
-            float age = fract(cyc);                                    // 0..1 over the life
+            float cyc = u.time * (1.0 / 10.0) - fj * (1.0 / 16.0);
+            float age = fract(cyc);                // 0..1 over the life; a new beam when dark
             float gen = floor(cyc);
-            float life = smoothstep(0.0, 0.35, age) * (1.0 - smoothstep(0.65, 1.0, age));
+            float life = smoothstep(0.0, 0.45, age) * (1.0 - smoothstep(0.55, 1.0, age));
             vec2 h   = hash22(vec2(fj * 3.1 + gen * 1.37, 7.3 + fj));
-            // Thin beams carry the beat as a turn of the fan; wide ones only drift (they are large).
-            float thin = 1.0 - smoothstep(0.25, 0.55, h.y);
-            float fAngle = h.x * 6.2831853 + t * 0.12 + beatTurn * 0.5 * thin;
+            // Every beam only drifts with time: a beat turn sweeps a thin beam's hot centre line
+            // past its own width on each beat, and the fan's beams together flash a large area.
+            float fAngle = h.x * 6.2831853 + t * 0.12;
             float da = abs(mod(ang - fAngle + 3.14159265, 6.2831853) - 3.14159265);
             // Angular width, so each beam widens into a wedge toward the frame edge.
             float wA = mix(0.022, 0.105, h.y * h.y);
@@ -126,7 +129,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float reach = 1.35 + 0.45 * h.y;
             float along = rayStart * (1.0 - smoothstep(reach * 0.75, reach + 0.35, radius));
             float amp = life * along * (0.90 + trebleE * 0.10) * emitScale * 0.55;
-            vec3 rayCol = palVisual(fj * 0.0625 + h.x * 0.25 + specCentroid * 0.2, u);
+            vec3 rayCol = palVisual(fj * 0.0625 + h.x * 0.25, u);
             // Keep G + B above R: pinks lean magenta and never read as saturated red.
             rayCol.b = max(rayCol.b, rayCol.r - rayCol.g + 0.03);
             col += rayCol * beam * amp * 1.6 + peakWhite(rayCol, 0.35) * core * amp * 0.55;
