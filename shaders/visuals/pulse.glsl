@@ -38,11 +38,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float beatGlide = floor(u.beatCount) + smoothstep(0.0, 1.0, u.beatPhase);
 
     float breathe = 0.007 * sin(u.time * 1.1) + 0.005 * sin(u.time * 2.3 + 0.8);
-    // only the core swells on the beat: the corona rings hold their radii, as their feedback
-    // copies fill a disc that flickered whole when they moved
-    float ringBase = 0.12 + 0.06 * level + breathe;
+    // only the core breathes and swells on the beat: the corona rings hold their radii, as every
+    // ring edge and feedback copy that moves with them changes at once, and with the sparks that
+    // held most of the disc in the flash limiter whenever the breath moved fastest
+    float ringBase = 0.12 + 0.06 * level;
     float spacing  = 0.083;
-    float coreR    = ringBase + impactAmt * 0.09 * swell;
+    float coreR    = ringBase + breathe + impactAmt * 0.09 * swell;
     float outerR   = ringBase + float(numCorona) * spacing;
 
     vec3 col = vec3(0.0);
@@ -116,14 +117,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     {
         // treble sparks: steady brightness from the slow treble level, and an orbit that glides
-        // forward over each beat instead of jumping on it
+        // forward over each beat instead of jumping on it. The glide is a small step per beat:
+        // 32 sparks sweeping a quarter radian a beat changed enough of the disc at once, with
+        // the core swell, to count as large-area flashes at fast tempos
         float trebleE = 0.55 + 0.35 * saturate(u.treble);
         float bandOuter = outerR + 0.06;
         for (int i = 0; i < 32; ++i) {
             float fi = float(i);
             vec2  h  = hash22(vec2(fi, 3.7));
             float sr = mix(ringBase + 0.03, bandOuter, h.x);
-            float sa = h.y * 6.2831853 + u.time * (0.25 + 0.35 * h.x) + beatGlide * 0.25;
+            float sa = h.y * 6.2831853 + u.time * (0.25 + 0.35 * h.x) + beatGlide * 0.10;
             vec2  sp = vec2(cos(sa), sin(sa)) * sr;
             float dd = length(p - sp);
             // a bright point with a soft glow whose long tail is cut off, so 32 tails do not
