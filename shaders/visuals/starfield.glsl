@@ -26,10 +26,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // is spread over the beat with no velocity step at the wrap: a sharp lunge just
     // after the kick swept every thick streak across new pixels at once.
     float lunge = mix(u.beatPhase, smoothstep(0.0, 1.0, u.beatPhase), 0.6);
-    // Wrap the beat count where depth (beatClock * 0.3 * 0.065) has run a whole number of
-    // cycles: 2000 beats is exactly 39, so the wrap moves no star (OSC-0040).
+    // Wrap the beat count where depth (beatClock * 18/130 * 0.065) has run a whole number of
+    // cycles: 2000 beats is exactly 18, so the wrap moves no star (OSC-0040).
+    // Cruise and surge are slower than the streaks' width would suggest: thick bright streaks
+    // sweeping quickly fire enough pixels at once that the frame limiter held them, leaving
+    // ghost heads behind (CORE-2659).
     float beatClock = mod(u.beatCount, 2000.0) + lunge;
-    float warpPos = u.time * baseSpeed + beatClock * 0.3;
+    float warpPos = u.time * baseSpeed * 0.45 + beatClock * (18.0 / 130.0);
 
     // ── accumulate stars ─────────────────────────────────────────────────────
     vec3 col = vec3(0.0);
@@ -84,17 +87,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // Streak width: tiny near origin, thick toward the viewer, tapering head to tail
         // into a wedge. Width is steady per star (depth only), so it never pulses.
-        float dotSize = (0.0026 + h3 * 0.0085) * (0.25 + depth * 2.2) * (1.0 - 0.5 * tailFrac);
+        float dotSize = (0.0034 + h3 * 0.011) * (0.25 + depth * 2.2) * (1.0 - 0.5 * tailFrac);
 
         // Brightness envelope: fade in from singularity, fade out past edge
         float bright = smoothstep(0.0, 0.30, depth)
                      * smoothstep(1.0, 0.72, depth)
                      * (0.65 + h3 * 0.35) * (0.85 + specBend * 0.15 + swell * 0.08);
 
-        // Glow falloff along the streak — quadratic so halos stay tight and
-        // space between stars stays black; cores still reach ~5x HDR
-        float glow = (dotSize * dotSize) / (dist * dist + dotSize * dotSize * 0.2);
-        glow = min(glow, 5.0) * bright;
+        // Core falloff along the streak: quartic, so the bright core has a crisp edge and the
+        // pixels a moving streak brightens past the limiter's 0.1 step stay few; cores still
+        // reach ~5x HDR. The wide halo is a soft lavender glow kept dim enough (well under a
+        // 0.1 luminance step) that its motion never counts as a flash.
+        float gx   = dist / dotSize;
+        float glow = min(1.0 / (gx * gx * gx * gx + 0.2), 5.0) * bright;
+        float halo = exp(-gx * gx * 0.08) * 0.09 * bright;
 
         // ── color ────────────────────────────────────────────────────────────
         // Base hue follows the active semantic palette across star index + depth.
@@ -102,7 +108,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // Star cores: palette colour pushed toward lavender-white hot cores
         vec3 headCol = mix(coreCol * 1.15, vec3(1.1, 1.05, 1.3),
-                           0.22 + 0.3 * smoothstep(0.75, 1.0, depth));
+                           0.1 + 0.3 * smoothstep(0.8, 1.0, depth));
 
         // Tail: semantic bass colour, shifted (not brightened) by the swell.
         vec3 tailCol = palRoleBass(h4 * 0.6 + swell * 0.12, u);
@@ -114,7 +120,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float whiteSpark = smoothstep(0.86, 1.0, h3) * saturate(u.treble * 1.4);
         starCol = mix(starCol, vec3(1.3, 1.3, 1.5), whiteSpark * 0.7);
 
-        col += starCol * glow;
+        col += starCol * glow + coreCol * halo;
     }
 
     // ── warp rings: a bright gold inner ring and a gold-to-amber outer ring ──
