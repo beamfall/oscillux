@@ -27,10 +27,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // on the low bins in a single frame, rising over ~150 ms and handing back to the level before
     // the next beat, so a kick lifts the bass pillars, their orbs and spines gradually instead of
     // in one frame (an instant jump of the bright orbs left grey caps in the limiter)
-    // 35% of the band always shows, so pillars still follow the spectrum without beat lock
-    // (beatPhase held at 0); the rest eases in between kicks.
-    float bandMix = 0.35 + 0.65 * smoothstep(0.0, 0.3, u.beatPhase) * (1.0 - smoothstep(0.6, 1.0, u.beatPhase));
-    float steadyE = saturate(u.level);
+    // 10% of the band always shows, so pillars still follow the spectrum without beat lock
+    // (beatPhase held at 0), while a kick on a locked beat moves an orb by less than its core
+    // radius in one frame; the rest eases in between kicks.
+    float bandMix = 0.10 + 0.90 * smoothstep(0.0, 0.3, u.beatPhase) * (1.0 - smoothstep(0.6, 1.0, u.beatPhase));
+    // amplitude (a 300 ms RMS window), not the instant-attack level, so a kick does not lift every
+    // pillar together in one frame
+    float steadyE = saturate(u.amplitude);
     // monotonic beat surge for the rising pulses: whole beats plus an eased glide over each beat,
     // continuous at the wrap and a fixed 0.4 rad a beat however long the track has played (a
     // level factor here would scale the whole elapsed count, so each change of level jumped it)

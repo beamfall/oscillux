@@ -29,9 +29,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // The spectrum only fully drives the towers between beats: around the kick it eases toward
     // the steady level, so a broadband kick moves every top by a little instead of uncovering a
     // strip of the photo on each tower at once. Unlocked (beatPhase held at 0) keeps 30%.
+    // The steady term is the amplitude (a 300 ms RMS window), not the level, whose instant attack
+    // would lift every tower together on a kick.
     float bandMix = 0.30 + 0.70 * smoothstep(0.15, 0.45, u.beatPhase)
                   * (1.0 - smoothstep(0.70, 0.98, u.beatPhase));
-    float steadyB = saturate(u.level);
+    float steadyB = saturate(u.amplitude);
     // The photo is pinned to the screen, not stretched to each tower's height, so a tower that
     // grows or shrinks only uncovers or covers the picture at its top instead of rescaling it.
     float sky = 1.50;
