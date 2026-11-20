@@ -1182,9 +1182,9 @@
         "hlsl"
       ],
       "imageInput": false,
-      "header": "// Interference: Bass, mid and treble each radiate circular wavefronts shaped by their own trace; where crests align the water burns HDR-hot with moiré shimmer, and every beat re-anchors the emitters with a soft shockwave.",
+      "header": "// Interference: Bass, mid and treble each radiate circular wavefronts shaped by their own trace; where crests align the water burns HDR-hot with moiré shimmer, and every beat surges the ripples outward while the emitters wander slowly with the phrase.",
       "name": "Interference",
-      "blurb": "Bass, mid and treble each radiate circular wavefronts shaped by their own trace; where crests align the water burns HDR-hot with moiré shimmer, and every beat re-anchors the emitters with a soft shockwave.",
+      "blurb": "Bass, mid and treble each radiate circular wavefronts shaped by their own trace; where crests align the water burns HDR-hot with moiré shimmer, and every beat surges the ripples outward while the emitters wander slowly with the phrase.",
       "tier": "standard",
       "input": "spectrum",
       "overlay": false,

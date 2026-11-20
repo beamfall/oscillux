@@ -5,20 +5,20 @@
 // standing fringe lattice: where crests align the water glows HDR-hot, where
 // they cancel it sinks into a cool wash. The travelling wavefronts ride over
 // the lattice as a colour shimmer and soft ripples that surge outward on each
-// beat; emitters re-anchor every two bars and their coals breathe with the kick.
+// beat; emitters wander slowly with the phrase and their coals breathe with the kick.
 // Brightness over large areas moves only as fast as the emitters drift, so the
 // visual keeps within the source flash budget (Makefile visual-flash-check).
 // param0 = Ring Density ; param1 = Drift ; param2 = Heat
 
-// Emitter position: phrase-anchored (re-rolled every 8 beats, eased across the
-// whole phrase) + slow drift. Fringes slide k * |v| cycles a second, so the
-// emitters move slowly: a beat re-anchor slid the whole lattice at once.
+// Emitter position: a slow phrase wander (continuous beat clock, one lap of
+// incommensurate sines every few bars) + slow time drift. Fringes slide
+// k * |v| cycles a second, so the emitters move slowly: a beat re-anchor slid
+// the whole lattice at once.
 vec2 emitterPos(float fi, float driftAmt, VisualUniforms u) {
-    float phrase = u.beatCount / 8.0;
-    float bc = floor(phrase);
-    vec2 aNow = (hash22(vec2(fi * 7.31 + 11.0, bc + 23.0)) - 0.5) * vec2(1.30, 0.95);
-    vec2 aPrev = (hash22(vec2(fi * 7.31 + 11.0, bc - 1.0 + 23.0)) - 0.5) * vec2(1.30, 0.95);
-    vec2 anchor = mix(aPrev, aNow, smoothstep(0.0, 1.0, fract(phrase)));
+    float phrase = (u.beatCount + u.beatPhase) / 8.0;
+    vec2 anchor = vec2(sin(phrase * 1.70 + fi * 2.39) + 0.5 * sin(phrase * 2.93 + fi * 4.11),
+                       cos(phrase * 1.31 + fi * 1.73) + 0.5 * cos(phrase * 2.47 + fi * 3.07))
+                * (vec2(1.30, 0.95) / 3.0);
     vec2 drift = vec2(sin(u.time * 0.11 + fi * 2.09), cos(u.time * 0.085 + fi * 1.37));
     // fixed triangulated homes keep the three sources spread apart
     vec2 home = vec2(cos(fi * 2.0944 + 0.65), sin(fi * 2.0944 + 0.65)) * 0.48;
@@ -33,9 +33,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float driftAmt = mix(0.35, 1.0, u.param1);
     float heat = mix(1.2, 2.6, u.param2);
 
-    // Shared wave clock: steady travel plus an eased surge on every beat.
-    float surge = floor(u.beatCount) + (1.0 - pow(1.0 - u.beatPhase, 3.0));
-    float clock = u.time * (0.20 + 0.10 * u.level) + surge * (0.30 + 0.15 * u.bassImpact);
+    // Shared wave clock: steady travel plus an eased surge on every beat. Both
+    // rates are constant so the phase stays continuous for hours; loudness
+    // drives brightness below, never the phase (a level-scaled elapsed time
+    // jumps further the longer the track plays).
+    float surge = u.beatCount + smoothstep(0.0, 0.45, u.beatPhase);
+    float clock = u.time * 0.25 + surge * 0.36;
     float wt = clock * 6.2831853;
 
     vec2 S = vec2(0.0);   // complex wave sum
