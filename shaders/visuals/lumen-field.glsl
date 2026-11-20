@@ -23,8 +23,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float bloom = mix(0.6, 2.2, u.param1);
     float sway = mix(0.012, 0.10, u.param2);
     float sw = lumenSwell(u);
-    // monotonic beat surge for the rising pulses: beatCount + eased phase is continuous at the wrap
-    float surge = (u.beatCount + smoothstep(0.0, 0.6, u.beatPhase)) * 0.4 * saturate(u.level * 1.15);
+    // how much of each band's own value the pillars show: none at the beat, where the kick lands
+    // on the low bins in a single frame, rising over ~150 ms and handing back to the level before
+    // the next beat, so a kick lifts the bass pillars, their orbs and spines gradually instead of
+    // in one frame (an instant jump of the bright orbs left grey caps in the limiter)
+    float bandMix = smoothstep(0.0, 0.3, u.beatPhase) * (1.0 - smoothstep(0.6, 1.0, u.beatPhase));
+    float steadyE = saturate(u.level);
+    // monotonic beat surge for the rising pulses: whole beats plus an eased glide over each beat,
+    // continuous at the wrap and a fixed 0.4 rad a beat however long the track has played (a
+    // level factor here would scale the whole elapsed count, so each change of level jumped it)
+    float surge = (u.beatCount + smoothstep(0.0, 0.6, u.beatPhase)) * 0.4;
 
     float floorY = 0.42; // +y is down (origin top-left)
     float below = p.y - floorY;
@@ -39,10 +47,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (i >= nP) break;
         float fi = float(i);
         float fr = (fi + 0.5) / float(nP);
-        float bandE = bandAt(u, fr * 0.85);
+        float bandE = mix(steadyE, bandAt(u, fr * 0.85), bandMix);
 
+        // a slow sway: each HDR spine crossing a pixel is a bright transition, so a fast sway
+        // swept a dozen spines over many pixels a second and held them in the limiter
         float x0 = mix(-1.45, 1.45, fr)
-                 + sin(u.time * (0.30 + 0.11 * fi) + fi * 1.9) * sway;
+                 + sin(u.time * (0.10 + 0.035 * fi) + fi * 1.9) * sway;
         float dx = p.x + rippleX - x0;
 
         float wCore = 0.017 + 0.005 * bandE;

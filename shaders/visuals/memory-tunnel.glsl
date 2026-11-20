@@ -62,15 +62,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // slim glowing frames between prints — never louder than the prints
     col += palVisual(fract(depth * 0.07 + lane * 0.05 + 0.12 * pulse), u) * frame * fog
-         * (0.22 + 0.08 * u.bass + 0.14 * pulse);
+         * (0.24 + 0.06 * u.level + 0.14 * pulse);
 
-    // luminous horizon at the vanishing line; it spans the frame, so the kick
-    // only nudges it
-    float horizon = exp(-abs(p.y) * 20.0) * (0.5 + 0.3 * u.bassImpact) * pulseAmt;
-    col += palVisual(0.58 + u.spectralCentroid * 0.2, u) * horizon * 0.35;
+    // luminous horizon at the vanishing line; it spans the frame and the bloom
+    // spreads it, so an instant kick here flashed the whole middle of the screen:
+    // it glows steadily, and the beat swells it gently and turns its hue
+    float horizon = exp(-abs(p.y) * 20.0) * (0.60 + 0.08 * swell) * pulseAmt;
+    col += palVisual(0.58 + u.spectralCentroid * 0.2 + 0.05 * swell, u) * horizon * 0.35;
     // hot core right at the vanishing point
-    col += peakWhite(palVisual(0.62, u), 0.3 + 0.2 * u.bassImpact)
-         * exp(-(p.x * p.x * 6.0 + p.y * p.y * 90.0) * 2.5) * (0.35 + 0.4 * u.bassImpact);
+    col += peakWhite(palVisual(0.62, u), 0.36 + 0.06 * swell)
+         * exp(-(p.x * p.x * 6.0 + p.y * p.y * 90.0) * 2.5) * (0.47 + 0.08 * swell);
 
     col *= 0.22 + 0.78 * smoothstep(1.55, 0.30, length(p));
     // colour floor: dim red stripes and gold frame tails keep some green and
