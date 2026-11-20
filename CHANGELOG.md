@@ -10,6 +10,24 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-11-19
+
+### Changed
+
+- Every catalogue visual keeps within the source flash budget on its own (CORE-2659). Under a loud
+  master none makes more than 6 large-area luma transitions a second or any large-area red
+  transition before the limiter, so `make visual-flash-check` passes for all 61 (0.2.9: 29 failed
+  the luma budget). Beat accents ride on motion and hue instead of brightness flashes; phases that
+  wrapped, reset or stepped on the beat are continuous; and band responses fade in and out around
+  the kick instead of jumping on it, with a floor that keeps them following the spectrum without
+  beat lock. Palette beat hue shifts (`palVisual`, `palRoleTrace`) follow `beatArc()`, which has no
+  step at the beat wrap. Visuals that went flat or grey when first calmed have their contrast and
+  saturation restored: Braid, Chrome, Comets, Crystal, Dunes, Filament, Helix, Ink, Lumen Field,
+  Nebula, Petals, Phosphor Scope, Prism Room and Pulse. Aurora draws its scene layers in the right
+  order, Loom draws the receding cloth at a steady floor, and Photo Glass and Rain leave no held
+  ghosts in the limiter's output. Visuals' look, parameters and catalogue order are otherwise
+  unchanged.
+
 ### Fixed
 
 - The frame flash limiter dims a held pixel instead of freezing it (CORE-2543, CORE-2492,
