@@ -43,25 +43,19 @@ The uniform block holds two vectors:
     trackers' stamps (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
-  - `deltaMs` is the frame interval as float32: a lower bound on the time the previous frame was
-    shown, never more. A host that cannot see paint times takes the shorter of its frame clock's and
-    its wall clock's intervals since the last draw. The previous frame may have been painted one
-    refresh late and this one on time, so it was shown for max(R, interval - R) for the display's
-    refresh period R. A host that knows R only from above takes the least of that over every R up
-    to its bound, max(interval / 2, interval - bound), and no more than the bound (the Beamfall web
-    host: the bound is the shortest draw interval since it was mounted, at least 4 ms and at
-    most a 24 Hz refresh, and is never forgotten, since a bound taken over recent draws rises
-    when the page slows on the same display and then over-credits a late frame; animation
-    frames can run at every other refresh, as Safari's do at 60 a second on a 120 Hz display, so
-    a host drawing at its animation-frame rate credits half of each interval) (Codex rounds 18
-    to 21, 27, 28). A host that has never drawn faster than every third refresh of its display
-    can still over-credit a frame painted late; only paint times close that. A steady
-    draw cadence is therefore not a measurement of R, and does not earn more than half: only
-    paint times, or an R the platform reports, do. R is the period at both paints: a
-    display that changes its refresh rate between them can show the frame for less, which a host
-    without paint times cannot see, so such a host over-credits one interval, by at most its
-    bound, on a refresh-rate change (Codex round 22, OSC-0046). A host that credits less than the
-    time shown ages evidence slower and holds changes longer.
+  - `deltaMs` is the frame interval as float32: the time between the host's draws (a host that
+    sees paint times takes the time between paints). The previous frame was shown from its paint
+    to this one's, and a frame is painted after its draw and at most a lag `L` later (about a
+    refresh), so one frame can be shown up to `L` less or more than its interval. That error does
+    not add up: a late paint shortens its frame and lengthens the next, so the credited time over
+    any run of frames is the time they were shown to within `L`, and the limiter grants at most
+    `2 * maxFlashHz * L` more transitions in any window than it would on paint times (0.05 at
+    120 Hz and the default 3 Hz, 0.25 at a 24 Hz refresh), a fraction of one flash. A per-frame
+    lower bound (the Beamfall web host credited `max(interval / 2, interval - bound)`, Codex
+    rounds 18 to 21, 27, 28) is half of each interval at a steady cadence: it ran the clock at
+    half speed, made the limiter twice as strict as `maxFlashHz` and held ragged areas of moving
+    visuals (CORE-2744). A display that changes its refresh rate between two paints moves the
+    lag by at most a refresh, within the same bound (OSC-0046).
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
     a step the screen never showed, and a transition the screen does show can then go uncounted.
@@ -318,15 +312,11 @@ for every change. Nothing is carried from the old frame to the new one.
    refills, so a slow page fades for longer and a GPU more than a frame behind fades to the
    cap; Codex rounds 22 and 26 to 28). The output is then black.
 
-   Credited time runs slower than the clock wherever `deltaMs` is a lower bound. The Beamfall
-   web host cannot read the display's refresh period or measure it from its animation frames,
-   so at a steady cadence it credits half of each interval (`limiter1` above): its credited
-   times take about twice as long on the clock.
-   At 60 frames a second and the default 3 Hz a frame with luma to drop is held about 0.7 s and
-   a saturated red one about 2.7 s before it falls, and the cap of 2 s is about 4 s.
+   Credited time keeps the clock (`limiter1` above). At the default 3 Hz a frame with luma to
+   drop is held about 0.35 s and a saturated red one about 1.35 s before it falls.
 2. **Black.** Free the frame and present black, without running the limiter, for longer than the
    coverage interval counted from the first black frame presented (the Beamfall web host:
-   0.1 s of credited time, about 0.2 s on the clock at 60 frames a second). Every tracker stamp from before has then left the coverage interval. A view with no
+   0.1 s of credited time). Every tracker stamp from before has then left the coverage interval. A view with no
    whole texel to show stays black.
 3. **Start.** Start a frame at the size, scale and view asked for then, as at the first start:
    output black, trackers zero, `G` written fully spent. Content returns from black through the
