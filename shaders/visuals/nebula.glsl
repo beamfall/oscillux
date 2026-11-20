@@ -129,7 +129,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float reach = 1.35 + 0.45 * h.y;
             float along = rayStart * (1.0 - smoothstep(reach * 0.75, reach + 0.35, radius));
             float amp = life * along * (0.90 + trebleE * 0.10) * emitScale * 0.55;
-            vec3 rayCol = palVisual(fj * 0.0625 + h.x * 0.25, u);
+            // Cancel palVisual's free-mode centroid nudge: a kick moves the centroid and can push a
+            // whole visible beam across the palette seam in one frame.
+            float centroidNudge = u.palette.x < 0.0 ? u.spectralCentroid * 0.08 : 0.0;
+            vec3 rayCol = palVisual(fj * 0.0625 + h.x * 0.25 - centroidNudge, u);
             // Keep G + B above R: pinks lean magenta and never read as saturated red.
             rayCol.b = max(rayCol.b, rayCol.r - rayCol.g + 0.03);
             col += rayCol * beam * amp * 1.6 + peakWhite(rayCol, 0.35) * core * amp * 0.55;

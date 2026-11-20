@@ -25,7 +25,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
          * (0.05 + 0.14 * u.level);
 
     float span = 1.62;
-    float soft = 0.10;
+    float soft = 0.18;
+    // The spectrum only fully drives the towers between beats: around the kick it eases toward
+    // the steady level, so a broadband kick moves every top by a little instead of uncovering a
+    // strip of the photo on each tower at once. Unlocked (beatPhase held at 0) keeps 30%.
+    float bandMix = 0.30 + 0.70 * smoothstep(0.15, 0.45, u.beatPhase)
+                  * (1.0 - smoothstep(0.70, 0.98, u.beatPhase));
+    float steadyB = saturate(u.level);
     // The photo is pinned to the screen, not stretched to each tower's height, so a tower that
     // grows or shrinks only uncovers or covers the picture at its top instead of rescaling it.
     float sky = 1.50;
@@ -35,15 +41,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (fi >= count) { break; }
         float x = mix(-span, span, (fi + 0.5) / count);
         float w = span / count * mix(0.62, 0.92, hash11(fi * 9.1));
-        float b = bandAt(u, fi / max(count - 1.0, 1.0));
-        float h = (0.28 + b * 1.00 + hash11(fi * 2.7) * 0.34) * hAmt;
+        float b = mix(steadyB, bandAt(u, fi / max(count - 1.0, 1.0)), bandMix);
+        float h = (0.28 + b * 0.80 + hash11(fi * 2.7) * 0.34) * hAmt;
         vec2 halfSz = vec2(w, h * 0.5);
         vec2 cq = vec2(p.x - x, p.y - (floorY + h * 0.5));
         float sd = sdRoundRect2(cq, halfSz, 0.012);
         // Frosted top: the glass thins out over its upper part, so when the spectrum moves a
         // tower's top the pixels there brighten or dim by a little instead of switching.
         float top = floorY + h;
-        float frost = smoothstep(top, top - soft, p.y);
+        float frost = 1.0 - smoothstep(top - soft, top, p.y);
         float rect = aaFill(sd) * frost;
         float edge = aaLine(sd, 0.004) * frost;
 
