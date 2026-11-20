@@ -3,7 +3,7 @@
 // No fluid sim: the feedback buffer IS the fluid. Each frame samples PREV
 // through a curl-noise displaced uv (advection), decays it (energy bleed),
 // and injects analytic dye splats on onsets whose color follows the spectral
-// centroid. bassImpact adds an upward advection bias (buoyancy plume).
+// centroid. The bass adds an upward advection bias (buoyancy plume).
 // param0 = Flow ; param1 = Ink Budget ; param2 = Buoyancy
 
 float inkNs(vec2 p) {
@@ -31,12 +31,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 vel = inkCurl(q) * (0.55 + u.mid * 1.1);
     vel += inkCurl(q * 2.7 + 31.4) * 0.35 * (0.3 + u.treble);
 
-    // beat swirl around center (vorticity "turns over" on the beat)
+    // beat swirl around center (vorticity "turns over" on the beat); a wide,
+    // gentle bell, so bright fluid edges sweep rather than jump at the wrap
     vec2 rc = (uv - 0.5) * vec2(aspect, 1.0);
-    vel += vec2(-rc.y, rc.x) * (u.beat * 1.4 + 0.15) * phasePulse(u, 0.0, 0.25);
+    vel += vec2(-rc.y, rc.x) * (0.15 + 0.50 * phasePulse(u, 0.0, 0.35));
 
-    // buoyancy: sample from below => dye rises (uv.y grows downward)
-    float rise = (0.0022 + 0.0060 * u.bassImpact + 0.0018 * u.bass) * buoy;
+    // buoyancy: sample from below => dye rises (uv.y grows downward); the bass
+    // envelope, not the kick impulse, so plume edges never lurch on a kick
+    float rise = (0.0026 + 0.0030 * u.bass) * buoy;
 
     vec2 sampleUV = uv + (vel * 0.0040 * flow + vec2(0.0, rise)) * n;
     // Water outside the frame is empty: fade history sampled past the edge
@@ -49,7 +51,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // inside the tonemapped range (ACES is ~white by luma 2), or dye stacks
     // into flat white blobs and the color is lost.
     float pl = luma(prev);
-    float keep = 0.989 - 0.10 * smoothstep(0.7, 2.2, pl);
+    float keep = 0.991 - 0.10 * smoothstep(0.7, 2.2, pl);
     prev = max(prev * pow(keep, n) - 0.0008 * n, vec3(0.0));
 
     // ---- dye injection ----
@@ -79,7 +81,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 dcol = palVisual(u.spectralCentroid * 0.85 + fj * 0.14 + h.y * 0.10, u);
         // vivid rather than bright: chroma reads as glow without luma steps
         dcol = max(mix(vec3(luma(dcol)), dcol, 1.6), vec3(0.0));
-        dye += dcol * g * pour * loud * budget * 0.04;
+        dye += dcol * g * pour * loud * budget * 0.025;
+        // a steady trickle from a slowly drifting source in each third keeps
+        // the water full of bright dye between beats: it never steps with the
+        // music, so it fills the frame without a luma transition
+        vec2 sc = vec2((fj + 0.5 + 0.30 * sin(u.time * (0.21 + 0.07 * fj) + fj * 2.1)) / 3.0,
+                       0.47 + 0.20 * sin(u.time * (0.17 + 0.05 * fj) + fj * 4.3));
+        vec2 ds = (uv - sc) * splatScale;
+        vec3 scol = palVisual(0.30 + fj * 0.14 + 0.08 * sin(u.time * 0.05 + fj), u);
+        scol = max(mix(vec3(luma(scol)), scol, 1.6), vec3(0.0));
+        dye += scol * exp(-dot(ds, ds) / 0.0100) * budget * 0.055;
     }
 
     // kick plume: charge near the floor that the buoyancy carries up, poured on
@@ -90,9 +101,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 col = prev + dye * n;
 
-    // faint caustic floor light in the empty water (self-limiting)
+    // faint steady caustic floor light: a teal glow under the dye, not
+    // modulated by loudness, so it never pumps
     float caustic = fbm(uv * vec2(aspect, 1.0) * 6.0 + u.time * 0.03);
-    col += palRoleFog(0.62, u) * caustic * 0.002 * (1.0 - saturate(pl * 1.5)) * (0.4 + u.amplitude) * n;
+    col += palRoleFog(0.62, u) * caustic * 0.0030 * n;
 
     return col; // LINEAR HDR — this exact value is next frame's fluid state
 }

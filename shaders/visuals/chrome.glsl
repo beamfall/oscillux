@@ -28,7 +28,7 @@ float sdf_chrome(vec3 p, VisualUniforms u, int nBlobs) {
     // the whole surface would flash. The swell lives in the small bright parts instead (rim,
     // glints, horizon line, pin lights); size follows the loudness level only.
     float orbitR = mix(0.40, 0.62, u.level);
-    float bassR = 0.03 * u.level;
+    float bassR = 0.06 * u.level;
     float d = 1e9;
 
     for (int i = 0; i < 7; i++) {
@@ -45,7 +45,7 @@ float sdf_chrome(vec3 p, VisualUniforms u, int nBlobs) {
             sin(u.time * 0.31 + fi * 0.9) * orbitR * 0.34
         );
 
-        float radius = 0.40 + bandEnergy * 0.11 + bassR;
+        float radius = 0.42 + bandEnergy * 0.11 + bassR;
         float blob = length(p - center) - radius;
         d = (i == 0) ? blob : smin_chrome(d, blob, 0.32);
     }
@@ -79,19 +79,26 @@ vec3 envChromeR2(vec3 r, VisualUniforms u, float swell) {
         // Each box swells a little on its own share of the beat: a travelling shimmer, not a
         // whole-surface flash.
         float boxSwell = 0.5 + 0.5 * sin(6.2831853 * (u.beatPhase - fi * 0.25));
-        float boxE = 0.85 + 0.45 * u.level + 0.18 * swell * boxSwell;
-        env += palVisual(0.06 + fi * 0.21 + 0.09 * u.spectralCentroid, u) * strip * 2.6 * boxE;
+        float boxE = 1.35 + 0.55 * u.level + 0.18 * swell * boxSwell;
+        // Studio gels: boxes alternate warm amber and cool teal, drifting slowly, so the mirror
+        // carries coloured reflections even on a grey palette. Steady, never beat-driven.
+        float gelDrift = 0.5 + 0.5 * sin(u.time * 0.11 + fi * 1.9);
+        vec3 gel = mod(fi, 2.0) < 0.5
+            ? mix(vec3(1.30, 0.78, 0.40), vec3(1.25, 0.95, 0.45), gelDrift)
+            : mix(vec3(0.55, 0.95, 1.25), vec3(0.75, 0.80, 1.30), gelDrift);
+        env += palVisual(0.06 + fi * 0.21 + 0.09 * u.spectralCentroid, u) * gel * strip * 2.6 * boxE;
     }
 
     // Dim colored dome so reflections never read as void.
     env += palVisual(0.55 + 0.10 * u.spectralCentroid + y * 0.10, u)
          * (0.018 + 0.035 * smoothstep(-1.0, 1.0, y)) * (0.6 + 0.8 * u.level);
 
-    // A low horizon glow line in the palette's accent, warming and swelling gently on the beat.
+    // A low horizon glow line, steadily warm orange-gold (G floor keeps it off pure red),
+    // swelling gently on the beat.
     float horizon = exp(-abs(y + 0.10) * 90.0);
-    vec3 horizonCol = mix(palVisual(0.80 + 0.06 * u.spectralCentroid, u) * vec3(0.6, 0.9, 1.1),
-                          vec3(1.15, 0.66, 0.30), 0.6 * swell);
-    env += horizonCol * horizon * (0.45 + 0.35 * swell);
+    vec3 horizonCol = mix(vec3(1.50, 0.50, 0.12), vec3(1.35, 0.72, 0.18),
+                          0.5 + 0.5 * sin(u.time * 0.17));
+    env += horizonCol * horizon * (0.85 + 0.25 * swell);
 
     // Sparse pin lights for treble: fixed per sector (no reseed on the beat), drifting slowly.
     float sector = floor((phi / 6.2831853 + 0.5) * 42.0);
@@ -157,11 +164,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         vec3 baseMetal = vec3(0.012, 0.014, 0.020);
         vec3 darkReflection = env * (0.30 + 0.55 * (1.0 - fres));
-        // Rim: cool cyan warming to amber on the beat swell (amber, never saturated red, and a
-        // thin Fresnel band, so the colour turn stays a small-area change).
+        // Rim: a steady warm orange-gold Fresnel light that drifts slowly between orange and gold
+        // (G floor, never saturated red), with a touch of cool palette accent along one side.
+        // The beat only nudges its strength a little; the colour never turns on the beat.
+        vec3 rimWarm = mix(vec3(1.55, 0.50, 0.10), vec3(1.40, 0.74, 0.16),
+                           0.5 + 0.5 * sin(u.time * 0.23));
         vec3 rimCool = palVisual(0.62 + 0.10 * u.spectralCentroid, u) * vec3(0.55, 0.85, 1.10);
-        vec3 rimWarm = vec3(1.20, 0.68, 0.30);
-        vec3 rim = mix(rimCool, rimWarm, 0.75 * swell) * fres * (0.65 + 0.55 * swell);
+        float coolSide = 0.20 * smoothstep(0.1, 0.9, -nor.y + 0.3 * sin(u.time * 0.13));
+        vec3 rim = mix(rimWarm, rimCool, coolSide) * fres * (1.55 + 0.25 * swell);
 
         vec3 glints = vec3(0.0);
         for (int i = 0; i < 8; i++) {
@@ -176,7 +186,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             ));
             float spec = pow(max(dot(reflect(-dir, nPerturbed), -rd), 0.0), 80.0);
             glints += palVisual(fi * 0.13 + u.spectralCentroid * 0.2, u)
-                    * spec * (0.30 + 0.30 * u.treble + 0.70 * swell) * 2.4;
+                    * spec * (0.70 + 0.30 * u.treble + 0.45 * swell) * 2.4;
         }
 
         vec3 base = baseMetal;

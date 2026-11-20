@@ -4,10 +4,12 @@
 // spectrum slice, HDR tip orbs, rising energy pulses, rippled floor reflection.
 // param0 = Pillars ; param1 = Bloom ; param2 = Sway
 //
-// Flash budget (CORE-2659): the wide halos glow from the floor up on a fixed vertical profile and
-// fade out well below each tip, so a band that jumps moves only the thin spine and the small orb.
-// Beat response is a swell with a ~150 ms attack (from beatPhase, continuous across the wrap)
-// scaled by level, never an instant kick, onset or bassImpact over a large area.
+// Flash budget (CORE-2659): the columns stand tall and glow steadily; a band adds only the last
+// stretch of height, and the halo's long soft top slides with it, so a jump moves the tip and the
+// compact orb rather than lighting a wide area. The rising pulses keep a moderate depth so the
+// whole field never throbs in step. Beat response is a swell with a ~150 ms attack (from
+// beatPhase, continuous across the wrap) scaled by level, never an instant kick, onset or
+// bassImpact over a large area.
 
 // 0 at the beat, up over ~0.3 beat, back down by the next beat: continuous at the wrap.
 float lumenSwell(VisualUniforms u) {
@@ -43,46 +45,48 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                  + sin(u.time * (0.30 + 0.11 * fi) + fi * 1.9) * sway;
         float dx = p.x + rippleX - x0;
 
-        float wCore = 0.012 + 0.004 * bandE;
-        float wHalo = 0.021 * (3.2 + 1.5 * bloom);
+        float wCore = 0.017 + 0.005 * bandE;
+        float wHalo = 0.024 * (3.2 + 1.5 * bloom);
         float core = exp(-dx * dx / max(wCore * wCore, 1e-6));
         float halo = exp(-dx * dx / max(wHalo * wHalo, 1e-6));
 
-        float hgt = 0.30 + 0.56 * bandE + 0.04 * sw;
+        // tall by default: the band only adds the last stretch, so the columns stay near the
+        // ceiling under music and a jump moves the tip a little
+        float hgt = 0.72 + 0.26 * bandE + 0.04 * sw;
         float tipY = floorY - hgt;
         float up = floorY - yA; // height above the floor
         float floorCut = 1.0 - smoothstep(floorY - 0.005, floorY + 0.03, yA);
         // spine: sharp top that follows the band
         float ywin = smoothstep(tipY - 0.03, tipY + 0.06, yA) * floorCut;
-        // halo: fixed glow from the floor that dies out well below the tip, so a jump in
-        // height never lights or darkens a wide area
-        float hwin = smoothstep(tipY - 0.05, tipY + 0.45, yA) * floorCut * exp(-max(up, 0.0) * 1.3);
+        // halo: glows up the whole column with a long soft top, so a jump in height only
+        // slides a gentle gradient instead of lighting or darkening a wide area
+        float hwin = smoothstep(tipY - 0.15, tipY + 0.35, yA) * floorCut;
         // spine brighter higher up (absolute, so it does not rescale when the band jumps)
-        float vshade = mix(0.45, 1.10, saturate(up / 0.9));
+        float vshade = mix(0.55, 1.15, saturate(up / 0.9));
 
         // rising energy pulses inside the stalk; the beat pushes them up a step
-        float pulse = 0.80 + 0.20 * sin(up * 16.0 - u.time * 2.4 - surge + fi * 1.3);
+        float pulse = 0.74 + 0.26 * sin(up * 16.0 - u.time * 2.4 - surge + fi * 1.3);
 
         float hue = fr * 0.7 + 0.08 * u.spectralCentroid + 0.02 * u.time + 0.015 * sw;
         vec3 c = palVisual(hue, u);
         c = accentize(c, u.accent, 0.10);
 
         float refDim = mix(1.0, 0.34 * saturate(1.0 - below * 1.8), isRefl);
-        float eHalo = (0.85 + 0.30 * bandE) * refDim;
-        float eCore = (0.70 + 0.80 * bandE) * refDim;
+        float eHalo = (1.45 + 0.25 * bandE) * refDim;
+        float eCore = (1.30 + 0.70 * bandE) * refDim;
 
         // pale hues glow no brighter than saturated ones, so the bright halos keep one band
         vec3 ch = c / (1.0 + 1.2 * max(luma(c) - 0.30, 0.0));
         col += ch * halo * hwin * pulse * eHalo * 0.55 * bloom;
-        col += mix(c, vec3(2.2, 2.0, 1.85), 0.25) * core * ywin * vshade * eCore * 1.3; // HDR spine
+        col += mix(c, vec3(2.2, 2.0, 1.85), 0.25) * core * ywin * vshade * eCore * 1.4; // HDR spine
 
-        // HDR tip orb: a tight soft core plus a faint tail, so a jumping tip moves little light
+        // HDR tip orb: a bright core and a small halo; it rides the tip, so it stays compact
         float tdy = yA - tipY;
         float td2 = dx * dx + tdy * tdy;
-        float orb = 1.3 * exp(-td2 / 2.2e-4) + 0.08 * exp(-td2 / 4.0e-3);
+        float orb = 1.9 * exp(-td2 / 2.6e-4) + 0.16 * exp(-td2 / 2.0e-3);
         vec3 oc = palVisual(0.62 + (hue + 0.2) * 0.28 + 0.10 * u.spectralCentroid, u);
         oc = mix(oc, vec3(2.2, 2.0, 1.85), 0.15);
-        col += oc * orb * (1.0 + 0.4 * bandE) * refDim * bloom;
+        col += oc * orb * (1.3 + 0.5 * bandE) * refDim * bloom;
     }
 
     // floor line + soft haze hugging it

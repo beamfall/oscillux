@@ -70,7 +70,7 @@ vec3 procEnv(vec3 dir, float time, float spectralCentroid) {
         float fb = float(b);
         float bandCenter = 0.15 + fb * 0.12;
         float bandV      = abs(sv - bandCenter);
-        float ringMask   = 1.0 - smoothstep(0.012, 0.055, bandV);
+        float ringMask   = 1.0 - smoothstep(0.010, 0.075, bandV);
 
         // Hue rotates around azimuth; animated slowly
         float t  = su + fb * 0.17 + time * (0.02 + fb * 0.007);
@@ -84,7 +84,7 @@ vec3 procEnv(vec3 dir, float time, float spectralCentroid) {
 
         // Brightness varies by azimuth band for a spectrum effect
         float azBand = fract(su * 8.0 + fb * 0.3);
-        float bright = 0.6 + 0.6 * sin(azBand * 6.28318530);
+        float bright = 0.70 + 0.48 * sin(azBand * 6.28318530);
 
         env += c * ringMask * bright * 1.6;
     }
@@ -151,8 +151,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                       * saturate(u.level * 1.2);
 
     // Beat swell drives gem scale (a camera push shifted every refraction
-    // across the whole gem and read as a flash)
-    float gemScale    = 1.06 + 0.05 * swell;
+    // across the whole gem and read as a flash). The resting size carries the
+    // presence the bass push used to give: a large, steady gem.
+    float gemScale    = 1.34 + 0.04 * swell;
 
     // Slow internal wobble on the SDF cutplanes
     float wobbleTime  = u.time;
@@ -163,7 +164,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // beat clock -> slow base rotation on top of the normal yaw; continuous
     // across beats, eased within each beat so the gem steps with the music
-    float beatRot     = (mod(u.beatCount, 1000.0) + smoothstep(0.0, 0.6, bp)) * 0.12;
+    float beatRot     = (mod(u.beatCount, 1000.0) + smoothstep(0.0, 0.95, bp)) * 0.10;
 
     // spectralCentroid -> tint hue bias
     float tintT       = u.spectralCentroid;
@@ -185,7 +186,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     rd.yz = Rx * rd.yz;
 
     // ------------------------------------------------------------------
-    // Raymarch (scale gem with bassImpact)
+    // Raymarch (gem scale breathes with the beat swell)
     // ------------------------------------------------------------------
     float t   = 0.0;
     float hit = 0.0;
@@ -194,7 +195,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     for (int i = 0; i < 72; ++i) {
         vec3 p = ro + rd * t;
-        // Scale the SDF query point inversely -> gem grows on bassImpact
+        // Scale the SDF query point inversely -> gem grows with gemScale
         float d = crystalSDF(p / gemScale, facetSharp, wobbleTime) * gemScale;
         if (d < EPS) { hit = 1.0; break; }
         t += d * 0.85;
@@ -234,7 +235,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float facetHue = fract(dot(fq, vec3(0.157, 0.311, 0.427)));
         vec3 facetTint = palVisual(facetHue * 0.6 + tintT * 0.3 + 0.05, u);
         facetTint = facetTint * facetTint * 2.2;
-        vec3 refrTinted = refrCol * mix(vec3(1.0), facetTint, 0.90) * 1.30;
+        vec3 refrTinted = refrCol * mix(vec3(1.0), facetTint, 0.90) * 1.05;
 
         // --- Mix refract/reflect by Fresnel (grazing -> more reflect) ---
         vec3 gemCol = mix(refrTinted, reflCol * 0.85, fres);
@@ -245,7 +246,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // Internal bass glow — colored ember in the heart of the gem, not a wash
         float heart = exp(-dot(pLocal, pLocal) * 2.2);
-        float glow = (0.12 + u.level * 0.14 + swell * 0.06) * heart;
+        float glow = (0.20 + u.level * 0.14 + swell * 0.06) * heart;
         glow *= (1.0 - fres);   // strongest on the interior
         vec3 glowCol = palVisual(0.1 + tintT * 0.3, u);
         glowCol = glowCol * glowCol * 2.2;
@@ -261,10 +262,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 specCol = peakWhite(palVisual(facetHue + 0.2, u), 0.45);
         gemCol += specCol * spec * glitter * (2.2 + 2.5 * u.treble);
 
+        // Iridescent thin-film sheen: an opal ramp (cyan -> lavender ->
+        // orchid -> white) that drifts across each facet with view angle and
+        // position. It tints the refraction and adds a steady pastel glaze,
+        // so the gem reads bright and opalescent between beats.
+        float film = fract(cosI * 1.7 + facetHue * 0.9
+                         + dot(pLocal, vec3(0.55, 0.8, 0.35)) + u.time * 0.05);
+        float fw = film * 4.0;
+        vec3 opal = mix(vec3(0.35, 0.80, 1.00), vec3(0.62, 0.42, 1.00), smoothstep(0.0, 1.0, fw));
+        opal = mix(opal, vec3(0.95, 0.42, 0.95), smoothstep(1.0, 2.0, fw));
+        opal = mix(opal, vec3(1.00, 0.95, 1.00), smoothstep(2.0, 3.0, fw));
+        opal = mix(opal, vec3(0.35, 0.80, 1.00), smoothstep(3.0, 4.0, fw));
+        gemCol *= mix(vec3(1.0), opal * 1.20, 0.60);
+        gemCol += opal * opal * (0.06 + 0.14 * (1.0 - cosI));
+
         // Rim/edge brightening from Fresnel: facet outlines pop
         float rim = pow(1.0 - cosI, 3.5);
         vec3 rimCol = palVisual(tintT + 0.5 + swell * 0.12, u);
-        gemCol += rimCol * rim * (0.45 + swell * 0.12);
+        gemCol += (rimCol * 0.75 + 0.25) * rim * (0.80 + swell * 0.12);
 
         // --- Cracks glow with the beat swell ---
         if (fractureAmt > 0.001) {

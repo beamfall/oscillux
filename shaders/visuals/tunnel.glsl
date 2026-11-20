@@ -6,10 +6,11 @@
 // param0 = Flight Speed ; param1 = Twist ; param2 = Ring Detail
 //
 // Flash budget (CORE-2659): under loud audio the visual keeps within the
-// general flash limit on its own. The music moves things (ring surge, tick
-// length, spike reach, embers) instead of switching large areas bright and
-// dark, beat-driven reach has a ~200 ms attack, and palette reads stay off the
-// red end of the ramp so nothing large turns red and back.
+// general flash limit on its own. The pastel equalizer disc and the ray burst
+// are bright but steady; the music moves things (ring surge, tick tips, ray
+// reach, embers) instead of switching large areas bright and dark,
+// beat-driven reach has a ~200 ms attack, and palette reads stay off the red
+// end of the ramp so nothing large turns red and back.
 
 // Mirror the palette coordinate into [0, 0.74]: continuous, and clear of the
 // red stop at the top of the default ramp.
@@ -59,27 +60,33 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float baseR = 0.40;
     int   bi = int(ang01 * float(NBANDS)) % NBANDS;
     float bandH = band(u, bi);
-    float tickOuter = baseR + 0.03 + bandH * 0.30;
+    // A wide, steady pastel disc: the inner part of every tick is always lit
+    // at a constant HDR level (bright is fine, it is change that flashes);
+    // the music only moves the soft tip in and out a little.
+    float tickOuter = baseR + 0.20 + bandH * 0.16;
     float h = r - baseR;
     float cell = fract(ang01 * detail * 2.0);
-    float cellMask = smoothstep(0.08, 0.22, cell) * smoothstep(0.92, 0.78, cell);
-    float body = step(0.0, h) * (1.0 - smoothstep(tickOuter - 0.012, tickOuter, r)) * cellMask;
+    float cellMask = smoothstep(0.0, 0.10, cell) * smoothstep(1.0, 0.90, cell);
+    float body = smoothstep(-0.004, 0.004, h) * (1.0 - smoothstep(tickOuter - 0.05, tickOuter, r));
     vec3 tickCol = tunnelPal(ang01 + 0.1 * u.spectralCentroid, u);
     tickCol = accentize(tickCol, u.accent, 0.15);
-    // dim body that fades toward the tip, bright cap that rides the level
-    col += tickCol * body * (0.42 * exp(-h * 5.0) + 0.06);
-    float cap = aaLine(r - (tickOuter - 0.008), 0.005) * cellMask;
-    col += mix(tickCol, vec3(1.0), 0.25) * cap * 1.5;
+    // pastel: lift toward white, brightest at the inner edge
+    vec3 discCol = mix(tickCol, vec3(1.0), 0.18);
+    col += discCol * body * mix(0.55, 1.0, cellMask) * (0.95 + 1.1 * exp(-h * 7.0));
+    float cap = aaLine(r - (tickOuter - 0.012), 0.008) * cellMask;
+    col += mix(tickCol, vec3(1.0), 0.25) * cap * 1.2;
 
     // base rim line at the equalizer radius
     col += tunnelPal(ang01, u) * aaLine(r - baseR, 0.004) * 2.0;
 
-    // ---- beat radial spikes: thin rays that reach out on the beat ----
+    // ---- radial ray burst: long thin rays, always out; the beat stretches them ----
     float spikeCell = fract(ang01 * 24.0);
-    float spike = smoothstep(0.06, 0.0, abs(spikeCell - 0.5)) * step(baseR, r);
-    float reach = baseR + 0.45 + 0.5 * beatEnv * (0.4 + 0.6 * u.bass);
+    // screen-space width, so the rays stay thin lines out to the edge
+    float spikeArc = abs(spikeCell - 0.5) * (6.2831853 / 24.0) * r;
+    float spike = aaLine(spikeArc, 0.005) * step(baseR, r);
+    float reach = 1.45 + 0.25 * beatEnv * (0.4 + 0.6 * u.bass);
     float spikeFade = 1.0 - smoothstep(baseR + 0.2, reach, r);
-    col += tunnelPal(ang01 + 0.25, u) * spike * spikeFade * 0.9;
+    col += tunnelPal(ang01 + 0.25, u) * spike * spikeFade * 1.3;
 
     // ---- ember sparks streaming outward ----
     for (int i = 0; i < 44; i++) {
