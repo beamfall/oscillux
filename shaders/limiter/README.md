@@ -42,20 +42,30 @@ The uniform block holds two vectors:
     `G` was written does not repay it. `deltaMs` stays the real interval, which ages the
     trackers' stamps (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
-  - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`.
-  - `deltaMs` is the frame interval as float32: the time between the host's draws (a host that
-    sees paint times takes the time between paints). The previous frame was shown from its paint
-    to this one's, and a frame is painted after its draw and at most a lag `L` later (about a
-    refresh), so one frame can be shown up to `L` less or more than its interval. That error does
-    not add up: a late paint shortens its frame and lengthens the next, so the credited time over
-    any run of frames is the time they were shown to within `L`, and the limiter grants at most
-    `2 * maxFlashHz * L` more transitions in any window than it would on paint times (0.05 at
-    120 Hz and the default 3 Hz, 0.25 at a 24 Hz refresh), a fraction of one flash. A per-frame
-    lower bound (the Beamfall web host credited `max(interval / 2, interval - bound)`, Codex
-    rounds 18 to 21, 27, 28) is half of each interval at a steady cadence: it ran the clock at
-    half speed, made the limiter twice as strict as `maxFlashHz` and held ragged areas of moving
-    visuals (CORE-2744). A display that changes its refresh rate between two paints moves the
-    lag by at most a refresh, within the same bound (OSC-0046).
+  - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`. `ms` is
+    the host's credited time, which also drives `refill`.
+  - `deltaMs` is a lower bound, as float32, on how long the previous frame was shown; every stamp
+    is cleared when it is over the coverage interval.
+  - A host that sees paint times credits the time between paints and passes it as `deltaMs`. A
+    host that sees only draw times knows each frame is painted after its draw and at most a lag
+    `L` (about a refresh) later, so a span of frames was shown its draw time to within `L` either
+    way. Crediting draw time as it is lets two kinds of error through (CORE-2744): a frame drawn
+    over the coverage interval after the previous one can be shown under it, so its `deltaMs`
+    clears stamps still recent on screen (adjacent red patches then pass one by one, 8 large-area
+    red transitions a second against a limit of 1); and a late first paint shortens the span of
+    the grants that follow, so seven luma transitions a second apart on the draw clock fit inside
+    a second on screen. Such a host SHALL therefore:
+    - pass `deltaMs = max(0, interval - L)`; and
+    - credit the clock and `refill` with `interval * k`, `k = min(1000 / (1000 + L),
+      (1000/15 + 1000/60) / (1000/15 + L))`. A span the clock counts as a second was then at
+      least a second on screen. Recency reaches 5 units (83.3 ms), so a stamp under the coverage
+      interval old on screen stays recent on the clock.
+    At 120 Hz `k` is 0.992 and at 60 Hz 0.984, so the limiter is about a refresh a second
+    stricter than `maxFlashHz`. A per-frame lower bound (the Beamfall web host credited
+    `max(interval / 2, interval - bound)`, Codex rounds 18 to 21, 27, 28) is half of each interval
+    at a steady cadence. It ran the clock at half speed and held ragged areas of moving visuals
+    (CORE-2744). A display that changes its refresh rate between two paints moves the lag by at
+    most a refresh; a host takes `L` as its current refresh estimate (OSC-0046).
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
     a step the screen never showed, and a transition the screen does show can then go uncounted.
