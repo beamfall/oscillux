@@ -317,6 +317,11 @@ exclusion has no reason.
 | `oscillux_governor_destroy` | `Governor.free` | `Oscillux.Governor.close` |
 | `oscillux_governor_record` | `Governor.record` | `Oscillux.Governor.record` |
 | `oscillux_governor_reset` | `Governor.reset` | `Oscillux.Governor.reset` |
+| `oscillux_window_governor_config_default` | excluded: frame-window API targets C callers | excluded: frame-window API targets C callers |
+| `oscillux_window_governor_create` | excluded: frame-window API targets C callers | excluded: frame-window API targets C callers |
+| `oscillux_window_governor_destroy` | excluded: frame-window API targets C callers | excluded: frame-window API targets C callers |
+| `oscillux_window_governor_record` | excluded: frame-window API targets C callers | excluded: frame-window API targets C callers |
+| `oscillux_window_governor_reset` | excluded: frame-window API targets C callers | excluded: frame-window API targets C callers |
 | `oscillux_transition_config_default` | `new TransitionConfig` | `Oscillux.transitionConfigDefault` |
 | `oscillux_transition_create` | `new Transition` | `new Oscillux.Transition` |
 | `oscillux_transition_destroy` | `Transition.free` | `Oscillux.Transition.close` |

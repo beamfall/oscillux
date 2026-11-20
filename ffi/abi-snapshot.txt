@@ -105,6 +105,9 @@ define OSCILLUX_TRANSITION_STATE_DONE 4u
 define OSCILLUX_TRANSITION_STATE_IDLE 0u
 define OSCILLUX_TRANSITION_STATE_PRE_ROLL 1u
 define OSCILLUX_TRANSITION_STATE_WAITING 2u
+define OSCILLUX_WINDOW_GOVERNOR_DEMOTE 1u
+define OSCILLUX_WINDOW_GOVERNOR_HOLD 0u
+define OSCILLUX_WINDOW_GOVERNOR_PROMOTE 2u
 function uint32_t oscillux_abi_version(void)
 function int32_t oscillux_beatgrid_beat_count(const OscilluxBeatGrid *grid, size_t *out_count)
 function int32_t oscillux_beatgrid_clock(const OscilluxBeatGrid *grid, double media_time_seconds, OscilluxBeatGridClock *out)
@@ -194,6 +197,11 @@ function int32_t oscillux_transition_reset(OscilluxTransition *handle)
 function int32_t oscillux_transition_status(const OscilluxTransition *handle, double time_seconds, OscilluxTransitionStatus *out)
 function int32_t oscillux_transition_update(OscilluxTransition *handle, const OscilluxTransitionClock *clock, OscilluxTransitionStatus *out)
 function uint32_t oscillux_version(void)
+function int32_t oscillux_window_governor_config_default(OscilluxWindowGovernorConfig *out)
+function int32_t oscillux_window_governor_create(const OscilluxWindowGovernorConfig *config, double now_s, OscilluxWindowGovernor **out)
+function void oscillux_window_governor_destroy(OscilluxWindowGovernor *handle)
+function int32_t oscillux_window_governor_record(OscilluxWindowGovernor *handle, const OscilluxWindowGovernorSample *sample, OscilluxWindowGovernorResult *out)
+function int32_t oscillux_window_governor_reset(OscilluxWindowGovernor *handle, double now_s)
 opaque OscilluxBeatGrid
 opaque OscilluxCdg
 opaque OscilluxCurve
@@ -205,6 +213,7 @@ opaque OscilluxMapper
 opaque OscilluxPacker
 opaque OscilluxReactionSampler
 opaque OscilluxTransition
+opaque OscilluxWindowGovernor
 struct OscilluxBeatClock size 48 align 8
 member OscilluxBeatClock.media_time_ms offset 0 size 8 type double
 member OscilluxBeatClock.tempo_bpm offset 8 size 8 type double
@@ -512,3 +521,27 @@ member OscilluxUniformField.source_offset offset 4 size 4 type uint32_t
 member OscilluxUniformField.components offset 8 size 4 type uint32_t
 member OscilluxUniformField.offset offset 12 size 4 type uint32_t
 member OscilluxUniformField.stride offset 16 size 4 type uint32_t
+struct OscilluxWindowGovernorConfig size 40 align 8
+member OscilluxWindowGovernorConfig.struct_size offset 0 size 4 type uint32_t
+member OscilluxWindowGovernorConfig.demote_windows offset 4 size 4 type uint32_t
+member OscilluxWindowGovernorConfig.promote_windows offset 8 size 4 type uint32_t
+member OscilluxWindowGovernorConfig.demote_budget_fraction offset 16 size 8 type double
+member OscilluxWindowGovernorConfig.promote_budget_fraction offset 24 size 8 type double
+member OscilluxWindowGovernorConfig.cooldown_s offset 32 size 8 type double
+struct OscilluxWindowGovernorResult size 20 align 4
+member OscilluxWindowGovernorResult.decision offset 0 size 4 type uint32_t
+member OscilluxWindowGovernorResult.over_budget offset 4 size 4 type uint32_t
+member OscilluxWindowGovernorResult.over_budget_streak offset 8 size 4 type uint32_t
+member OscilluxWindowGovernorResult.promotion_streak offset 12 size 4 type uint32_t
+member OscilluxWindowGovernorResult.stable_streak offset 16 size 4 type uint32_t
+struct OscilluxWindowGovernorSample size 64 align 8
+member OscilluxWindowGovernorSample.p95_ms offset 0 size 8 type double
+member OscilluxWindowGovernorSample.p99_ms offset 8 size 8 type double
+member OscilluxWindowGovernorSample.interval_ms offset 16 size 8 type double
+member OscilluxWindowGovernorSample.promotion_budget_ms offset 24 size 8 type double
+member OscilluxWindowGovernorSample.now_s offset 32 size 8 type double
+member OscilluxWindowGovernorSample.has_p95 offset 40 size 4 type uint32_t
+member OscilluxWindowGovernorSample.has_p99 offset 44 size 4 type uint32_t
+member OscilluxWindowGovernorSample.starved offset 48 size 4 type uint32_t
+member OscilluxWindowGovernorSample.dropping offset 52 size 4 type uint32_t
+member OscilluxWindowGovernorSample.at_floor offset 56 size 4 type uint32_t

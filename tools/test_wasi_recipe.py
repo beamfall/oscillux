@@ -70,7 +70,14 @@ class WasiRecipeTests(unittest.TestCase):
             recipe.main()
         argv = execute.call_args.args[1]
         self.assertEqual(argv[:8], ['/selected/bin/cargo', 'test', '--workspace', '--lib', '--target', 'wasm32-wasip1', '--offline', '--test'])
-        self.assertEqual(set(argv[8::2]), {'core2_early', 'core2_boundaries', 'core2_vectors', 'dsp_streaming', 'dsp_conformance', 'dsp_beat', 'dsp_agc', 'limiter_vectors', 'limiter_safety', 'limiter_properties', 'limiter_regions', 'core2_ffi', 'limiter_ffi', 'realtime_paths', 'ffi_robustness', 'dsp_descriptors', 'reaction_vectors', 'beatgrid_vectors', 'beatgrid_ffi', 'cdg_vectors', 'cdg_realtime', 'cdg_ffi'})
+        self.assertEqual(set(argv[8::2]), {
+            'core2_early', 'core2_boundaries', 'core2_vectors', 'dsp_streaming',
+            'dsp_conformance', 'dsp_beat', 'dsp_agc', 'limiter_vectors', 'limiter_safety',
+            'limiter_properties', 'limiter_regions', 'core2_ffi', 'limiter_ffi', 'realtime_paths',
+            'ffi_robustness', 'dsp_descriptors', 'reaction_vectors', 'beatgrid_vectors',
+            'beatgrid_ffi', 'cdg_vectors', 'cdg_realtime', 'cdg_ffi',
+            'window_governor_vectors', 'window_governor_ffi',
+        })
         self.assertEqual(execute.call_args.args[2], {'selected': 'environment'})
 
 

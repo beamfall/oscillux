@@ -321,6 +321,48 @@ static int run_region(const char *path) {
     return cases;
 }
 
+static void run_window_governor(void) {
+    context = "window governor defaults";
+    OscilluxWindowGovernorConfig config = {.struct_size = (uint32_t)sizeof config};
+    OscilluxWindowGovernor *governor = NULL;
+    require(oscillux_window_governor_config_default(&config) == OSCILLUX_OK, "config defaults");
+    require(oscillux_window_governor_create(&config, 0.0, &governor) == OSCILLUX_OK, "create");
+
+    OscilluxWindowGovernorSample sample = {
+        .p95_ms = 3.0,
+        .p99_ms = 17.0,
+        .interval_ms = 1000.0 / 60.0,
+        .promotion_budget_ms = 8.33,
+        .has_p95 = 1,
+        .has_p99 = 1,
+    };
+    OscilluxWindowGovernorResult result;
+    for (uint32_t window = 1; window <= 30; ++window) {
+        sample.now_s = window / 60.0;
+        require(oscillux_window_governor_record(governor, &sample, &result) == OSCILLUX_OK, "record");
+        require(result.over_budget == 1, "p99 exceeds the current interval");
+        if (window < 30) {
+            require(result.decision == OSCILLUX_WINDOW_GOVERNOR_HOLD &&
+                        result.over_budget_streak == window, "hold before window 30");
+        } else {
+            require(result.decision == OSCILLUX_WINDOW_GOVERNOR_DEMOTE &&
+                        result.over_budget_streak == 0, "demote on window 30 with the omitted flag");
+        }
+    }
+
+    context = "window governor at floor";
+    require(oscillux_window_governor_reset(governor, 1.0) == OSCILLUX_OK, "reset");
+    sample.at_floor = 1;
+    for (uint32_t window = 1; window <= 31; ++window) {
+        sample.now_s = 1.0 + window / 60.0;
+        require(oscillux_window_governor_record(governor, &sample, &result) == OSCILLUX_OK, "record");
+        require(result.decision == OSCILLUX_WINDOW_GOVERNOR_HOLD && result.over_budget == 1 &&
+                    result.over_budget_streak == window, "hold and retain pressure at the floor");
+    }
+    require(result.stable_streak == 29, "preserve stability after reaching the threshold");
+    oscillux_window_governor_destroy(governor);
+}
+
 int main(int argc, char **argv) {
     if (argc != 3) {
         fprintf(stderr, "usage: conformance_smoke <dsp-vectors> <region-vectors>\n");
@@ -328,6 +370,7 @@ int main(int argc, char **argv) {
     }
     context = "abi";
     require(oscillux_abi_version() == 1, "abi version");
+    run_window_governor();
     int fixtures = run_dsp(argv[1]);
     int cases = run_region(argv[2]);
     require(fixtures >= 8, "fewer DSP fixtures than expected");

@@ -21,6 +21,9 @@ use oscillux::reaction::{OscilluxBeatClock, OscilluxReaction, OscilluxReactionCo
 use oscillux::transition::{
     OscilluxTransitionClock, OscilluxTransitionConfig, OscilluxTransitionStatus,
 };
+use oscillux::window_governor::{
+    OscilluxWindowGovernorConfig, OscilluxWindowGovernorResult, OscilluxWindowGovernorSample,
+};
 use oscillux_core::dsp::{
     Beat, Descriptors, DspConfig, DspFrame, Levels, Onset, MAX_BANDS, ONSET_GROUPS,
 };
@@ -316,6 +319,33 @@ fn layout_assertions(target: Target) -> String {
         refresh_ms: f64 => "double*",
         level: u32 => "uint32_t*",
         has_ema: u32 => "uint32_t*",
+    });
+    layout!(OscilluxWindowGovernorConfig, "OscilluxWindowGovernorConfig", {
+        struct_size: u32 => "uint32_t*",
+        demote_windows: u32 => "uint32_t*",
+        promote_windows: u32 => "uint32_t*",
+        demote_budget_fraction: f64 => "double*",
+        promote_budget_fraction: f64 => "double*",
+        cooldown_s: f64 => "double*",
+    });
+    layout!(OscilluxWindowGovernorSample, "OscilluxWindowGovernorSample", {
+        p95_ms: f64 => "double*",
+        p99_ms: f64 => "double*",
+        interval_ms: f64 => "double*",
+        promotion_budget_ms: f64 => "double*",
+        now_s: f64 => "double*",
+        has_p95: u32 => "uint32_t*",
+        has_p99: u32 => "uint32_t*",
+        starved: u32 => "uint32_t*",
+        dropping: u32 => "uint32_t*",
+        at_floor: u32 => "uint32_t*",
+    });
+    layout!(OscilluxWindowGovernorResult, "OscilluxWindowGovernorResult", {
+        decision: u32 => "uint32_t*",
+        over_budget: u32 => "uint32_t*",
+        over_budget_streak: u32 => "uint32_t*",
+        promotion_streak: u32 => "uint32_t*",
+        stable_streak: u32 => "uint32_t*",
     });
     layout!(OscilluxMappingConfig, "OscilluxMappingConfig", {
         loudness_reference: f64 => "double*",

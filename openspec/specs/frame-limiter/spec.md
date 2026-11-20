@@ -513,30 +513,34 @@ When the viewing geometry changes, the host SHALL keep the trackers and write `G
 The frame limiter SHALL show the input at every pixel whose trackers would not fire on it in a
 direction the grant did not admit. Every other pixel is held. At a held pixel the limiter SHALL
 show a colour on which the pixel's trackers fire only in directions that the input fires and the
-grant admitted, and SHALL step the trackers on that colour. It SHALL choose the first of these
-that qualifies, in 8-bit display codes:
+grant admitted, and SHALL step the trackers on that colour.
 
-1. the input with its luma code moved into the band the pixel's luma tracker allows. Below the
-   floor: the input mixed with the least of the previous output that reaches the floor. Above
-   the ceiling: the previous output mixed toward the input as far as a limit allows, then
-   mixed 32/256 of the way toward the input scaled toward black to the limit, or that scaled
-   input alone when the mix is above the limit. With L the luma code of the previous output,
-   V that of the input and C the ceiling, the limit is C when L is not below C, else
-   C - (((C - L) * floor(min(256, floor(768 * L / C)) * (V - C) / V)) >> 8);
-2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
-3. the mix of the input and the previous output that is nearest the input.
+#### Scenario: Choosing the output colour for a held pixel
 
-A mix has 256 steps between its two colours, each rounded to display codes, so the steps that
-qualify need not be contiguous. The limiter SHALL search each mix above from the input's end
-without assuming they are: the 16 steps nearest the input in order, then every 16th step, then
-the 15 steps between the first of those that qualifies and the step tested before it, again from
-the input's end. It SHALL take the first step that qualifies, and the mix's other end when none
-does.
+- **WHEN** the frame limiter holds a pixel
+- **THEN** it SHALL choose the first of these that qualifies, in 8-bit display codes:
 
-The band's floor is 0 when a fall is allowed, else the lower of the dark threshold and one code
-more than a step below the tracker's high. Its ceiling is the top code when a rise is allowed or
-the tracker's low is at or above the dark threshold, else one code less than a step above the
-tracker's low.
+  1. the input with its luma code moved into the band the pixel's luma tracker allows. Below the
+     floor: the input mixed with the least of the previous output that reaches the floor. Above
+     the ceiling: the previous output mixed toward the input as far as a limit allows, then
+     mixed 32/256 of the way toward the input scaled toward black to the limit, or that scaled
+     input alone when the mix is above the limit. With L the luma code of the previous output,
+     V that of the input and C the ceiling, the limit is C when L is not below C, else
+     C - (((C - L) * floor(min(256, floor(768 * L / C)) * (V - C) / V)) >> 8);
+  2. the mix of colour 1 and the grey of its luma that is nearest colour 1;
+  3. the mix of the input and the previous output that is nearest the input.
+
+  A mix has 256 steps between its two colours, each rounded to display codes, so the steps that
+  qualify need not be contiguous. The limiter SHALL search each mix above from the input's end
+  without assuming they are: the 16 steps nearest the input in order, then every 16th step, then
+  the 15 steps between the first of those that qualifies and the step tested before it, again from
+  the input's end. It SHALL take the first step that qualifies, and the mix's other end when none
+  does.
+
+  The band's floor is 0 when a fall is allowed, else the lower of the dark threshold and one code
+  more than a step below the tracker's high. Its ceiling is the top code when a rise is allowed or
+  the tracker's low is at or above the dark threshold, else one code less than a step above the
+  tracker's low.
 
 #### Scenario: A held strobe beside a drifting background
 
