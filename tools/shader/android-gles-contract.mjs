@@ -42,11 +42,14 @@ export function androidGlesProvenance(tag, rev) {
     '(open source), used under the owner\'s commercial grant (ADR-0228 D4).';
 }
 
-/** The contract inputs for a loaded manifest: every visual, in catalogOrder. */
+/** The contract inputs for a loaded manifest or release set: every visual, in catalogOrder. */
 export function androidGlesInputs(manifest, tag, rev) {
   const { wrapGLSL300, VERTEX_300 } = manifest.wrapper;
   return {
-    entries: catalogVisuals(manifest).map(entry => ({ ...entry, fragment: wrapGLSL300(manifest.byId.get(entry.id).body, entry.imageInput) })),
+    entries: catalogVisuals(manifest).map(entry => {
+      const v = manifest.byId.get(entry.id);
+      return { ...entry, fragment: (v.wrapper?.wrapGLSL300 ?? wrapGLSL300)(v.body, entry.imageInput) };
+    }),
     vertex: VERTEX_300,
     provenance: androidGlesProvenance(tag, rev),
     expectedIds: [...manifest.catalogOrder],

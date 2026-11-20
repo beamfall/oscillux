@@ -12,7 +12,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { catalogDocument, catalogVisuals } from './catalog.mjs';
 import { kotlinString } from './kotlin-string.mjs';
-import { loadManifest } from './manifest.mjs';
+import { loadReleaseSet } from './manifest.mjs';
 import {
   ANDROID_GLES_CATALOG_DOMAIN,
   ANDROID_GLES_CONTRACT_PATH,
@@ -29,10 +29,10 @@ import {
 } from './android-gles-contract.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const MANIFEST = loadManifest(join(ROOT, 'shaders/manifest.json'));
-// The release the last visual-shaders contract was generated from; the payload digests below are
-// its values, so a change to any visual's catalog fields, effect data or GLES source fails here
-// until they are updated on purpose.
+const MANIFEST = loadReleaseSet(ROOT);
+// The release the provenance line names. The payload digests below are the release set's (the
+// catalog with each overriding original, CORE-2760), so a change to any visual's catalog fields,
+// effect data or GLES source fails here until they are updated on purpose.
 const TAG = 'v0.2.0';
 const REV = 'ea319a10f2c4e90cbcf5d64f928a85bd97ae197e';
 const PROVENANCE = androidGlesProvenance(TAG, REV);
@@ -52,8 +52,8 @@ test('v1 contract is complete, ordered, deterministic, and independently digest-
   assert.match(RENDERED, new RegExp(`CONTRACT_VERSION = "${ANDROID_GLES_CONTRACT_VERSION}"`));
   assert.match(RENDERED, new RegExp(`CATALOG_DOMAIN = "${escapeRegExp(ANDROID_GLES_CATALOG_DOMAIN)}"`));
   assert.match(RENDERED, new RegExp(`SOURCE_DOMAIN = "${escapeRegExp(ANDROID_GLES_SOURCE_DOMAIN)}"`));
-  assert.equal(constant(RENDERED, 'CATALOG_SHA256_BASE64'), 'OpuVZNWs5mHg1wy7/PS9XgT46nS6hFzaHGbAmvSUhfg=');
-  assert.equal(constant(RENDERED, 'SOURCE_SHA256_BASE64'), 'cmyRSCkhufeJvASjA1Hnw1COL8eo+XMs6e9uwqPKLmg=');
+  assert.equal(constant(RENDERED, 'CATALOG_SHA256_BASE64'), '2DS6ISFM//tBQZWrcRZXl5rWsjKH92Om3MAPC7bk0so=');
+  assert.equal(constant(RENDERED, 'SOURCE_SHA256_BASE64'), 'WpbXOjHGxdfyVEbJDgx8xU1t/lG/jNhPRAV64pBJrxQ=');
   assert.equal(independentDigest(ANDROID_GLES_CATALOG_DOMAIN, payload(RENDERED, 'CATALOG')),
     constant(RENDERED, 'CATALOG_SHA256_BASE64'));
   assert.equal(independentDigest(ANDROID_GLES_SOURCE_DOMAIN, payload(RENDERED, 'SOURCE')),

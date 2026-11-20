@@ -23,7 +23,9 @@
 // as flattened regions. The full audit is optional, not part of gate; `make limiter-hold-check` is, and
 // `make visual-flash-check` runs the source flash budget.
 //
-//   node tools/shader/limiter-red-audit.mjs [manifest.json ...] [--only id1,id2] [--beats 12]
+// --release audits the release legs' visual set (manifest.mjs releaseSet) instead of manifests.
+//
+//   node tools/shader/limiter-red-audit.mjs [manifest.json ... | --release] [--only id1,id2] [--beats 12]
 //        [--jobs 6] [--audio lint|loud] [--max-held F] [--max-luma N] [--out out/limiter-red-audit]
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -31,7 +33,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { lintAudioAt, renderOne, setUp } from './beat-lint.mjs';
-import { loadManifest, mergeVisualSets } from './manifest.mjs';
+import { loadManifest, loadReleaseSet, mergeVisualSets } from './manifest.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -46,6 +48,7 @@ const { values: opts, positionals } = parseArgs({
     audio: { type: 'string', default: 'lint' },
     'max-held': { type: 'string', default: '' },
     'max-luma': { type: 'string', default: '' },
+    release: { type: 'boolean', default: false },
   },
 });
 const W = 480, H = 270, FPS = 60, BPM = Number(opts.bpm);
@@ -105,6 +108,14 @@ async function attach({ W, H }) {
   };
 }
 
+// --release: the web visuals the release legs ship (manifest.mjs releaseSet).
+function releaseVisuals() {
+  return loadReleaseSet(ROOT).visuals.filter(v => v.targets.includes('web')).map(v => ({
+    id: v.id, fragment: v.wrapper.wrapGLSL300(v.body, v.imageInput), vertex: v.wrapper.VERTEX_300,
+    palette: v.palette, params: v.params, trailDecay: v.trailDecay, overrides: false,
+  }));
+}
+
 // beat-lint's clock with the levels of a loud master: the same beat, kick, onset and bassImpact,
 // every band near full scale.
 export function loudAudioAt(fr, bpm) {
@@ -117,7 +128,7 @@ export function loudAudioAt(fr, bpm) {
 }
 
 async function main() {
-  const sets = manifests.map(path => {
+  const sets = opts.release ? [releaseVisuals()] : manifests.map(path => {
     const m = loadManifest(path);
     return m.visuals.filter(v => v.targets.includes('web')).map(v => ({
       id: v.id, fragment: m.wrapper.wrapGLSL300(v.body, v.imageInput), vertex: m.wrapper.VERTEX_300,

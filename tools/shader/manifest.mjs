@@ -194,6 +194,35 @@ export function mergeVisualSets(sets) {
   return visuals;
 }
 
+// The manifests the release legs ship: the catalog, and the rebuilt originals that override it.
+export const RELEASE_CATALOG = 'shaders/manifest.json';
+export const RELEASE_ORIGINALS = 'shaders/originals/manifest.json';
+
+// The visual set the release legs ship, shaped like a loaded manifest. Every catalog visual is
+// kept, in catalogOrder; one an original overrides takes the original's body, header, targets,
+// render inputs (palette, params, controls, tunables, trailDecay, post) and the originals'
+// prelude, and keeps its catalog fields, with each param label from the original's control
+// where it has one. Each visual carries the `wrapper` its body is wrapped with. Originals that
+// override nothing are not shipped: they have no catalog fields.
+export function releaseSet(catalog, originals) {
+  const visuals = catalog.visuals.map(c => {
+    const o = originals.byId.get(c.id);
+    if (!o?.overrides) return Object.freeze({ ...c, wrapper: catalog.wrapper });
+    if (o.imageInput !== c.imageInput) throw new Error(`release set: ${c.id} imageInput differs from its catalog entry`);
+    const paramLabels = PARAM_UNIFORMS.map((u, i) => o.controls.find(x => x.uniform === u)?.label ?? c.catalog.paramLabels[i]);
+    return Object.freeze({ ...o, overrides: false, wrapper: originals.wrapper,
+      catalog: Object.freeze({ ...c.catalog, paramLabels: Object.freeze(paramLabels) }) });
+  });
+  const missing = originals.visuals.filter(o => o.overrides && !catalog.byId.has(o.id)).map(o => o.id);
+  if (missing.length) throw new Error(`release set: nothing to override for ${missing.join(', ')}`);
+  const byTarget = Object.fromEntries(TARGETS.map(t => [t, visuals.filter(v => v.targets.includes(t))]));
+  return { file: catalog.file, prelude: catalog.prelude, visuals, transitions: catalog.transitions, byTarget,
+    byId: new Map(visuals.map(v => [v.id, v])), catalogOrder: catalog.catalogOrder, wrapper: catalog.wrapper };
+}
+
+/** releaseSet for an Oscillux checkout at root. */
+export const loadReleaseSet = root => releaseSet(loadManifest(resolve(root, RELEASE_CATALOG)), loadManifest(resolve(root, RELEASE_ORIGINALS)));
+
 // The id, body, targets and header rules visuals and transitions share.
 function common(v, keys, at, seen) {
   exactKeys(v, keys, at, ['id', 'body', 'targets']);

@@ -23,7 +23,7 @@ import { checkCollections, loadCollections } from './collections.mjs';
 import { emitManifest } from './emit.mjs';
 import { FORBIDDEN, LOCALLY_OWNED, importVisuals } from './import-visuals.mjs';
 import { checkHlslABI, hlslValidator, mslEntryPoint, validateHLSL } from './glsl2msl.mjs';
-import { loadManifest, mergeVisualSets, POST_DEFAULTS, POST_KEYS, POST_RANGES, transitionEntryId } from './manifest.mjs';
+import { loadManifest, loadReleaseSet, mergeVisualSets, PARAM_UNIFORMS, POST_DEFAULTS, POST_KEYS, POST_RANGES, RELEASE_CATALOG, RELEASE_ORIGINALS, releaseSet, transitionEntryId } from './manifest.mjs';
 import { assertTrustBoundary } from './provision.mjs';
 import {
   RUST_PATH, VECTOR_PATH, declarations, declared, layout, loadSchema, renderRust, renderVector,
@@ -205,6 +205,32 @@ test('host bundles merge manifests and place overrides in catalog order', () => 
   assert.throws(() => mergeVisualSets([[v('a')], [v('a')]]), /more than one manifest/);
   assert.throws(() => mergeVisualSets([[v('a', true)], [v('a', true)], [v('a')]]), /more than one manifest/);
   assert.throws(() => mergeVisualSets([[v('a', true)], [v('b')]]), /nothing to override for a/);
+});
+
+// The release legs ship the catalog with each overridden visual drawn by its rebuilt original
+// (CORE-2760), keeping the catalog's fields and order.
+test('the release set draws overrides from the originals and keeps the catalog fields', () => {
+  const catalog = loadManifest(join(ROOT, RELEASE_CATALOG));
+  const originals = loadManifest(join(ROOT, RELEASE_ORIGINALS));
+  const set = releaseSet(catalog, originals);
+  assert.deepEqual(loadReleaseSet(ROOT).visuals.map(v => v.body), set.visuals.map(v => v.body));
+  assert.deepEqual(set.catalogOrder, catalog.catalogOrder);
+  assert.deepEqual(set.visuals.map(v => v.id), catalog.visuals.map(v => v.id));
+  const overridden = originals.visuals.filter(o => o.overrides);
+  assert.ok(overridden.length > 0);
+  for (const o of overridden) {
+    const v = set.byId.get(o.id), c = catalog.byId.get(o.id);
+    assert.equal(v.body, o.body, o.id);
+    assert.equal(v.wrapper, originals.wrapper, o.id);
+    for (const k of ['palette', 'params', 'controls', 'trailDecay', 'post']) assert.deepEqual(v[k], o[k], `${o.id} ${k}`);
+    for (const k of ['name', 'blurb', 'tier', 'input', 'overlay', 'calm', 'imageCapable']) assert.equal(v.catalog[k], c.catalog[k], `${o.id} ${k}`);
+    for (const ctl of o.controls) assert.equal(v.catalog.paramLabels[PARAM_UNIFORMS.indexOf(ctl.uniform)], ctl.label);
+  }
+  const rest = set.visuals.filter(v => !originals.byId.get(v.id)?.overrides);
+  for (const v of rest) assert.equal(v.body, catalog.byId.get(v.id).body);
+  const ev = emitManifest(set).get('event-horizon.web.frag');
+  assert.equal(ev, originals.wrapper.wrapGLSL300(originals.byId.get('event-horizon').body, false));
+  assert.throws(() => releaseSet(catalog, { ...originals, visuals: [{ id: 'nope', overrides: true }] }), /nothing to override for nope/);
 });
 
 // The reference hosts filter their picker by type and intensity, so every

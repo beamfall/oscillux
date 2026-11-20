@@ -22,6 +22,7 @@ export function emitManifest(manifest, { msl = false, hlsl = false } = {}) {
   const files = new Map();
   if (manifest.byTarget.web.length) files.set('vertex.web.vert', w.VERTEX_300);
   for (const v of manifest.visuals) {
+    const w = v.wrapper ?? manifest.wrapper;
     if (v.targets.includes('web')) files.set(`${v.id}.web.frag`, w.wrapGLSL300(v.body, v.imageInput));
     if (v.targets.includes('vulkan')) files.set(`${v.id}.vulkan.frag`, w.wrapGLSL450(v.body, v.imageInput));
     if (v.targets.includes('msl')) {

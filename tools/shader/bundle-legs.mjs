@@ -7,6 +7,8 @@
 //   android-gles AndroidGlesShaders.kt: the GLES 3.00 visuals and their catalog fields as the
 //                Kotlin contract 1.0.0 (android-gles-contract.mjs)
 // catalog.json (catalog.mjs) lists every visual's catalog fields in catalogOrder.
+// The visuals are the release set (manifest.mjs releaseSet): the catalog's, each overridden
+// visual drawn by its rebuilt original (shaders/originals).
 // usage: node bundle-legs.mjs <msl|glsl300|android-gles> <oscillux-checkout> <out-dir> <tag> <rev>
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -19,7 +21,7 @@ if (!['msl', 'glsl300', 'android-gles'].includes(leg) || !out || !/^[0-9a-f]{40}
 }
 const T = p => import(pathToFileURL(join(root, 'tools/shader', p)).href);
 const { assertShaderToolchain } = await T('glsl2msl.mjs');
-const { loadManifest } = await T('manifest.mjs');
+const { loadReleaseSet } = await T('manifest.mjs');
 const { emitManifest } = await T('emit.mjs');
 const P = await T('present.mjs');
 const L = await T('limiter.mjs');
@@ -27,7 +29,7 @@ const S = await T('switch.mjs');
 const { catalogDocument } = await T('catalog.mjs');
 const A = await T('android-gles-contract.mjs');
 const files = new Map();
-const m = loadManifest(join(root, 'shaders/manifest.json'));
+const m = loadReleaseSet(root);
 if (leg === 'msl') {
   assertShaderToolchain();
   for (const [name, text] of emitManifest(m, { msl: true })) if (name.endsWith('.metal')) files.set(`visuals/${name}`, text);

@@ -331,7 +331,7 @@ limiter-check: tools/shader/node_modules
 gate: limiter-check
 
 # Hold budget (CORE-2409, openspec/specs/visual-defaults/spec.md): the release-leg Particles
-# (shaders/manifest.json, as the glsl300 bundle ships it) through the limiter model under the red
+# (the release set, as the glsl300 bundle ships it; CORE-2760) through the limiter model under the red
 # audit's loud audio holds at most 20% of the pixels in any frame (measured 2026-11-19: 14.3% peak
 # with limiter-dim-hold, 13.6% on the v0.2.9 tree; recorded for v0.2.9: 19% peak, 13% mean,
 # after the limiter gained the half-offset windows, a fifth recent unit and one area count across
@@ -340,18 +340,18 @@ gate: limiter-check
 # sub-block trackers that missed changes). Needs Playwright Chromium.
 .PHONY: limiter-hold-check
 limiter-hold-check: tools/shader/node_modules
-	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --only particles --audio loud --max-held 0.20 --jobs 1
+	node tools/shader/limiter-red-audit.mjs --release --only particles --audio loud --max-held 0.20 --jobs 1
 
 gate: limiter-hold-check
 
-# Source flash budget: every release-leg visual (shaders/manifest.json) keeps within the general
+# Source flash budget: every release-leg visual (the release set, CORE-2760) keeps within the general
 # flash limit on its own, before the limiter, under the red audit's loud audio: at most 6
 # large-area luma transitions in any second and no large-area red transition. It takes several
 # minutes on a GPU, so it is not part of gate; run it after changing a visual. Needs Playwright
 # Chromium.
 .PHONY: visual-flash-check
 visual-flash-check: tools/shader/node_modules
-	node tools/shader/limiter-red-audit.mjs shaders/manifest.json --audio loud --max-luma 6 --jobs 4
+	node tools/shader/limiter-red-audit.mjs --release --audio loud --max-luma 6 --jobs 4
 
 # Reference hosts (hosts/README.md): the same bundled visuals in a browser and a
 # SwiftUI macOS/iOS app. host-bundle needs the shader-verify toolchain; host-mac
