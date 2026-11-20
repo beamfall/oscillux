@@ -3144,9 +3144,9 @@
         "hlsl"
       ],
       "imageInput": false,
-      "header": "// Prism Room: Faceted caustic chamber: kaleidoscopic glass panes lit per band, caustic sweeps on the beat, HDR edge filaments and vertex glints.",
+      "header": "// Prism Room: Faceted caustic chamber: kaleidoscopic glass panes lit per band, caustic sweeps on the clock, HDR edge filaments and vertex glints that carry the kick.",
       "name": "Prism Room",
-      "blurb": "Faceted caustic chamber: kaleidoscopic glass panes lit per band, caustic sweeps on the beat, HDR edge filaments and vertex glints.",
+      "blurb": "Faceted caustic chamber: kaleidoscopic glass panes lit per band, caustic sweeps on the clock, HDR edge filaments and vertex glints that carry the kick.",
       "tier": "flagship",
       "input": "frequency",
       "overlay": false,
