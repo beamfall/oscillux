@@ -39,8 +39,8 @@ The uniform block holds two vectors:
     (Codex round 16).
   - On the first frame after the host writes `G` (a start, the fade of a change to the frame, a
     viewing-geometry change), `refill` is 0 and `carry` restarts at 0: time that passed before
-    `G` was written does not repay it. `deltaMs` stays the real interval, which ages the
-    trackers' stamps (Codex round 16).
+    `G` was written does not repay it. Only `refill` restarts: `deltaMs` and `tick` are those of
+    any other frame (`limiter1` below), which age the trackers' stamps (Codex round 16).
 - `limiter1 = (tick, deltaMs, 0, 0)`
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`. `ms` is
     the host's credited time, which also drives `refill`.
@@ -48,7 +48,7 @@ The uniform block holds two vectors:
     is cleared when it is over the coverage interval.
   - A host that sees paint times credits the time between paints and passes it as `deltaMs`. A
     host that sees only draw times knows each frame is painted after its draw and at most a lag
-    `L` (about a refresh) later, so a span of frames was shown its draw time to within `L` either
+    `L` later, so a span of frames was shown its draw time to within `L` either
     way. Crediting draw time as it is lets two kinds of error through (CORE-2744): a frame drawn
     over the coverage interval after the previous one can be shown under it, so its `deltaMs`
     clears stamps still recent on screen (adjacent red patches then pass one by one, 8 large-area
@@ -64,8 +64,15 @@ The uniform block holds two vectors:
     stricter than `maxFlashHz`. A per-frame lower bound (the Beamfall web host credited
     `max(interval / 2, interval - bound)`, Codex rounds 18 to 21, 27, 28) is half of each interval
     at a steady cadence. It ran the clock at half speed and held ragged areas of moving visuals
-    (CORE-2744). A display that changes its refresh rate between two paints moves the lag by at
-    most a refresh; a host takes `L` as its current refresh estimate (OSC-0046).
+    (CORE-2744).
+  - `L` SHALL bound the paint lag of every frame whose stamps or grants the current frame can
+    still see, not only the current one. A host that estimates it from its refresh takes the
+    largest interval of at least the last second and a quarter, plus a margin for a paint later
+    than any interval measured, and assumes the coverage interval before it has measured one. A
+    median, or the current refresh alone, lets a late paint at a slow refresh be forgotten once
+    the refresh speeds up, crowding a seventh luma transition into a second, and underestimates
+    a single late paint enough to clear a stamp still recent on screen (Codex round 2 of
+    CORE-2744; OSC-0046).
   - The limiter steps its trackers on every frame it outputs, so a host SHALL present every frame
     it draws, each at most one refresh late. A frame drawn but never presented leaves the trackers
     a step the screen never showed, and a transition the screen does show can then go uncounted.
@@ -318,7 +325,7 @@ for every change. Nothing is carried from the old frame to the new one.
    the held bits of the fade's last frame, read into a pixel-pack buffer behind a fence that
    closes the frame and taken at the next frame only if the GPU has finished that one, so the
    page waits behind none of its own frames, which ends the fade a frame after the grant, with a
-   cap of 2 s, counting each frame's `deltaMs` up to one luma token's refill, the most a frame
+   cap of 2 s, counting each frame's credited time up to one luma token's refill, the most a frame
    refills, so a slow page fades for longer and a GPU more than a frame behind fades to the
    cap; Codex rounds 22 and 26 to 28). The output is then black.
 
