@@ -29,38 +29,45 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // Loudness enters only through the slow level and the beat-clock swell: amplitude, bass and
     // onset change within a frame on every kick, and the rings, core and sparks they moved made
-    // the whole disc flash 30 times a second under loud audio.
-    float level = saturate(u.level);
-    float swell = pulseSwell(u) * (0.5 + 0.5 * level);
+    // the whole disc flash 30 times a second under loud audio. The picture itself stays large,
+    // bright and saturated all the time; it is the change, not the level, that would flash.
+    float level   = saturate(u.level);
+    float level01 = 0.5 + 0.5 * level;
+    float swell   = pulseSwell(u) * level01;
     // beat count that eases forward over each beat and never jumps back at the wrap
     float beatGlide = floor(u.beatCount) + smoothstep(0.0, 1.0, u.beatPhase);
 
     float breathe = 0.007 * sin(u.time * 1.1) + 0.005 * sin(u.time * 2.3 + 0.8);
     // only the core swells on the beat: the corona rings hold their radii, as their feedback
     // copies fill a disc that flickered whole when they moved
-    float ringBase = 0.15 + 0.03 * level + breathe;
-    float coreR    = ringBase + impactAmt * 0.07 * swell;
-    float level01  = 0.5 + 0.5 * level;
+    float ringBase = 0.12 + 0.06 * level + breathe;
+    float spacing  = 0.083;
+    float coreR    = ringBase + impactAmt * 0.09 * swell;
+    float outerR   = ringBase + float(numCorona) * spacing;
 
     vec3 col = vec3(0.0);
     {
         float rSafe = max(r, 1e-4);
         float inner = smoothstep(coreR, coreR * 0.40, rSafe);
-        float rim   = exp(-pow((rSafe - coreR) / 0.022, 2.0));
+        // a solid white-hot rim band with soft edges a couple of pixels wide
+        float rimW  = 0.022;
+        float rim   = 1.0 - smoothstep(rimW * 0.55, rimW * 1.35, abs(rSafe - coreR));
 
-        // amber edge, never saturated red: R stays well under 0.8 of R + G + B
-        vec3 coreCol = mix(vec3(1.00, 0.52, 0.16), vec3(1.00, 0.30, 0.72),
+        // hot pink core with an amber edge; G and B never drop to zero, so no pixel reads as
+        // pure red
+        vec3 coreCol = mix(vec3(1.00, 0.36, 0.08), vec3(1.00, 0.10, 0.70),
                            smoothstep(0.2, 1.0, inner));
-        coreCol = mix(coreCol, vec3(0.30, 0.82, 1.00), rim * 0.45);
+        coreCol = mix(coreCol, vec3(0.30, 0.82, 1.00), rim * 0.35);
         float exposure = 0.85 + 1.25 * level;
-        col += coreCol * (inner * 2.1 + rim * 1.6) * exposure;
-        // a wide, faint corona haze that breathes with the swell: a small change per pixel
-        float haze = exp(-max(rSafe - coreR, 0.0) / 0.07) * (1.0 - inner);
-        col += vec3(1.00, 0.55, 0.30) * haze * (0.10 + 0.10 * swell) * glowAmt;
+        col += coreCol * (inner * 2.1 + rim * 3.0) * exposure;
+
+        // a steady amber line just outside the rim
+        float edgeD = rSafe - (coreR + 0.026);
+        float edge  = exp(-(edgeD * edgeD) / (0.006 * 0.006));
+        col += vec3(1.00, 0.46, 0.10) * edge * 1.2;
     }
 
     {
-        float spacing = 0.075;
         // Contract rule 8: compile-time-constant loop bound (numCorona tops out
         // at 5); break on the dynamic count instead of looping on it directly.
         for (int i = 0; i < 5; ++i) {
@@ -74,54 +81,67 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float turb    = fbm(dir * (1.1 + fi * 0.2) + vec2(fi * 1.7 + u.time * (0.03 + fi * 0.01), r));
             float d       = r - ringR - turb * 0.020;
 
-            // soft ring: a gaussian a few pixels wide, so the slow turbulence moves a gradient
-            // over a pixel rather than snapping a hairline on and off it
-            float halfW = max(0.010 - fi * 0.0008, 0.006);
-            float mask  = exp(-(d * d) / (halfW * halfW));
+            // a solid band with soft edges, so the slow turbulence moves a gradient over a pixel
+            // rather than snapping a hairline on and off it
+            float halfW = 0.017 - fi * 0.0010;
+            float mask  = 1.0 - smoothstep(halfW - 0.005, halfW + 0.004, abs(d));
 
-            // hues from orange through yellow and pink to violet-blue, never the palette's red end;
-            // the angular drift is a smooth sin so the ring has no colour seam at the -x axis
-            float hue = 0.20 + fi * 0.17 + 0.03 * beatWave(u, 0.0)
-                      + 0.03 * (1.0 + sin(a + fi * 1.7)) + 0.04 * saturate(u.spectralCentroid);
-            hue = min(hue, 0.97);
+            // orange, two yellows, then pink and violet-blue outside: never the palette's red end.
+            // The angular drift is a smooth sin so the ring has no colour seam at the -x axis.
+            float baseHue = fi < 0.5 ? 0.19 : (fi < 1.5 ? 0.40 : (fi < 2.5 ? 0.44 : (fi < 3.5 ? 0.74 : 0.86)));
+            float hue = baseHue + 0.02 * beatWave(u, 0.0)
+                      + 0.02 * (1.0 + sin(a + fi * 1.7)) + 0.02 * saturate(u.spectralCentroid);
+            hue = min(hue, 0.95);
             vec3 ringCol = palVisual(hue, u);
             ringCol      = accentize(ringCol, u.accent, 0.12);
 
-            float bright = glowAmt * (1.10 - fi * 0.16) * (0.85 + 0.25 * level);
+            float bright = glowAmt * (1.15 - fi * 0.10) * (0.9 + 0.45 * level);
             bright = max(bright, 0.0);
 
             col += ringCol * mask * bright;
-            // the beat ripple: a wide, faint glow that rolls out through the rings. It stays well
-            // under a 0.1 luminance step on any pixel, so it reads as a swell of light, not a flash.
+            // a steady soft glow under every ring, plus the beat ripple: a wide, faint glow that
+            // rolls out through the rings, well under a 0.1 luminance step on any pixel
             float glowW = 0.035;
-            col += ringCol * exp(-(d * d) / (glowW * glowW)) * (0.06 + 0.44 * impactAmt * level01 * ripple) * glowAmt;
+            col += ringCol * exp(-(d * d) / (glowW * glowW)) * (0.05 + 0.44 * impactAmt * level01 * ripple) * glowAmt;
         }
     }
 
     {
-        // treble sparks: steady brightness from the slow treble level, small tight cores, and an
-        // orbit that glides forward over each beat instead of jumping on it
-        float trebleE = 0.35 + 0.45 * saturate(u.treble);
-        float bandOuter = ringBase + float(numCorona) * 0.075 + 0.05;
+        // a constant warm halo around the outer rings, fading out past the disc, that leaves the gaps
+        // between the inner rings dark
+        float halo = exp(-pow(max(r - outerR + 0.04, 0.0) / 0.14, 2.0))
+                   * smoothstep(coreR, outerR, r);
+        col += vec3(1.00, 0.55, 0.45) * halo * 0.12 * glowAmt;
+    }
+
+    {
+        // treble sparks: steady brightness from the slow treble level, and an orbit that glides
+        // forward over each beat instead of jumping on it
+        float trebleE = 0.55 + 0.35 * saturate(u.treble);
+        float bandOuter = outerR + 0.06;
         for (int i = 0; i < 32; ++i) {
             float fi = float(i);
             vec2  h  = hash22(vec2(fi, 3.7));
             float sr = mix(ringBase + 0.03, bandOuter, h.x);
-            float sa = h.y * 6.2831853 + u.time * (0.10 + 0.15 * h.x) + beatGlide * 0.12;
+            float sa = h.y * 6.2831853 + u.time * (0.25 + 0.35 * h.x) + beatGlide * 0.25;
             vec2  sp = vec2(cos(sa), sin(sa)) * sr;
             float dd = length(p - sp);
-            float spark = 1.5e-5 / (dd * dd + 1.5e-5);
+            // a bright point with a soft glow whose long tail is cut off, so 32 tails do not
+            // add up to a haze over the gaps between the rings
+            float spark = min(7e-5 / (dd * dd + 7e-5), 3.0) * exp(-(dd * dd) / 0.0016);
             float flicker = 0.85 + 0.15 * sin(u.time * 2.0 + fi * 2.3);
-            vec3 scol = palVisual(0.30 + 0.60 * h.x + 0.05 * u.spectralCentroid, u);
-            col += scol * spark * trebleE * flicker * 2.2;
+            vec3 scol = palVisual(0.70 + 0.28 * h.x + 0.02 * u.spectralCentroid, u);
+            scol = mix(scol, vec3(0.90, 0.97, 1.00), 0.30);
+            col += scol * spark * trebleE * flicker * 4.0;
         }
     }
 
     float outerFade = ringBase + float(numCorona) * 0.09 + 0.12;
     col *= 1.0 - smoothstep(outerFade, outerFade + 0.18, r);
 
-    float trailZoom = 0.002;
-    float trailRot  = 0.0004;
+    // a steady outward zoom: the rings' feedback copies spread into a soft glow beyond the disc
+    float trailZoom = 0.003;
+    float trailRot  = 0.0006;
     col = feedbackTrail(col, uv, u.trailDecay, trailZoom, trailRot);
 
     return col; // LINEAR HDR — post chain tonemaps
