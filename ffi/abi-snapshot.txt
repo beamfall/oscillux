@@ -534,7 +534,7 @@ member OscilluxWindowGovernorResult.over_budget offset 4 size 4 type uint32_t
 member OscilluxWindowGovernorResult.over_budget_streak offset 8 size 4 type uint32_t
 member OscilluxWindowGovernorResult.promotion_streak offset 12 size 4 type uint32_t
 member OscilluxWindowGovernorResult.stable_streak offset 16 size 4 type uint32_t
-struct OscilluxWindowGovernorSample size 56 align 8
+struct OscilluxWindowGovernorSample size 64 align 8
 member OscilluxWindowGovernorSample.p95_ms offset 0 size 8 type double
 member OscilluxWindowGovernorSample.p99_ms offset 8 size 8 type double
 member OscilluxWindowGovernorSample.interval_ms offset 16 size 8 type double
@@ -544,3 +544,4 @@ member OscilluxWindowGovernorSample.has_p95 offset 40 size 4 type uint32_t
 member OscilluxWindowGovernorSample.has_p99 offset 44 size 4 type uint32_t
 member OscilluxWindowGovernorSample.starved offset 48 size 4 type uint32_t
 member OscilluxWindowGovernorSample.dropping offset 52 size 4 type uint32_t
+member OscilluxWindowGovernorSample.can_demote offset 56 size 4 type uint32_t

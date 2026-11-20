@@ -999,6 +999,7 @@ typedef struct OscilluxWindowGovernorSample {
     uint32_t has_p99;           /* 0 or 1 */
     uint32_t starved;           /* 0 or 1 */
     uint32_t dropping;          /* 0 or 1 */
+    uint32_t can_demote;        /* 1 if the host has a lower step; 0 otherwise */
 } OscilluxWindowGovernorSample;
 
 typedef struct OscilluxWindowGovernorResult {
@@ -1006,7 +1007,7 @@ typedef struct OscilluxWindowGovernorResult {
     uint32_t over_budget;       /* classification of the recorded window; 0 or 1 */
     uint32_t over_budget_streak; /* consecutive over-budget windows */
     uint32_t promotion_streak;   /* consecutive promotion-eligible windows */
-    uint32_t stable_streak;      /* windows held since create, reset, or the last step */
+    uint32_t stable_streak;      /* stable windows since create, reset, or the last step */
 } OscilluxWindowGovernorResult;
 
 typedef struct OscilluxWindowGovernor OscilluxWindowGovernor;
@@ -1023,8 +1024,10 @@ OSCILLUX_API void oscillux_window_governor_destroy(OscilluxWindowGovernor *handl
 /* A window with both percentiles is over budget if p95 > demote_budget_fraction * interval_ms,
  * p99 > interval_ms, starved, or dropping. Otherwise it qualifies for promotion when
  * p95 < promote_budget_fraction * promotion_budget_ms. A step requires the configured streak,
- * and promotion also needs cooldown_s to elapse. An absent percentile yields a HOLD with
- * over_budget and both pressure streaks cleared. Each HOLD adds one stable window.
+ * and promotion also needs cooldown_s to elapse. Demotion requires can_demote to be 1.
+ * When the demotion threshold is reached with no lower step, HOLD continues counting the
+ * over-budget streak and preserves the stable count and cooldown origin. Other HOLDs add
+ * one stable window. An absent percentile clears over_budget and both pressure streaks.
  * DEMOTE and PROMOTE clear all streaks and restart the cooldown. Streaks saturate at UINT32_MAX.
  * An invalid sample (including a time earlier than the last sample or clock start) leaves the
  * handle and *out unchanged. No allocation, locking, or I/O. */

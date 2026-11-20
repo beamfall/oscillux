@@ -11,7 +11,7 @@ writer. Record SHALL be allocation-, lock-, and I/O-free. Hosts SHALL own which 
 #### Scenario: A host records one telemetry window
 
 - **WHEN** a host supplies optional p95 and p99 durations, the current interval, whether a lower step is available, a prospective promotion budget (zero when unavailable), delivery flags, and a monotonic timestamp
-- **THEN** the governor returns HOLD, DEMOTE, or PROMOTE, the window's over-budget classification, and the post-record counts of consecutive over-budget windows, consecutive promotion-eligible windows, and windows held since a change
+- **THEN** the governor returns HOLD, DEMOTE, or PROMOTE, the window's over-budget classification, and the post-record counts of consecutive over-budget windows, consecutive promotion-eligible windows, and stable windows since a change
 
 #### Scenario: Sustained budget pressure
 

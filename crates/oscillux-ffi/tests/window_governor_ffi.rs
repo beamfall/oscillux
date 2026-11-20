@@ -112,6 +112,7 @@ fn refused_samples_preserve_clock_streak_and_output() {
             now_s: 11.0,
             has_p95: 1,
             has_p99: 1,
+            can_demote: 1,
             ..OscilluxWindowGovernorSample::default()
         };
         let mut out = MaybeUninit::uninit();
@@ -161,6 +162,10 @@ fn refused_samples_preserve_clock_streak_and_output() {
                 starved: 2,
                 ..future
             },
+            OscilluxWindowGovernorSample {
+                can_demote: 2,
+                ..future
+            },
         ] {
             assert_eq!(
                 oscillux_window_governor_record(handle, &invalid, &mut out),
@@ -190,6 +195,24 @@ fn refused_samples_preserve_clock_streak_and_output() {
         );
         assert_eq!(out, first);
 
+        let at_floor = OscilluxWindowGovernorSample {
+            can_demote: 0,
+            ..sample
+        };
+        assert_eq!(
+            oscillux_window_governor_record(handle, &at_floor, &mut out),
+            OSCILLUX_OK
+        );
+        assert_eq!(
+            out,
+            OscilluxWindowGovernorResult {
+                decision: WindowDecision::Hold as u32,
+                over_budget: 1,
+                over_budget_streak: 2,
+                promotion_streak: 0,
+                stable_streak: first.stable_streak,
+            }
+        );
         assert_eq!(
             oscillux_window_governor_record(handle, &sample, &mut out),
             OSCILLUX_OK

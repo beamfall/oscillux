@@ -18,8 +18,9 @@ DEFAULTS = {
 }
 
 
-def sample(now, p95=3.0, p99=7.0, interval=1000 / 60, budget=8.33, starved=False, dropping=False):
-    return [p95, p99, interval, budget, starved, dropping, now]
+def sample(now, p95=3.0, p99=7.0, interval=1000 / 60, budget=8.33, starved=False,
+           dropping=False, can_demote=True):
+    return [p95, p99, interval, budget, starved, dropping, now, can_demote]
 
 
 def series(count, *, start=0, hz=60, **telemetry):
@@ -30,14 +31,16 @@ def case(name, samples, *, start=0, config=None):
     rules = config if config is not None else DEFAULTS
     since_change = []
     change_at = start
+    stable = 0
     steps = []
     for entry in samples:
         if isinstance(entry, dict):
             change_at = entry["reset_s"]
             since_change.clear()
+            stable = 0
             steps.append(entry)
             continue
-        p95, p99, interval, budget, starved, dropping, now = entry
+        p95, p99, interval, budget, starved, dropping, now, can_demote = entry
         classification = "neutral"
         if p95 is not None and p99 is not None:
             if (
@@ -56,7 +59,7 @@ def case(name, samples, *, start=0, config=None):
         over = trailing if classification == "over" else 0
         eligible = trailing if classification == "eligible" else 0
         if over >= rules["demote_windows"]:
-            decision = "demote"
+            decision = "demote" if can_demote else "hold"
         elif eligible >= rules["promote_windows"] and now - change_at >= rules["cooldown_s"]:
             decision = "promote"
         else:
@@ -64,10 +67,12 @@ def case(name, samples, *, start=0, config=None):
         if decision != "hold":
             change_at = now
             since_change.clear()
-            over = eligible = 0
+            over = eligible = stable = 0
+        elif over < rules["demote_windows"]:
+            stable += 1
         steps.append({
             "sample": entry,
-            "want": [decision, classification == "over", over, eligible, len(since_change)],
+            "want": [decision, classification == "over", over, eligible, stable],
         })
     return {"name": name, "start_s": start, "config": config, "steps": steps}
 
@@ -80,11 +85,17 @@ def vectors():
         "promote_windows": 2,
         "cooldown_s": 2.0,
     }
+    floor = {"interval": 1000 / 30, "budget": 1000 / 60, "can_demote": False}
     return [
         case("healthy-60hz-toward-120hz", series(301)),
         case("p99-only-overload", series(31, p99=17.0)),
         case("starved-delivery", series(30, starved=True)),
         case("dropping-delivery", series(30, dropping=True)),
+        case("settled-at-floor-preserves-stability-and-cooldown",
+             series(300, hz=120, p95=12, p99=18, **floor)
+             + series(31, start=4, starved=True, **floor)
+             + [sample(now, **floor) for now in (4.98, 4.99, 5.0)],
+             config={**DEFAULTS, "promote_windows": 2}),
         case("cooldown-blocks-promotion", series(300, start=10, hz=120) + [
             sample(14.99), sample(15),
         ], start=10),
@@ -117,7 +128,7 @@ def render(cases):
         ' "SPDX-License-Identifier": "AGPL-3.0-only",',
         ' "format": "oscillux-window-governor-vectors/1",',
         ' "generator": "tools/window-governor-vectors.py",',
-        ' "sample_fields": ["p95_ms","p99_ms","interval_ms","promotion_budget_ms","starved","dropping","now_s"],',
+        ' "sample_fields": ["p95_ms","p99_ms","interval_ms","promotion_budget_ms","starved","dropping","now_s","can_demote"],',
         ' "result_fields": ["decision","over_budget","over_budget_streak","promotion_streak","stable_streak"],',
         ' "cases": [',
     ]

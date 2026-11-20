@@ -45,6 +45,8 @@ pub struct WindowSample {
     pub dropping: bool,
     /// Sample time in monotonic seconds.
     pub now_s: f64,
+    /// Whether the host has a lower step available.
+    pub can_demote: bool,
 }
 
 /// The step a host should apply.
@@ -70,7 +72,7 @@ pub struct WindowResult {
     pub over_budget_streak: u32,
     /// Consecutive promotion-eligible windows.
     pub promotion_streak: u32,
-    /// Windows held since the latest change.
+    /// Stable windows since the latest change. Sustained pressure at the floor pauses this count.
     pub stable_streak: u32,
 }
 
@@ -154,7 +156,8 @@ impl WindowGovernor {
         } else {
             0
         };
-        let decision = if self.over_budget_streak >= self.config.demote_windows {
+        let demotion_threshold_reached = self.over_budget_streak >= self.config.demote_windows;
+        let decision = if demotion_threshold_reached && sample.can_demote {
             WindowDecision::Demote
         } else if self.promotion_streak >= self.config.promote_windows
             && sample.now_s - self.last_change_s >= self.config.cooldown_s
@@ -164,10 +167,12 @@ impl WindowGovernor {
             WindowDecision::Hold
         };
 
-        if decision == WindowDecision::Hold {
-            self.stable_streak = self.stable_streak.saturating_add(1);
-        } else {
-            self.note_change(sample.now_s);
+        match decision {
+            WindowDecision::Hold if !demotion_threshold_reached => {
+                self.stable_streak = self.stable_streak.saturating_add(1);
+            }
+            WindowDecision::Hold => {}
+            WindowDecision::Demote | WindowDecision::Promote => self.note_change(sample.now_s),
         }
         Ok(WindowResult {
             decision,

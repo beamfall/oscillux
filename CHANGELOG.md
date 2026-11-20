@@ -14,6 +14,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 - The C ABI frame-window governor classifies p95 and p99 frame times and delivery health,
   then returns a hold, demote, or promote decision with the current streaks (CORE-2758).
+  The separate Oscillux release must publish the artifact containing this ABI and record
+  its registry reference. Both are pending.
 
 ## [0.2.10] - 2026-11-19
 
