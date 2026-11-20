@@ -33,6 +33,7 @@ use oscillux_core::dsp::{
     FLAG_INPUT_REPLACED, FLAG_STALLED, MAX_BANDS, MAX_BEATS_PER_BAR, ONSET_GROUPS,
 };
 use oscillux_core::transition;
+use oscillux_core::window_governor::WindowDecision;
 use oscillux_core::{curves, mapping, packing, reaction};
 use std::ffi::CStr;
 
@@ -216,6 +217,15 @@ fn every_header_constant_matches_its_rust_value() {
         expected("OSCILLUX_FIELD_SOURCE_HOST", packing::SOURCE_HOST),
         expected("OSCILLUX_PACKER_MAX_FIELDS", packing::MAX_FIELDS),
         expected("OSCILLUX_PACKER_MAX_COMPONENTS", packing::MAX_COMPONENTS),
+        expected("OSCILLUX_WINDOW_GOVERNOR_HOLD", WindowDecision::Hold as u32),
+        expected(
+            "OSCILLUX_WINDOW_GOVERNOR_DEMOTE",
+            WindowDecision::Demote as u32,
+        ),
+        expected(
+            "OSCILLUX_WINDOW_GOVERNOR_PROMOTE",
+            WindowDecision::Promote as u32,
+        ),
         // Transition scheduler.
         expected(
             "OSCILLUX_TRANSITION_QUANTISE_NONE",

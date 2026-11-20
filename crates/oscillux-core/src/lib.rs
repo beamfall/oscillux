@@ -20,6 +20,7 @@ pub mod packing;
 pub mod palette;
 pub mod reaction;
 pub mod transition;
+pub mod window_governor;
 
 // CD+G lyric graphics decoder (OSC-CDG).
 pub mod cdg;

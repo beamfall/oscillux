@@ -183,6 +183,13 @@ transition-vectors-check:
 
 gate: transition-vectors-check
 
+# Frame-window decisions and streaks replayed by the Rust conformance test.
+.PHONY: window-governor-vectors-check
+window-governor-vectors-check:
+	python3 -I tools/window-governor-vectors.py --check
+
+gate: window-governor-vectors-check
+
 # Switch-transition vectors (conformance/switch-transition/README.md): fails when
 # conformance/switch-transition/vectors.json differs from what the independent standard-library
 # model tools/switch-transition-vectors.py writes or breaks its added-light and endpoint

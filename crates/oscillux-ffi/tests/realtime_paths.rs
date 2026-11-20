@@ -8,8 +8,10 @@
 //! reaction push, sample, beat clock, queued and reset, packer pack, and the ABI version, release version, status string and DSP config
 //! and versioned config validate queries.
 //! The CD+G per-frame exports (advance, state, screen, window RGBA) are covered in `cdg_ffi`.
+//! The frame-window governor is checked separately below.
 use oscillux::dsp::*;
 use oscillux::limiter::*;
+use oscillux::window_governor::*;
 use oscillux::{
     curves::*, governor::*, mapping::*, oscillux_abi_version, oscillux_status_string,
     oscillux_version, packing::*, reaction::*, OSCILLUX_ERR_INVALID_ARGUMENT, OSCILLUX_ERR_NULL,
@@ -635,4 +637,64 @@ fn every_per_frame_c_entry_point_is_allocation_free_after_warm_up() {
         "flash admit refused only {} frames",
         scratch.flash_refused
     );
+}
+
+#[test]
+fn window_governor_record_and_reset_are_allocation_free() {
+    let config = OscilluxWindowGovernorConfig {
+        demote_windows: 1,
+        promote_windows: 1,
+        cooldown_s: 1.0,
+        ..OscilluxWindowGovernorConfig::default()
+    };
+    let sample = OscilluxWindowGovernorSample {
+        p95_ms: 3.0,
+        p99_ms: 7.0,
+        interval_ms: 16.67,
+        promotion_budget_ms: 8.33,
+        now_s: 1.0,
+        has_p95: 1,
+        has_p99: 1,
+        ..OscilluxWindowGovernorSample::default()
+    };
+    let mut handle = null_mut();
+    let mut out = OscilluxWindowGovernorResult::default();
+    unsafe {
+        assert_eq!(
+            oscillux_window_governor_create(&config, 0.0, &mut handle),
+            OSCILLUX_OK
+        );
+        ARMED.with(|v| v.set(true));
+        assert_eq!(
+            oscillux_window_governor_record(handle, &sample, &mut out),
+            OSCILLUX_OK
+        );
+        assert_eq!(out.decision, 2);
+        let starved = OscilluxWindowGovernorSample {
+            starved: 1,
+            ..sample
+        };
+        assert_eq!(
+            oscillux_window_governor_record(handle, &starved, &mut out),
+            OSCILLUX_OK
+        );
+        assert_eq!(out.decision, 1);
+        assert_eq!(oscillux_window_governor_reset(handle, 1.0), OSCILLUX_OK);
+        assert_eq!(
+            oscillux_window_governor_record(handle, &sample, &mut out),
+            OSCILLUX_OK
+        );
+        assert_eq!(out.decision, 0);
+        let invalid = OscilluxWindowGovernorSample {
+            now_s: f64::NAN,
+            ..sample
+        };
+        assert_eq!(
+            oscillux_window_governor_record(handle, &invalid, &mut out),
+            OSCILLUX_ERR_INVALID_ARGUMENT
+        );
+        ARMED.with(|v| v.set(false));
+        oscillux_window_governor_destroy(handle);
+    }
+    assert_eq!(ALLOCS.with(Cell::get), 0, "window governor path allocated");
 }

@@ -5,8 +5,8 @@
 ### Requirement: Host-directed frame-window decisions
 
 Oscillux SHALL expose a separate C ABI to configure, create, record, reset, and destroy a
-frame-window governor. Record SHALL be allocation-, lock-, and I/O-free. Hosts SHALL own which
-steps to apply.
+frame-window governor. It SHALL validate an extensible configuration and provide a default
+writer. Record SHALL be allocation-, lock-, and I/O-free. Hosts SHALL own which steps to apply.
 
 #### Scenario: A host records one telemetry window
 

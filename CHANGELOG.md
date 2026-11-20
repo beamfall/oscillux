@@ -10,6 +10,11 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Added
+
+- The C ABI frame-window governor classifies p95 and p99 frame times and delivery health,
+  then returns a hold, demote, or promote decision with the current streaks (CORE-2758).
+
 ## [0.2.10] - 2026-11-19
 
 ### Changed
