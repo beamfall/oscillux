@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Filament — a single elastic string spanning the screen, plucked
+// Filament — a braided elastic string spanning the screen, plucked
 // by the music. Displacement is a sum of standing-wave harmonics whose weights
 // come from band energies (fundamental=bass, so bass bows the whole span … high
 // harmonics=treble), swelled by a per-beat pluck envelope. The string is three
