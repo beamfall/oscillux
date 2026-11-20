@@ -4,10 +4,11 @@
 // displacement is its own band trace; the beat clock turns the braid;
 // crossings emit sparks timed to beats; depth-sorted occlusion with HDR
 // thread cores and a silk afterglow ribbon swept behind each thread.
-// Flash budget (Makefile visual-flash-check): only the thin cores are bright.
-// Glow and silk stay in one dim luminance band, the braid turns at a steady
-// beat-locked rate and no colour sits at saturated red, so the moving threads
-// make no large-area flashes under loud audio.
+// Flash budget (Makefile visual-flash-check): the glow and silk ribbons are
+// thick, warm and constantly lit at a steady level (the band trace drives only
+// the thin cores' heat and a small radius swell), the braid turns at a steady
+// beat-locked rate and a green floor keeps dim orange off saturated red, so the
+// moving threads make no large-area flashes under loud audio.
 // param0 Twist ; param1 Core Heat ; param2 Sparks
 
 // c scaled down so that, once a filmic display curve (ACES fit) has shown
@@ -29,11 +30,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float heat = mix(1.4, 3.6, u.param1);
     float sparkAmt = mix(0.4, 2.4, u.param2);
     // silk afterglow: how far back along the turn the ribbon reaches (radians)
-    float silkLen = mix(0.25, 0.95, saturate(u.trailDecay / 0.9));
+    float silkLen = mix(0.70, 1.50, saturate(u.trailDecay / 0.9));
 
     // continuous beat-time: the braid turns at a steady beat-locked rate
     float tt = u.beatCount + u.beatPhase;
-    float spin = tt * 0.60 + u.time * 0.10;
+    float spin = tt * 0.42 + u.time * 0.10;
     float theta = x01 * twist * 6.2831853 + spin;
 
     // per-thread band traces (radial displacement is the thread's own band)
@@ -45,9 +46,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     float zs[3];
     float rads[3];
-    rads[0] = baseR * (0.70 + 0.45 * trace0);
-    rads[1] = baseR * (0.70 + 0.45 * trace1);
-    rads[2] = baseR * (0.70 + 0.45 * trace2);
+    rads[0] = baseR * (0.82 + 0.20 * trace0);
+    rads[1] = baseR * (0.82 + 0.20 * trace1);
+    rads[2] = baseR * (0.82 + 0.20 * trace2);
 
     vec3 silk = vec3(0.0);
     vec4 frag[3]; // rgb = premultiplied-ish color, w = coverage
@@ -66,15 +67,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         else if (i == 1) c = palRoleTrace(0.35 + x01 * 0.30, u) * (0.8 + 2.0 * trace1);
         else c = palRoleTreble(x01 * 0.5, u) * (0.8 + 2.2 * trace2);
         c = accentize(c, u.accent, 0.08);
+        // glow and silk take the thread's hue at a steady level: the band moves the
+        // thin core's heat and the thread's position, never the large glowing areas
+        vec3 cs = accentize((i == 0) ? palRoleBass(x01 * 0.30, u)
+                          : ((i == 1) ? palRoleTrace(0.35 + x01 * 0.30, u)
+                                      : palRoleTreble(x01 * 0.5, u)), u.accent, 0.08) * 1.8;
         float lum = persp * persp;                         // near = brighter
 
-        // ---- thread: thin white-hot core, dim glow ----
+        // ---- thread: white-hot core, wide warm glow ----
         float wgt = (i == 0) ? 1.45 : ((i == 1) ? 1.0 : 0.7);  // bass fat, treble fine
-        float w = 0.0042 * wgt * persp * (1.25 + 0.35 * band);
+        float w = 0.0064 * wgt * persp * (1.25 + 0.35 * band);
         float core = aaLine(d, w * 0.55) * 1.8 + aaLine(d, w) * 0.6;
-        float halo = aaLine(d, w * 4.0) * 0.12;
-        float sheen = exp(-d * d / (0.0035 * persp + 1e-5)) * 0.08;
-        vec3 glow = braidDisplayCap(c * (halo + sheen) * lum * 0.45, 0.06);
+        float halo = aaLine(d, w * 4.0) * 0.30;
+        float sheen = exp(-d * d / (0.0050 * persp + 1e-5)) * 0.22;
+        vec3 glow = braidDisplayCap(cs * (halo + sheen) * lum * 0.8, 0.28);
         frag[i] = vec4(c * core * heat * lum + glow,
                        saturate(aaLine(d, w) * 0.95 + halo * 0.4));
 
@@ -86,9 +92,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float inside = clamp((p.y - lo) / px + 0.5, 0.0, 1.0)
                      * clamp((hi - p.y) / px + 0.5, 0.0, 1.0);
         float s = clamp((p.y - yL) / (y - yL + ((y >= yL) ? 1e-4 : -1e-4)), 0.0, 1.0);
-        silk += c * inside * s * s * lum * 0.5;
+        silk += cs * inside * s * lum * 0.9;
     }
-    vec3 col = braidDisplayCap(silk, 0.06);
+    vec3 col = braidDisplayCap(silk, 0.24);
 
     // ---- depth sort far -> near (3-element bubble) and composite ----
     for (int pass = 0; pass < 2; ++pass) {
@@ -123,10 +129,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // axis ghost: the shared axis the braid winds around
     col += palRoleFog(0.5, u) * exp(-p.y * p.y / 0.002) * 0.05 * (0.4 + 0.6 * u.amplitude);
 
-    // keep clear of saturated red on screen: green + blue at least 0.8 of red
+    // keep clear of saturated red on screen with a green floor (0.4 of red): warm
+    // orange and gold stay saturated, only red-leaning dim pixels lift toward amber
     // (the display curve's toe darkens the weaker channels further)
-    float deficit = max(0.0, 0.8 * col.r - col.g - col.b);
-    col.g += 0.6 * deficit;
-    col.b += 0.4 * deficit;
+    col.g = max(col.g, col.r * mix(0.7, 0.4, smoothstep(0.05, 0.5, col.r)) - col.b);
     return col;
 }
