@@ -163,8 +163,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float fractureAmt = fracturePow * (0.20 + 0.80 * swell);
 
     // beat clock -> slow base rotation on top of the normal yaw; continuous
-    // across beats, eased within each beat so the gem steps with the music
-    float beatRot     = (mod(u.beatCount, 1000.0) + smoothstep(0.0, 0.95, bp)) * 0.10;
+    // across beats, eased within each beat so the gem steps with the music.
+    // Wrap the angle by whole turns only, so it never jumps however long it runs.
+    float beatRot     = mod(u.beatCount * 0.10, 6.2831853) + smoothstep(0.0, 0.95, bp) * 0.10;
 
     // spectralCentroid -> tint hue bias
     float tintT       = u.spectralCentroid;

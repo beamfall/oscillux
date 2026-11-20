@@ -49,8 +49,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                    * (0.75 + 0.25 * (1.0 - t));
         vec2 hd = vec2((uv.x - x) * 1.7, (uv.y - y) * 0.35);
         float head = exp(-dot(hd, hd) / 0.000012);
-        // palRoleTrace adds 0.03 * beatPhase, which steps at the wrap: take it back out.
-        vec3 c = palRoleTrace(x + 0.02 * beats - 0.03 * u.beatPhase, u);
+        // palRoleTrace's beat nudge rides beatArc, which is 0 at both ends of the beat: no step.
+        vec3 c = palRoleTrace(x + 0.02 * beats, u);
         // Near-white drops would carry most of the frame's luminance swing: tint them pale cyan and
         // hold them below the blue drops' ceiling.
         float whiteness = smoothstep(0.25, 0.6, min(c.r, min(c.g, c.b)) / max(max(c.r, max(c.g, c.b)), 1e-3));

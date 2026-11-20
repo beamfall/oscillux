@@ -14,11 +14,6 @@
 // across the wrap: horizon breathing, photon-ring flare, ember glints and a
 // thin ripple, kept small over the disk.
 
-// palVisual without its free-mode beatPhase nudge, which steps at the wrap.
-vec3 ehPal(float t, VisualUniforms u) {
-    return palVisual(t - (u.palette.x >= 0.0 ? 0.0 : 0.015 * u.beatPhase), u);
-}
-
 // 0 on the beat, rising fastest on it and peaking ~180 ms later (at 120 BPM),
 // easing back to 0 by the next beat; continuous across the wrap and scaled by
 // the smoothed level, never by an instant kick value.
@@ -73,8 +68,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float dopp = 0.5 + 0.5 * sin(a + u.time * spin * 0.6);
 
     float hue = fract(0.04 + heat * 0.22 + dopp * 0.10 + 0.06 * u.spectralCentroid);
-    vec3 hot = mix(ehPal(hue + 0.10, u), ehPal(0.03 + hue * 0.18, u), 0.7);
-    vec3 cold = ehPal(hue + 0.34, u);
+    vec3 hot = mix(palVisual(hue + 0.10, u), palVisual(0.03 + hue * 0.18, u), 0.7);
+    vec3 cold = palVisual(hue + 0.34, u);
     vec3 armCol = mix(cold, hot, saturate(heat * 1.2));
 
     float exposure = 0.65 + 1.3 * u.level + 0.5 * swell * heat;
@@ -96,19 +91,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // fade in at the rim and out before the final whip round the horizon,
         // where an ember's streak would flash a ring of pixels every frame
         float fade = smoothstep(0.0, 0.2, life) * (1.0 - smoothstep(0.55, 0.85, life));
-        vec3 ec = mix(ehPal(h.x * 0.3 + 0.10, u), ehPal(0.03 + h.x * 0.054, u), 0.7);
+        vec3 ec = mix(palVisual(h.x * 0.3 + 0.10, u), palVisual(0.03 + h.x * 0.054, u), 0.7);
         ec = peakWhite(ec, life * swell * 0.25);
         col += ec * ember * fade * life * (0.25 + 1.1 * u.mid) * smoothstep(coreR, coreR * 1.5, er);
     }
 
     // ---- HDR photon ring ----
     float ring = aaLine(r - coreR * 1.06, 0.006 + 0.004 * swell);
-    vec3 ringCol = peakWhite(ehPal(0.07 + 0.05 * u.spectralCentroid, u),
+    vec3 ringCol = peakWhite(palVisual(0.07 + 0.05 * u.spectralCentroid, u),
                              0.35 + 0.45 * swell);
     col += ringCol * ring * (3.5 + 4.5 * swell) * (0.55 + 0.45 * dopp);
 
     // faint lensed halo just outside the ring
-    vec3 rimCol = mix(ehPal(0.12, u), peakWhite(ehPal(0.30, u), 0.2), 0.45);
+    vec3 rimCol = mix(palVisual(0.12, u), peakWhite(palVisual(0.30, u), 0.2), 0.45);
     col += rimCol * exp(-abs(r - coreR * 1.06) * 22.0) * (0.5 + 0.9 * u.level + 0.3 * swell);
 
     // beat ripple: a thin, soft ring leaving the horizon, faint and fading
@@ -116,7 +111,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float bp = fract(u.beatPhase);
     float shockR = coreR * 1.1 + bp * 0.9;
     float shockA = smoothstep(0.0, 0.12, bp) * (1.0 - smoothstep(0.25, 0.75, bp));
-    col += ehPal(0.2, u) * aaLine(r - shockR, 0.004) * shockA * 0.6 * saturate(u.level * 1.15)
+    col += palVisual(0.2, u) * aaLine(r - shockR, 0.004) * shockA * 0.6 * saturate(u.level * 1.15)
          * (1.0 - smoothstep(0.45, 0.9, r));
 
     // ---- absolute black core ----
