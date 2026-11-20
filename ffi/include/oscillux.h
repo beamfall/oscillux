@@ -999,7 +999,7 @@ typedef struct OscilluxWindowGovernorSample {
     uint32_t has_p99;           /* 0 or 1 */
     uint32_t starved;           /* 0 or 1 */
     uint32_t dropping;          /* 0 or 1 */
-    uint32_t can_demote;        /* 1 if the host has a lower step; 0 otherwise */
+    uint32_t at_floor;          /* 1 if no lower step is available; 0 otherwise (default) */
 } OscilluxWindowGovernorSample;
 
 typedef struct OscilluxWindowGovernorResult {
@@ -1024,7 +1024,7 @@ OSCILLUX_API void oscillux_window_governor_destroy(OscilluxWindowGovernor *handl
 /* A window with both percentiles is over budget if p95 > demote_budget_fraction * interval_ms,
  * p99 > interval_ms, starved, or dropping. Otherwise it qualifies for promotion when
  * p95 < promote_budget_fraction * promotion_budget_ms. A step requires the configured streak,
- * and promotion also needs cooldown_s to elapse. Demotion requires can_demote to be 1.
+ * and promotion also needs cooldown_s to elapse. Demotion is enabled by default (at_floor is 0).
  * When the demotion threshold is reached with no lower step, HOLD continues counting the
  * over-budget streak and preserves the stable count and cooldown origin. Other HOLDs add
  * one stable window. An absent percentile clears over_budget and both pressure streaks.

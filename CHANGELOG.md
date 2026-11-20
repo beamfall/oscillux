@@ -14,6 +14,7 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 - The C ABI frame-window governor classifies p95 and p99 frame times and delivery health,
   then returns a hold, demote, or promote decision with the current streaks (CORE-2758).
+  Hosts set `at_floor` to 1 when no lower step is available. Zero enables demotion.
   The separate Oscillux release must publish the artifact containing this ABI and record
   its registry reference. Both are pending.
 

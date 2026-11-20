@@ -544,4 +544,4 @@ member OscilluxWindowGovernorSample.has_p95 offset 40 size 4 type uint32_t
 member OscilluxWindowGovernorSample.has_p99 offset 44 size 4 type uint32_t
 member OscilluxWindowGovernorSample.starved offset 48 size 4 type uint32_t
 member OscilluxWindowGovernorSample.dropping offset 52 size 4 type uint32_t
-member OscilluxWindowGovernorSample.can_demote offset 56 size 4 type uint32_t
+member OscilluxWindowGovernorSample.at_floor offset 56 size 4 type uint32_t

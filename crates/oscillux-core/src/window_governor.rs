@@ -45,8 +45,8 @@ pub struct WindowSample {
     pub dropping: bool,
     /// Sample time in monotonic seconds.
     pub now_s: f64,
-    /// Whether the host has a lower step available.
-    pub can_demote: bool,
+    /// Whether the host has no lower step available.
+    pub at_floor: bool,
 }
 
 /// The step a host should apply.
@@ -157,7 +157,7 @@ impl WindowGovernor {
             0
         };
         let demotion_threshold_reached = self.over_budget_streak >= self.config.demote_windows;
-        let decision = if demotion_threshold_reached && sample.can_demote {
+        let decision = if demotion_threshold_reached && !sample.at_floor {
             WindowDecision::Demote
         } else if self.promotion_streak >= self.config.promote_windows
             && sample.now_s - self.last_change_s >= self.config.cooldown_s

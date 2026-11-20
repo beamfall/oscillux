@@ -338,7 +338,7 @@ fn layout_assertions(target: Target) -> String {
         has_p99: u32 => "uint32_t*",
         starved: u32 => "uint32_t*",
         dropping: u32 => "uint32_t*",
-        can_demote: u32 => "uint32_t*",
+        at_floor: u32 => "uint32_t*",
     });
     layout!(OscilluxWindowGovernorResult, "OscilluxWindowGovernorResult", {
         decision: u32 => "uint32_t*",

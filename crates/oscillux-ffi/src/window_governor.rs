@@ -59,8 +59,8 @@ pub struct OscilluxWindowGovernorSample {
     pub starved: u32,
     /// Whether delivery was dropping frames.
     pub dropping: u32,
-    /// Whether the host has a lower step available.
-    pub can_demote: u32,
+    /// One when the host has no lower step available. Zero enables demotion.
+    pub at_floor: u32,
 }
 
 /// The decision and post-record streak counts.
@@ -179,8 +179,8 @@ pub unsafe extern "C" fn oscillux_window_governor_record(
         let has_p99 = (*sample).has_p99;
         let starved = (*sample).starved;
         let dropping = (*sample).dropping;
-        let can_demote = (*sample).can_demote;
-        if [has_p95, has_p99, starved, dropping, can_demote]
+        let at_floor = (*sample).at_floor;
+        if [has_p95, has_p99, starved, dropping, at_floor]
             .iter()
             .any(|&flag| flag > 1)
         {
@@ -195,7 +195,7 @@ pub unsafe extern "C" fn oscillux_window_governor_record(
             now_s: (*sample).now_s,
             starved: starved == 1,
             dropping: dropping == 1,
-            can_demote: can_demote == 1,
+            at_floor: at_floor == 1,
         };
         match (*handle).inner.record(sample) {
             Ok(result) => {

@@ -655,7 +655,6 @@ fn window_governor_record_and_reset_are_allocation_free() {
         now_s: 1.0,
         has_p95: 1,
         has_p99: 1,
-        can_demote: 1,
         ..OscilluxWindowGovernorSample::default()
     };
     let mut handle = null_mut();

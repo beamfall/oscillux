@@ -19,8 +19,8 @@ DEFAULTS = {
 
 
 def sample(now, p95=3.0, p99=7.0, interval=1000 / 60, budget=8.33, starved=False,
-           dropping=False, can_demote=True):
-    return [p95, p99, interval, budget, starved, dropping, now, can_demote]
+           dropping=False, at_floor=False):
+    return [p95, p99, interval, budget, starved, dropping, now, at_floor]
 
 
 def series(count, *, start=0, hz=60, **telemetry):
@@ -40,7 +40,7 @@ def case(name, samples, *, start=0, config=None):
             stable = 0
             steps.append(entry)
             continue
-        p95, p99, interval, budget, starved, dropping, now, can_demote = entry
+        p95, p99, interval, budget, starved, dropping, now, at_floor = entry
         classification = "neutral"
         if p95 is not None and p99 is not None:
             if (
@@ -59,7 +59,7 @@ def case(name, samples, *, start=0, config=None):
         over = trailing if classification == "over" else 0
         eligible = trailing if classification == "eligible" else 0
         if over >= rules["demote_windows"]:
-            decision = "demote" if can_demote else "hold"
+            decision = "hold" if at_floor else "demote"
         elif eligible >= rules["promote_windows"] and now - change_at >= rules["cooldown_s"]:
             decision = "promote"
         else:
@@ -85,7 +85,7 @@ def vectors():
         "promote_windows": 2,
         "cooldown_s": 2.0,
     }
-    floor = {"interval": 1000 / 30, "budget": 1000 / 60, "can_demote": False}
+    floor = {"interval": 1000 / 30, "budget": 1000 / 60, "at_floor": True}
     return [
         case("healthy-60hz-toward-120hz", series(301)),
         case("p99-only-overload", series(31, p99=17.0)),
@@ -128,7 +128,7 @@ def render(cases):
         ' "SPDX-License-Identifier": "AGPL-3.0-only",',
         ' "format": "oscillux-window-governor-vectors/1",',
         ' "generator": "tools/window-governor-vectors.py",',
-        ' "sample_fields": ["p95_ms","p99_ms","interval_ms","promotion_budget_ms","starved","dropping","now_s","can_demote"],',
+        ' "sample_fields": ["p95_ms","p99_ms","interval_ms","promotion_budget_ms","starved","dropping","now_s","at_floor"],',
         ' "result_fields": ["decision","over_budget","over_budget_streak","promotion_streak","stable_streak"],',
         ' "cases": [',
     ]

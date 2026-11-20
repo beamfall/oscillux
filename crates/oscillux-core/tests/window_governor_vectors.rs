@@ -57,7 +57,7 @@ fn window_governor_replays_reference_vectors() {
                     starved: sample[4].boolean(),
                     dropping: sample[5].boolean(),
                     now_s: sample[6].num(),
-                    can_demote: sample[7].boolean(),
+                    at_floor: sample[7].boolean(),
                 })
                 .unwrap_or_else(|_| panic!("{name} step {index}: sample refused"));
             let want = step.get("want").arr();
