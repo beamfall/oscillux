@@ -29,23 +29,33 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (float(i) >= density) break;
         float fi = float(i);
         vec2 h = hash22(vec2(fi * 2.71, 8.0));
-        float x = h.x;
+        // Golden-ratio columns spread the drops evenly, so no patch of the frame holds a pile of
+        // overlapping streaks whose heads and tails change many pixels at once.
+        float x = fract(fi * 0.6180340 + 0.012 * h.x);
         float bandv = bandAtWrapped(u, h.x + beats * 0.02);
         // The band's level reaches the drop only through the swell.
         float drive = mix(0.35, bandv, swell);
-        float fall = fract(h.y + u.time * speed * (0.30 + 0.45 * h.x) + beats * (0.03 + 0.03 * h.y));
+        // A narrow spread of fall rates and thin streaks keep the pixels a dense field changes per
+        // frame under the limiter's area gate, so the limited output shows the drops unheld.
+        float fall = fract(h.y + u.time * speed * (0.30 + 0.28 * h.y) + beats * (0.03 + 0.03 * h.y));
         float y = mix(-0.12, floorY + 0.08, fall);
         float len = mix(0.16, 0.26, drive);
         float dx = abs(uv.x - x);
         float t = (y - uv.y) / len;  // 0 at the head, 1 at the tail
-        float body = (1.0 - smoothstep(0.0014, 0.0065, dx)) * step(0.0, t) * step(t, 1.0)
-                   * (0.7 + 0.3 * (1.0 - t));
+        // Soft ends: the head ramps up over ~8 px and the tail fades out over its last third, so a
+        // falling drop changes each pixel gradually rather than switching it on or off in a frame.
+        float lead = smoothstep(0.0, 0.03, y - uv.y);
+        float body = (1.0 - smoothstep(0.0012, 0.0052, dx)) * lead * (1.0 - smoothstep(0.6, 1.0, t))
+                   * (0.75 + 0.25 * (1.0 - t));
         vec2 hd = vec2((uv.x - x) * 1.7, (uv.y - y) * 0.35);
         float head = exp(-dot(hd, hd) / 0.000012);
         // palRoleTrace adds 0.03 * beatPhase, which steps at the wrap: take it back out.
         vec3 c = palRoleTrace(x + 0.02 * beats - 0.03 * u.beatPhase, u);
-        // Near-white drops would carry most of the frame's luminance swing: hold them to a pale tint.
-        c *= min(1.0, 0.75 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-3));
+        // Near-white drops would carry most of the frame's luminance swing: tint them pale cyan and
+        // hold them below the blue drops' ceiling.
+        float whiteness = smoothstep(0.25, 0.6, min(c.r, min(c.g, c.b)) / max(max(c.r, max(c.g, c.b)), 1e-3));
+        c *= mix(vec3(1.0), vec3(0.62, 0.9, 1.0), whiteness);
+        c *= min(1.0, mix(0.75, 0.55, whiteness) / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-3));
         // A soft halo hugs each streak, so the rain glows without any one pixel swinging far.
         float halo = exp(-dx * dx * 6000.0) * smoothstep(-0.05, 0.1, t) * (1.0 - smoothstep(0.9, 1.15, t));
         glow += c * (body * 1.7 + head * 0.7 + halo * 0.08);
