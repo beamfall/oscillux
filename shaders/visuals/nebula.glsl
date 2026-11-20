@@ -9,14 +9,13 @@
 //
 // Flash budget (Makefile visual-flash-check): the rays are bright and large, so their brightness
 // holds steady and they barely move: the fan drifts slowly and each ray fades in and out over a
-// 7.5 s life, staggered across the fan. The life runs on time, not beats, so a fast tempo does
+// 10 s life, staggered across the fan. The life runs on time, not beats, so a fast tempo does
 // not quicken the fades into large-area luma steps.
-// The beat moves the smoke and swells the core through a smooth envelope (about 150 ms attack,
-// the rest of the beat to release), never as a brightness step. Kick-gated signals (bassImpact,
-// flux, onset, the low bins, the spectral centroid, which dips with each kick) do not touch
-// brightness, geometry or hue over large areas, and
-// nothing is re-seeded per frame or per beat. Ray and smoke colours keep G + B above R, so no
-// large area reads as saturated red.
+// The beat moves the smoke and swells its dark core through a smooth envelope (about 150 ms
+// attack, the rest of the beat to release), never as a brightness step. Kick-gated signals
+// (bassImpact, flux, onset, the low bins, the spectral centroid, which dips with each kick) do
+// not touch brightness, geometry or hue over large areas, and nothing is re-seeded per frame or
+// per beat. Ray and smoke colours keep G + B above R, so no large area reads as saturated red.
 //
 // param0  Density    (0..1) — cloud thickness/opacity scale
 // param1  Swirl      (0..1) — rotational domain-warp strength
@@ -106,13 +105,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- spectrum rays (screen-space, on top of volume) ---------------------
     // Bold tapered beams fanning out of the core, each its own palette hue. They are large and
     // bright, so they hold still: brightness never follows the beat, the fan drifts slowly, and
-    // each beam fades in and out over a 7.5 s life, staggered so one changes at a time.
+    // each beam fades in and out over a 10 s life, staggered so one changes at a time.
     {
         float ang = atan(p0.y, p0.x);
-        float rayStart = smoothstep(coreRadius - 0.02, coreRadius + 0.16, radius);
+        // The beams start at the resting core edge: following the swell, every beam's bright
+        // root would step in and out together on each beat, a large area at a fast tempo.
+        float rayStart = smoothstep(0.22, 0.40, radius);
         for (int j = 0; j < 16; ++j) {
             float fj = float(j);
-            float cyc = u.time * (1.0 / 7.5) - fj * (1.0 / 16.0);
+            float cyc = u.time * (1.0 / 10.0) - fj * (1.0 / 16.0);
             float age = fract(cyc);                // 0..1 over the life; a new beam when dark
             float gen = floor(cyc);
             float life = smoothstep(0.0, 0.45, age) * (1.0 - smoothstep(0.55, 1.0, age));
