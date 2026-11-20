@@ -10,6 +10,9 @@
 // area of the tube on each change. The figure therefore only drifts slowly, the beat
 // works through a smooth swell (continuous across the beat wrap) kept within one
 // brightness band, and the music's punch goes into the travelling beam head, a small area.
+// Density and glow come from a steady phosphor smear: each trace carries a wide, soft band of
+// strands toward where the figure was a moment ago, so the tube stays full and bright while
+// only the slow drift changes it (soft band edges keep that drift from flipping pixels).
 
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
@@ -49,12 +52,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- Lissajous figure ----
     // complexity from param1; the frequencies and phase drift slowly with time only
     float comp = mix(1.0, 3.0, u.param1);
-    float fx = 1.0 + comp + 0.85 * sin(u.time * 0.022);
-    float fy = 2.0 + comp * 0.7 + 0.85 * sin(u.time * 0.0146 + 1.9);
+    float fx = 1.0 + comp + 0.85 * sin(u.time * 0.017);
+    float fy = 2.0 + comp * 0.7 + 0.85 * sin(u.time * 0.0113 + 1.9);
     float phX = u.time * 0.06;
 
-    float ax = scr.x * 0.70;
-    float ay = scr.y * 0.66;
+    float ax = scr.x * 0.74;
+    float ay = scr.y * 0.72;
 
     float fuzz = u.param2 * (0.3 + 1.4 * u.treble);
 
@@ -66,14 +69,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float core = 0.0;
     float halo = 0.0;
     float hot = 0.0;
+    float ribbon = 0.0;
     vec2 prev = vec2(ax * sin(phX), 0.0);
+    // phosphor memory of the drifting figure: each point leaves a smear toward where the
+    // figure was a moment ago (its phase drift), a fixed-width band that only morphs slowly
+    float smear = 0.2;
+    vec2 ePrev = vec2(-ax * cos(phX) * smear, 0.0);
 
     // continuous beam: distance to 96 chained segments of the Lissajous curve
     for (int i = 1; i <= 96; ++i) {
         float fi = float(i);
         float s = fi / 96.0;
         float a = s * 6.2831853;
-        vec2 pos = vec2(ax * sin(fx * a + phX), ay * sin(fy * a));
+        float thX = fx * a + phX;
+        vec2 pos = vec2(ax * sin(thX), ay * sin(fy * a));
+        vec2 eCur = vec2(-ax * cos(thX) * smear, 0.0);
         // treble HF fuzz: smooth micro-ripple along the sweep, not per-dot hash
         pos += vec2(sin(a * 61.0 + u.time * 9.3), cos(a * 73.0 - u.time * 7.1))
              * 0.0048 * fuzz;
@@ -86,20 +96,33 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float behind = fract(head01 - (fi - 1.0 + h) / 96.0);
         // the phosphor tail decays behind the head
         float tail = exp(-behind * 4.0);
-        float tip = exp(-behind * 18.0);
-        core += 1.5e-5 / (d2 + 9.0e-6) * (0.30 + 1.1 * tail);
-        halo += 7.0e-5 / (d2 + 8.0e-4) * (0.8 + 0.5 * tail);
+        float tip = exp(-behind * 150.0);
+        core += 2.0e-5 / (d2 + 2.5e-5) * (0.6 + 0.6 * tail);
+        halo += 1.0e-4 / (d2 + 1.0e-3) * (0.9 + 0.3 * tail);
         hot += tip * 4.0e-5 / (d2 + 2.0e-5);
+        // the smear band: a few strands across it, fading into the past
+        // solve pc = prev + ab*hb + e*t for the band (e is horizontal)
+        vec2 rel = pc - prev;
+        // (a near-level segment has no y to solve with: use the trace projection there)
+        float hb = clamp(rel.y * ab.y / (ab.y * ab.y + 1e-7), 0.0, 1.0);
+        hb = mix(h, hb, smoothstep(0.15, 0.4, abs(ab.y) * inversesqrt(dot(ab, ab) + 1e-9)));
+        vec2 e = mix(ePrev, eCur, hb);
+        float t = clamp((rel.x - ab.x * hb) * e.x / (e.x * e.x + 1e-7), 0.0, 1.0);
+        vec2 db = rel - ab * hb - e * t;
+        float rib = exp(-dot(db, db) * 1800.0) * exp(-t * 1.1) * (0.8 + 0.2 * cos(t * 22.0));
+        ribbon = max(ribbon, rib);
+        ePrev = eCur;
         prev = pos;
     }
 
     // level sets the glow; the beat swell stays inside one brightness band
     float energy = 1.28 + 0.2 * u.level + 0.12 * swell * u.level;
     col += beamCol * core * energy * 1.1 * inScreen * shade;
-    col += haloCol * halo * energy * 0.13 * inScreen * shade;
+    col += haloCol * halo * energy * 0.2 * inScreen * shade;
+    col += beamCol * ribbon * energy * 0.85 * inScreen * shade;
 
     // white-hot write head: the kick lands here, on a small area
-    col += peakWhite(beamCol, 0.85) * hot * (0.5 + 0.35 * swell + 0.3 * u.bassImpact) * inScreen;
+    col += peakWhite(beamCol, 0.6) * hot * (0.5 + 0.2 * swell) * inScreen;
 
     // subtle scanline shimmer of the tube glass
     col *= 1.0 - 0.045 * inScreen * (0.5 + 0.5 * sin(pc.y * 320.0));
