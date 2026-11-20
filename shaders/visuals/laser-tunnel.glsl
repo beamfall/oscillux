@@ -47,7 +47,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // crisp core; the width uses fwidth(zt), not of the fract: at the cell
     // wrap that read a full cell and drew a half-bright dashed ghost line that
     // crawled along every wall
-    float frameLine = 1.0 - smoothstep(0.0035, 0.0035 + fwidth(zt) * rp * 2.2, abs(dz) * rp * 2.2);
+    float frameLine = 1.0 - smoothstep(0.0035, 0.0035 + max(fwidth(zt) * rp * 2.2, 1e-4), abs(dz) * rp * 2.2);
     // The swell turns the frames' hue a little; it never changes their level.
     float hueF = fract(seg * 0.061 + 0.02 * u.time + 0.08 * u.spectralCentroid + 0.05 * swell);
     vec3 fc = palVisual(hueF, u);
@@ -104,8 +104,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // so keep it out of the near field where it sweeps the most screen.
     float shockPh = zt * 0.25 - u.beatPhase;
     float shockD = (fract(shockPh) - 0.5) * 4.0 * rp * 2.2;
-    float shock = 1.0 - smoothstep(0.003, 0.003 + fwidth(shockPh) * 4.0 * rp * 2.2, abs(shockD));
-    shock *= smoothstep(1.0, 0.45, rp) * smoothstep(0.07, 0.2, rp);
+    float shock = 1.0 - smoothstep(0.003, 0.003 + max(fwidth(shockPh) * 4.0 * rp * 2.2, 1e-4), abs(shockD));
+    shock *= (1.0 - smoothstep(0.45, 1.0, rp)) * smoothstep(0.07, 0.2, rp);
     // a steady level (the bass role whitens on the kick): the beat shows as
     // the line racing away, not as a brightness pulse
     vec3 shockC = palVisual(0.1 + 0.08 * u.spectralCentroid, u);
