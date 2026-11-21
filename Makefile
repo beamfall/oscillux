@@ -204,6 +204,20 @@ switch-transition-check: tools/shader/node_modules
 
 gate: switch-transition-check
 
+# Photo slideshow (conformance/slideshow/README.md): fails when conformance/slideshow/vectors.json
+# differs from what the independent standard-library model tools/slideshow-vectors.py writes or
+# breaks its assertions, when shaders/slideshow/slideshow.glsl drawn under WebGL2 (the pinned
+# Playwright Chromium, SwiftShader) or, on macOS, the Metal device misses a golden by more than
+# its tolerance, when amplitude 0 output depends on the beat inputs, or when the loud-audio worst
+# case trips the flash audit or the limiter model. Needs glslangValidator and, on macOS,
+# spirv-cross and swift.
+.PHONY: slideshow-check
+slideshow-check: tools/shader/node_modules
+	python3 -I tools/slideshow-vectors.py --check
+	$(SHADER_PATH)node tools/shader/slideshow-check.mjs
+
+gate: slideshow-check
+
 # Transition checks (tools/shader/transition-check.mjs): every
 # transition's endpoints and pops, then the web host's switch timing, quantised start, warm
 # incoming visual and live pops. They need the pinned Playwright Chromium, and the host check

@@ -8,7 +8,8 @@
 // compiler validation is reported SKIPPED, never PASS, and fails under CI.
 // The manifest's transitions go through the same checks under their entry ids
 // (transitionEntryId), against the same binding ABI. The host switch-transition pass
-// (tools/shader/switch.mjs) goes through GLSL 450, MSL and the Metal compiler on every run.
+// (tools/shader/switch.mjs) and the photo slideshow pass (tools/shader/slideshow.mjs) go through
+// GLSL 450, MSL and the Metal compiler on every run.
 // With --hlsl-goldens DIR, each emitted HLSL must equal DIR/<id>.hlsl byte for
 // byte, which needs the pinned SPIRV-Cross that assertShaderToolchain checks.
 //
@@ -23,6 +24,7 @@ import {
   validateHLSL, withTempDir,
 } from './glsl2msl.mjs';
 import { loadManifest, transitionEntryId } from './manifest.mjs';
+import { slideshowMSL } from './slideshow.mjs';
 import { switchMSL } from './switch.mjs';
 
 const { values: { 'hlsl-goldens': hlslGoldens }, positionals } = parseArgs({
@@ -80,6 +82,11 @@ for (const t of manifest.transitions) {
 // SPIR-V, MSL with its ABI checked, then the Metal compiler.
 for (const sampling of ['linear', 'fetch']) {
   compileMetal(switchMSL({ sampling }), `switch-${sampling}`);
+  glsl++; metal++;
+}
+// The photo slideshow pass (shaders/slideshow/slideshow.glsl), likewise in both samplings.
+for (const sampling of ['linear', 'fetch']) {
+  compileMetal(slideshowMSL({ sampling }), `slideshow-${sampling}`);
   glsl++; metal++;
 }
 
