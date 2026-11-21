@@ -14,5 +14,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `make limiter-hold-check` and `make visual-flash-check` pass on the release set
+- [x] 3.1 `make limiter-hold-check` and `make visual-flash-check` pass on the release set (Dunes and Lumen Field calmed, 2026-11-21)
 - [ ] 3.2 `make gate` on the exact head

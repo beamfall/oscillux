@@ -160,12 +160,13 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float e = 0.02 + 0.0015 * t;
         vec3 n = normalize(vec3(hc - dnH(pos.xz + vec2(e, 0.0), amp, dens), e,
                                 hc - dnH(pos.xz + vec2(0.0, e), amp, dens)));
-        // wind ripples, near the camera only
+        // wind ripples, near the camera only and faint: the camera sweeps over
+        // them fast enough that deep ripples flicker the near sand
         float rf = saturate(1.0 - t / 45.0);
         float rp = dot(pos.xz, DN_WIND) * 11.0 + 0.9 * sin(dot(pos.xz, vec2(0.866, 0.5)) * 1.7) + 2.0 * vnoise(pos.xz * 0.6);
         float rpl = sin(rp);
         rpl = rpl * abs(rpl);
-        n = normalize(n + vec3(DN_WIND.x, 0.0, DN_WIND.y) * rpl * 0.28 * rf);
+        n = normalize(n + vec3(DN_WIND.x, 0.0, DN_WIND.y) * rpl * 0.1 * rf);
 
         // long shadows from the low sun
         float sh = 1.0;
@@ -193,7 +194,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         vec3 sand = mix(vec3(0.8, 0.46, 0.27), dnPalStill(0.7, u), 0.35);
         vec3 sandShade = mix(sand, vec3(0.75), 0.5);
         // plus warm light bounced off the sunlit slopes into the shade
-        vec3 lit = sand * sunCol * dif * sh * 1.6 + sandShade * shadeCol * 0.38 * (0.85 + 0.3 * rpl * rf)
+        vec3 lit = sand * sunCol * dif * sh * 1.6 + sandShade * shadeCol * 0.38 * (0.85 + 0.1 * rpl * rf)
                  + sand * sunCol * 0.025 * (1.0 - dif * sh) * (0.6 + 0.4 * n.y);
         // glossy sheen: the backlit sand mirrors the sun
         vec3 hv = normalize(sunDir - rd);

@@ -119,7 +119,9 @@ vec3 lfField(vec3 ro, vec3 rd, float tmax, float pix, float blur, int rows, floa
             float tt = max(dot(to, rd), 0.0);
             vec3 ov = to - rd * tt;
             float o2 = dot(ov, ov);
-            float r0o = 0.028 + 0.03 * e + 0.02 * wv;
+            // the ring whitens the orb (below) but never grows it: near bokeh
+            // discs that swell on every beat flash the screen
+            float r0o = 0.028 + 0.03 * e;
             // near orbs fall out of focus into soft bokeh discs
             float coc = 0.05 * abs(tt - 6.0) / 6.0;
             float ow = max(r0o + coc, tt * (pix * 1.2 + blur));
