@@ -17,8 +17,9 @@ live here, with generated web and Metal legs and conformance vectors like the sw
   `vec3 slideshow(vec2 uv, SlideshowInputs s)`: Ken Burns aimed at a supplied salient rect,
   three layouts (cover, blurred fill, portrait pair) and three transitions (dissolve, light
   sweep, iris). It returns linear HDR, before bloom, tone mapping and the flash limiter.
-- Audio coupling (`amplitude`, default 0) moves only the Ken Burns path position, never light;
-  at amplitude 0 the audio inputs are not read.
+- Tempo coupling (`amplitude`, default 0) only swings the pace of the Ken Burns move on the
+  beat (`beatPhase`, `beatsPerSlide`), never reversing it and never adding light; at amplitude 0
+  the audio inputs are not read.
 - 8x8 golden vectors under `conformance/slideshow/`, written by an independent
   standard-library model (`tools/slideshow-vectors.py`), and a check that renders the pass in
   WebGL2 and, on macOS, Metal, compares the goldens, proves amplitude-0 audio independence on
