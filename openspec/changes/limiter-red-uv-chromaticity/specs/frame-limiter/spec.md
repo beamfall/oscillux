@@ -60,7 +60,7 @@ Each step is the WCAG threshold less the codes' measured error over every 8-bit 
 ### Requirement: Tracker seed at a start
 
 A host SHALL start the output black and the tracker state tracked black. It SHALL use the texel
-"black, nothing owed" (x 0, y 32768, z 65536, w 0) only when `hostBlackLongEnough` holds for the
+"black, nothing owed" (x 0, y 32768, z 2147508224, w 0) only when `hostBlackLongEnough` holds for the
 exact (0, 0, 0) black presented before the start, and zero (red memory and chromaticity unknown)
 otherwise. It SHALL tell the pixel auditor, where one reads its output, which seed it wrote.
 
@@ -97,8 +97,8 @@ otherwise. It SHALL tell the pixel auditor, where one reads its output, which se
 The limiter and the auditor SHALL give every non-black 8-bit colour an integer CIE 1976 u'v' code
 in 2^-14 units, within 2.5e-4 of its u'v' under the IEC 61966-2-1 matrix and under the matrix
 from the sRGB primaries. A colour SHALL be saturated red when its linear R / (R + G + B) is at
-least 0.8, and never below 0.8 - 1e-12. A down step SHALL be a squared code distance over
-10683798.
+least 0.8, and never below 0.8 - 1e-12. A possible step SHALL be a squared code distance over
+10683798 and a definite step one over 10791225.
 
 #### Scenario: Every 8-bit colour
 
@@ -109,27 +109,51 @@ least 0.8, and never below 0.8 - 1e-12. A down step SHALL be a squared code dist
 #### Scenario: Far and very far
 
 - **WHEN** the check runs over every distinct code against the hull of the saturated codes
-- **THEN** every code more than the down step from some saturated code is far, and every very-far
-  code is more than the down step from every saturated code
+- **THEN** every code more than a possible step from some saturated code is far, and every
+  very-far code is more than a definite step from every saturated code
 
 ### Requirement: Red chromaticity transitions
 
-Every pixel SHALL keep the code of the last saturated red state it showed. It SHALL count a red
-transition down at its first later colour more than the down step from that code, and up at a
-saturated colour after a far colour. Black SHALL change nothing. A pixel firing a red direction
-by this rule SHALL count that direction only, else the direction red transition counting gives.
+Every pixel SHALL keep a box of the saturated codes it showed since its last definite red fall and
+a box of the far codes since its last definite rise. At a changed colour it SHALL count down when
+the saturated box may hold a code more than a possible step away, and at a changed saturated colour
+up when the far box may. A box SHALL clear only at a definite step. Black SHALL change nothing. A
+pixel firing a direction by this rule SHALL count that direction only.
 
-#### Scenario: Black keeps the reference
+#### Scenario: Black keeps the boxes
 
 - **WHEN** a pixel shows (255, 0, 0), then black for 1.5 s with no restart, then (0, 255, 0)
 - **THEN** the pixel auditor counts a red fall at black and another at (0, 255, 0)
 
 #### Scenario: Staggered intermediate states
 
-- **WHEN** two stripes, each 20% of the frame, show (60, 0, 18), then (35, 0, 32) from different
-  frames, then (0, 0, 60) at the same frame, at 2.5 Hz
-- **THEN** the pixel auditor counts the joint fall as a large-area red transition in the input and
-  at most 1 red transition a second in the output
+- **WHEN** two 16-column stripes show (60, 0, 18), then (35, 0, 32) from frames 1 and 7, then
+  (0, 0, 60) together at frame 8, every 24 frames
+- **THEN** neither stripe alone is held, both ask red down at frame 8 and not at frames 1 or 7, and
+  the pixel auditor counts at most 1 red transition a second in the output
+
+#### Scenario: A saturated intermediate extreme
+
+- **WHEN** two patches show (60, 0, 0), then (60, 25, 0) from frames 1 and 16, then (60, 50, 0)
+  together at frame 17
+- **THEN** both ask red down at frame 17 and not at frames 1 or 16, and the pixel auditor counts at
+  most 1 red transition a second in the output
+
+#### Scenario: An early-band intermediate
+
+- **WHEN** the same patches show (61, 42, 0), 0.19957 from (60, 0, 0), in place of (60, 25, 0)
+- **THEN** both still ask red down at frame 17
+
+#### Scenario: A real red flash
+
+- **WHEN** the left half of the frame alternates between (180, 0, 0) and (90, 90, 90) at 5 Hz
+- **THEN** the pixel auditor counts at least 9 red transitions a second in the input and at most 1
+  in the output
+
+#### Scenario: A saturated and near-saturated alternation
+
+- **WHEN** a pixel alternates between two colours 0.094 apart in u'v', one saturated and one far
+- **THEN** it is never held
 
 #### Scenario: A rise by one rule and a fall by the other
 
@@ -139,11 +163,11 @@ by this rule SHALL count that direction only, else the direction red transition 
 
 ### Requirement: Red chromaticity at a start
 
-A pixel's first value with no state SHALL set its reference and count nothing. "Black, nothing
-owed" SHALL leave no reference. After a zero seed the pixel SHALL count up at every saturated
-colour, and down at every very-far colour and every far colour whose code differs from the last
-one counted, until it shows a saturated or very-far colour. The auditor SHALL keep its state at a
-zero restart.
+A pixel's first value with no state SHALL set known boxes and count nothing. "Black, nothing owed"
+SHALL leave both boxes known and empty, and zero both unknown. An unknown saturated box SHALL count
+down at every changed far colour, and an unknown far box up at every changed saturated colour,
+until a definite step makes it known. The auditor SHALL keep its boxes at a zero restart and count
+at most one large-area red transition a frame.
 
 #### Scenario: A blue after a black start
 
@@ -158,13 +182,25 @@ zero restart.
 - **THEN** the limiter counts a red fall at (0, 0, 255), and so does the pixel auditor, which saw
   the red
 
+#### Scenario: Mixed history before a zero start
+
+- **WHEN** the left half shows orange and the right half blue, then black, the host restarts at
+  zero, and the frame shows (1, 0, 0)
+- **THEN** the pixel auditor counts at most 1 red transition a second in the output
+
 ### Requirement: Tracker texel format
 
-A host SHALL allocate both tracker textures RGBA32UI and seed and clear them with 32-bit values.
-The low 16 bits of each word SHALL hold the luma and 320 trackers and stamps, and the high 16
-bits the red chromaticity reference, its state, and its down and far flags.
+A host SHALL allocate both tracker textures RGBA32UI, seed and clear them with 32-bit values, check
+at start that a cleared texel with bit 31 set in every word reads back unchanged and present black
+if not, and bind `uHist` to the rows pass. Every texel a leg writes SHALL set bit 31 of z. A texel
+without it that is not all zero SHALL count every direction at a changed colour.
 
 #### Scenario: A host keeps its trackers across frames
 
 - **WHEN** a pixel shows (60, 0, 18), then (35, 0, 32) for 1 s, then (0, 0, 60)
 - **THEN** the limiter counts a red fall at (0, 0, 60) on every leg
+
+#### Scenario: A host that stores 16 bits
+
+- **WHEN** a tracker texel reads (65535, 65535, 65535, 65535) and the pixel's colour changes
+- **THEN** the limiter counts every direction for that pixel

@@ -2,8 +2,9 @@
 # Design: red transitions by the u'v' chromaticity rule (CORE-2935)
 
 Owner decision 2026-11-21, after Codex design round 1 held the zone design: "Widen limiter
-memory". Each pixel keeps the u'v' chromaticity of the last saturated-red state it showed, in a
-tracker texel widened from RGBA16UI to RGBA32UI. Section 12 maps each round 1 finding to its fix.
+memory". The tracker texel widens from RGBA16UI to RGBA32UI. Each pixel keeps two boxes of u'v'
+codes in the high halves: the saturated states it showed since its last definite red fall, and
+the far states since its last definite red rise. Section 12 maps every Codex finding to its fix.
 
 ## 1. The rule
 
@@ -18,12 +19,14 @@ linearised sRGB channels.
   (0.3904, 0.4428) under the IEC 61966-2-1 matrix. Its diameter is 0.144, so two saturated states
   never make a transition.
 - Black has no chromaticity (0 / 0). The u'v' rule neither starts nor ends a transition at black,
-  and black keeps the pixel's reference. Changes to and from black stay with the luma rule and the
-  320 rule. Reading black as the D65 white point would count every dark-red glow fading out; the
+  and black keeps the pixel's boxes. Changes to and from black stay with the luma rule and the 320
+  rule. Reading black as the D65 white point would count every dark-red glow fading out; the
   definition does not say that and it is not adopted.
 
-A transition here is measured the way `trackStep` measures luma: from a reference to the first
-state past the threshold. The reference is the last saturated state the pixel showed (section 4).
+A transition is measured between the states a pixel shows, from any saturated state since the last
+counted transition in the other direction, as `trackStep` measures luma from its extreme. Keeping
+every such state (as a box, section 4) is what catches a flash whose extremes are reached through
+intermediate states on different frames (P1-a, P1-1).
 
 ## 2. Integer codes
 
@@ -58,15 +61,17 @@ The thresholds below use the bounds E = 2.5e-4 and EV = 1.5e-4, which the check 
 0.8 - 1e-12. The 320 rule keeps its own `redSat`.
 
 `tools/shader/limiter-uv-check.mjs` reproduces every number in this section and the next over
-all 2^24 colours (about 10 s) and runs in `make limiter-check`.
+all 2^24 colours and runs in `make limiter-check`.
 
 ## 3. Thresholds
 
 All in squared code units.
 
-- **T = 10683798** = floor(((0.2 - 2E) Q)^2). The down test is d^2 > T. Two states more than 0.2
-  apart have codes more than 0.2 - 2E apart, so every WCAG transition passes. A pair between
-  0.2 - 2E and 0.2 also passes: the early band.
+- **T = 10683798** = floor(((0.2 - 2E) Q)^2). A *possible* step is d^2 > T. Two states more than
+  0.2 apart have codes more than 0.2 - 2E apart, so every WCAG transition is a possible step.
+- **TH = 10791225** = ceil((0.2 + 2E) Q)^2. A *definite* step is d^2 > TH: the two states are more
+  than 0.2 apart. Pairs between the two thresholds are the early band: they fire but never clear
+  memory (section 4).
 - **TF = 10634475** = floor(((sqrt(T) / Q - E - EV - 1 / Q) Q)^2). A code is *far* when its d^2 to
   some vertex code exceeds TF.
 - **TVF = 12125795** = ceil((R Q)^2), R = sqrt((sqrt(T) / Q + E + 1 / Q)^2 + (L / 2)^2) + EV,
@@ -76,59 +81,63 @@ All in squared code units.
 The check takes the convex hull of the 788060 distinct saturated codes (20 vertices) and asserts
 over every distinct code:
 
-- every code with d^2 > T to some hull point is far (farBad = 0), so a non-far code can never
-  pass the down test against any saturated reference;
-- every very-far code has d^2 > T to every hull point (vfBad = 0), so it passes the down test
-  against any saturated reference.
+- every code with d^2 > T to some hull point is far (farBad = 0), so a code that is not far can
+  never make a possible step with any saturated state;
+- every very-far code has d^2 > TH to every hull point (vfBad = 0), so it makes a definite step
+  with every saturated state.
 
-Distinct non-black codes: 1589569 very far, 4698521 far only, 2188875 neither.
+Saturated codes are never far: the triangle's diameter is under the far distance.
 
-## 4. Per-pixel state and the step
+## 4. Per-pixel boxes and the step
 
-Each pixel keeps:
+Each pixel keeps two boxes of codes, each either *known* (it holds every code it should) or
+*unknown* (a zero seed lost them):
 
-- `state`: unknown, none (no saturated state since the reference was dropped) or known;
-- `ref`: the (u, v) code of the last saturated state shown when known; the last fired far code
-  when unknown;
-- `down`: the down transition from `ref` has fired;
-- `far`: a far code has been shown since the last saturated state.
+- **SB**, the saturated codes shown since the last definite red fall, in 8-code cells from
+  (5044, 7254): 293 by 200 cells cover every saturated code;
+- **FB**, the far codes shown since the last definite red rise, in 64-code cells from
+  (2048, 2587): 84 by 104 cells cover every code.
 
-The step on a shown colour c returns the red direction it fires, or none, and the next state:
+A box is an axis-aligned rectangle of cells, so it holds every code it was built from and possibly
+more. Two tests use it:
 
-| c | state | fires | next |
-|---|---|---|---|
-| black | any | none | unchanged |
-| saturated | any | up if `far` or unknown | known, ref = code(c), down = 0, far = 0 |
-| other | known, not `down` | down if d^2(code, ref) > T | if fired: down = 1, far = 1; else far \|= far(code) |
-| other | known with `down`, or none | none | far \|= far(code) |
-| other, very far | unknown | down | none, far = 1 |
-| other, far | unknown | down if code != ref | ref = code, far = 1 |
-| other, neither | unknown | none | unchanged |
+- *possibly over* (c, box): the box's farthest corner is more than T from c. Every code the box was
+  built from that is more than 0.2 from c passes, and so may codes it was not built from.
+- *definitely over* (c, box): one of the box's four edge strips, one cell wide, lies wholly more
+  than TH from c. Each strip holds a code the box was built from, so that code is more than 0.2
+  from c.
 
-A pixel with no state yet (`UNTRACKED`) takes its first value without firing: known with
-ref = code(c) if c is saturated, else none with far = far(code(c)); down = 0.
+The step on a shown colour c, after the previous output p:
 
-**Up.** An up transition from a state x to a saturated s exists only if d^2(x, s) > T, and then x
-is far (farBad = 0). So firing up whenever a far code was shown since the last saturated state
-fires every one.
+| c | fires | then |
+|---|---|---|
+| black | nothing | boxes unchanged |
+| non-black, c == p | nothing | c joins the boxes |
+| saturated, c != p | up if FB is unknown, or non-empty and possibly over | if FB is definitely over: FB := known, empty; c joins SB |
+| other, c != p | down if SB is known and possibly over, or unknown and c far | if SB is definitely over, or unknown and c very far: SB := known, empty; c joins FB if far |
 
-**The unknown state** (the zero seed) has lost the reference. It fires on a superset of the first
-crossings any reference would have made:
+c joins SB when saturated and FB when far. A union is the cellwise bounding box.
 
-- up on every saturated colour;
-- down on a very-far colour, which crosses from every saturated reference (vfBad = 0);
-- down on a far code that differs from the last one it fired: a code equal to one already fired
-  is at the same distance from the lost reference, so it is not a first crossing;
-- nothing on a code that is neither, which no saturated reference is more than T from.
+- **Up.** An up transition from a state x to a saturated s exists only if x is more than 0.2 from s,
+  and then x is far (farBad = 0) and in FB unless a definite rise since cleared it. A definite rise
+  at s' means x' more than 0.2 from s' was in FB, and that rise was counted; x then pairs only with
+  states after s'. So every up transition fires.
+- **Down.** Symmetric, with SB holding every saturated state since the last definite fall.
+- **Possible only.** A fire that is not definite (the early band, or a corner of the box no state
+  sits at) keeps the box, so a true crossing later still fires (P1-2). It may fire again at the
+  next different colour: an over-count, never a miss.
+- **Only a changed colour fires.** A pixel that keeps its colour after a possible-only fire would
+  otherwise ask every frame. A colour equal to the previous output has the same chromaticity, so
+  it makes no transition the previous output did not.
+- **The unknown boxes** (zero seed) fire on a superset: up at every changed saturated colour, down
+  at every changed far colour. SB leaves unknown at a very-far colour (definite from every
+  saturated state) or a definite fall from codes it gained since; FB at a definite rise from far
+  codes it gained since.
+- **Black** changes nothing. So (255, 0, 0), black for 1.5 s with no restart, then (0, 255, 0)
+  counts a fall at black (320 rule) and another at green (u'v' rule).
 
-It leaves unknown at its first saturated or very-far colour.
-
-**Black** changes nothing. So (255, 0, 0), black for 1.5 s with no restart, then (0, 255, 0) counts
-a fall at black (320 rule) and another at green (u'v' rule).
-
-**Why the last saturated state.** P1-a (section 12) alternates a saturated A with an
-intermediate B 0.165 from A and a C 0.397 from A, staggered over two stripes. Measured from A,
-both stripes cross at C together. The step fires both at that frame, so the area is summed.
+A pixel with no state yet (`UNTRACKED`) takes its first colour without firing: both boxes known,
+holding it where it is saturated or far.
 
 ## 5. One red direction per pixel
 
@@ -139,65 +148,80 @@ direction.
 - **Safety.** The area test counts pixels firing in any direction and channel, and every granted
   red event spends the red token, which takes at least 1.33 s to refill. So no area makes two
   large-area red changes within 1.33 s, whichever rule each pixel's change is under.
-- **Liveness (P1-b).** A constant (1, 0, 0) after a zero start asks for red up only (unknown
-  state), where the zone design also asked down from the unknown 320 memory. It is granted at the
-  first red grant and fires nothing after. A constant colour never asks for both directions.
+- **Liveness (P1-b).** A constant (1, 0, 0) after a zero start asks for red up only (unknown FB),
+  where the zone design also asked down from the unknown 320 memory. It is granted at the first
+  red grant and fires nothing after: it equals the previous output. A constant colour never asks
+  for both directions.
 
 ## 6. Tracker texel and host contract
 
-The tracker textures (`uTrack`, `oTrack`) become RGBA32UI. The low 16 bits of each word are the
-existing texel, so every existing masked read is unchanged. The high 16 bits:
+The tracker textures (`uTrack`, `oTrack`) become RGBA32UI. The low 16 bits of each word keep the
+existing texel, and z gains two bits, so every existing masked read is unchanged:
 
-| Word | Bits 16 to 31 |
-|---|---|
-| x | ref u code (bits 16 to 29) |
-| y | ref v code (bits 16 to 29) |
-| z | state (bits 16 to 17: 0 unknown, 1 none, 2 known), `down` bit 18, `far` bit 19 |
-| w | unused, written 0 |
+| Word | Bits 0 to 15 | Bits 16 to 31 |
+|---|---|---|
+| x | luma extreme, `RED_MEM_HI` | SB u min (9 bits), FB u min (7 bits) |
+| y | luma distance, `LUMA_UP`, `UNTRACKED`, `RED_MEM_LO` | SB u max (9), FB u max (7) |
+| z | red extreme and distance, `RED_UP`, SB known (bit 13), FB known (bit 14) | SB v min (8), FB v min (7), marker (bit 31) |
+| w | stamps | SB v max (8), FB v max (7) |
 
-- **Seeds.** Zero decodes as state unknown with ref (0, 0), a code no colour has, so the first far
-  colour fires. "Black, nothing owed" becomes (x 0, y 32768, z 65536, w 0): state none, far 0.
-  `UNTRACKED` stays (0, 8192, 0, 0).
-- **Hosts.** Allocate both tracker textures RGBA32UI (WebGL `RGBA32UI`, Metal `.rgba32Uint`, GLES
-  `GL_RGBA32UI`), and seed and clear them with 32-bit values. Memory is 16 bytes a pixel per copy:
-  two copies are 265 MB at 3840 x 2160, up from 133 MB.
+A min is stored as N - cell and a max as cell + 1 (N = 511, 255 or 127), so the empty box is zero
+and a union is the bitwise field maximum.
+
+- **Seeds.** Zero is valid and means both boxes unknown (with the existing zero meaning for the
+  low halves). "Black, nothing owed" becomes (0, 32768, 2147508224, 0): both boxes known and
+  empty, marker set. `UNTRACKED` is exactly (0, 8192, 0, 0).
+- **Validity (P1-3).** Every texel the legs write sets the marker. A texel is valid when its marker
+  is set or it is all zero. Any other texel (a host that stored 16 bits, clamped or truncated)
+  fires every direction at a changed colour, so the limiter holds it; `UNTRACKED` is matched
+  exactly, so a clamped 65535 never reads as untracked.
+- **Format check.** At start a host clears one tracker texel to a value with bit 31 set in every
+  word, reads it back, and presents black if any word differs. WebGL `RGBA32UI`, Metal
+  `.rgba32Uint`, GLES `GL_RGBA32UI`; seeds and clears are 32-bit. Memory is 16 bytes a pixel per
+  copy: two copies are 265 MB at 3840 x 2160, up from 133 MB.
+- **Rows pass.** The rows pass evaluates `fires()`, which now reads the previous output, so a host
+  binds `uHist` to it as it does to the output pass.
 - **Rollout.** The web renderer changes in the core repin to v0.2.13. The Apple and Android hosts
-  change when they repin. A host that keeps RGBA16UI loses the high halves, which then decode as
-  unknown with ref (0, 0) every frame: safe, but every saturated or far pixel fires red on every
-  frame. The host change is required.
+  change when they repin; until then they stay on v0.2.12 legs.
 - **Why not a second texture.** A second tracker texture would add an output attachment, a
-  sampler and a ping-pong pair per leg and host. Widening the format changes one allocation and
-  one seed per host.
+  sampler and a ping-pong pair per leg and host. Widening the format changes one allocation, one
+  seed and one check per host.
 
 ## 7. The auditor
 
-`limiter-audit.mjs` keeps the same state per pixel with the model's exported code functions and
-thresholds, but is never unknown:
+`limiter-audit.mjs` keeps the same boxes per pixel with the model's exported `uvStep`, comparing
+each frame with the previous input frame:
 
-- at its first frame (`!live`) a saturated pixel is known with ref = its code, any other none
-  with far = far(code);
-- a black reseed sets none, far 0, down 0;
-- a zero restart keeps the state.
+- at its first frame (`!live`) each pixel takes its colour as the limiter does at `UNTRACKED`;
+- a black reseed makes both boxes known and empty, as `BLACK_TEXEL` does;
+- a zero restart keeps its boxes. Where the limiter is unknown and the auditor is not, the limiter
+  fires on a superset (section 4), so the limiter's area includes every pixel the auditor counts.
 
-Its count per pixel and frame is the u'v' direction when that fires, else the 320 rule's. Where
-the limiter is unknown and the auditor is not, the limiter fires on a superset (section 4), so
-the limiter's area includes every pixel the auditor counts.
+Its red direction per pixel and frame is the u'v' one when that fires, else the 320 rule's. It
+records at most one large-area red transition a frame (up when both directions are over the
+limit): the limiter admits one red direction a frame, and pixels rising and falling at the same
+frame change together (P2-1).
+
+The auditor measures in the integer codes, as it does for luma. It does not under-count a float
+measure: every pair more than 0.2 apart is a possible step, and a box clears only at a definite
+step, which is more than 0.2.
 
 ## 8. Consequences
 
-- **Zero starts.** After a zero start, a pixel in the far band whose code keeps changing asks red
-  down at each change until it shows a saturated or very-far colour. Over the area limit it
-  changes once per red grant, about every 1.33 s. Grey and most mid colours are far only, so most
-  of such a frame updates slowly until each pixel shows saturated red or a very-far colour, or
-  the host restarts black. The web player starts black after `BLACK_S` and is not affected.
-  Hosts should restart black where they can. A two-disk set reference, which would release these
-  pixels sooner, was considered and rejected for its size.
+- **Zero starts.** After a zero start a pixel asks red up at every changed saturated colour and
+  down at every changed far colour until its boxes become known (section 4). Over the area limit
+  such pixels change about once per red grant (1.33 s); a held pixel shows the nearest safe colour,
+  so the frame keeps moving. The web player starts black after `BLACK_S` and is not affected.
+  Hosts should start black where they can.
 - **Dark noise.** Dither between (1, 0, 0) and (0, 0, 1) is a saturated/far alternation, and it
   counts. The definition has no luminance floor and none is added. The probe (section 10)
   measures what this holds.
-- **Cost.** The code costs five 32-bit divisions and up to eight shifts, only for non-black
-  pixels whose state needs it: none for a saturated pixel in the rows pass, none for a known pixel
-  with `down` set and `far` set. Held pixels evaluate it per search step, as they evaluate luma.
+- **Held colours.** A held pixel's search starts from the grey of its luma band. After a saturated
+  red that grey is more than 0.2 away and would fire a red fall, so the search mixes from the
+  previous output toward the input instead: a held red rise shows dim red where it showed a pale
+  red (section 9).
+- **Cost.** The code costs five 32-bit divisions and up to eight shifts per non-black pixel and
+  evaluation; held pixels evaluate it per search step, as they evaluate luma.
 
 ## 9. Vectors
 
@@ -208,29 +232,48 @@ New cases in `tools/shader/limiter-vectors.mjs`, written with `--write` and run 
 | `red-green-dim-10hz` | 10 Hz, (60, 0, 0) / (0, 60, 0) | The CORE-2935 repro: only the u'v' rule counts it. |
 | `red-blue-10hz` | 10 Hz, (255, 0, 0) / (0, 0, 255) | A full red flash: luma, 320 and u'v' all count. |
 | `red-mask-10hz` | 10 Hz, (5, 0, 0) / (255, 0, 230) | Each change is a 320 rise and a u'v' fall: the merged direction. |
-| `red-black-dim-10hz` | 10 Hz, (60, 0, 0) / black | No rule counts it; the output equals the input. |
-| `red-stagger` | P1-a, 2.5 Hz | Two stripes, each 20% of the frame, cross 0.2 from A at the same frame after B at different frames. |
-| `red-zero-constant` | zero start, `G` spent, constant (1, 0, 0) | P1-b: the frame shows (1, 0, 0) from the first red grant on. |
+| `red-black-dim-10hz` | 10 Hz, (60, 0, 0) / black | No rule counts it; nothing is held. |
+| `red-flash-5hz-half` | 5 Hz, (180, 0, 0) / (90, 90, 90), left half | A real red flash over half the frame. |
+| `red-stagger` | P1-a | Two 16-column stripes: A (60, 0, 18), B (35, 0, 32) from frames 1 and 7, C (0, 0, 60) at 8, period 24. |
+| `red-extremum` | P1-1, 64 x 36 | Two 8 x 5 patches: A (60, 0, 0), S (60, 25, 0) from frames 1 and 16, C (60, 50, 0) at 17, S after, period 34. |
+| `red-early-band` | P1-2 | `red-extremum` with the outward S replaced by (61, 42, 0), 0.19957 from A. |
+| `red-zero-constant` | P1-b, zero start, constant (1, 0, 0) | The frame shows (1, 0, 0) from the first red grant on. |
+| `red-zero-mixed` | P2-1, orange left and blue right, black, zero start, (1, 0, 0) | One red transition a second at most in the output. |
 
-`red-stagger` uses a new signal kind, `bands`: columns x with x mod 5 = k show the k-th band's runs,
-and the other columns show black. Stripe 1 shows A (60, 0, 18) at frame 0, B (35, 0, 32) at 1 to 7,
-C (0, 0, 60) at 8, B at 9 to 15 and A at 16 to 23. Stripe 2 shows A at 0 to 6, B at 7, C at 8, B at
-9 and A at 10 to 23. Neither luma nor the 320 rule counts it (red codes under 15).
+`bands` is a new signal kind: rectangles, each with keyed colours over a period, on a background.
+Each stripe of `red-stagger` covers 1280 pixels of a 140 x 80 limiter window, under its limit of
+1605, and the two together 1920 pixels of a 107 x 60 auditor field, over it (P2-2). Each patch of
+`red-extremum` is 40 pixels, the two together 80 of a 21 x 12 field, over its 63.
 
-`test-limiter.mjs` asserts, for the 10 Hz cases with a red flash and for `red-stagger`, that the
-pixel auditor counts red transitions in the input (at least 18 a second for 10 Hz, at least 2 for
-the stagger) and at most 1 a second in the output.
+`test-limiter.mjs` asserts:
 
-**No regressions.** The tracker digest hashes all four bytes of each word, so every case's
-digest changes. A one-off script compares the new model's frames with the committed
-`vectors.json` case by case and frame by frame: outputs, hold masks, grants, grant state, and the
-low 16 bits of each tracker word. Every difference must come from the u'v' rule or from a seed's
-new high halves (for example `reset-short-black` frame 308); the code review lists each one.
+- input red transitions (at least 18 a second at 10 Hz, 9 at 5 Hz, 2 or 3 for the Codex repros)
+  and at most 1 a second in the output;
+- that each stripe or patch alone is never held, and that both ask red down at the crossing frame
+  (8 or 17) and not at the intermediate frames (1 and 7, or 1 and 16);
+- `red-black-dim-10hz` and a 0.094 saturated/far alternation (P2-3) are never held;
+- `red-zero-constant` equals the input from the first grant on; black keeps the boxes; a clamped
+  16-bit texel is invalid and fires every direction.
+
+**No regressions.** The tracker digest hashes all four bytes of each word, so every case's digest
+changes. `vecdiff` compares the new model with the committed one over every existing case, frame
+by frame: outputs, hold masks, grants, grant state, held counts, and the low 16 bits of each
+tracker word with z's two new bits masked. 23 cases match. Six differ, none in a hold mask or held
+count:
+
+- `red-3hz` (from frame 20), `red-10hz` (6), `red-stripes-10hz` (6), `black-start-red-10hz`
+  (248), `reset-black-at-expiry` (276): held colours (section 8). The held red rise shows (68, 0, 0)
+  where it showed (131, 47, 47), or (81, 26, 26) on the stripes; grey would fire a u'v' fall from
+  the red the pixel showed. The luma trackers' low halves follow the shown colour.
+- `reset-short-black` (frames 308 to 329): the zero seed leaves both boxes unknown. At (5, 0, 0)
+  the merged direction asks red up (u'v') where the 320 rule's unknown memory asked down; both
+  spend the red grant. At (255, 0, 0), held, every saturated mix fires up and grey fires down, so
+  the pixel keeps (5, 0, 0) where it showed (112, 65, 65).
 
 ## 10. Probe and calming
 
-1. `limiter-red-audit.mjs --release --audio loud` on the model at 480 x 270, before and after:
-   each visual's input red transitions and held fraction under both rules.
+1. `limiter-red-audit.mjs --release --audio loud` on the model at 480 x 270: each visual's input
+   red transitions and held fraction under both rules.
 2. The web player probe (`zz-pause-probe-player.spec.ts`) once over the 61 release visuals, on a
    build that vendors the candidate legs. No visual may hold more than 0.5% of pixels a frame.
    A visual over it is calmed in its shader and only that visual is probed again. Calmed visuals
@@ -241,23 +284,36 @@ new high halves (for example `reset-short-black` frame 308); the code review lis
 - **Two metrics in one granted frame.** Read under a single metric, a granted frame can hold up
   and down areas made of different pixels. The token bounds large-area red changes either way
   (section 5).
-- **The early band.** Pairs between 0.2 - 2E and 0.2 count. This over-counts, as the 320 rule's
-  widened codes do.
-- **A set-valued reference.** Only the last saturated state is kept: A, then a saturated A', then
-  c measures from A'. A then c is not a transition of the sequence A, A', c, so this matches
-  state-to-state reading. A slow saturated drift followed by a jump measures from where the drift
-  ended.
-- **A float auditor.** The auditor uses the integer codes, which are the measure, as for luma.
+- **The early band and box corners** over-count: pairs between 0.2 - 2E and 0.2, and corners of a
+  box no state sat at, fire. As the 320 rule's widened codes do, this trades holds for safety.
+- **A float auditor.** The auditor uses the integer codes, which are the measure, as for luma
+  (section 7).
 - **Zero-start liveness** (section 8).
 - **Black as D65 white** (section 1).
 
-## 12. Codex design round 1 findings
+## 12. Codex design findings
 
-- **P1-a, staggered intermediate state:** fixed by the last-saturated reference (section 4) and
-  covered by `red-stagger`.
-- **P1-b, liveness from a zero seed:** fixed by the merged direction (section 5) and covered by
-  `red-zero-constant`.
+Round 1, zone design (HOLD):
+
+- **P1-a, staggered intermediate state:** the boxes keep every saturated state since the last
+  definite fall, so both stripes cross at C together; `red-stagger`.
+- **P1-b, liveness from a zero seed:** the merged direction (section 5); `red-zero-constant`.
 - **P2, the float saturated test:** the check asserts every non-black colour with float64
   r / (r + g + b) >= 0.8 is `s24` (section 2).
 - **P2, seed changes in the no-regression rule:** allowed and listed (section 9).
-- **P3, zero-start impact and flash counts:** restated in section 8 and the proposal.
+- **P3, zero-start impact and flash counts:** section 8 and the proposal (20 transitions, 10
+  flashes a second at 10 Hz).
+
+Round 1, widened memory with a last-saturated reference (HOLD):
+
+- **P1-1, a saturated intermediate replaced the reference:** SB keeps A and S, so C fires a
+  definite fall from A in both patches together; `red-extremum`.
+- **P1-2, an early-band fire latched:** a possible-only fire keeps the box, so C still fires;
+  `red-early-band`.
+- **P1-3, RGBA16UI clamp:** the marker, exact `UNTRACKED`, and the host format check (section 6).
+- **P2-1, one grant, two auditor charges after a zero restart:** one red event a frame (section 7);
+  `red-zero-mixed`.
+- **P2-2, stripes over the window limit alone:** 16-column stripes and the per-stripe and
+  frame-8 assertions (section 9).
+- **P2-3, a 0.094 saturated/far alternation held 54 of 120 frames:** the up test now needs a far
+  state possibly more than 0.2 away, not any far state; never held (section 9).

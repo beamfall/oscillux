@@ -3,8 +3,10 @@
 // sub-blocks: every pixel has its own transition tracker (WCAG 2.x general flash: a change of at
 // least 0.1 relative luminance whose darker side is below 0.8; red flash: a change of at least 20
 // in 320 * max(0, R - G - B) on pixels with R / (R + G + B) >= 0.8, where R, G, B are the
-// linearised channels, as in WCAG's relative-luminance definition). It does not apply WCAG 2.2's
-// working chromaticity rule (a CIE 1976 u'v' change of more than 0.2 from a saturated-red state).
+// linearised channels, as in WCAG's relative-luminance definition; and WCAG 2.1 and 2.2's working
+// chromaticity rule, one state saturated red and the two more than 0.2 apart in CIE 1976 u'v',
+// kept with the limiter's boxes from the same functions: uvStep). A pixel's red direction is the
+// chromaticity rule's when it fires, else the 320 rule's.
 // A direction makes a large-area transition at a frame where some placement of the field window
 // holds more than `fraction` of the window's pixels that made that transition within the coverage
 // interval (1000/15 ms, as the limiter) and after the direction's previous large-area transition.
@@ -28,9 +30,13 @@
 // owed, no saturated state since. Every other pixel keeps its history, and a zero restart reseeds
 // nothing (the limiter's unknown red memory is conservative). Nothing expires during playback.
 // lastRestart reports the latest restart: { seed, reseeded, kept }, filled at its first frame
-// (openspec/changes/limiter-red-expire-black/).
+// (openspec/changes/limiter-red-expire-black/). A black reseed also empties both chromaticity
+// boxes and makes them known, as BLACK_TEXEL does.
+// Red counts one large-area transition a frame: the limiter admits one red direction a frame, and
+// pixels rising and falling at the same frame change together.
 
-import { LUMA_DARK, LUMA_STEP, RED_STEP, blackLongEnough, lumaCode, redCode, redSat } from './limiter-model.mjs';
+import { LUMA_DARK, LUMA_STEP, RED_STEP, UV_FBK, UV_SBK, blackLongEnough, lumaCode, redCode, redSat, uvFirst,
+  uvStep } from './limiter-model.mjs';
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
 // The measures are the limiter's codes (limiter-model.mjs: lumaCode, redCode, redSat), and the
@@ -57,6 +63,11 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // Per pixel: whether the red tracker's latest step counted, and whether a saturated red state
   // was seen since it.
   const redCounted = new Uint8Array(N), anySat = new Uint8Array(N);
+  // Per pixel: the chromaticity boxes as the tracker texel's high halves, their known bits, and the
+  // previous colour.
+  const uvh = [new Uint16Array(N), new Uint16Array(N), new Uint16Array(N), new Uint16Array(N)];
+  const uvk = new Uint16Array(N), prev = new Uint8Array(3 * N), uv = [0, 0, 0, 0, 0];
+  const setUv = j => { for (let k = 0; k < 4; k++) uvh[k][j] = uv[k]; uvk[j] = uv[4]; };
   // Per pixel: the clock at the first frame of its current exact-black run, NaN when not black.
   const blackSince = new Float64Array(N).fill(NaN);
   let pending = null, lastRestart = null;
@@ -192,6 +203,8 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (pending === 'black' && blackLongEnough(clock - blackSince[j])) {
         ext[0][j] = ref[0][j] = 0; ext[1][j] = ref[1][j] = 0; dir[0][j] = dir[1][j] = -1;
         redCounted[j] = 1; anySat[j] = 0;
+        for (let k = 0; k < 4; k++) uvh[k][j] = k === 2 ? 32768 : 0;
+        uvk[j] = UV_SBK | UV_FBK;
         lastRestart.reseeded++;
       } else if (pending !== null) {
         lastRestart.kept++;
@@ -201,10 +214,16 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (!live) {
         ext[0][j] = ref[0][j] = v; ext[1][j] = ref[1][j] = rv; dir[0][j] = dir[1][j] = -1;
         redCounted[j] = 1; anySat[j] = sat ? 1 : 0;
+        uvFirst(r, g, b, uv); setUv(j);
+        prev[3 * j] = r; prev[3 * j + 1] = g; prev[3 * j + 2] = b;
         continue;
       }
       const fl = track(0, j, v);
       if (fl !== 0) { last[fl > 0 ? 0 : 1][j] = clock; firing[j] |= 1; firedNow[0] = true; }
+      const fu = uvStep(uvh[0][j], uvh[1][j], uvh[2][j], uvh[3][j], uvk[j], r, g, b, prev[3 * j], prev[3 * j + 1],
+        prev[3 * j + 2], uv);
+      setUv(j);
+      prev[3 * j] = r; prev[3 * j + 1] = g; prev[3 * j + 2] = b;
       const fr = track(1, j, rv);
       let count = 0;
       if (fr !== 0) {
@@ -215,6 +234,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
         if (!redCounted[j] && sat) { count = dir[1][j]; redCounted[j] = 1; }
         if (sat) anySat[j] = 1;
       }
+      if (fu !== 0) count = fu;
       if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firing[j] |= 2; firedNow[1] = true; }
     }
     live = true;
@@ -228,7 +248,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     // (Codex round 14).
     const more = firedNow[0] || firedNow[1] ? combined() : [null, null];
     const both = [false, false];
-    for (let d = 0; d < 4; d++) if (now[d]) record(d);
+    for (let d = 0; d < 4; d++) if (now[d] && !(d === 3 && now[2])) record(d);
     for (let c = 0; c < 2; c++) {
       both[c] = !now[2 * c] && !now[2 * c + 1] && Boolean(channel[c] || more[c]);
       if (both[c]) record(4 + c);

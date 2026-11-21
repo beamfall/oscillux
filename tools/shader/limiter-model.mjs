@@ -8,10 +8,9 @@
 //      linear channel codes LUMA_LUT[k][3] = round(65535 linear(k / 255)) (256 red codes are
 //      1.25 on WCAG's 320 max(0, R - G - B) scale). Both are linear light, as WCAG 2.x defines
 //      them. The auditor (limiter-audit.mjs) measures with the same codes.
-//      Not modelled: WCAG 2.2's alternative red test (one state saturated red and the two states
-//      more than 0.2 apart in CIE 1976 u'v'). It compares each pixel's own two states through a
-//      nonlinear division and a 2-D distance, which integer codes cannot carry bit for bit
-//      (GLSL ES 3.00 has no 64-bit integers and no correctly rounded float division).
+//      Red chromaticity (WCAG 2.1 and 2.2: one state saturated red and the two states more than
+//      0.2 apart in CIE 1976 u'v') is measured on integer u'v' codes (uvCode, within 2.5e-4) and
+//      two boxes per pixel (uvStep; openspec/changes/limiter-red-uv-chromaticity/design.md).
 //   2. Trackers: every pixel has the auditor's transition tracker on each measure (direction,
 //      extreme and reference: trackStep; luma step 3275 codes, 0.1, with the darker side below 26215, 0.8; red step 15
 //      codes, 20 on the 320 scale; each widened by the codes' measured error over every 8-bit
@@ -52,19 +51,21 @@
 //      blended toward the previous output; a blended change appeared after the token it spent
 //      had refilled: CORE-2543, CORE-2541, openspec/changes/limiter-exact-output/.)
 //
-// Tracker state is packed as the GPU stores it, one RGBA16UI texel per pixel:
+// Tracker state is packed as the GPU stores it, one RGBA32UI texel per pixel. The low 16 bits:
 //   x  luma extreme (15-bit) | RED_MEM_HI;
 //   y  luma distance (12 bits) | LUMA_UP | UNTRACKED | RED_MEM_LO (the red memory: 0 0 unknown,
 //      0 1 counted, 1 1 not counted, 1 0 counted with a saturated state seen, since the red
-//      tracker's latest change); z  red extreme | distance << 8 | RED_UP; w  stamps, 4 bits each
-//      (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the event's unit
-//      (tick >> 4) + 1.
+//      tracker's latest change); z  red extreme | distance << 8 | RED_UP | UV_SBK | UV_FBK; w  stamps,
+//      4 bits each (luma up, luma down << 4, red up << 8, red down << 12), 0 absent, else the
+//      event's unit (tick >> 4) + 1.
+// The high 16 bits hold the chromaticity boxes (uvStep): x SB u min | FB u min << 9, y SB u max |
+// FB u max << 9, z SB v min | FB v min << 8 | UV_MARKER, w SB v max | FB v max << 8.
 // Each tracker has a direction (the way it last fired), its extreme since (peak or trough) and its
 // reference (the level at its last transition), stored as the distance from the extreme, which
-// stays under the step (trackStep). The zero texel is tracked black: falling at 0, red memory
-// unknown. UNTRACKED marks a pixel with no state yet, which takes its first value without firing,
-// as a fall to it.
-//
+// stays under the step (trackStep). The zero texel is tracked black: falling at 0, red memory and
+// chromaticity unknown. UNTRACKED, exactly (0, UNTRACKED, 0, 0), marks a pixel with no state yet,
+// which takes its first value without firing, as a fall to it. Every write sets UV_MARKER; any
+// other texel without it was not stored at 32 bits and fires every direction on a new colour.
 // createLimiter({ width, height, geometry, maxFlashHz, start }).step(rgba8, dt) returns
 //   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, state (the four grant words), track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
@@ -84,14 +85,17 @@ export const LUMA_STEP = 3275, LUMA_DARK = 26215, RED_STEP = 15, NO_DARK = 256;
 // red extreme | distance << 8 | RED_UP. The zero texel is tracked black.
 export const LUMA_MAX = 32767, RED_MAX = 255, RED_MEM_HI = 32768, LUMA_UP = 4096, UNTRACKED = 8192,
   RED_MEM_LO = 32768, RED_UP = 4096;
+// z bits 13 and 14: the saturated and far boxes are known (uvStep); z bit 31: written at 32 bits.
+export const UV_SBK = 8192, UV_FBK = 16384, UV_MARKER = 0x80000000;
 export const TOKEN = 65025;
 // A host that has presented exact (0, 0, 0) black for this long before a restart may start the
 // trackers at BLACK_TEXEL, and the auditor, told of that restart, reseeds every pixel black that
 // long (limiter-audit.mjs `restart`). It is longer than WCAG's one-second window, with 250 ms
 // spare. Nothing expires during playback (openspec/changes/limiter-red-expire-black/).
 export const RED_EXPIRE_MS = 1250;
-/** "Black, nothing owed": luma falling at 0, red at 0, red memory counted (RED_MEM_LO). */
-export const BLACK_TEXEL = [0, RED_MEM_LO, 0, 0];
+/** "Black, nothing owed": luma falling at 0, red at 0, red memory counted (RED_MEM_LO), both
+ * chromaticity boxes known empty, written at 32 bits: (0, 32768, 2147508224, 0). */
+export const BLACK_TEXEL = [0, RED_MEM_LO, (UV_MARKER | UV_SBK | UV_FBK) >>> 0, 0];
 /** The one black threshold host and auditor share. The microsecond absorbs float accumulation
  * (75 frames of 1000/60 ms sum to 1249.9999999999995 ms) and nothing else. */
 export const blackLongEnough = ms => ms >= RED_EXPIRE_MS - 1e-3;
@@ -108,18 +112,63 @@ export const TICK_MS = COVERAGE_MS / 64;
 // over the coverage interval voids them all, so no stamp lives long enough to alias.
 export const TICKS = 240, UNIT_TICKS = 16, UNITS = 15, RECENT_UNITS = 5;
 
+/** The sRGB transfer: linear light of 8-bit display value k. */
+const linear = k => {
+  const c = k / 255;
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+};
 /** Per 8-bit display value k: round(65535 * weight * linear(k / 255)) for the Rec. 709 weights
  * (R, G, B), then the unweighted linear code round(65535 * linear(k / 255)). */
 export const LUMA_LUT = Array.from({ length: 256 }, (_, k) => {
-  const c = k / 255;
-  const lin = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const lin = linear(k);
   return [Math.round(65535 * 0.2126 * lin), Math.round(65535 * 0.7152 * lin), Math.round(65535 * 0.0722 * lin),
     Math.round(65535 * lin)];
 });
+/** Per 8-bit display value k: round(2^24 linear(k / 255)), the chromaticity codes' input (uvCode). */
+export const LIN24_LUT = Int32Array.from({ length: 256 }, (_, k) => Math.round(16777216 * linear(k)));
 const LR = Int32Array.from(LUMA_LUT, v => v[0]);
 const LG = Int32Array.from(LUMA_LUT, v => v[1]);
 const LB = Int32Array.from(LUMA_LUT, v => v[2]);
 const LIN = Int32Array.from(LUMA_LUT, v => v[3]);
+const L24 = LIN24_LUT;
+
+// Red chromaticity (openspec/changes/limiter-red-uv-chromaticity/design.md): CIE 1976 u'v' codes in
+// 2^-14 units, every intermediate under 2^32 so the GLSL legs compute them in uint.
+// UV_X, UV_Y: the IEC 61966-2-1 X and Y rows times 2^14; UV_D: (X + 15 Y + 3 Z) per channel times 2^14.
+export const UV_X = [6757, 5859, 2957], UV_Y = [3483, 11718, 1183], UV_D = [59954, 187485, 67420];
+// The codes of the saturated-red triangle's vertices: (1, 0, 0), (0.8, 0.2, 0), (0.8, 0, 0.2).
+export const UV_VERTS = [[7386, 8567], [5044, 8852], [6396, 7255]];
+// Squared code distances: a step (0.2 less twice the codes' error, so codes over it may be more
+// than 0.2 apart), a definite step (0.2 plus twice the error, so codes over it are), far (some
+// saturated code may be more than a step away) and very far (every saturated code is definitely
+// more than 0.2 away). limiter-uv-check.mjs derives and verifies them over every 8-bit colour.
+export const UV_T = 10683798, UV_TH = 10791225, UV_TF = 10634475, UV_TVF = 12125795;
+// The boxes (uvStep): SB holds saturated codes in 8-code cells from (UV_SU0, UV_SV0), 9 bits of u
+// cell and 8 of v; FB far codes in 64-code cells from (UV_FU0, UV_FV0), 7 bits each. A min is
+// stored as N - cell and a max as cell + 1, so the empty box is 0 and a union is the max.
+export const UV_SU0 = 5044, UV_SV0 = 7254, UV_FU0 = 2048, UV_FV0 = 2587, UV_SNU = 511, UV_SNV = 255, UV_FN = 127;
+/** A non-black colour's u'v' code, (u << 14) | v; -1 for black. */
+export function uvCode(r, g, b) {
+  const s = L24[r] + L24[g] + L24[b];
+  if (s === 0) return -1;
+  let k = 0;
+  while ((s >> k) >= 262144) k++;
+  const cr = L24[r] >> k, cg = L24[g] >> k, cb = L24[b] >> k, s2 = cr + cg + cb;
+  const nr = Math.floor(cr * 16384 / s2), ng = Math.floor(cg * 16384 / s2), nb = Math.floor(cb * 16384 / s2);
+  const X = UV_X[0] * nr + UV_X[1] * ng + UV_X[2] * nb, Y = UV_Y[0] * nr + UV_Y[1] * ng + UV_Y[2] * nb;
+  const q = Math.floor((UV_D[0] * nr + UV_D[1] * ng + UV_D[2] * nb) / 16384);
+  return (Math.floor(4 * X / q) << 14) | Math.floor(9 * Y / q);
+}
+/** Squared distance between two codes. */
+export const uvDist2 = (a, b) => ((a >> 14) - (b >> 14)) ** 2 + ((a & 16383) - (b & 16383)) ** 2;
+const vertCodes = UV_VERTS.map(([u, v]) => (u << 14) | v);
+/** Whether code c may be more than a down step from some saturated code. */
+export const uvFar = c => vertCodes.some(w => uvDist2(c, w) > UV_TF);
+/** Whether code c is more than a down step from every saturated code. */
+export const uvVeryFar = c => vertCodes.every(w => uvDist2(c, w) > UV_TVF);
+/** Saturated red for the chromaticity rule: linear R / (R + G + B) >= 0.8, exact over every 8-bit
+ * colour (never below 0.8 - 1e-12). */
+export const uvSat = (r, g, b) => (r | g | b) !== 0 && L24[r] + 1 >= 4 * (L24[g] + L24[b]);
 
 /** A pixel's luma code: the 16-bit relative luminance halved to 15 bits. */
 export const lumaCode = (r, g, b) => Math.min(65535, LR[r] + LG[g] + LB[b]) >> 1;
@@ -214,6 +263,75 @@ export function redStep(x, y, z, rv, sat, out) {
   const mhi = unknown ? 0 : !counted || seen ? 1 : 0, mlo = unknown ? 0 : seen ? 0 : 1;
   return (count & 3) | (mhi << 2) | (mlo << 3);
 }
+/** Whether a code (u, v) is more than a step from some point of the box [ulo, uhi] x [vlo, vhi]:
+ * from its furthest corner. */
+const uvBoxFar = (u, v, ulo, uhi, vlo, vhi) => Math.max(u - ulo, uhi - u) ** 2 + Math.max(v - vlo, vhi - v) ** 2 > UV_T;
+/** Whether a code (u, v) is more than a definite step from every point of one of the box's edge
+ * strips, k codes wide (its cell): each strip holds a code the box was built from, so that code
+ * and (u, v) are more than 0.2 apart. */
+function uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, k) {
+  const d = (lo, hi, p) => Math.max(0, lo - p, p - hi);
+  const over = (u0, u1, v0, v1) => d(u0, u1, u) ** 2 + d(v0, v1, v) ** 2 > UV_TH;
+  return over(ulo, ulo + k - 1, vlo, vhi) || over(uhi - k + 1, uhi, vlo, vhi) ||
+    over(ulo, uhi, vlo, vlo + k - 1) || over(ulo, uhi, vhi - k + 1, vhi);
+}
+/** The chromaticity step for colour (r, g, b) after the previous output (pr, pg, pb), on the
+ * texel's high halves (xh, yh, zh, wh) and known bits kb (z & (UV_SBK | UV_FBK)): writes the new
+ * halves (zh with UV_MARKER) to out[0..3] and known bits to out[4], and returns 1 up, -1 down, 0
+ * none. SB is the box of the saturated codes shown since the last definite down, FB of the far
+ * codes since the last definite up; each is known (its bit set: it holds every such code) or
+ * unknown (a zero seed: earlier ones were lost). Only a colour other than the previous output
+ * fires. A saturated colour fires up when FB is unknown or has a point more than a step from it;
+ * another non-black colour fires down when SB is known and has such a point, or is unknown and
+ * the colour far. A definite fire (a strip of the box, or with SB unknown a very-far colour, more
+ * than 0.2 away) empties the box and makes it known; a fire that may not be over 0.2 keeps it.
+ * Then the colour joins SB if saturated and FB if far. Black changes nothing (design.md, section
+ * 4). */
+export function uvStep(xh, yh, zh, wh, kb, r, g, b, pr, pg, pb, out) {
+  let su0 = xh & 511, su1 = yh & 511, sv0 = zh & 255, sv1 = wh & 255;
+  let fu0 = xh >>> 9, fu1 = yh >>> 9, fv0 = (zh >>> 8) & 127, fv1 = (wh >>> 8) & 127;
+  let sbk = (kb & UV_SBK) !== 0, fbk = (kb & UV_FBK) !== 0, dir = 0;
+  if ((r | g | b) !== 0) {
+    const c = uvCode(r, g, b), u = c >> 14, v = c & 16383, sat = uvSat(r, g, b);
+    if (r !== pr || g !== pg || b !== pb) {
+      if (sat) {
+        const ulo = UV_FU0 + 64 * (UV_FN - fu0), uhi = UV_FU0 + 64 * fu1 - 1;
+        const vlo = UV_FV0 + 64 * (UV_FN - fv0), vhi = UV_FV0 + 64 * fv1 - 1;
+        const def = fu1 > 0 && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 64);
+        if (def || !fbk || (fu1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi))) dir = 1;
+        if (def) { fu0 = fu1 = fv0 = fv1 = 0; fbk = true; }
+      } else {
+        const ulo = UV_SU0 + 8 * (UV_SNU - su0), uhi = UV_SU0 + 8 * su1 - 1;
+        const vlo = UV_SV0 + 8 * (UV_SNV - sv0), vhi = UV_SV0 + 8 * sv1 - 1;
+        const def = (su1 > 0 && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 8)) || (!sbk && uvVeryFar(c));
+        if (def || (sbk ? su1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi) : uvFar(c))) dir = -1;
+        if (def) { su0 = su1 = sv0 = sv1 = 0; sbk = true; }
+      }
+    }
+    if (sat) {
+      const iu = (u - UV_SU0) >> 3, iv = (v - UV_SV0) >> 3;
+      su0 = Math.max(su0, UV_SNU - iu); su1 = Math.max(su1, iu + 1);
+      sv0 = Math.max(sv0, UV_SNV - iv); sv1 = Math.max(sv1, iv + 1);
+    }
+    if (uvFar(c)) {
+      const iu = (u - UV_FU0) >> 6, iv = (v - UV_FV0) >> 6;
+      fu0 = Math.max(fu0, UV_FN - iu); fu1 = Math.max(fu1, iu + 1);
+      fv0 = Math.max(fv0, UV_FN - iv); fv1 = Math.max(fv1, iv + 1);
+    }
+  }
+  out[0] = su0 | (fu0 << 9); out[1] = su1 | (fu1 << 9); out[2] = sv0 | (fv0 << 8) | 32768; out[3] = sv1 | (fv1 << 8);
+  out[4] = (sbk ? UV_SBK : 0) | (fbk ? UV_FBK : 0);
+  return dir;
+}
+/** A pixel's first chromaticity state from colour (r, g, b): both boxes known, holding the colour
+ * where it is saturated or far. Writes as uvStep does. */
+export function uvFirst(r, g, b, out) {
+  uvStep(0, 0, 0, 0, UV_SBK | UV_FBK, r, g, b, r, g, b, out);
+}
+/** Whether a texel is the UNTRACKED seed, and whether it was written at 32 bits (UV_MARKER) or is
+ * the zero texel. */
+export const untracked = (x, y, z, w) => x === 0 && y === UNTRACKED && z === 0 && w === 0;
+export const texelValid = (x, y, z, w) => (z & UV_MARKER) !== 0 || (x | y | z | w) === 0;
 /** The tracker texel a limiter start clears every pixel to. */
 export function startTexel(start) {
   if (start === 'untracked') return [0, UNTRACKED, 0, 0];
@@ -222,6 +340,19 @@ export function startTexel(start) {
   throw new Error(`limiter: unknown start ${start}`);
 }
 const redCount = r => ((r & 3) === 3 ? -1 : r & 3);
+const ftmp = [0, 0, 0], fuv = [0, 0, 0, 0, 0];
+/** Directions (bit d) a tracker texel (x, y, z, w) fires in on colour (r, g, b) after the previous
+ * output (pr, pg, pb): 0 for a pixel with no state, and every direction on a colour other than the
+ * previous output for a texel not written at 32 bits. The red direction is the chromaticity
+ * step's when it fires, else the 320 rule's. */
+export function texelFires(x, y, z, w, r, g, b, pr, pg, pb) {
+  if (untracked(x, y, z, w)) return 0;
+  if (!texelValid(x, y, z, w)) return r !== pr || g !== pg || b !== pb ? 15 : 0;
+  const fl = lumaStep(x, y, lumaCode(r, g, b), ftmp);
+  const fu = uvStep(x >>> 16, y >>> 16, z >>> 16, w >>> 16, z & (UV_SBK | UV_FBK), r, g, b, pr, pg, pb, fuv);
+  const fr = fu || redCount(redStep(x, y, z, redCode(r, g, b), redSat(r, g, b), ftmp));
+  return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
+}
 
 /** Whether stamp s (4 bits) is recent at unit u. */
 export function recent(s, u, deltaMs) {
@@ -259,8 +390,8 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const N = W * H;
   let win = windowOf(geometry, W, H);
   const clock = createClock(maxFlashHz);
-  // Packed tracker state per pixel (RGBA16UI), cleared to the start texel.
-  const track = new Uint16Array(N * 4);
+  // Packed tracker state per pixel (RGBA32UI), cleared to the start texel.
+  const track = new Uint32Array(N * 4);
   const seed = startTexel(start);
   for (let p = 0; p < N; p++) track.set(seed, 4 * p);
   const req = new Uint8Array(BLOCKS);
@@ -269,6 +400,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const area = new Int32Array(CELLS);
   let lastRedDown = false;
   const tmp = [0, 0, 0];
+  const uv = [0, 0, 0, 0, 0];
   const shown = [0, 0, 0];
   // A host writes the grant state fully spent at every start (shaders/limiter/README.md, "Ping-pong
   // and reset"), so a reseed after a short black cannot pay a red change at once (Codex code
@@ -279,19 +411,16 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   let redCarry = 0;
   const bufs = [new Uint8Array(N * 4), new Uint8Array(N * 4)];
   let flip = 0;
+  // The previous output, which a chromaticity direction needs a colour other than to fire.
+  let hist = bufs[0];
   const colBlock = Int32Array.from({ length: W }, (_, x) => blockOf(x, W, BLOCKS_X));
   const rowBlock = Int32Array.from({ length: H }, (_, y) => blockOf(y, H, BLOCKS_Y));
 
-  // Directions (bit d) the pixel's trackers fire in on value (v, rv, sat); 0 for a pixel with no state.
-  function fires(q, v, rv, sat) {
-    if (track[q + 1] & UNTRACKED) return 0;
-    const fl = lumaStep(track[q], track[q + 1], v, tmp);
-    const fr = redCount(redStep(track[q], track[q + 1], track[q + 2], rv, sat, tmp));
-    return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
-  }
+  // Directions (bit d) the pixel's trackers fire in on colour (r, g, b) (texelFires).
+  const fires = (q, r, g, b) => texelFires(track[q], track[q + 1], track[q + 2], track[q + 3], r, g, b, hist[q], hist[q + 1], hist[q + 2]);
 
   // Whether the pixel's trackers fire on (r, g, b) in no direction outside `allowed`.
-  const safe = (q, allowed, r, g, b) => !(fires(q, lumaCode(r, g, b), redCode(r, g, b), redSat(r, g, b)) & ~allowed & 15);
+  const safe = (q, allowed, r, g, b) => !(fires(q, r, g, b) & ~allowed & 15);
 
   // The step nearest colour b (three bytes each), of those searched (nearStep) along the mix from
   // colour a, at which the pixel is safe, into shown. a is safe (step 0), so the result always is.
@@ -385,13 +514,14 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     const { tick, deltaMs, refill } = clock(dt);
     const unit = tick >> 4;
     const requests = [0, 0, 0, 0];
+    hist = bufs[flip];
     req.fill(0);
     area.fill(0);
     for (let y = 0; y < H; y++) {
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p, k = by * BLOCKS_X + colBlock[x];
-        const now = fires(i, lumaCode(px[i], px[i + 1], px[i + 2]), redCode(px[i], px[i + 1], px[i + 2]), redSat(px[i], px[i + 1], px[i + 2]));
+        const now = fires(i, px[i], px[i + 1], px[i + 2]);
         const st = track[i + 3];
         let rec = 0;
         for (let d = 0; d < 4; d++) rec |= recent((st >> (4 * d)) & 15, unit, deltaMs) ? 1 << d : 0;
@@ -475,7 +605,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       for (let x = 0, p = y * W; x < W; x++, p++) {
         const i = 4 * p;
         let r = px[i], g = px[i + 1], b = px[i + 2];
-        const now = holdMask[by * BLOCKS_X + colBlock[x]] ? fires(i, lumaCode(r, g, b), redCode(r, g, b), redSat(r, g, b)) : 0;
+        const now = holdMask[by * BLOCKS_X + colBlock[x]] ? fires(i, r, g, b) : 0;
         if (now & ~grant & 15) {
           held++;
           dim(i, now & grant, px, history);
@@ -483,18 +613,26 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         }
         out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
         const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
-        const x0 = track[i], y0 = track[i + 1];
-        const st = track[i + 3];
-        if (y0 & UNTRACKED) {
-          track[i] = v | (sat ? RED_MEM_HI : 0); track[i + 1] = sat ? 0 : RED_MEM_LO; track[i + 2] = rv; track[i + 3] = 0;
+        let x0 = track[i], y0 = track[i + 1], z0 = track[i + 2], w0 = track[i + 3];
+        if (untracked(x0, y0, z0, w0)) {
+          // The first value: both boxes known, holding it where it is saturated or far.
+          uvFirst(r, g, b, uv);
+          track[i] = (v | (sat ? RED_MEM_HI : 0) | (uv[0] << 16)) >>> 0;
+          track[i + 1] = ((sat ? 0 : RED_MEM_LO) | (uv[1] << 16)) >>> 0;
+          track[i + 2] = (rv | uv[4] | (uv[2] << 16)) >>> 0; track[i + 3] = (uv[3] << 16) >>> 0;
           continue;
         }
-        const r3 = redStep(x0, y0, track[i + 2], rv, sat, tmp);
-        const fr = redCount(r3);
-        track[i + 2] = tmp[0];
+        // A texel not written at 32 bits steps as the zero texel.
+        if (!texelValid(x0, y0, z0, w0)) x0 = y0 = z0 = w0 = 0;
+        const st = w0 & 65535;
+        const fu = uvStep(x0 >>> 16, y0 >>> 16, z0 >>> 16, w0 >>> 16, z0 & (UV_SBK | UV_FBK), r, g, b,
+          history[i], history[i + 1], history[i + 2], uv);
+        const r3 = redStep(x0, y0, z0, rv, sat, tmp);
+        const fr = fu || redCount(r3);
+        track[i + 2] = (tmp[0] | uv[4] | (uv[2] << 16)) >>> 0;
         const fl = lumaStep(x0, y0, v, tmp);
-        track[i] = tmp[0] | (r3 & 4 ? RED_MEM_HI : 0);
-        track[i + 1] = tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? RED_MEM_LO : 0);
+        track[i] = (tmp[0] | (r3 & 4 ? RED_MEM_HI : 0) | (uv[0] << 16)) >>> 0;
+        track[i + 1] = (tmp[1] | (tmp[2] ? LUMA_UP : 0) | (r3 & 8 ? RED_MEM_LO : 0) | (uv[1] << 16)) >>> 0;
         const f = (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
         let ns = 0;
         for (let d = 0; d < 4; d++) {
@@ -503,7 +641,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
           ns |= keep << (4 * d);
           fired[d] += (f >> d) & 1;
         }
-        track[i + 3] = ns;
+        track[i + 3] = (ns | (uv[3] << 16)) >>> 0;
       }
     }
     // The grant state as the grant pass writes it (grant.glsl): every word is in the vectors, so a

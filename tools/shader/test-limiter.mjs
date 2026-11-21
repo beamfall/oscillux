@@ -519,12 +519,8 @@ test('a pixel that is not held shows the input, and a held strobe one grey', () 
 
 // limiter-dim-hold. The directions a packed tracker (four words at q) fires in on a colour, as the
 // model's output pass computes them.
-function firesOn(track, q, r, g, b) {
-  if (track[q + 1] & model.UNTRACKED) return 0;
-  const tmp = [0, 0, 0];
-  const fl = model.lumaStep(track[q], track[q + 1], model.lumaCode(r, g, b), tmp);
-  const rr = model.redStep(track[q], track[q + 1], track[q + 2], model.redCode(r, g, b), model.redSat(r, g, b), tmp) & 3;
-  return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (rr === 1 ? 4 : 0) | (rr === 3 ? 8 : 0);
+function firesOn(track, q, r, g, b, hist) {
+  return model.texelFires(track[q], track[q + 1], track[q + 2], track[q + 3], r, g, b, hist[q], hist[q + 1], hist[q + 2]);
 }
 
 // The bound, per pixel and by construction: on every frame a pixel's trackers fire on the output
@@ -538,15 +534,15 @@ for (const [name, spec] of [
 ]) {
   test(`a held pixel fires only what the input fires and the grant admitted: ${name}`, () => {
     const lim = model.createLimiter({ width: W, height: H });
-    const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4);
+    const px = new Uint8Array(W * H * 4), before = new Uint32Array(W * H * 4), prev = new Uint8Array(W * H * 4);
     let held = 0, moved = 0;
     for (let t = 0; t < 150; t++) {
       renderSignal(spec, t, W, H, px);
       const r = lim.step(px, DT);
       if (t > 0) {
         for (let q = 0; q < W * H * 4; q += 4) {
-          const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2]);
-          const shown = firesOn(before, q, r.out[q], r.out[q + 1], r.out[q + 2]);
+          const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2], prev);
+          const shown = firesOn(before, q, r.out[q], r.out[q + 1], r.out[q + 2], prev);
           assert.equal(shown & ~(asked & r.grant), 0, `frame ${t}: pixel ${q / 4} fires ${shown}, input ${asked}, grant ${r.grant & 15}`);
           if (asked & ~r.grant & 15) held++;
           else for (let ch = 0; ch < 3; ch++) assert.equal(r.out[q + ch], px[q + ch], `frame ${t}: pixel ${q / 4} is not held and does not show the input`);
@@ -554,6 +550,7 @@ for (const [name, spec] of [
         moved += r.held;
       }
       before.set(r.track);
+      prev.set(r.out);
     }
     assert.ok(held > 0, 'nothing was held');
     assert.equal(held, moved, 'the held count is the pixels that would fire outside the grant');
@@ -569,7 +566,7 @@ for (const [name, spec] of [
 test('a denied rise shows the input dimmed and a denied fall dims to a step below its peak', () => {
   const lim = model.createLimiter({ width: W, height: H });
   const audit = createAuditor({ width: W, height: H });
-  const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const px = new Uint8Array(W * H * 4), before = new Uint32Array(W * H * 4), prev = new Uint8Array(W * H * 4);
   const BAR = [120, 200, 255];
   const scale = (c, k) => Math.floor((c * k + 127) / 255);
   const mix = (a, b, k) => (a * (256 - k) + b * k + 128) >> 8;
@@ -590,7 +587,7 @@ test('a denied rise shows the input dimmed and a denied fall dims to a step belo
     audit.push(r.out, DT);
     if (t > 0) {
       for (let q = 0; q < W * H * 4; q += 4) {
-        const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2]);
+        const asked = firesOn(before, q, px[q], px[q + 1], px[q + 2], prev);
         const denied = asked & ~r.grant & 15;
         if (!denied) continue;
         const o = [r.out[q], r.out[q + 1], r.out[q + 2]];
@@ -648,7 +645,7 @@ test('a denied rise shows the input dimmed and a denied fall dims to a step belo
 // nearer the glow's luma than the top of its band, and the line leaves little trace where it is.
 test('a denied rise over a lit background keeps the background hue and stays near it', () => {
   const lim = model.createLimiter({ width: W, height: H });
-  const px = new Uint8Array(W * H * 4), before = new Uint16Array(W * H * 4), prev = new Uint8Array(W * H * 4);
+  const px = new Uint8Array(W * H * 4), before = new Uint32Array(W * H * 4), prev = new Uint8Array(W * H * 4);
   const GLOW = [34, 84, 86], LINE = [235, 240, 238];
   const spread = c => Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
   let kept = 0;
@@ -663,7 +660,7 @@ test('a denied rise over a lit background keeps the background hue and stays nea
     const r = lim.step(px, DT);
     if (t > 0) {
       for (let q = 0; q < W * H * 4; q += 4) {
-        if (!(firesOn(before, q, px[q], px[q + 1], px[q + 2]) & ~r.grant & 1)) continue;
+        if (!(firesOn(before, q, px[q], px[q + 1], px[q + 2], prev) & ~r.grant & 1)) continue;
         if (prev[q] !== GLOW[0] || prev[q + 1] !== GLOW[1] || prev[q + 2] !== GLOW[2]) continue;
         const o = [r.out[q], r.out[q + 1], r.out[q + 2]];
         const ext = before[q] & model.LUMA_MAX, dist = before[q + 1] & 4095, up = (before[q + 1] & model.LUMA_UP) !== 0;
@@ -699,15 +696,15 @@ for (const [name, from, to, want] of [
   test(`a held pixel's search does not stop at the first crossing: ${name}`, () => {
     const width = 64, height = 36;
     const lim = model.createLimiter({ width, height });
-    const px = new Uint8Array(width * height * 4), before = new Uint16Array(width * height * 4);
-    let r;
+    const px = new Uint8Array(width * height * 4), before = new Uint32Array(width * height * 4);
+    let r, prev = new Uint8Array(width * height * 4);
     for (const c of [BLACK, from, to]) {
-      if (r) before.set(r.track);
+      if (r) { before.set(r.track); prev = r.out.slice(); }
       renderSignal({ kind: 'solid', color: c }, 0, width, height, px);
       r = lim.step(px, DT);
     }
     assert.equal(r.held, width * height, 'the frame is not held');
-    const asked = firesOn(before, 0, to[0], to[1], to[2]), shown = firesOn(before, 0, r.out[0], r.out[1], r.out[2]);
+    const asked = firesOn(before, 0, to[0], to[1], to[2], prev), shown = firesOn(before, 0, r.out[0], r.out[1], r.out[2], prev);
     assert.equal(shown & ~(asked & r.grant), 0, `the output fires ${shown}, input ${asked}, grant ${r.grant & 15}`);
     assert.deepEqual([r.out[0], r.out[1], r.out[2]], want);
   });
@@ -1259,8 +1256,8 @@ function auditRuns(runs, { at, seed = 'black', restart = true, w = 64, h = 36 } 
 test('the start texels and the shared black thresholds (CORE-2869)', () => {
   assert.deepEqual(model.startTexel('untracked'), [0, 8192, 0, 0]);
   assert.deepEqual(model.startTexel('zero'), [0, 0, 0, 0]);
-  assert.deepEqual(model.startTexel('black'), [0, 32768, 0, 0]);
-  assert.deepEqual(model.BLACK_TEXEL, [0, 32768, 0, 0]);
+  assert.deepEqual(model.startTexel('black'), [0, 32768, 2147508224, 0]);
+  assert.deepEqual(model.BLACK_TEXEL, [0, 32768, 2147508224, 0]);
   assert.equal(model.RED_EXPIRE_MS, 1250);
   assert.throws(() => model.startTexel('grey'));
   // The auditor's clock: 75 intervals of 1000/60 ms accumulated from 1234 ms are 1250 ms.
@@ -1409,6 +1406,115 @@ test('the Codex design round 1 and 2 sequences drop only a straddling pair (CORE
   const r2 = [[1, BLACK], [1, FAINT_RED], [75, BLACK], [1, BLACK], [1, ORANGE]];
   assert.deepEqual(red(auditRuns(r2, { at: 77 })), [[], [], []], 'round 2, restarted');
   assert.deepEqual(red(auditRuns(r2, { restart: false })), [[78], [], []], 'round 2, never restarted');
+});
+
+// limiter-red-uv-chromaticity (CORE-2935): red transitions by the WCAG 2.1/2.2 u'v' rule.
+/** One vector case through the model, with input and output auditors told of its restart; `signal`
+ * replaces the case's (one stripe alone); `track` keeps every frame's tracker and output. */
+function runCase(name, { signal, keep } = {}) {
+  const c = VECTOR_CASES.find(k => k.name === name);
+  const w = c.width || W, h = c.height || H;
+  let lim = model.createLimiter({ width: w, height: h });
+  const input = createAuditor({ width: w, height: h }), output = createAuditor({ width: w, height: h });
+  const px = new Uint8Array(w * h * 4), held = [], frames = [];
+  for (let t = 0; t < c.frames; t++) {
+    if (t === c.reset?.at) {
+      lim = model.createLimiter({ width: w, height: h, start: c.reset.seed });
+      input.restart(c.reset.seed); output.restart(c.reset.seed);
+    }
+    renderSignal(signal || c.signal, t, w, h, px);
+    const r = lim.step(px, DT);
+    held.push(r.held);
+    input.push(px, DT);
+    output.push(r.out, DT);
+    if (keep) frames.push({ px: px.slice(), out: r.out.slice(), track: r.track.slice() });
+  }
+  return { input, output, held, frames, w, h, n: w * h };
+}
+const redIn = a => a.maxPerWindow('red');
+
+for (const [name, least] of [['red-green-dim-10hz', 18], ['red-blue-10hz', 18], ['red-mask-10hz', 18], ['red-flash-5hz-half', 9], ['red-extremum', 3], ['red-early-band', 3], ['red-stagger', 2]]) {
+  test(`u'v': ${name} shows >= ${least} red transitions a second in the input and <= 1 in the output`, () => {
+    const { input, output } = runCase(name);
+    assert.ok(redIn(input) >= least, `the input shows ${redIn(input)} red per 1 s`);
+    assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+  });
+}
+
+test(`u'v': dim red on black is no red transition and is never held`, () => {
+  const { input, output, held } = runCase('red-black-dim-10hz');
+  assert.equal(redCount(input) + redCount(output), 0);
+  assert.equal(held.reduce((a, b) => a + b, 0), 0);
+});
+
+// Codex design round 1 (widened memory) P2-2: each stripe or patch alone is under the limiter
+// window's limit, so only the two together hold; both stripes ask red down at frame 8 and not at
+// the intermediate frames 1 and 7 (P1-a), both patches at frame 17 (P1-1, P1-2).
+for (const [name, at, quiet] of [['red-stagger', 8, [1, 7]], ['red-extremum', 17, [1, 16]], ['red-early-band', 17, []]]) {
+  test(`u'v': ${name} holds only both patches together, which ask red down at frame ${at}`, () => {
+    const c = VECTOR_CASES.find(k => k.name === name);
+    for (const band of c.signal.bands) {
+      const { held } = runCase(name, { signal: { ...c.signal, bands: [band] } });
+      assert.equal(held.reduce((a, b) => a + b, 0), 0, `one patch alone is held`);
+    }
+    const { frames, w, h } = runCase(name, { keep: true });
+    const downs = t => {
+      const { track } = frames[t - 1], hist = frames[t - 1].out, { px } = frames[t];
+      const per = c.signal.bands.map(() => 0);
+      for (let q = 0; q < w * h * 4; q += 4) {
+        if (!(firesOn(track, q, px[q], px[q + 1], px[q + 2], hist) & 8)) continue;
+        const x = (q / 4) % w, y = Math.floor(q / 4 / w);
+        c.signal.bands.forEach((b, k) => { if (x >= Math.floor(b.rect[0] * w) && x < Math.floor(b.rect[2] * w) && y >= Math.floor(b.rect[1] * h) && y < Math.floor(b.rect[3] * h)) per[k]++; });
+      }
+      return per;
+    };
+    const area = c.signal.bands.map(b => (Math.floor(b.rect[2] * w) - Math.floor(b.rect[0] * w)) * (Math.floor(b.rect[3] * h) - Math.floor(b.rect[1] * h)));
+    assert.deepEqual(downs(at), area, `frame ${at}: the patches' red-down pixels`);
+    for (const t of quiet) assert.deepEqual(downs(t), area.map(() => 0), `frame ${t}: an intermediate state asks red down`);
+  });
+}
+
+test(`u'v': a constant (1, 0, 0) after a zero start shows from the first red grant on (P1-b)`, () => {
+  const { frames, held } = runCase('red-zero-constant', { keep: true });
+  const first = held.findIndex((n, t) => t > 20 && n === 0);
+  assert.ok(first > 20 && first < 120, `held until ${first}`);
+  for (let t = first; t < frames.length; t++) {
+    assert.equal(held[t], 0, `frame ${t} is held`);
+    assert.ok(frames[t].out.every((v, i) => v === frames[t].px[i]), `frame ${t} is not the input`);
+  }
+});
+
+test(`u'v': one red grant after a mixed history and a zero restart counts once (P2-1)`, () => {
+  const { output } = runCase('red-zero-mixed');
+  assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+});
+
+test(`u'v': saturated (60, 25, 0) and (60, 50, 0), 0.094 apart, are never held (P2-3)`, () => {
+  const S1 = [60, 25, 0], C1 = [60, 50, 0];
+  const runs = [[1, BLACK], [120, S1], ...Array.from({ length: 40 }, (_, i) => [3, i % 2 ? S1 : C1])];
+  let lim = model.createLimiter({ width: 64, height: 36, start: 'black' });
+  const px = new Uint8Array(64 * 36 * 4);
+  let held = 0;
+  for (let t = 0; t < 241; t++) {
+    renderSignal({ kind: 'runs', runs }, t, 64, 36, px);
+    held += lim.step(px, DT).held;
+  }
+  assert.equal(held, 0);
+});
+
+test(`u'v': black keeps the chromaticity memory`, () => {
+  const a = auditRuns([[1, RED], [90, BLACK], [1, [0, 255, 0]]], { restart: false });
+  assert.deepEqual([a.transitions[2], a.transitions[3]], [[], [1, 91]]);
+});
+
+test(`u'v': the 32-bit marker and the RGBA16UI clamp (P1-3)`, () => {
+  const [x, y, z, w] = model.BLACK_TEXEL;
+  assert.ok(model.texelValid(x, y, z, w) && model.texelValid(0, 0, 0, 0));
+  // A clamped RGBA16UI write: every word 65535 or its low half.
+  assert.ok(!model.texelValid(65535, 65535, 65535, 65535));
+  assert.ok(!model.untracked(0, 65535, 0, 0), 'a clamped y reads as UNTRACKED');
+  assert.equal(model.texelFires(65535, 65535, 65535, 65535, 255, 0, 0, 5, 0, 0), 15);
+  assert.equal(model.texelFires(65535, 65535, 65535, 65535, 5, 0, 0, 5, 0, 0), 0);
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

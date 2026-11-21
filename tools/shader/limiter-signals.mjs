@@ -20,6 +20,9 @@
 //       one-pixel-column stripes: columns with x % every < width show `on` in the first half
 //       period and `off` in the second; the rest show `bg`. Unlike `checker`, nothing in a
 //       sub-block moves the other way, so its mean moves by the stripes' share of the change.
+//   { kind: 'bands', period, bands: [{ rect, keys: [[from, color], ...] }, ...], bg }
+//       each band's rect shows, at frame t, the color of its last key with from <= t % period,
+//       over a `bg` frame: patches whose colour changes are staggered in time.
 
 export function renderSignal(spec, t, W, H, out) {
   const fill = (x0, y0, x1, y1, c) => {
@@ -70,6 +73,15 @@ export function renderSignal(spec, t, W, H, out) {
         const k = x % spec.every < spec.width ? c : spec.bg;
         out[i] = k[0]; out[i + 1] = k[1]; out[i + 2] = k[2]; out[i + 3] = 255;
       }
+    }
+  } else if (spec.kind === 'bands') {
+    fill(0, 0, W, H, spec.bg);
+    const p = t % spec.period;
+    for (const band of spec.bands) {
+      let c = band.keys[0][1];
+      for (const [from, k] of band.keys) if (p >= from) c = k;
+      const r = band.rect;
+      fill(Math.floor(r[0] * W), Math.floor(r[1] * H), Math.floor(r[2] * W), Math.floor(r[3] * H), c);
     }
   } else {
     throw new Error(`renderSignal: unknown kind ${spec.kind}`);

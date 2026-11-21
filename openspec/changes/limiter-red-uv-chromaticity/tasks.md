@@ -5,15 +5,16 @@
 
 - [x] 1.1 Zone design and Codex design round 1: HOLD on P1-a and P1-b
 - [x] 1.2 Owner decision 2026-11-21: "Widen limiter memory"
-- [ ] 1.3 Rewrite the proposal, the design (integer codes, thresholds, per-pixel reference, merged
+- [x] 1.3 Last-saturated reference and Codex round 1: HOLD on P1-1, P1-2, P1-3
+- [x] 1.4 Rewrite the proposal, the design (codes, thresholds, saturated and far boxes, merged
       direction, RGBA32UI texel and host contract, auditor, vectors) and the spec delta
-- [ ] 1.4 Codex design review: no P1 or P2 left, in at most two delta rounds
+- [ ] 1.5 Codex design round 2 (the last): no P1 or P2 left
 
 ## 2. Model, auditor and legs
 
-- [ ] 2.1 `limiter-model.mjs`: `LIN24`, `uvCode`, `s24`, the far tests and thresholds, the
-      reference step, the merged direction, a `Uint32Array` tracker, `BLACK_TEXEL`, the header
-- [ ] 2.2 `limiter-audit.mjs`: the reference per pixel and the merged count
+- [x] 2.1 `limiter-model.mjs`: `LIN24`, `uvCode`, `s24`, the far tests and thresholds, the box
+      step, the marker and validity, the merged direction, a `Uint32Array` tracker, `BLACK_TEXEL`
+- [x] 2.2 `limiter-audit.mjs`: the boxes per pixel, one red event a frame
 - [ ] 2.3 `shaders/limiter/common.glsl`, `output.glsl`, `rows.glsl`; `LIN24_LUT` in the generated
       `luma-lut.glsl`; RGBA32UI tracker textures in `limiter.mjs`, `limiter-check.mjs` and
       `limiter-metal.swift`
@@ -22,13 +23,13 @@
 
 ## 3. Conformance
 
-- [ ] 3.1 `limiter-signals.mjs`: the `bands` signal
-- [ ] 3.2 `limiter-vectors.mjs`: four-byte tracker digest; cases `red-green-dim-10hz`,
-      `red-blue-10hz`, `red-mask-10hz`, `red-black-dim-10hz`, `red-stagger`,
-      `red-zero-constant`
-- [ ] 3.3 Diff the new model's frames against the committed vectors and list each change
-- [ ] 3.4 `test-limiter.mjs`: the new cases' input and output counts, the starts, black keeps
-      the reference
+- [x] 3.1 `limiter-signals.mjs`: the `bands` signal
+- [x] 3.2 `limiter-vectors.mjs`: four-byte tracker digest; cases `red-green-dim-10hz`,
+      `red-blue-10hz`, `red-mask-10hz`, `red-black-dim-10hz`, `red-flash-5hz-half`,
+      `red-stagger`, `red-extremum`, `red-early-band`, `red-zero-constant`, `red-zero-mixed`
+- [x] 3.3 Diff the new model's frames against the committed vectors and list each change
+- [x] 3.4 `test-limiter.mjs`: the new cases' input and output counts, per-patch holds and
+      crossing frames, the starts, black keeps the boxes, the marker
 - [ ] 3.5 `limiter-check.mjs` on the GLSL leg and `--metal`
 
 ## 4. Visuals

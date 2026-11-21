@@ -4,7 +4,7 @@
 // Per frame the vector keeps the hold mask (run lengths over the 64 x 36 sub-blocks in row order,
 // starting with a run of not-held; "=" when unchanged from the previous frame), the four grant
 // state words as grant.glsl writes them, the FNV-1a digest of the output bytes, and
-// the FNV-1a digest of the packed tracker state (RGBA16UI per pixel, little-endian bytes).
+// the FNV-1a digest of the packed tracker state (RGBA32UI per pixel, little-endian bytes).
 // A case with `reset: { at, seed }` starts a new limiter at frame `at`, as a host restarts one after
 // a Frame change: trackers cleared to the seed (limiter-model.mjs startTexel), the grant fully
 // spent, the clock restarted (shaders/limiter/README.md, "Ping-pong and reset"). An auditor reading
@@ -22,6 +22,21 @@ export const VECTORS_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 
 export const DT = 1 / 60;
 const W = [255, 255, 255], K = [0, 0, 0], G = [128, 128, 128], RED = [255, 0, 0];
 const ORANGE = [110, 64, 0], FAINT_RED = [5, 0, 0], NEAR_RED = [1, 0, 0], DIM_RED = [60, 0, 0], RED_90 = [90, 0, 0];
+
+// red-stagger: A (60, 0, 18) saturated, B (35, 0, 32) 0.165 from A, C (0, 0, 60) 0.397 from A, at
+// 2.5 Hz. Each 16-column stripe puts 1280 pixels in a 140 x 80 limiter window (limit 1605); the
+// two put 1920 in a 107 x 60 field.
+const UV_A = [60, 0, 18], UV_B = [35, 0, 32], UV_C = [0, 0, 60];
+export const STAGGER = { kind: 'bands', period: 24, bg: K, bands: [
+  { rect: [0.4, 0, 0.45, 1], keys: [[0, UV_A], [1, UV_B], [8, UV_C], [9, UV_B], [16, UV_A]] },
+  { rect: [0.45, 0, 0.5, 1], keys: [[0, UV_A], [7, UV_B], [8, UV_C], [9, UV_B], [10, UV_A]] }] };
+// red-extremum and red-early-band: A (60, 0, 0), S (60, 25, 0) saturated and 0.094 from C
+// (60, 50, 0), C 0.226 from A; M (61, 42, 0) 0.1996 from A, its codes over the down step. Two
+// adjoining 8 x 5 patches (40 pixels each, limit 63) in one 21 x 12 field, a 34-frame cycle.
+const UV_S = [60, 25, 0], UV_M = [61, 42, 0], UV_CC = [60, 50, 0];
+export const extremum = out => ({ kind: 'bands', period: 34, bg: K, bands: [
+  { rect: [0.3125, 0.25, 0.4375, 0.4], keys: [[0, DIM_RED], [1, out], [17, UV_CC], [33, UV_S]] },
+  { rect: [0.4375, 0.25, 0.5625, 0.4], keys: [[0, DIM_RED], [16, out], [17, UV_CC], [18, UV_S]] }] });
 
 export const CASES = [
   { name: 'steady-gradient', frames: 60, signal: { kind: 'gradient' } },
@@ -71,6 +86,26 @@ export const CASES = [
   { name: 'black-start-sat-orange', frames: 540, width: 64, height: 36, reset: { at: 76, seed: 'black' }, signal: { kind: 'runs', runs: [[176, K], [100, DIM_RED], [100, K], [100, ORANGE], [1, RED_90], [1, K]] } },
   { name: 'black-start-faint-red', frames: 400, width: 64, height: 36, reset: { at: 100, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, FAINT_RED], [100, ORANGE], [1, DIM_RED]] } },
   { name: 'black-start-near-black-red', frames: 400, width: 64, height: 36, reset: { at: 100, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, NEAR_RED], [100, ORANGE], [1, DIM_RED]] } },
+  // limiter-red-uv-chromaticity (CORE-2935): red transitions by the WCAG 2.1/2.2 u'v' rule. The
+  // repro, dim red and green, which neither luma nor the 320 rule counts; a full red flash; a 320
+  // rise that is a u'v' fall (the merged direction); dim red on black, which no rule counts; a real
+  // red flash over half the frame. Then Codex's design repros: two stripes, each under the limiter
+  // window's limit, crossing 0.2 from A together after an intermediate B at different frames
+  // (round 1 P1-a); two patches tracing A, S, C and back, S saturated and near C (P1-1); the same
+  // with the outward S an early-band colour (P1-2); a zero start under a constant (1, 0, 0) (P1-b),
+  // and after an orange and blue history (P2-1).
+  { name: 'red-green-dim-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: DIM_RED, off: [0, 60, 0] } },
+  { name: 'red-blue-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: RED, off: [0, 0, 255] } },
+  { name: 'red-mask-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: FAINT_RED, off: [255, 0, 230] } },
+  { name: 'red-black-dim-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: DIM_RED, off: K } },
+  { name: 'red-flash-5hz-half', frames: 120, signal: { kind: 'square', hz: 5, on: [180, 0, 0], off: [90, 90, 90], rect: [0, 0, 0.5, 1], bg: K } },
+  { name: 'red-stagger', frames: 120, signal: STAGGER },
+  { name: 'red-extremum', frames: 136, width: 64, height: 36, signal: extremum(UV_S) },
+  { name: 'red-early-band', frames: 136, width: 64, height: 36, signal: extremum(UV_M) },
+  { name: 'red-zero-constant', frames: 120, width: 64, height: 36, reset: { at: 10, seed: 'zero' }, signal: { kind: 'runs', runs: [[20, K], [1, NEAR_RED]] } },
+  { name: 'red-zero-mixed', frames: 260, width: 64, height: 36, reset: { at: 128, seed: 'zero' }, signal: { kind: 'bands', period: 1000, bg: K, bands: [
+    { rect: [0, 0, 0.5, 1], keys: [[0, K], [100, ORANGE], [120, K], [128, NEAR_RED]] },
+    { rect: [0.5, 0, 1, 1], keys: [[0, K], [100, [0, 0, 60]], [120, K], [128, NEAR_RED]] }] } },
 ];
 
 export function fnv1a(bytes) {
@@ -92,12 +127,11 @@ export function runLengths(mask) {
   return runs.join(',');
 }
 
-/** The FNV-1a digest of packed tracker state (16-bit values) as little-endian bytes. */
+/** The FNV-1a digest of packed tracker state (32-bit values) as little-endian bytes. */
 export function trackDigest(track) {
   let h = 0x811c9dc5;
   for (let i = 0; i < track.length; i++) {
-    h = Math.imul(h ^ (track[i] & 255), 0x01000193) >>> 0;
-    h = Math.imul(h ^ (track[i] >>> 8), 0x01000193) >>> 0;
+    for (let b = 0; b < 32; b += 8) h = Math.imul(h ^ ((track[i] >>> b) & 255), 0x01000193) >>> 0;
   }
   return h.toString(16).padStart(8, '0');
 }
