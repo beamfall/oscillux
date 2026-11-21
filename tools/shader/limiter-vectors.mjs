@@ -58,13 +58,13 @@ export const CASES = [
   { name: 'dim-rise-past-a-gap', frames: 40, signal: { kind: 'steps', colors: [K, [23, 189, 209], [12, 250, 58]] } },
   { name: 'dim-red-near-input', frames: 40, signal: { kind: 'steps', colors: [K, [154, 194, 79], [251, 130, 9]] } },
   // limiter-red-expire-black (CORE-2869): a restart after orange falls to black. After 8 frames of
-  // black, short of 1250 ms, the host clears to zero and both the faint red at 309 and the full red
-  // at 310 count, so the spent grant holds them (Codex's repro). After 90 frames the host seeds
+  // black, short of 1250 ms, the host clears to zero and both the faint red at 308 and the full red
+  // at 309 count, so the spent grant holds them (Codex's repro). After 90 frames the host seeds
   // "black, nothing owed" and only the full red counts; after exactly 75 frames (1250 ms, the
   // auditor's threshold) likewise. A real red strobe after a black start is still held. Then the
   // design round 3 repros after one black start: a saturated (60, 0, 0) under an orange rise, and a
   // faint or near-black saturated red before it.
-  { name: 'reset-short-black', frames: 330, width: 64, height: 36, reset: { at: 209, seed: 'zero' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [109, K], [1, FAINT_RED], [1, RED]] } },
+  { name: 'reset-short-black', frames: 330, width: 64, height: 36, reset: { at: 208, seed: 'zero' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [108, K], [1, FAINT_RED], [1, RED]] } },
   { name: 'reset-long-black', frames: 420, width: 64, height: 36, reset: { at: 290, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [190, K], [1, FAINT_RED], [1, RED]] } },
   { name: 'reset-black-at-expiry', frames: 300, width: 64, height: 36, reset: { at: 275, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [75, K], [1, FAINT_RED], [1, RED]] } },
   { name: 'black-start-red-10hz', frames: 320, width: 64, height: 36, reset: { at: 80, seed: 'black' }, signal: { kind: 'runs', runs: [[80, K], ...Array.from({ length: 80 }, (_, i) => [3, i % 2 ? K : RED])] } },
@@ -113,7 +113,6 @@ export function modelFrames(c) {
   for (let t = 0; t < c.frames; t++) {
     if (t === c.reset?.at) {
       lim = createLimiter({ width, height, geometry, start: c.reset.seed });
-      lim.setGeometry(geometry);
     }
     renderSignal(c.signal, t, width, height, px);
     const r = lim.step(px, DT);

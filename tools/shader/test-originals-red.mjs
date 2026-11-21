@@ -6,8 +6,9 @@
 // - the conservative byte checker (OpenSpec change limiter-red-expire-black, design.md section 3)
 //   finds no redSat byte triple for any dither noise, grain factor or regime, at CI density: the
 //   grid and 20,000 random colours per grain. It proves one input at a time and does not bound the
-//   colours between samples; its own positive control is the Codex round 1 repro at the round 1
-//   parameters;
+//   colours between samples. Each code interval is widened by 0.001 code for the float32 present
+//   arithmetic (measured at most 5e-6 code from double). Its positive controls are the Codex round 1
+//   repro at the round 1 parameters and the float32 dither-wall repro of Codex code round 1;
 // - NaN and infinity inputs, and two colours that meet the share returned bit for bit in float32.
 import { readFileSync } from 'node:fs';
 import { VIVID_SATURATION, VIVID_VIBRANCE } from './palette-tour.mjs';
@@ -56,7 +57,10 @@ const offRed = (op, P = { M0, MF, M2 }) => c => {
   const s = op(g + b), t = op(op(SHARE) * r);
   if (s < t) { const h = op(op(0.5) * op(t - s)); g = op(g + h); b = op(b + h); }
   const m = Math.max(r, g, b);
-  if (m < P.M0) { const l = op(lum([r, g, b])); return [l, l, l]; }
+  if (m < P.M0) { // luma(): dot(c, vec3(0.2126, 0.7152, 0.0722)) with float32 coefficients under op
+    const l = op(op(op(op(LUMA[0]) * r) + op(op(LUMA[1]) * g)) + op(op(LUMA[2]) * b));
+    return [l, l, l];
+  }
   const p = Math.max(g, b);
   if (r > p && m < P.M2) {
     const w = Math.min(Math.max(op(op(m - op(P.MF)) / op(op(P.M2) - op(P.MF))), 0), 1);
@@ -109,8 +113,12 @@ if (!(worst < 0.78)) fail(`presented red share ${worst.toFixed(4)} at r, (g+b)/r
 // taken at the top of its code interval and green and blue at the bottom, over every regime the
 // interval reaches (snap under 1/1024, rectangular under one code, triangular above). The shared
 // noise rect = u1 - 0.5, tri = rect + (u2 - 0.5) is enumerated cell by cell: the cell walls are
-// rect = const, tri = const and tri = rect +- 0.5.
-const L = 255, E = 1 / 1024;
+// rect = const, tri = const and tri = rect +- 0.5. The code intervals are widened by EPS codes on
+// each side, red up and green and blue down, so a float32 present whose codes differ from this
+// double emulation by less than EPS writes nothing the checker does not find: float32 arithmetic
+// moves a code by about 5e-6 (Codex code round 1: (27, 9, 0) at a dither wall), and the GLSL ES
+// 3.00 highp bounds on pow (exp2 and log2) about 1e-6 of the code, under 3e-4 at code 255.
+const L = 255, E = 1 / 1024, EPS = 1e-3;
 const enc = s => (s <= 0.0031308 ? s * 12.92 : 1.055 * Math.pow(s, 1 / 2.4) - 0.055);
 const regimes = (lo, hi) => {
   const r = [];
@@ -130,7 +138,7 @@ const mids = (arr, lo, hi) => {
   return m;
 };
 function sliceSat(c, s0, s1, A) {
-  const qlo = c.map(v => enc(Math.min(v * s0, 1)) * L), qhi = c.map(v => enc(Math.min(v * s1, 1)) * L);
+  const qlo = c.map(v => enc(Math.min(v * s0, 1)) * L - EPS), qhi = c.map(v => enc(Math.min(v * s1, 1)) * L + EPS);
   const reg = [0, 1, 2].map(i => regimes(qlo[i], qhi[i]));
   const q = [qhi[0], qlo[1], qlo[2]];
   if (A === 0) {
@@ -204,6 +212,10 @@ const repro = satTriple(present(suppress(round1([0.0252, 0.0067, 0.0015]))), 0.1
 if (String(repro) !== '27,9,0') fail(`byte checker misses the round 1 repro: got ${repro}, want 27,9,0`);
 if (satTriple(present(suppress(osOffRed([0.0252, 0.0067, 0.0015]))), 0.1, 1, SLICES))
   fail('the round 1 repro is still redSat with the chosen parameters');
+// Codex code round 1: a display-linear colour whose float32 present writes (27, 9, 0) at a dither
+// wall that the unwidened double intervals miss.
+const wall = satTriple([0.010694011114537716, 0.0029084051493555307, 0], 0, 0.5, SLICES);
+if (String(wall) !== '27,9,0') fail(`byte checker misses the float32 dither-wall repro: got ${wall}, want 27,9,0`);
 
 // Single colours (spec scenarios). f32: float32 rounding of each component.
 const f32 = c => c.map(Math.fround);

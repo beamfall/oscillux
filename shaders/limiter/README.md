@@ -279,8 +279,9 @@ like any other and refills 0 (Codex rounds 17, 18, 24): a host cannot rule out t
 content before its first frame (a remount, a reused surface). `G` cleared to zero, both budgets
 full, is safe only where the view showed black until the first frame; the reference model and the
 conformance vectors start from it, and it counts as a write too. The host also starts the output
-black and the tracker state at zero: tracked black, the value the view showed before the first
-frame. Content then rises from black
+black and every tracker texel at zero, or at "black, nothing owed" where `hostBlackLongEnough`
+holds ("Restart seeds and the black hold", below): tracked black, the value the view showed before
+the first frame. Content then rises from black
 through the grant like any other change. After a lost context is restored the view showed content
 before the loss, so the host starts as after the fade of a change to the frame (below): black
 presented without the limiter for longer than the coverage interval, then everything tracked

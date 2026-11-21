@@ -270,9 +270,12 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   let lastRedDown = false;
   const tmp = [0, 0, 0];
   const shown = [0, 0, 0];
-  let deficit = 0;
+  // A host writes the grant state fully spent at every start (shaders/limiter/README.md, "Ping-pong
+  // and reset"), so a reseed after a short black cannot pay a red change at once (Codex code
+  // round 1). The conformance vectors' untracked start keeps it unspent.
+  let deficit = start === 'untracked' ? 0 : 2 * TOKEN;
   let credit = 0;
-  let redDeficit = 0;
+  let redDeficit = start === 'untracked' ? 0 : TOKEN;
   let redCarry = 0;
   const bufs = [new Uint8Array(N * 4), new Uint8Array(N * 4)];
   let flip = 0;
