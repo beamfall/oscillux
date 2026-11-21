@@ -142,7 +142,7 @@ function sliceSat(c, s0, s1, A) {
   const reg = [0, 1, 2].map(i => regimes(qlo[i], qhi[i]));
   const q = [qhi[0], qlo[1], qlo[2]];
   if (A === 0) {
-    const k = [Math.min(Math.ceil(q[0]), L), Math.floor(q[1]), Math.floor(q[2])];
+    const k = [Math.min(Math.max(Math.ceil(q[0]), 0), L), Math.max(Math.floor(q[1]), 0), Math.max(Math.floor(q[2]), 0)];
     return redSat(...k) ? k : null;
   }
   const bp = [];
@@ -216,6 +216,10 @@ if (satTriple(present(suppress(osOffRed([0.0252, 0.0067, 0.0015]))), 0.1, 1, SLI
 // wall that the unwidened double intervals miss.
 const wall = satTriple([0.010694011114537716, 0.0029084051493555307, 0], 0, 0.5, SLICES);
 if (String(wall) !== '27,9,0') fail(`byte checker misses the float32 dither-wall repro: got ${wall}, want 27,9,0`);
+// Codex code round 2: without dither the widened bounds must stay inside the codes; pure red is
+// (255, 0, 0), not a negative partner code that redSat cannot read.
+const pure = satTriple([1, 0, 0], 0, 0, SLICES);
+if (String(pure) !== '255,0,0') fail(`byte checker misses undithered pure red: got ${pure}, want 255,0,0`);
 
 // Single colours (spec scenarios). f32: float32 rounding of each component.
 const f32 = c => c.map(Math.fround);
