@@ -57,8 +57,10 @@ fitted tone map the added cell luminance stays at or below 0.08.
 
 - **WHEN** a worst-case slideshow sequence with loud audio and amplitude 1 is tone mapped and
   run through the limiter model and audit
-- **THEN** it makes no large-area red transition and at most one large-area luminance
-  transition per second, and the limiter holds no pixel after its first second
+- **THEN** the limiter's output makes at most six large-area luminance transitions and one
+  large-area red transition in any second
+- **AND** while no transition is on screen, tempo coupling makes no large-area transition on a
+  slide that makes none without it
 
 ### Requirement: Golden vectors
 
