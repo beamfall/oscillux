@@ -32,8 +32,15 @@ still.
 
 ### Requirement: Calm audio coupling
 
-Audio SHALL move nothing unless `amplitude > 0`, and then only the Ken Burns path position, with
-the path still monotone and its endpoints unchanged.
+Audio SHALL move nothing unless `amplitude > 0`, and then only the pace of the Ken Burns move,
+from the beat phase and the beats in the slide's time on screen (`beatPhase`, `beatsPerSlide`):
+the move SHALL never reverse, its endpoints SHALL be unchanged and no light SHALL be added.
+
+#### Scenario: Tempo coupling never reverses the move
+
+- **WHEN** the path is followed over a whole slide at `amplitude = 1` for any `beatsPerSlide`
+  of at least 1
+- **THEN** it strictly increases and ends where it would without audio
 
 #### Scenario: Amplitude 0 ignores audio
 
@@ -50,7 +57,8 @@ fitted tone map the added cell luminance stays at or below 0.08.
 
 - **WHEN** a worst-case slideshow sequence with loud audio and amplitude 1 is tone mapped and
   run through the limiter model and audit
-- **THEN** it makes no red transition and at most one large-area luminance transition per second
+- **THEN** it makes no large-area red transition and at most one large-area luminance
+  transition per second, and the limiter holds no pixel after its first second
 
 ### Requirement: Golden vectors
 
