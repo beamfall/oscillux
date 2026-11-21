@@ -34,7 +34,7 @@
       finishes through it
 - [x] 4.2 `test-originals-red.mjs`: conservative byte checker at CI density with the round 1
       repro as positive control, NaN and infinity cases, GLSL form and wiring
-- [x] 4.3 Calm the originals still over 0.5 held pixels a frame: ink lowers its dye gain;
+- [x] 4.3 Calm the originals still holding over 0.5% of pixels a frame: ink lowers its dye gain;
       aurora, interference, laser-tunnel, photo-curtain, photo-liquid, plasma, ribbons,
       seismograph, vault and wave-cascade keep the palette still against the beat and the timbre,
       and all but laser-tunnel change hue but keep their brightness under the
@@ -43,7 +43,8 @@
 ## 5. Verification
 
 - [x] 5.1 `limiter-vectors.mjs --check`, `test-limiter.mjs`, `limiter-check.mjs` and `--metal`
-- [x] 5.2 The 61 release visuals through the web player with a black start: no visual over 0.5
-      held pixels a frame (highest 0.4% of pixels, filament, 2026-11-21)
-- [ ] 5.3 Codex code review: no P1 or P2
+- [x] 5.2 The 61 release visuals through the web player with a black start: no visual holding
+      over 0.5% of pixels a frame (highest 0.4%, filament, 2026-11-21)
+- [x] 5.3 Codex code review: no P1 or P2 (round 1 HOLD, delta round 2 HOLD on one P2, delta
+      round 3 PASS)
 - [ ] 5.4 `make gate` on the exact head
