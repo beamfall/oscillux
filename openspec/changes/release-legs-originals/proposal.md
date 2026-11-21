@@ -24,6 +24,8 @@ player, while the lab shows the fixed visual.
   contract wrap each visual with its own wrapper.
 - `limiter-red-audit.mjs --release` audits the release set; `make limiter-hold-check` and
   `make visual-flash-check` use it, so the legs' shaders are what the flash checks measure.
+- Nebula ships the original's detail ladder (seven layers, three to five octaves), so the
+  `visual-defaults` nebula requirement changes with it.
 - Tests: `test-wrap.mjs` covers the merge; `test-android-gles.mjs` pins the new digests.
 
 ## Non-goals
