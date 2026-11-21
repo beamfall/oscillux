@@ -61,7 +61,7 @@ The thresholds below use the bounds E = 2.5e-4 and EV = 1.5e-4, which the check 
 0.8 - 1e-12. The 320 rule keeps its own `redSat`.
 
 `tools/shader/limiter-uv-check.mjs` reproduces every number in this section and the next over
-all 2^24 colours and runs in `make limiter-check`.
+all 2^24 colours (about 7 s) and runs in `make limiter-check`.
 
 ## 3. Thresholds
 
@@ -74,9 +74,11 @@ All in squared code units.
   memory (section 4).
 - **TF = 10634475** = floor(((sqrt(T) / Q - E - EV - 1 / Q) Q)^2). A code is *far* when its d^2 to
   some vertex code exceeds TF.
-- **TVF = 12125795** = ceil((R Q)^2), R = sqrt((sqrt(T) / Q + E + 1 / Q)^2 + (L / 2)^2) + EV,
+- **TVF = 12233465** = ceil((R Q)^2), R = sqrt((sqrt(TH) / Q + E + 1 / Q)^2 + (L / 2)^2) + EV,
   L = 0.143999 the longest edge of the vertex-code triangle. A code is *very far* when its d^2 to
-  every vertex code exceeds TVF.
+  every vertex code exceeds TVF: every saturated code lies within E + EV of the vertex-code
+  triangle, and a point more than R from all three vertices is more than sqrt(TH) / Q + E + EV
+  from the triangle.
 
 The check takes the convex hull of the 788060 distinct saturated codes (20 vertices) and asserts
 over every distinct code:

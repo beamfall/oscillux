@@ -319,12 +319,14 @@ shader-beat-lint: tools/shader/node_modules
 	node tools/shader/beat-lint.mjs $(BEAT_LINT_ARGS)
 
 # Frame flash limiter (shaders/limiter/README.md, conformance/limiter/frame/README.md): the
-# vectors against the reference model, the model tests, the passes through the pinned
+# vectors against the reference model, the red chromaticity codes and thresholds over every 8-bit
+# colour, the model tests, the passes through the pinned
 # glslangValidator and SPIRV-Cross, and the passes on WebGL2 (Playwright Chromium) and, with
 # swiftc and a unified-memory Metal device, on Metal against the vectors.
 .PHONY: limiter-check
 limiter-check: tools/shader/node_modules
 	node tools/shader/limiter-vectors.mjs --check
+	node tools/shader/limiter-uv-check.mjs
 	node tools/shader/test-limiter.mjs
 	$(SHADER_PATH)node tools/shader/limiter.mjs --check
 	$(SHADER_PATH)node tools/shader/limiter-check.mjs --metal

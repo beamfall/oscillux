@@ -142,7 +142,7 @@ export const UV_VERTS = [[7386, 8567], [5044, 8852], [6396, 7255]];
 // than 0.2 apart), a definite step (0.2 plus twice the error, so codes over it are), far (some
 // saturated code may be more than a step away) and very far (every saturated code is definitely
 // more than 0.2 away). limiter-uv-check.mjs derives and verifies them over every 8-bit colour.
-export const UV_T = 10683798, UV_TH = 10791225, UV_TF = 10634475, UV_TVF = 12125795;
+export const UV_T = 10683798, UV_TH = 10791225, UV_TF = 10634475, UV_TVF = 12233465;
 // The boxes (uvStep): SB holds saturated codes in 8-code cells from (UV_SU0, UV_SV0), 9 bits of u
 // cell and 8 of v; FB far codes in 64-code cells from (UV_FU0, UV_FV0), 7 bits each. A min is
 // stored as N - cell and a max as cell + 1, so the empty box is 0 and a union is the max.
