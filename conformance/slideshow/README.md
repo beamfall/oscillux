@@ -113,19 +113,20 @@ at 1.
 
 ## Flash sequence
 
-`slideshow-check.mjs` plays six slides at 5 s intervals (black, white, a 16-texel checker,
-saturated red stripes, a pair and a fill, every style at its suggested duration) with tempo
-coupling at amplitude 1 and 180 BPM, at 60 fps and 160 x 90, through the ACES fitted tone map
-and sRGB encode, and runs the bytes through the limiter model (`limiter-model.mjs`) and the
-audit (`limiter-audit.mjs`). The audit counts every 0.1 step of a pixel's luminance, so a
-dissolve from black to white, or any wipe between such slides, counts many transitions on the
-input; the limiter paces them, and its output must make at most six large-area luminance and one
-red transition in any one second (the bounds `test-limiter.mjs` holds the limiter to).
+`slideshow-check.mjs` plays six slides at 5 s intervals (black, white, a 16-texel checker, saturated
+red stripes, a pair and a fill, every style at its suggested duration) with tempo coupling at
+amplitude 1 and 180 BPM, at 60 fps and 160 x 90 (with a second after the last transition), through
+the ACES fitted tone map and sRGB encode, and runs the bytes through the limiter model
+(`limiter-model.mjs`) and the audit (`limiter-audit.mjs`). The audit counts every 0.1 step of a
+pixel's luminance, so a dissolve from black to white, or any wipe between such slides, counts many
+transitions on the input; the limiter paces them, and its output must make at most six large-area
+luminance and one red transition in any one second (the bounds `test-limiter.mjs` holds the limiter
+to).
 
-It then plays each slide alone, from 1 s after its start to 1 s before its successor's, with and
-without tempo coupling. Coupling must make no large-area transition on a slide that makes none
-without it. The red stripes, panned, make some on their own (24 per second without coupling and
-28 with, as the faster half of the pace swing moves edges faster); the limiter paces those.
+The input must make some of each, or the stress content did not render. It then plays each slide
+alone, from 1 s after its start to 1 s before its successor's, with and without tempo coupling,
+and reports the input counts for review only: a moving soft edge (a minified checker, stripes)
+counts many 0.1 steps, so those numbers follow the sampling more than the risk.
 
 ## Regenerate
 

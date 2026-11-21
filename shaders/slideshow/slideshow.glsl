@@ -7,7 +7,8 @@
 //   vec3 slideshow(vec2 uv, SlideshowInputs s)
 //
 // The host defines, before including this file:
-//   OSC_SLIDE_TAP(i, uv)     a vec3 linear sample of photo i at photo uv, clamp-to-edge;
+//   OSC_SLIDE_TAP(i, uv, f)  a vec3 linear sample of photo i at photo uv, clamp-to-edge, at the
+//                            mip level for a footprint of f photo heights per pixel;
 //   OSC_SLIDE_SOFT(i, uv, r) the same, prefiltered for taps r photo heights apart (a mip level),
 //                            or the plain tap when the photo has no mips.
 // Photos: 0 outgoing primary, 1 outgoing secondary, 2 incoming primary, 3 incoming secondary.
@@ -144,11 +145,12 @@ vec3 oscSlideBlur(int i, vec2 uv, float photoAspect) {
     return c / 16.0;
 }
 
-// Cover: the photo fills the region, cropped about the salient rect.
+// Cover: the photo fills the region, cropped about the salient rect. heightPx is the region's
+// height in pixels: the tap's footprint (photo uv per pixel) selects its mip level.
 vec3 oscSlideCover(int i, vec2 q, float regionAspect, float photoAspect, vec4 rect, float e,
-                   float direction, float motion) {
+                   float direction, float motion, float heightPx) {
     vec4 w = oscSlideWindow(photoAspect, regionAspect, rect, false, e, direction, motion);
-    return OSC_SLIDE_TAP(i, w.xy + (q - 0.5) * 2.0 * w.zw);
+    return OSC_SLIDE_TAP(i, w.xy + (q - 0.5) * 2.0 * w.zw, 2.0 * w.w / max(heightPx, 1.0));
 }
 
 // Blurred fill: the whole photo over a still, blurred, dimmed cover crop of itself. Never bars.
@@ -161,7 +163,7 @@ vec3 oscSlideFill(int i, vec2 q, float regionAspect, float photoAspect, vec4 rec
     vec4 bw = oscSlideWindow(photoAspect, regionAspect, rect, false, 0.0, 0.0, 0.0);
     vec3 back = oscSlideBlur(i, bw.xy + (q - 0.5) * 2.0 * bw.zw, photoAspect);
     back = mix(vec3(dot(back, OSC_SLIDE_Y)), back, OSC_SLIDE_FILL_SAT) * OSC_SLIDE_FILL_DIM;
-    return mix(back, OSC_SLIDE_TAP(i, puv), inside.x * inside.y);
+    return mix(back, OSC_SLIDE_TAP(i, puv, px.y), inside.x * inside.y);
 }
 
 // One slide at uv: photo `first` (and first + 1 for a pair) through its layout.
@@ -170,12 +172,12 @@ vec3 oscSlideLayer(vec2 uv, SlideInputs sl, int first, SlideshowInputs s) {
     if (sl.fit == OSC_SLIDE_PAIR) {
         float hw = 0.5 - 0.5 * OSC_SLIDE_GUTTER;
         float ra = s.aspect * hw;
-        if (uv.x < hw) return oscSlideCover(first, vec2(uv.x / hw, uv.y), ra, sl.aspect0, sl.rect0, e, sl.direction, s.motion);
-        if (uv.x > 1.0 - hw) return oscSlideCover(first + 1, vec2((uv.x - (1.0 - hw)) / hw, uv.y), ra, sl.aspect1, sl.rect1, e, sl.direction, s.motion);
+        if (uv.x < hw) return oscSlideCover(first, vec2(uv.x / hw, uv.y), ra, sl.aspect0, sl.rect0, e, sl.direction, s.motion, s.size.y);
+        if (uv.x > 1.0 - hw) return oscSlideCover(first + 1, vec2((uv.x - (1.0 - hw)) / hw, uv.y), ra, sl.aspect1, sl.rect1, e, sl.direction, s.motion, s.size.y);
         return OSC_SLIDE_GUTTER_COLOR;
     }
     if (sl.fit == OSC_SLIDE_FILL) return oscSlideFill(first, uv, s.aspect, sl.aspect0, sl.rect0, e, sl.direction, s.motion, s.size);
-    return oscSlideCover(first, uv, s.aspect, sl.aspect0, sl.rect0, e, sl.direction, s.motion);
+    return oscSlideCover(first, uv, s.aspect, sl.aspect0, sl.rect0, e, sl.direction, s.motion, s.size.y);
 }
 
 // Light sweep: a soft diagonal wipe from the left that carries a faint warm band of light on its
@@ -194,10 +196,11 @@ vec3 oscSlideSweep(vec2 uv, vec3 a, vec3 b, float p, float aspect) {
 }
 
 // Iris: a soft round aperture opens on the incoming photo's salient centre (the frame centre for
-// fill and pair) until it passes the farthest corner. No rim: it adds no light.
+// fill and pair) until it passes the farthest corner. No rim: it adds no light. The centre follows
+// the uncoupled move, so tempo coupling never moves the aperture's edge with the beat.
 vec3 oscSlideIris(vec2 uv, vec3 a, vec3 b, float p, SlideshowInputs s) {
     vec2 f = vec2(0.5);
-    if (s.b.fit == OSC_SLIDE_COVER) f = oscSlideFocus(s.b.aspect0, s.aspect, s.b.rect0, oscSlidePath(s.b.k, s), s.b.direction, s.motion);
+    if (s.b.fit == OSC_SLIDE_COVER) f = oscSlideFocus(s.b.aspect0, s.aspect, s.b.rect0, clamp(s.b.k, 0.0, 1.0), s.b.direction, s.motion);
     vec2 ar = vec2(s.aspect, 1.0);
     vec2 far = max(f, 1.0 - f) * ar;
     float rMax = length(far);

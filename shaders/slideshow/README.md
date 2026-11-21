@@ -17,7 +17,7 @@ playlist and timing.
 | id | Layout | Use |
 |---|---|---|
 | 0 | Cover | the photo fills the frame, cropped about its salient rect (landscape photos) |
-| 1 | Fill | the whole photo over a still, blurred, dimmed, desaturated cover crop of itself; never bars |
+| 1 | Fill | the photo, whole at the wide end of its move, over a still, blurred, dimmed, desaturated cover crop of itself; never bars |
 | 2 | Pair | two photos side by side, each covering half the frame, with a thin dark gutter (portraits) |
 
 ## The pass
@@ -41,8 +41,10 @@ playlist and timing.
   point is `oscillux_slideshow`. `slideshowBlock({...})` in `slideshow.mjs` packs the block from
   named fields and is the reference for a host's packer.
 - **Photos** are linear (sRGB-decoded), with mipmaps and trilinear clamp-to-edge sampling: the
-  blurred fill reads a mip level about a twentieth of the photo's height, and the Ken Burns
-  move minifies. Without mips the fill is still correct but grainier.
+  blurred fill reads a mip level about a twentieth of the photo's height, and each photo tap
+  reads the level its screen footprint selects (no shimmer when a large photo minifies under
+  the move). Without mips the fill is still correct but grainier, and a photo much larger than
+  the frame aliases: downscale it to about the frame's size first.
 - **uv** is in [0, 1]^2 with v = 0 at the top row of the frame; photo uv likewise (row 0 of the
   uploaded image at v = 0).
 - **Between transitions** draw with p = 0 and the showing slide as `a` (the `b` fields are not
@@ -81,7 +83,9 @@ the transition.
 photos and a plain cross-fade.
 
 **Layout choice** is the host's: pair two consecutive portraits when the frame is landscape,
-otherwise fill a photo whose aspect differs much from the frame's, else cover.
+otherwise fill a photo whose aspect differs much from the frame's, else cover. Cover keeps the
+salient rect (with its margin) in view only when it fits the cover crop; when the rect is wider
+or taller than the crop, cover centres on it and crops it, so choose fill for that photo.
 
 ## Added-light bound
 

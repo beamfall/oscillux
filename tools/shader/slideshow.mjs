@@ -68,24 +68,27 @@ function taps(sampling, tex) {
   const fns = PHOTOS.map((n, i) => {
     const s = tex(n);
     if (sampling === 'linear') {
-      return `vec3 oscTap${i}(vec2 uv) { return textureLod(${s}, uv, 0.0).rgb; }
+      return `vec3 oscTap${i}(vec2 uv, float footprint) {
+    float lod = max(log2(footprint * float(textureSize(${s}, 0).y)), 0.0);
+    return textureLod(${s}, uv, lod).rgb;
+}
 vec3 oscSoft${i}(vec2 uv, float r) {
     float lod = max(log2(r * float(textureSize(${s}, 0).y)) - 1.0, 0.0);
     return textureLod(${s}, uv, lod).rgb;
 }`;
     }
-    return `vec3 oscTap${i}(vec2 uv) {
+    return `vec3 oscTap${i}(vec2 uv, float footprint) {
 ${fetchTap(s)}
 }
-vec3 oscSoft${i}(vec2 uv, float r) { return oscTap${i}(uv); }`;
+vec3 oscSoft${i}(vec2 uv, float r) { return oscTap${i}(uv, 0.0); }`;
   });
   const pick = (fn, args) => `    if (i == 0) return ${fn}0(${args});
     if (i == 1) return ${fn}1(${args});
     if (i == 2) return ${fn}2(${args});
     return ${fn}3(${args});`;
   return `${fns.join('\n')}
-vec3 oscSlideTap(int i, vec2 uv) {
-${pick('oscTap', 'uv')}
+vec3 oscSlideTap(int i, vec2 uv, float footprint) {
+${pick('oscTap', 'uv, footprint')}
 }
 vec3 oscSlideSoft(int i, vec2 uv, float r) {
 ${pick('oscSoft', 'uv, r')}
@@ -95,7 +98,7 @@ ${pick('oscSoft', 'uv, r')}
 function pass(sampling, tex) {
   if (sampling !== 'linear' && sampling !== 'fetch') throw new Error(`slideshow: unknown sampling ${sampling}`);
   return `${taps(sampling, tex)}
-#define OSC_SLIDE_TAP(i, uv) oscSlideTap(i, uv)
+#define OSC_SLIDE_TAP(i, uv, footprint) oscSlideTap(i, uv, footprint)
 #define OSC_SLIDE_SOFT(i, uv, r) oscSlideSoft(i, uv, r)
 ${readFileSync(SLIDESHOW_PATH, 'utf8')}
 SlideInputs oscSlideUnpack(vec4 slide, vec4 extra, vec4 r0, vec4 r1) {
