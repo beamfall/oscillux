@@ -9,11 +9,23 @@
 // Every beat a dim torrent runs down one column of the falls; where it
 // lands, a small crown of spray, a soft mist bloom and a faint ring across the
 // slowly rippling pool, all fading out before the next one is due. No onset flashes.
+// The palette never shifts with the beat or the timbre, and under the vivid
+// palette tour the colours change hue but keep their brightness.
 // param0 Fall Speed ; param1 Sheet Life ; param2 Spray
 
 #define WC_TOP 0.17
 #define WC_FLOOR 0.80
 #define WC_LAND 0.9
+
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the falls never
+// shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 wcPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
+}
 
 // The palette is read once per pixel at its five stops and blended locally,
 // and the spectrum once at 32 points (each the mean of two neighbouring
@@ -24,11 +36,11 @@ struct WcPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 WcPal wcPalLoad(VisualUniforms u) {
     WcPal P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = wcPalStill(0.0, u);
+    P.c1 = wcPalStill(0.26, u);
+    P.c2 = wcPalStill(0.52, u);
+    P.c3 = wcPalStill(0.78, u);
+    P.c4 = wcPalStill(0.999, u);
     return P;
 }
 

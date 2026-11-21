@@ -11,7 +11,9 @@
 // folds and warms the rim a little, each beat sends a violet front climbing
 // every curtain, and the treble sparks the rim and the stars. The overall
 // light follows the level rather than the kick, and the curtains drift and
-// shimmer slowly, so no large area flashes.
+// shimmer slowly, so no large area flashes. The palette never shifts with the
+// beat or the timbre, and under the vivid palette tour the colours change hue
+// but keep their brightness.
 // param0 = Curtains (fold count) ; param1 = Sway (warp and drift) ; param2 = Altitude (curtain height)
 
 // Spectrum at eight stops, read once per frame and blended locally.
@@ -19,6 +21,16 @@ float auSpec(float x, vec4 sa, vec4 sb) {
     float k = saturate(x) * 7.0;
     vec4 i0 = vec4(0.0, 1.0, 2.0, 3.0);
     return dot(max(1.0 - abs(vec4(k) - i0), 0.0), sa) + dot(max(1.0 - abs(vec4(k) - i0 - 4.0), 0.0), sb);
+}
+
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the sky never
+// shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 auPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
 }
 
 float auPath(float z) { return 24.0 * sin(z * 0.0085) + 11.0 * sin(z * 0.021 + 1.7); }
@@ -144,11 +156,11 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
     vec3 acc = vec3(0.0);
     float beat = 0.05 * u.bassImpact;
     float bc = floor(mod(u.beatCount, 64.0)) + saturate(u.beatPhase);
-    vec3 fringe = peakWhite(palVisual(0.97, u), 0.18 + 0.05 * u.level) * (1.0 + 0.08 * u.level);
+    vec3 fringe = peakWhite(auPalStill(0.97, u), 0.18 + 0.05 * u.level) * (1.0 + 0.08 * u.level);
     // green rim to violet crown: three palette reads per pixel, not per layer
-    vec3 cLow = palVisual(0.72, u);
-    vec3 cMid = palVisual(0.47, u);
-    vec3 cTop = palVisual(0.02, u);
+    vec3 cLow = auPalStill(0.72, u);
+    vec3 cMid = auPalStill(0.47, u);
+    vec3 cTop = auPalStill(0.02, u);
     float bp = saturate(u.beatPhase);
     float front = 1.15 * pow(bp, 0.7);
     float bAmp = 0.15 * smoothstep(0.0, 0.2, bp) * (1.0 - bp);
@@ -185,7 +197,7 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
 vec3 auSky(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dither, float energy, vec4 sa, vec4 sb,
            float shim, float rush) {
     float h = saturate(rd.y);
-    vec3 col = mix(palVisual(0.56, u) * 0.035 + vec3(0.004, 0.006, 0.012),
+    vec3 col = mix(auPalStill(0.56, u) * 0.035 + vec3(0.004, 0.006, 0.012),
                    vec3(0.002, 0.003, 0.010), pow(h, 0.45));
     // stars, twinkling with the treble
     vec2 sp = vec2(atan2_(rd.x, rd.z), rd.y) * 140.0;
@@ -199,7 +211,7 @@ vec3 auSky(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dither, 
     // a faint milky band
     float md = rd.y - 0.45 * rd.x - 0.35;
     float mw = exp(-md * md * 18.0);
-    col += palVisual(0.2, u) * 0.03 * mw * fbm(sp * 0.04);
+    col += auPalStill(0.2, u) * 0.03 * mw * fbm(sp * 0.04);
     col += auAurora(ro, rd, u, flow, n, dither, energy, sa, sb, shim, rush);
     return col;
 }
@@ -232,7 +244,7 @@ vec3 auRock(vec3 p, vec3 rd, float dist, VisualUniforms u, float flow, float ene
     float folds = mix(0.7, 1.6, u.param0);
     vec2 oxz = p.xz + vec2(0.0, 50.0);
     float over = auCurtain(oxz, 0.1, flow, auWarp(oxz, flow, folds), folds, mix(0.4, 1.2, u.param1), sa, sb, shim, 0.4 * u.level, along, rim);
-    vec3 light = mix(vec3(0.45, 0.5, 0.6), palVisual(0.62, u), 0.6) * (0.32 + 0.25 * energy) * (0.45 + 3.2 * over) + vec3(0.02, 0.03, 0.065);
+    vec3 light = mix(vec3(0.45, 0.5, 0.6), auPalStill(0.62, u), 0.6) * (0.32 + 0.25 * energy) * (0.45 + 3.2 * over) + vec3(0.02, 0.03, 0.065);
     // two-tone sky light: the curtains overhead key the upward faces in
     // green, the violet crowns and the night sky fill the rest
     vec3 ld = normalize(vec3(0.15, 1.0, -0.4));
@@ -242,10 +254,10 @@ vec3 auRock(vec3 p, vec3 rd, float dist, VisualUniforms u, float flow, float ene
     float cav = saturate(0.55 + 0.6 * n.y);
     // the whole sky is alight, so faces turned from the key still take a
     // cool fill from the crowns and a green one from the curtains ahead
-    vec3 fill = palVisual(0.02, u) * (0.26 + 0.12 * energy) + palVisual(0.72, u) * (0.14 + 0.08 * energy) * (0.7 + 1.2 * over)
+    vec3 fill = auPalStill(0.02, u) * (0.26 + 0.12 * energy) + auPalStill(0.72, u) * (0.14 + 0.08 * energy) * (0.7 + 1.2 * over)
               + vec3(0.02, 0.026, 0.055);
     // the lit lake throws a soft green light up the steep lower walls
-    vec3 bounce = palVisual(0.72, u) * (0.11 + 0.07 * energy) * saturate(1.0 - n.y) * exp(-max(p.y, 0.0) * 0.04);
+    vec3 bounce = auPalStill(0.72, u) * (0.11 + 0.07 * energy) * saturate(1.0 - n.y) * exp(-max(p.y, 0.0) * 0.04);
     vec3 col = alb * (light * (0.1 + 1.3 * dif) + fill * (0.6 + 0.4 * n.y) + bounce) * cav;
     // snow facing the camera picks up a faint glossy sheen of the curtains
     col += light * pow(1.0 - saturate(dot(-rd, n)), 5.0) * (0.012 + 0.03 * snow);
@@ -285,7 +297,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float tw = rd.y < 0.0 ? -ro.y / rd.y : 1e5;
     float t = auMarch(ro, rd, min(tw, 420.0), steps, oct);
     vec3 col;
-    vec3 haze = palVisual(0.56, u) * 0.012 + vec3(0.002, 0.003, 0.008);
+    vec3 haze = auPalStill(0.56, u) * 0.012 + vec3(0.002, 0.003, 0.008);
     float tt;
     if (t > 0.0) {
         col = auRock(ro + rd * t, rd, t, u, flow, energy, t < 160.0 ? oct + 1 : oct, sA, sB, shim);
@@ -321,7 +333,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float tm = tt > 0.0 ? tt : 600.0;
     float ry = abs(rd.y) > 1e-3 ? rd.y : 1e-3;
     float mist = 2.5 * (exp(-ro.y / 2.5) - exp(-max(ro.y + ry * tm, 0.0) / 2.5)) / ry;
-    col += palVisual(0.6, u) * (0.004 + 0.012 * energy) * (1.0 - exp(-0.05 * max(mist, 0.0)));
+    col += auPalStill(0.6, u) * (0.004 + 0.012 * energy) * (1.0 - exp(-0.05 * max(mist, 0.0)));
     return col; // LINEAR HDR — post chain tonemaps
 }
 

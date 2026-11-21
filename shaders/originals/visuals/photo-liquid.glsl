@@ -101,7 +101,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float veinAmt  = mix(0.3, 1.6, u.param1);
     float bloomAmt = mix(0.5, 1.4, u.param2);
 
-    vec2 fl = osFlight(u, 0.15 * flowAmt, -0.06 * flowAmt);
+    vec2 fl = osFlight(u, 0.1 * flowAmt, -0.04 * flowAmt);
     float d = mod(fl.x, 62.831853);          // drop paths: frequencies are tenths
     float dm = mod(fl.x * 0.9, 400.0);             // melt flow offset
     float bc = u.beatCount + saturate(u.beatPhase);
@@ -206,7 +206,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     col += (photo + 0.3) * tint * core * 0.85 * bloomAmt;
     // dark refracted rim inside the meniscus
     float rimIn = inDrop * smoothstep(0.6, 0.0, hDrop);
-    col *= 1.0 - 0.85 * rimIn;
+    col *= 1.0 - 0.6 * rimIn;
 
     // ---- neon ink blooming through the melt, bent under the drops ----
     vec2 vq = (p + refr * 0.8) * 1.15 + 2.4 * w2 + vec2(dm * 0.025, -dm * 0.015);
@@ -227,7 +227,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 l2 = normalize(vec3(0.70, 0.35, 0.60));
     float s1 = pow(saturate(dot(n, normalize(l1 + v))), 120.0);
     float s2 = pow(saturate(dot(n, normalize(l2 + v))), 60.0);
-    col += vec3(2.6, 2.5, 2.35) * s1 * (0.45 + 0.04 * u.level) * bloomAmt * (0.25 + 0.75 * inDrop);
+    col += vec3(2.6, 2.5, 2.35) * s1 * (0.3 + 0.04 * u.level) * bloomAmt * (0.25 + 0.75 * inDrop);
     col += PQPAL(hueOff + 0.62) * s2 * (0.8 + 0.04 * u.level) * bloomAmt * (0.3 + 0.7 * inDrop);
     // Fresnel: the meniscus reflects a soft, tinted copy of the photo
     float fres = pow(1.0 - saturate(n.z), 3.0) * inDrop;

@@ -3,15 +3,17 @@
 // Each row of the terrain is one recording, a glowing pen line with a solid
 // black curtain under it, so nearer rows hide the ones behind as in a
 // hidden-line ridge plot. The camera runs down a quiet valley whose traces
-// tremble softly with the music's level, between jagged ranges of seismic
+// tremble faintly with the music's level, between jagged ranges of seismic
 // spikes that burn hotter with height. Every beat sets off a gentle quake: a
 // ring wave swells out from an epicentre ahead and fades before the next,
 // rocking the traces a little and tinting them a hue that eases between cyan
 // and violet as it passes, and faint pen heads creep slowly along every line;
 // builds and lulls only nudge the colour ramp. Audio drives the traces
-// through the smoothed level, never a raw band or a hit, the glide is slow
-// and level and the deepest reds lean orange, so the thin bright lines stay
-// within the flash limit on their own.
+// through the smoothed level, never a raw band or a hit. The palette never
+// shifts with the beat or the timbre, and under the vivid palette tour the
+// colours change hue but keep their brightness. The glide is slow and level
+// and the deepest reds lean orange, so the thin bright lines stay within the
+// flash limit on their own.
 // param0 Scroll Speed: flight speed.
 // param1 Pen Gain: height of the seismic ranges and of the quake waves.
 // param2 Ink Bleed: how far the ink glows and bleeds below each line.
@@ -80,13 +82,23 @@ vec2 sgTrace(float x, float kk, float zr, vec4 q, vec4 amp, int oct, float t) {
 // through the tone curve.
 vec3 sgSat(vec3 c, float k) { return max(mix(vec3(dot(c, vec3(0.3, 0.55, 0.15))), c, k), 0.0); }
 
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the whole frame
+// never shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 sgPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
+}
+
 vec3 sgSky(vec3 rd, VisualUniforms u) {
     float h = max(rd.y, 0.0);
     vec3 col = vec3(0.0008, 0.001, 0.003);
-    col += palVisual(0.95, u) * 0.05 * exp(-h * 9.0);
+    col += sgPalStill(0.95, u) * 0.05 * exp(-h * 9.0);
     // a violet backlight behind the ranges that swells with the bass, so the
     // crests stand out as a silhouette
-    vec3 bl = mix(palVisual(0.78, u), vec3(0.5, 0.1, 1.0), 0.5);
+    vec3 bl = mix(sgPalStill(0.78, u), vec3(0.5, 0.1, 1.0), 0.5);
     col += bl * (0.11 + 0.04 * saturate(u.level)) * exp(-h * 16.0) * (0.45 + 0.55 * exp(-rd.x * rd.x * 5.0));
     return col;
 }
@@ -99,7 +111,7 @@ vec3 sgSkyTraces(vec3 rd, VisualUniforms u, float tm, float pixel, float quake) 
     float e = rd.y / max(hz, 1e-3);
     float a = atan(rd.x, max(rd.z, 1e-3));
     vec3 c = vec3(0.0);
-    vec3 cyan = palVisual(0.985, u);
+    vec3 cyan = sgPalStill(0.985, u);
     for (int i = 0; i < 4; i++) {
         float fi = float(i);
         float ei = 0.035 + 0.042 * fi + 0.004 * fi * fi;
@@ -108,7 +120,7 @@ vec3 sgSkyTraces(vec3 rd, VisualUniforms u, float tm, float pixel, float quake) 
         // Bursts of activity drift along each record; between them it is a
         // quiet hairline.
         float burst = pow(0.5 + 0.5 * sin(a * 4.0 - tm * 0.25 + fi * 2.1), 5.0);
-        float env = 0.12 + (0.7 + 0.2 * saturate(u.level) + 0.12 * bandAt(u, saturate(0.5 + a * 0.9 + 0.12 * (fi - 1.5)))) * burst;
+        float env = 0.12 + (0.7 + 0.12 * saturate(u.level)) * burst;
         env *= 1.0 + 0.25 * quake * exp(-a * a * 3.0);
         float amp = 0.0075 * env * (1.0 - 0.15 * fi);
         float w = sin(s * 3.1) * 0.6 + sin(s * 7.3 + fi) * 0.4;
@@ -154,12 +166,12 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 rd = osCamera(ro, ta, roll, fov, pc);
 
     float lev = saturate(u.level);
-    vec4 amp = vec4(gain * (2.25 + 0.12 * lev), 0.05 + 0.05 * lev, gain, 0.0);
+    vec4 amp = vec4(gain * (2.25 + 0.04 * lev), 0.05 + 0.015 * lev, gain, 0.0);
     // Quake: epicentre 22 ahead of the camera; the ring runs out with the beat,
     // swelling in and dying away so no line jumps when the next one starts.
     float age = saturate(u.beatPhase);
     float qe = smoothstep(0.0, 0.25, age) * (1.0 - age) * (1.0 - age) * 1.75;
-    float qa = (0.008 + 0.004 * lev) * qe;
+    float qa = (0.005 + 0.002 * lev) * qe;
     vec4 q = vec4(1.0 + 9.0 * age, qa, 0.0, 0.0);
     float zEpi = z + 22.0;
 
@@ -175,12 +187,12 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // the quake is the cool complement of the hot ranges: electric cyan on
     // even beats, ultraviolet on odd ones
     float par = 0.5 - 0.5 * cos(3.14159265 * (u.beatCount + saturate(u.beatPhase)) * 0.25);
-    vec3 quakeCol = mix(palVisual(0.97, u), mix(vec3(0.0, 0.55, 1.0), vec3(0.42, 0.08, 1.0), par), 0.8) * 1.7;
+    vec3 quakeCol = mix(sgPalStill(0.97, u), mix(vec3(0.0, 0.55, 1.0), vec3(0.42, 0.08, 1.0), par), 0.8) * 1.7;
     // Height ramp, sampled once: deep valley, slopes, crests.
-    vec3 pc0 = palVisual(0.06, u);
-    vec3 pc1 = palVisual(0.31, u);
-    vec3 pc2 = sgSat(palVisual(0.6, u), 1.5);
-    vec3 pc3 = palVisual(0.8, u);
+    vec3 pc0 = sgPalStill(0.06, u);
+    vec3 pc1 = sgPalStill(0.31, u);
+    vec3 pc2 = sgSat(sgPalStill(0.6, u), 1.5);
+    vec3 pc3 = sgPalStill(0.8, u);
     // the far ranges recede into a saturated violet, not a pale wall
     pc3 = sgSat(pc3, 1.8);
     pc3 = mix(pc3, vec3(0.55, 0.12, 1.0), 0.35);
@@ -224,11 +236,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // the ring recolours the line it passes at about the line's own
         // brightness, so the wave reads as a hue sweep rather than a flash
         vec3 qc = quakeCol * (dot(lc, vec3(0.2126, 0.7152, 0.0722)) / max(dot(quakeCol, vec3(0.2126, 0.7152, 0.0722)), 1e-3));
-        lc = mix(lc, qc, 0.35 * smoothstep(0.15, 0.7, qlit));
+        lc = mix(lc, qc, 0.25 * smoothstep(0.15, 0.7, qlit));
         // Pen heads: ink pulses creep outward along every line, slow and
         // soft enough that a field of them never blinks.
         float pen = pow(0.5 + 0.5 * sin(abs(x) * 0.7 - tm * 0.3 + hash11(kk) * 6.28), 6.0);
-        lc *= 1.0 + 0.15 * pen * (1.0 - 0.5 * heat);
+        lc *= 1.0 + 0.08 * pen * (1.0 - 0.5 * heat);
         float halo = exp(-abs(d) * (14.0 / bleed)) * 0.035 * bleed;
         acc += lc * vis * fog * (line * 2.2 + halo);
         if (d < 0.0) {
@@ -250,7 +262,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float sd = length(sp2 - cell - off);
         float tw = 0.75 + 0.25 * sin(tm * (0.5 + sr * 0.8) + sr * 40.0);
         float star = step(0.955, sr) * exp(-sd * sd * 30.0) * tw * smoothstep(0.02, 0.2, rd.y);
-        col += mix(vec3(0.8, 0.85, 1.0), palVisual(0.9, u), 0.4) * star * 0.35;
+        col += mix(vec3(0.8, 0.85, 1.0), sgPalStill(0.9, u), 0.4) * star * 0.35;
         col += sgSkyTraces(rd, u, tm, pixel, qa);
     } else {
         col = mix(vec3(0.0004, 0.0003, 0.0006), col, 1.0 - exp(-tHit * 0.045));

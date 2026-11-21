@@ -10,8 +10,10 @@
 // the orbs and the ring light brighten with the smoothed level plus a modest
 // band term, the camera circles at a slow steady cruise with no beat surges,
 // and the ripples and glitter spread slowly, so bright crests never sweep
-// large areas; audio drives the light and the waves, never the camera. Reds
-// are kept just off pure red.
+// large areas; audio drives the light and the waves, never the camera. The
+// palette never shifts with the beat or the timbre, and under the vivid
+// palette tour the colours change hue but keep their brightness. Reds are
+// kept just off pure red.
 // param0 = Ring Density ; param1 = Drift ; param2 = Heat
 
 const float IF_ORB_H = 0.55;   // orb height above the liquid
@@ -25,6 +27,17 @@ vec3 ifOrb(float fi, float drift, float t) {
                        cos(t * 0.11 + fi * 1.37) + 0.4 * cos(t * 0.053 + fi * 3.3));
     vec2 xz = home + wander * 0.55 * drift;
     return vec3(xz.x, IF_ORB_H + 0.06 * sin(t * 0.37 + fi * 2.0), xz.y);
+}
+
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the sky and the
+// orbs never shift colour with the beat or the timbre and the vivid palette
+// tour's cross-fades change hue, not brightness (manifest mode has no nudge or
+// tour).
+vec3 ifPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
 }
 
 // Light from an orb seen along the ray (ro, rd) up to distance tmax: a
@@ -126,18 +139,19 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // pool carries the tempo without its bright crests racing across it
     float wph = (0.08 * t + osFlight(u, 0.1, -0.04).x) * 0.5;
 
-    vec3 ringCol = mix(vec3(0.8, 0.88, 1.0), palVisual(0.78, u), 0.55);
-    vec3 horCol = palVisual(0.86, u);
-    vec3 lowCol = palVisual(0.3, u);
+    vec3 ringCol = mix(vec3(0.8, 0.88, 1.0), ifPalStill(0.78, u), 0.55);
+    vec3 horCol = ifPalStill(0.86, u);
+    vec3 lowCol = ifPalStill(0.3, u);
     float lift = 0.3 * saturate(u.level);
 
     // per-orb colour, energy and position
     vec3 tints[3];
     float en[3];
     vec3 orbs[3];
-    tints[0] = palRoleBass(0.05, u);
-    tints[1] = palRoleTrace(0.44 + 0.06 * u.spectralCentroid, u);
-    tints[2] = palRoleTreble(0.74, u);
+    // the bass, trace and treble roles' stops (common.glsl), read still
+    tints[0] = mix(ifPalStill(0.15, u), ifPalStill(0.039, u), 0.62);
+    tints[1] = ifPalStill(0.44, u);
+    tints[2] = ifPalStill(0.8272, u);
     float swell = sin(3.14159265 * saturate(u.beatPhase));
     swell *= swell;
     // the bass orb swells smoothly through each beat (a kick-sharp jump lights
@@ -248,7 +262,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float cons = max(sum, 0.0);
         float hot = pow(cons * 0.6, heat);
         float shim = 0.75 + 0.25 * sin(sum * 9.0 + wph * 3.0);
-        vec3 zone = palVisual(fract(0.18 + cons * 0.22 + 0.1 * u.spectralCentroid), u);
+        vec3 zone = ifPalStill(fract(0.18 + cons * 0.22 + 0.1 * u.spectralCentroid), u);
         emit += zone * hot * shim * 0.3 * (0.8 + 0.3 * lv);
         col += emit;
 

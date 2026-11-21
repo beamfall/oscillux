@@ -13,7 +13,9 @@
 // the flow, treble frays crests into glints, and each beat sends a crisp
 // discharge line through the gas from a re-seeded point, lighting the
 // contours it crosses; it eases in and spreads slowly, so it never sweeps a
-// large area at once (never a full-frame pulse).
+// large area at once (never a full-frame pulse). The palette never shifts
+// with the beat or the timbre, and under the vivid palette tour the colours
+// change hue but keep their brightness.
 // param0 = Scale ; param1 = Turbulence ; param2 = Filaments
 
 float plzNoise(vec2 p) {
@@ -48,17 +50,27 @@ vec3 plzOpposite(vec3 c) {
     return o / max(max(o.r, max(o.g, o.b)), 0.08);
 }
 
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the gas never
+// shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 plzPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
+}
+
 // The palette read once per pixel at its five stops and blended here; the
 // library read walks the whole stop table on every call.
 struct PlzPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 PlzPalette plzPalLoad(VisualUniforms u) {
     PlzPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = plzPalStill(0.0, u);
+    P.c1 = plzPalStill(0.26, u);
+    P.c2 = plzPalStill(0.52, u);
+    P.c3 = plzPalStill(0.78, u);
+    P.c4 = plzPalStill(0.999, u);
     return P;
 }
 

@@ -9,7 +9,9 @@
 // than flicker. Small, soft light packets glide out of the ring along some of
 // the ribbons, each ribbon on its own two-beat clock, and each beat a faint
 // glint and echo of the ring ease outward; the level opens and warms the ring
-// and the sheaf breathes with it. The flow is steady, with no audio surges.
+// and the sheaf breathes with it. The flow is steady, with no audio surges,
+// and under the vivid palette tour the colours change hue but keep their
+// brightness.
 // param0 = Flow ; param1 = Width ; param2 = Layers
 
 const float RB_TAU = 6.2831853;
@@ -20,13 +22,23 @@ const float PKT = 0.2;       // light packet strength
 // library read walks the whole stop table on every call.
 struct RbPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the whole frame
+// never shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 rbPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
+}
+
 RbPalette rbPalLoad(VisualUniforms u) {
     RbPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = rbPalStill(0.0, u);
+    P.c1 = rbPalStill(0.26, u);
+    P.c2 = rbPalStill(0.52, u);
+    P.c3 = rbPalStill(0.78, u);
+    P.c4 = rbPalStill(0.999, u);
     return P;
 }
 
@@ -89,7 +101,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float lvl = saturate(u.level);
     // the level, not the kick, warms and opens the ring
     float rush = 0.3 * lvl;
-    float bassG = 0.5 * lvl + 0.15 * saturate(u.bass);
+    float bassG = 0.55 * lvl;
     float cyc = fract((u.beatCount + bp) / 32.0);
 
     // gentle diagonal composition
@@ -154,7 +166,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // heads glide away from the ring in both directions, fading in and out.
     float bt = floor(u.beatCount) + bp;
     bool shadows = detail > 0.3;
-    float cent = 0.03 * u.spectralCentroid;
+    float cent = 0.01 * u.spectralCentroid;
 
     // back to front
     for (int i = 0; i < 12; i++) {
@@ -166,7 +178,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float h2 = hash11(fi * 7.31 + 1.7);
         float h3 = hash11(fi * 1.93 + 4.1);
         float f = (fi + 0.5) / float(layers);
-        float lv = 0.5 * lvl + 0.25 * bandAt(u, 0.04 + 0.9 * f);
+        float lv = 0.5 * lvl + 0.08 * bandAt(u, 0.04 + 0.9 * f);
 
         vec2 q = pr * dep;
         float y0 = (mix(-0.8, 0.8, fract(fi * 0.618 + 0.31)) + 0.1 * (h2 - 0.5)) * dep;
@@ -204,7 +216,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // packets are the warm accent (gold on most, teal on the rest), so the
         // cool satin always carries a complementary light
         vec3 pc = hash11(fi * 2.7 + 0.3) < 0.7 ? gold : teal;
-        col += pc * exp(-outside * 60.0) * pulse * 0.3 * (1.0 - 0.6 * back);
+        col += pc * exp(-outside * 60.0) * pulse * 0.2 * (1.0 - 0.6 * back);
         if (rb.x > 0.001) {
             float tau = rb.z;
             float c = cos(tau), s = sin(tau);

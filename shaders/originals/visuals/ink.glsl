@@ -4,10 +4,10 @@
 // each frame it is carried along a velocity field, sharpened against the
 // blur of resampling, and fed fresh dye. The field is multi-scale curl noise
 // plus the analytic vortex pairs of rising plumes: every beat a warm charge
-// eases in from the floor and mushrooms upward, small crowns of dye open
-// twice a beat, and two pens draw a second, cool ink in thin wisps which the
-// turbulence frays. The dye and the flow follow the music's smoothed level,
-// with only a trace of kick and onset, so ink fades in rather than popping;
+// eases in slowly from the floor and mushrooms upward, a small crown of dye
+// opens once a beat, and two pens draw a second, cool ink in thin wisps which
+// the turbulence frays. The dye and the flow follow the music's smoothed
+// level, never a kick or an onset, so ink fades in rather than popping;
 // the water swirls slowly, the pens draw at a gentle pace and the soft
 // caustic light drifts slowly. Thin, old ink cools and darkens as it
 // spreads, dense fresh ink glows, and soft light shafts fall through the
@@ -145,20 +145,20 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // above, a deeper body below, so the advected sheets keep their form
         float lit = 0.55 + 0.75 * saturate(0.5 - d.y * 9.0 - d.x * 3.0) + 0.6 * exp(-dot(d + vec2(0.012, 0.03), d + vec2(0.012, 0.03)) / 0.0008);
         vec3 pc = mix(mix(warmB, warmA, hb), palVisual(0.985, u) * 1.2, hero * 0.6);
-        dye += pc * g * lit * (1.0 + 0.2 * hero) * 0.8 * (0.08 + 0.08 * u.level + 0.03 * u.bassImpact)
-             * smoothstep(0.0, 0.4, age) * (1.0 - smoothstep(0.5, 1.2, age)) * budget * 0.7 * grain;
+        dye += pc * g * lit * (1.0 + 0.2 * hero) * 0.8 * (0.045 + 0.045 * u.level)
+             * smoothstep(0.0, 0.8, age) * (1.0 - smoothstep(0.9, 1.8, age)) * budget * 0.7 * grain;
     }
 
-    // onset bursts: dye blooms open where it lands
-    float k = u.beatCount * 2.0 + step(0.5, u.beatPhase);
-    float kAge = fract(beats * 2.0);
+    // crowns: once a beat, dye blooms open where it lands
+    float k = u.beatCount;
+    float kAge = fract(beats);
     for (int j = 0; j < 2; j++) {
         float fj = float(j);
         vec2 h = hash22(vec2(mod(floor(k), 997.0) * 0.371 + fj * 13.7, fj * 5.13 + 2.7));
         vec2 c = vec2(0.14 + 0.72 * h.x, 0.18 + 0.5 * h.y);
         vec2 d = (uv - c) * asp;
         float r2 = dot(d, d);
-        vel += d / asp / (r2 + 0.004) * 0.00003 * smoothstep(0.0, 0.2, kAge) * exp(-kAge * 3.0) * flow;
+        vel += d / asp / (r2 + 0.004) * 0.00002 * smoothstep(0.0, 0.2, kAge) * exp(-kAge * 3.0) * flow;
         // a burst lands as a crown: a thin expanding ring of dye with a
         // small dense core, which the outward flow then frays
         float rr = sqrt(r2);
@@ -168,7 +168,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // cool pens (red-coral on the default palette)
         vec3 dc = j == 0 ? palVisual(0.975 + 0.02 * h.y, u) * 1.25
                          : palVisual(0.05 + 0.2 * u.spectralCentroid + h.y * 0.08, u);
-        dye += dc * g * smoothstep(0.0, 0.3, kAge) * (1.0 - kAge) * (0.03 + 0.04 * u.level + 0.03 * u.onset) * budget * 0.35 * grain;
+        dye += dc * g * smoothstep(0.0, 0.3, kAge) * (1.0 - kAge) * (0.015 + 0.02 * u.level) * budget * 0.35 * grain;
     }
 
     // treble pens: a second, cool ink in thin drawn wisps

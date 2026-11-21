@@ -13,10 +13,22 @@
 // little of its own spectrum band, the seams glow with it, builds shift the
 // print's colour grade a touch. No beat flashes the prints or the seams, and
 // the haze drifts slowly, the slats ripple gently, the camera glides level and
-// the glints on the slat backs stay soft, so no large area pulses.
+// the glints on the slat backs stay soft, so no large area pulses. The palette
+// never shifts with the beat or the timbre, and under the vivid palette tour
+// the colours change hue but keep their brightness.
 // param0 = Columns ; param1 = Sway ; param2 = Depth
 
 const float PC_H = 1.2;   // half height of the photo on the curtain
+
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), and with its brightness evened out, so the curtain never
+// shifts colour with the beat or the timbre and the vivid palette tour's
+// cross-fades change hue, not brightness (manifest mode has no nudge or tour).
+vec3 pcPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    vec3 c = palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+    return c * pow(0.3 / max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.02), 0.75);
+}
 
 // The palette is read once per pixel at its five stops and blended locally;
 // each library read walks the whole stop table.
@@ -24,11 +36,11 @@ struct PcPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 PcPal pcPalLoad(VisualUniforms u) {
     PcPal P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = pcPalStill(0.0, u);
+    P.c1 = pcPalStill(0.26, u);
+    P.c2 = pcPalStill(0.52, u);
+    P.c3 = pcPalStill(0.78, u);
+    P.c4 = pcPalStill(0.999, u);
     return P;
 }
 

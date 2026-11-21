@@ -11,7 +11,7 @@
 // Every eight beats the rig slowly re-patches over about five beats (sheets
 // fade into fans and back), and each
 // beat the next fixture down the shaft swells softly while a faint shock plane
-// drifts away. Calm under loud music: the camera flies at an unhurried, steady cruise
+// drifts away. Calm under loud music: the camera flies at a slow, steady cruise
 // with no beat surges, drifts slowly off axis with a gentle roll, and planes
 // and the lines they scribe fade before they reach the lens, so nothing flashes the frame. Audio drives
 // only light: the smoothed level plus a faint band term per fixture, with
@@ -20,6 +20,14 @@
 // Reds are kept just off saturated red.
 // The shaft and every plane are solved analytically, so it costs little.
 // param0 = Speed ; param1 = Sides ; param2 = Rail Glow
+
+// The palette read without osPalVisual's per-beat and spectral-centroid hue
+// nudge (common.glsl), so the whole frame never shifts colour with the beat or
+// the timbre (manifest mode has no nudge).
+vec3 ltPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palVisual(t, u);
+    return palVisual(t - 0.015 * u.beatPhase - 0.08 * u.spectralCentroid, u);
+}
 
 const float LT_R = 2.4;      // apothem of the polygonal shaft
 const float LT_SP = 4.0;     // fixture pitch along the shaft
@@ -88,7 +96,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
     float sides = floor(mix(4.0, 8.0, u.param1) + 0.5);
     float railGlow = mix(0.3, 1.2, u.param2);
-    float cruise = mix(1.0, 3.0, u.param0);
+    float cruise = mix(0.7, 2.0, u.param0);
     float surge = -0.4 * cruise;                   // cancels the beat profile
     vec2 fl = osFlight(u, cruise, surge);
     float z = mod(fl.x, LT_WRAP);
@@ -106,11 +114,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float bass = 0.0;
 
     // palette read once at fixed stops, blended locally
-    vec3 cA = palVisual(0.02, u);
-    vec3 cB = palVisual(0.25, u);
-    vec3 cC = palVisual(0.50, u);
-    vec3 cD = palVisual(0.77, u);
-    vec3 cE = palVisual(0.97, u);
+    vec3 cA = ltPalStill(0.02, u);
+    vec3 cB = ltPalStill(0.25, u);
+    vec3 cC = ltPalStill(0.50, u);
+    vec3 cD = ltPalStill(0.77, u);
+    vec3 cE = ltPalStill(0.97, u);
     vec3 cool = mix(cD, mix(cD, cE, 0.5) + 0.15 * cC, 0.25 + 0.25 * sin(tt * 0.13));
     float hue = beats / 32.0 + 0.25 * rush;
 
@@ -189,7 +197,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // light level: one spectrum band per fixture, and a chase down the
         // shaft that hits the next fixture on every beat
         float bl = bandAt(u, fract(0.08 + hs * 0.8));
-        float chase = (mod(seg - fixture, 4.0) < 0.5 ? 1.0 : 0.0) * sin(3.14159265 * bp) * sin(3.14159265 * bp) * (0.06 + 0.04 * lev);
+        float chase = (mod(seg - fixture, 4.0) < 0.5 ? 1.0 : 0.0) * sin(3.14159265 * bp) * sin(3.14159265 * bp) * (0.03 + 0.02 * lev);
         float lvl = 0.35 + 0.25 * lev + 0.05 * bl + chase;
         vec3 sc = mix(ltWarm(hue + 0.13 * hs, cA, cB, cC), cool, fanM);
 
@@ -295,7 +303,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float dwS = max(ltInside(qs, sides), 0.0);
         float smS = vnoise(qs * 2.2 + vec2(smokeT, beats));
         float fade = sin(3.14159265 * bp) * (0.04 + 0.04 * lev + bass) * smoothstep(0.8, 4.0, ts);
-        col += palRoleBass(0.1, u) * (exp(-dwS * 20.0) * 2.2 + exp(-dwS * 3.0) * 0.25 * smS) * fade * exp(-ts * fogK);
+        col += mix(cB, cA, 0.62) * (exp(-dwS * 20.0) * 2.2 + exp(-dwS * 3.0) * 0.25 * smS) * fade * exp(-ts * fogK);
     }
 
     // scanner beams: emitters deep in the throat throw cool beams up the shaft
