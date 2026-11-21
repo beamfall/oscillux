@@ -7,7 +7,7 @@ The frame limiter and the pixel auditor SHALL measure flashes in the same intege
 
 - luma steps of 3275 15-bit codes, with the darker side below 26215;
 - red steps of 15 codes of `(R - G - B) >> 8` of the linear channel codes, wherever `R > G + B`;
-- the red chromaticity zones (Red chromaticity zones).
+- red chromaticity codes (Red chromaticity codes).
 
 Each step is the WCAG threshold less the codes' measured error over every 8-bit colour.
 
@@ -46,9 +46,9 @@ Each step is the WCAG threshold less the codes' measured error over every 8-bit 
 - **THEN** the pixel auditor counts at least 18 red transitions a second in the input and at most
   1 in the output
 
-#### Scenario: Saturated red against white
+#### Scenario: A red and blue strobe
 
-- **WHEN** a full-frame 10 Hz strobe alternates between (255, 0, 0) and (255, 255, 255)
+- **WHEN** a full-frame 10 Hz strobe alternates between (255, 0, 0) and (0, 0, 255)
 - **THEN** the pixel auditor counts at least 18 red transitions a second in the input and at most
   1 in the output
 
@@ -57,61 +57,93 @@ Each step is the WCAG threshold less the codes' measured error over every 8-bit 
 - **WHEN** a full-frame 10 Hz strobe alternates between (60, 0, 0) and black
 - **THEN** the pixel auditor counts no red transitions in the input or the output
 
+### Requirement: Tracker seed at a start
+
+A host SHALL start the output black and the tracker state tracked black. It SHALL use the texel
+"black, nothing owed" (x 0, y 32768, z 65536, w 0) only when `hostBlackLongEnough` holds for the
+exact (0, 0, 0) black presented before the start, and zero (red memory and chromaticity unknown)
+otherwise. It SHALL tell the pixel auditor, where one reads its output, which seed it wrote.
+
+#### Scenario: A short black before the start
+
+- **WHEN** a pixel falls from (110, 64, 0) to black, black is presented for 8 frames, the limiter
+  starts at zero with `G` written fully spent, and after 100 frames of black the pixel shows
+  (5, 0, 0) and then (255, 0, 0)
+- **THEN** the pixel auditor counts at most one red transition in any one second of the output
+
+#### Scenario: A long black before the start
+
+- **WHEN** the same pixel shows black for 1.5 s before the limiter starts at "black, nothing owed"
+- **THEN** no pixel is held at (5, 0, 0) and the pixel auditor counts at most one red transition in
+  any one second of the output
+
+#### Scenario: A red strobe after a black start
+
+- **WHEN** a full-frame 10 Hz strobe between (255, 0, 0) and black follows a start at "black,
+  nothing owed"
+- **THEN** pixels are held and the pixel auditor counts at most one red transition in any one
+  second of the output
+
+#### Scenario: A constant dark red after a zero start
+
+- **WHEN** the limiter starts at zero with `G` written fully spent and a full frame shows
+  (1, 0, 0)
+- **THEN** every pixel shows (1, 0, 0) from the first red grant on
+
 ## ADDED Requirements
 
-### Requirement: Red chromaticity zones
+### Requirement: Red chromaticity codes
 
-Every colour SHALL be in exactly one zone:
-
-- saturated red (S, `redSat`);
-- far (F): not S, and more than 0.2 in CIE 1976 u'v' from some saturated-red chromaticity under
-  either the IEC 61966-2-1 matrix or the matrix derived from the sRGB primaries;
-- near (M): every other colour, black included.
-
-The integer classifier MAY call a near colour far. It SHALL NOT call a far colour near or an S
-colour far.
+The limiter and the auditor SHALL give every non-black 8-bit colour an integer CIE 1976 u'v' code
+in 2^-14 units, within 2.5e-4 of its u'v' under the IEC 61966-2-1 matrix and under the matrix
+from the sRGB primaries. A colour SHALL be saturated red when its linear R / (R + G + B) is at
+least 0.8, and never below 0.8 - 1e-12. A down step SHALL be a squared code distance over
+10683798.
 
 #### Scenario: Every 8-bit colour
 
-- **WHEN** the classifier runs over every 8-bit colour
-- **THEN** every far colour is F, no S colour is far or F, and every partial sum fits a signed
-  32-bit integer
+- **WHEN** the check runs over every 8-bit colour
+- **THEN** every code is within 2.5e-4 of both matrices' u'v', every intermediate fits an
+  unsigned 32-bit integer, and every colour with float64 R / (R + G + B) >= 0.8 is saturated
 
-#### Scenario: Black and grey
+#### Scenario: Far and very far
 
-- **WHEN** a pixel shows (0, 0, 0), and then (128, 128, 128)
-- **THEN** black is near and the grey is far
+- **WHEN** the check runs over every distinct code against the hull of the saturated codes
+- **THEN** every code more than the down step from some saturated code is far, and every very-far
+  code is more than the down step from every saturated code
 
 ### Requirement: Red chromaticity transitions
 
-Every pixel SHALL keep a side: S or F, whichever it last showed.
+Every pixel SHALL keep the code of the last saturated red state it showed. It SHALL count a red
+transition down at its first later colour more than the down step from that code, and up at a
+saturated colour after a far colour. Black SHALL change nothing. A pixel firing a red direction
+by this rule SHALL count that direction only, else the direction red transition counting gives.
 
-- An S colour shown on an F side SHALL count a red transition up.
-- An F colour shown on an S side SHALL count a red transition down.
-- An M colour SHALL keep the side and count nothing.
-
-A red direction SHALL count where this rule or red transition counting counts it, including when
-the two rules count opposite directions in the same frame.
-
-#### Scenario: Black keeps the side
+#### Scenario: Black keeps the reference
 
 - **WHEN** a pixel shows (255, 0, 0), then black for 1.5 s with no restart, then (0, 255, 0)
 - **THEN** the pixel auditor counts a red fall at black and another at (0, 255, 0)
 
-#### Scenario: Both red directions in one change
+#### Scenario: Staggered intermediate states
 
-- **WHEN** a full-frame 10 Hz strobe alternates between (5, 0, 0) and (255, 0, 230), each change
-  counting a red rise by one rule and a fall by the other
-- **THEN** the pixel auditor counts at most 1 red transition a second in the output
+- **WHEN** two stripes, each 20% of the frame, show (60, 0, 18), then (35, 0, 32) from different
+  frames, then (0, 0, 60) at the same frame, at 2.5 Hz
+- **THEN** the pixel auditor counts the joint fall as a large-area red transition in the input and
+  at most 1 red transition a second in the output
 
-### Requirement: Red side at a start
+#### Scenario: A rise by one rule and a fall by the other
 
-- A pixel's first value with no state SHALL set its side to its zone and count nothing.
-- The seed "black, nothing owed" SHALL leave the pixel with no side.
-- The zero seed SHALL leave the side unknown, and the first S or F colour then SHALL count.
+- **WHEN** a full-frame 10 Hz strobe alternates between (5, 0, 0) and (255, 0, 230)
+- **THEN** the pixel auditor counts at least 18 red transitions a second in the input and at most
+  1 in the output
 
-The pixel auditor SHALL set the side at its first frame, clear it where it reseeds a pixel black,
-and keep it at a zero restart.
+### Requirement: Red chromaticity at a start
+
+A pixel's first value with no state SHALL set its reference and count nothing. "Black, nothing
+owed" SHALL leave no reference. After a zero seed the pixel SHALL count up at every saturated
+colour, and down at every very-far colour and every far colour whose code differs from the last
+one counted, until it shows a saturated or very-far colour. The auditor SHALL keep its state at a
+zero restart.
 
 #### Scenario: A blue after a black start
 
@@ -125,3 +157,14 @@ and keep it at a zero restart.
   pixel shows (0, 0, 255)
 - **THEN** the limiter counts a red fall at (0, 0, 255), and so does the pixel auditor, which saw
   the red
+
+### Requirement: Tracker texel format
+
+A host SHALL allocate both tracker textures RGBA32UI and seed and clear them with 32-bit values.
+The low 16 bits of each word SHALL hold the luma and 320 trackers and stamps, and the high 16
+bits the red chromaticity reference, its state, and its down and far flags.
+
+#### Scenario: A host keeps its trackers across frames
+
+- **WHEN** a pixel shows (60, 0, 18), then (35, 0, 32) for 1 s, then (0, 0, 60)
+- **THEN** the limiter counts a red fall at (0, 0, 60) on every leg

@@ -1,63 +1,58 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 # Count red transitions by the WCAG 2.1/2.2 u'v' chromaticity rule
 
-Ticket: **CORE-2935** (P1), Corvint Tasks, beamfall core queue. Owner decision 2026-11-21: "fix
-CORE-2935 too": the limiter adopts the current reading.
+Ticket: **CORE-2935** (P1), Corvint Tasks, beamfall core queue. Owner decisions 2026-11-21: "fix
+CORE-2935 too", and after Codex design round 1 held the zone design, "Widen limiter memory".
 
 ## Why
 
 The frame limiter and the pixel auditor count a red transition only by the WCAG 2.0 rule (and the
 2018 edition of WCAG 2.1): a change of 20 on the 320 max(0, R - G - B) scale with one state
-saturated red, R / (R + G + B) >= 0.8. The current WCAG 2.1 and WCAG 2.2 Recommendations give a
-second working definition: a pair of opposing transitions where one state is saturated red and the
-two states are more than 0.2 apart in the CIE 1976 UCS (u'v') chromaticity diagram.
+saturated red, R / (R + G + B) >= 0.8. The current WCAG 2.1 and 2.2 Recommendations give a second
+working definition: one state saturated red and the two states more than 0.2 apart in the CIE 1976
+UCS (u'v') chromaticity diagram.
 
-Repro: a full-frame strobe between (60, 0, 0) and (0, 60, 0) at 10 Hz. The red codes are 11 and 0,
-under the 15-code step, and the luma change is under 0.1, so the auditor counts no transition and
-the limiter passes it whole. The two states are about 0.33 apart in u'v', so the current definition
-counts five red flashes a second.
+Repro: a full-frame 10 Hz strobe between (60, 0, 0) and (0, 60, 0). The red codes are 11 and 0,
+under the 15-code step, and the luma change is under 0.1, so the auditor counts nothing and the
+limiter passes it whole. The two states are 0.328 apart in u'v': 20 red transitions, 10 flashes,
+a second.
 
-The model's header says the u'v' rule cannot be carried bit for bit in integer codes. It can: the
-rule reduces to a three-zone classification of each colour, and the classification is three
-integer conics with no overflow (design.md).
+A sound u'v' rule measures from the saturated state a pixel left, so it needs that state's
+chromaticity per pixel (design.md, section 12, P1-a). The current tracker texel has 4 free bits.
 
 ## What Changes
 
-- **Red zones.** Every colour is saturated red (S, the existing `redSat`), far (F: not saturated
-  red, and more than 0.2 in u'v' from some saturated-red chromaticity), or near (M, black
-  included). One integer classifier (`redZone` in `limiter-model.mjs`, `limiterZone` in
-  `shaders/limiter/common.glsl`) serves the limiter and the auditor. It may call a near colour
-  far (0.085% of 8-bit colours), never a far one near and never a saturated one far, as checked
-  over every 8-bit colour.
-- **A side per pixel.** Each pixel remembers the side, S or F, it last showed. Showing S after F
-  is a red transition up, and F after S a red transition down. Near states keep the side. Every
-  WCAG u'v' transition is such an alternation (design.md, section 1), so the rule counts every
-  one, and a few that are not.
-- **Union with the 320 rule.** A red transition is counted where either rule counts one. The red
-  step returns a direction mask, so one frame may count a red rise by one rule and a red fall by
-  the other.
-- **Tracker state.** The side lives in the red tracker word's free bits 13 and 14. The seeds keep
-  their texels: zero (red memory unknown) decodes as side unknown, whose first S or F state counts.
-  `BLACK_TEXEL` decodes as no side, so nothing is owed. A pixel's first value under `UNTRACKED`
-  takes its zone as its side without counting.
-- **Auditor.** `limiter-audit.mjs` keeps the same side per pixel, from the same `redZone`. It sets
-  the side at its first frame, clears it at a black reseed, and keeps it at a zero restart.
-- **Legs.** The GLSL limiter passes (`common.glsl`, `output.glsl`, `rows.glsl`) and the generated
-  legs carry the classifier and the side.
-- **Vectors.** The new cases are the 10 Hz (60, 0, 0) / (0, 60, 0) strobe, a saturated red against
-  far colours, and dim red on black, which counts nothing. Every existing case keeps its outputs,
-  holds and grants unless the new rule applies to it. Only its tracker digests change, because the
-  side is stored.
-- **Visuals.** The 61 release visuals are probed again in the web player. Any that the stricter
-  rule pushes over 0.5% of pixels held per frame is calmed.
-- **Docs.** The model and auditor headers, `shaders/limiter/README.md` and `CHANGELOG.md` name the
-  rule. They stop calling it unmodelled.
+- **Integer u'v' codes.** Every non-black colour gets a 14-bit (u', v') code from a new 24-bit
+  linear LUT, in 32-bit unsigned arithmetic, within 2.5e-4 of the true value under both sRGB
+  matrices. A new saturated test, `s24`, matches float64 r >= 0.8 over every 8-bit colour.
+- **A reference per pixel.** Each pixel keeps the code of its last saturated state. It counts down
+  at the first colour more than 0.2 (less the codes' error) from it, and up at the next saturated
+  state if a colour since could be that far from some saturated state. Black changes nothing. A
+  zero seed leaves the reference unknown, which counts on a superset.
+- **One red direction per pixel.** The u'v' direction when it fires, else the 320 rule's.
+- **Tracker texel: RGBA32UI.** The low 16 bits of each word keep the current texel; the high 16
+  bits hold the reference, its state and two flags. "Black, nothing owed" becomes
+  (0, 32768, 65536, 0); zero and `UNTRACKED` are unchanged.
+- **Auditor.** `limiter-audit.mjs` keeps the same state from the same functions.
+- **Legs.** `common.glsl`, `output.glsl`, `rows.glsl`, the generated LUT and every generated leg.
+- **Checks.** `tools/shader/limiter-uv-check.mjs` verifies the codes, thresholds and zones over all
+  2^24 colours in `make limiter-check`.
+- **Vectors.** Dim red/green, red/blue, the 320/u'v' direction mask, dim red on black, the P1-a
+  staggered stripes and the P1-b constant red after a zero start. Existing cases keep outputs,
+  holds and grants unless the new rule or a seed's new bits apply.
+- **Visuals.** The 61 release visuals are probed once in the web player; any over 0.5% of pixels
+  held a frame is calmed.
+- **Docs.** The model and auditor headers, `shaders/limiter/README.md` and `CHANGELOG.md`.
 
 ## Impact
 
-- Safety: the limiter now covers WCAG 2.0, the 2018 edition of WCAG 2.1, and the current WCAG
-  2.1 and 2.2 red definitions.
-- Hosts: no API change and no new seed. A host that starts at zero after a short black now holds
-  far-coloured pixels until the red grant, about 1.33 s at 3 Hz. The web player always starts
-  black, so it is not affected.
-- Release: v0.2.13, then the core repin moves from v0.2.12 to v0.2.13.
+- Safety: the limiter covers the WCAG 2.0, 2018 WCAG 2.1 and current WCAG 2.1 and 2.2 red
+  definitions.
+- **Host contract change.** Tracker textures become RGBA32UI: 16 bytes a pixel per copy, 265 MB
+  for both copies at 3840 x 2160 (was 133 MB). The new "black, nothing owed" seed has z 65536.
+  The web renderer changes with the core repin to v0.2.13; Apple and Android change at their
+  repins.
+- A host that starts at zero after a short black updates far-band pixels whose colour keeps
+  changing about once per red grant (1.33 s) until each shows saturated red or a very-far colour.
+  The web player always starts black.
+- Release: v0.2.13.
