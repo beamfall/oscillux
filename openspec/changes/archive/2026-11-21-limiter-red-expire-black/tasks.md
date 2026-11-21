@@ -47,4 +47,4 @@
       over 0.5% of pixels a frame (highest 0.4%, filament, 2026-11-21)
 - [x] 5.3 Codex code review: no P1 or P2 (round 1 HOLD, delta round 2 HOLD on one P2, delta
       round 3 PASS)
-- [ ] 5.4 `make gate` on the exact head
+- [x] 5.4 `make gate` on the exact head (19421f5, rc=0; released in v0.2.12)
