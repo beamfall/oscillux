@@ -259,7 +259,7 @@ def iris(u, v, a, b, p, s):
     f = [0.5, 0.5]
     sb = s["b"]
     if sb["layout"] == "cover":
-        c, h = window(sb["aspect0"], s["aspect"], sb["rect0"], False, path(sb["k"], s), sb["direction"], s["motion"])
+        c, h = window(sb["aspect0"], s["aspect"], sb["rect0"], False, clamp(sb["k"], 0.0, 1.0), sb["direction"], s["motion"])
         sc = salient(sb["rect0"])[0]
         f = [clamp(0.5 + (sc[n] - c[n]) / (2.0 * h[n]), 0.0, 1.0) for n in range(2)]
     ar = (s["aspect"], 1.0)
