@@ -30,6 +30,17 @@ still.
 - **WHEN** a slide is evaluated with `motion = 0` at two Ken Burns progress values
 - **THEN** both outputs are equal
 
+#### Scenario: Rect larger than the full window
+
+- **WHEN** the salient rect, with its margin, is wider or taller than the layout's full window
+- **THEN** the window centres on the rect's centre, and the host contract tells hosts to choose
+  the fill layout for that photo
+
+#### Scenario: Iris centre ignores tempo coupling
+
+- **WHEN** an iris transition is evaluated at amplitude 1 with two different beat phases
+- **THEN** the aperture's centre is the same in both
+
 ### Requirement: Calm audio coupling
 
 Audio SHALL move nothing unless `amplitude > 0`, and then only the pace of the Ken Burns move,
@@ -59,8 +70,6 @@ fitted tone map the added cell luminance stays at or below 0.08.
   run through the limiter model and audit
 - **THEN** the limiter's output makes at most six large-area luminance transitions and one
   large-area red transition in any second
-- **AND** while no transition is on screen, tempo coupling makes no large-area transition on a
-  slide that makes none without it
 
 ### Requirement: Golden vectors
 
