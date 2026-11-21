@@ -33,8 +33,9 @@ still.
 #### Scenario: Rect larger than the full window
 
 - **WHEN** the salient rect, with its margin, is wider or taller than the layout's full window
-- **THEN** the window centres on the rect's centre, and the host contract tells hosts to choose
-  the fill layout for that photo
+- **THEN** on each axis the rect overflows, the window centres on the rect's centre as far as
+  the photo's bounds allow, and the host contract tells hosts to choose the fill layout for that
+  photo
 
 #### Scenario: Iris centre ignores tempo coupling
 
@@ -44,14 +45,19 @@ still.
 ### Requirement: Calm audio coupling
 
 Audio SHALL move nothing unless `amplitude > 0`, and then only the pace of the Ken Burns move,
-from the beat phase and the beats in the slide's time on screen (`beatPhase`, `beatsPerSlide`):
+from the beat phase and each slide's own beat count over its time on screen (`beatPhase`, `beats`):
 the move SHALL never reverse, its endpoints SHALL be unchanged and no light SHALL be added.
 
 #### Scenario: Tempo coupling never reverses the move
 
-- **WHEN** the path is followed over a whole slide at `amplitude = 1` for any `beatsPerSlide`
+- **WHEN** the path is followed over a whole slide at `amplitude = 1` for any slide `beats`
   of at least 1
 - **THEN** it strictly increases and ends where it would without audio
+
+#### Scenario: Each slide paces on its own beat count
+
+- **WHEN** the outgoing and incoming slides have different times on screen
+- **THEN** each slide's path uses the beat count the host supplies for that slide
 
 #### Scenario: Amplitude 0 ignores audio
 
