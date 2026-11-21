@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Emits one platform leg of a pinned checkout into OUT with a sha256 index:
 //   msl          every manifest visual (.metal), present, bloom stages, limiter passes, switch,
-//                and catalog.json
+//                slideshow and catalog.json
 //   glsl300      every manifest visual (.web.frag) plus vertex.web.vert, present, bloom stages,
-//                limiter passes and switch, as GLSL ES 3.00 (WebGL2 and GLES 3), and catalog.json
+//                limiter passes, switch and slideshow, as GLSL ES 3.00 (WebGL2 and GLES 3), and
+//                catalog.json
 //   android-gles AndroidGlesShaders.kt: the GLES 3.00 visuals and their catalog fields as the
 //                Kotlin contract 1.0.0 (android-gles-contract.mjs)
 // catalog.json (catalog.mjs) lists every visual's catalog fields in catalogOrder.
@@ -26,6 +27,7 @@ const { emitManifest } = await T('emit.mjs');
 const P = await T('present.mjs');
 const L = await T('limiter.mjs');
 const S = await T('switch.mjs');
+const SL = await T('slideshow.mjs');
 const { catalogDocument } = await T('catalog.mjs');
 const A = await T('android-gles-contract.mjs');
 const files = new Map();
@@ -37,6 +39,7 @@ if (leg === 'msl') {
   for (const s of P.BLOOM_STAGES) files.set(`post/bloom-${s}.metal`, P.bloomMSL(s));
   for (const p of L.LIMITER_PASSES) files.set(`limiter/${p.name}.metal`, L.limiterMSL(p));
   files.set('switch/switch.metal', S.switchMSL());
+  files.set('slideshow/slideshow.metal', SL.slideshowMSL());
 } else if (leg === 'android-gles') {
   files.set(A.ANDROID_GLES_CONTRACT_PATH, A.renderAndroidGlesContract(A.androidGlesInputs(m, tag, rev)));
 } else {
@@ -45,6 +48,7 @@ if (leg === 'msl') {
   for (const s of P.BLOOM_STAGES) files.set(`post/bloom-${s}.frag`, P.bloomGLSL300(s));
   for (const p of L.LIMITER_PASSES) files.set(`limiter/${p.name}.frag`, L.limiterGLSL300(p));
   files.set('switch/switch.frag', S.switchGLSL300());
+  files.set('slideshow/slideshow.frag', SL.slideshowGLSL300());
 }
 if (leg !== 'android-gles') files.set('catalog.json', JSON.stringify(catalogDocument(m, tag, rev), null, 2) + '\n');
 const index = { schemaVersion: 1, producer: 'oscillux', leg, release: tag, rev, license: 'AGPL-3.0-only',
