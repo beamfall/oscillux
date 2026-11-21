@@ -42,31 +42,31 @@ TINT = (1.0, 0.95, 0.86)
 # Each parameter set gives the pass inputs other than style and p, and two slides.
 PARAMS = [
     {  # calm default: cover both, amplitude 0 with loud audio, salient rects off centre
-        "aspect": 1.75, "motion": 1.0, "amplitude": 0.0, "beatPhase": 0.25, "beatsPerSlide": 24.0,
-        "a": {"k": 0.8, "layout": "cover", "direction": 0.0, "aspect0": 1.5, "aspect1": 1.5,
+        "aspect": 1.75, "motion": 1.0, "amplitude": 0.0, "beatPhase": 0.25,
+        "a": {"k": 0.8, "layout": "cover", "direction": 0.0, "aspect0": 1.5, "aspect1": 1.5, "beats": 24.0,
               "rect0": [0.55, 0.2, 0.8, 0.5], "rect1": [0.0, 0.0, 0.0, 0.0]},
-        "b": {"k": 0.1, "layout": "cover", "direction": 1.0, "aspect0": 1.0, "aspect1": 1.0,
+        "b": {"k": 0.1, "layout": "cover", "direction": 1.0, "aspect0": 1.0, "aspect1": 1.0, "beats": 22.0,
               "rect0": [0.1, 0.55, 0.35, 0.85], "rect1": [0.0, 0.0, 0.0, 0.0]},
     },
     {  # tempo coupling on: portrait on a blurred fill, then a portrait pair
-        "aspect": 1.75, "motion": 0.5, "amplitude": 1.0, "beatPhase": 0.3, "beatsPerSlide": 1.0,
-        "a": {"k": 0.6, "layout": "fill", "direction": 0.0, "aspect0": 0.75, "aspect1": 0.75,
+        "aspect": 1.75, "motion": 0.5, "amplitude": 1.0, "beatPhase": 0.3,
+        "a": {"k": 0.6, "layout": "fill", "direction": 0.0, "aspect0": 0.75, "aspect1": 0.75, "beats": 1.0,
               "rect0": [0.3, 0.15, 0.7, 0.45], "rect1": [0.0, 0.0, 0.0, 0.0]},
-        "b": {"k": 0.3, "layout": "pair", "direction": 0.0, "aspect0": 0.6, "aspect1": 0.8,
+        "b": {"k": 0.3, "layout": "pair", "direction": 0.0, "aspect0": 0.6, "aspect1": 0.8, "beats": 1.5,
               "rect0": [0.2, 0.1, 0.6, 0.4], "rect1": [0.0, 0.0, 0.0, 0.0]},
     },
     {  # still: motion 0, square frame, pair then fill, unknown rects
-        "aspect": 1.0, "motion": 0.0, "amplitude": 0.0, "beatPhase": 0.7, "beatsPerSlide": 30.0,
-        "a": {"k": 0.35, "layout": "pair", "direction": 1.0, "aspect0": 0.7, "aspect1": 0.5,
+        "aspect": 1.0, "motion": 0.0, "amplitude": 0.0, "beatPhase": 0.7,
+        "a": {"k": 0.35, "layout": "pair", "direction": 1.0, "aspect0": 0.7, "aspect1": 0.5, "beats": 30.0,
               "rect0": [0.0, 0.0, 0.0, 0.0], "rect1": [0.4, 0.6, 0.7, 0.9]},
-        "b": {"k": 0.9, "layout": "fill", "direction": 1.0, "aspect0": 1.8, "aspect1": 1.8,
+        "b": {"k": 0.9, "layout": "fill", "direction": 1.0, "aspect0": 1.8, "aspect1": 1.8, "beats": 28.0,
               "rect0": [0.0, 0.0, 0.0, 0.0], "rect1": [0.0, 0.0, 0.0, 0.0]},
     },
     {  # partial coupling, zoom out of a large rect, landscape cover into a portrait cover
-        "aspect": 1.6, "motion": 1.0, "amplitude": 0.5, "beatPhase": 0.8, "beatsPerSlide": 6.5,
-        "a": {"k": 0.45, "layout": "cover", "direction": 1.0, "aspect0": 2.0, "aspect1": 2.0,
+        "aspect": 1.6, "motion": 1.0, "amplitude": 0.5, "beatPhase": 0.8,
+        "a": {"k": 0.45, "layout": "cover", "direction": 1.0, "aspect0": 2.0, "aspect1": 2.0, "beats": 6.5,
               "rect0": [0.05, 0.1, 0.9, 0.95], "rect1": [0.0, 0.0, 0.0, 0.0]},
-        "b": {"k": 0.7, "layout": "cover", "direction": 0.0, "aspect0": 0.66, "aspect1": 0.66,
+        "b": {"k": 0.7, "layout": "cover", "direction": 0.0, "aspect0": 0.66, "aspect1": 0.66, "beats": 7.0,
               "rect0": [0.35, 0.25, 0.6, 0.4], "rect1": [0.0, 0.0, 0.0, 0.0]},
     },
 ]
@@ -135,11 +135,11 @@ def tap(img, u, v):
     return mix3(top, bot, ay)
 
 
-def path(k, s):
+def path(k, beats, s):
     """Ken Burns path position: k, its pace swung by the beat only when amplitude > 0."""
     e = clamp(k, 0.0, 1.0)
     if s["amplitude"] > 0.0:
-        c = PACE * clamp(s["amplitude"], 0.0, 1.0) / (2.0 * PI * max(s["beatsPerSlide"], 1.0) + PI)
+        c = PACE * clamp(s["amplitude"], 0.0, 1.0) / (2.0 * PI * max(beats, 1.0) + PI)
         e += c * math.sin(2.0 * PI * s["beatPhase"]) * math.sin(PI * e)
     return e
 
@@ -150,7 +150,7 @@ def assert_monotone(amplitude, beats):
     prev = -1.0
     for i in range(m + 1):
         k = i / m
-        e = path(k, {"amplitude": amplitude, "beatsPerSlide": beats, "beatPhase": (beats * k) % 1.0})
+        e = path(k, beats, {"amplitude": amplitude, "beatPhase": (beats * k) % 1.0})
         assert e > prev, (amplitude, beats, k, e, prev)
         prev = e
     assert abs(prev - 1.0) < 1e-7
@@ -223,7 +223,7 @@ def fill(img, qu, qv, region_aspect, photo_aspect, rect, e, direction, motion, s
 
 
 def layer(imgs, u, v, sl, first, s):
-    e = path(sl["k"], s)
+    e = path(sl["k"], sl["beats"], s)
     lay = sl["layout"]
     if lay == "pair":
         hw = 0.5 - 0.5 * GUTTER
@@ -300,7 +300,7 @@ def build():
     cases = []
     worst_linear = worst_display = 0.0
     for params in PARAMS:
-        silent = dict(params, beatPhase=0.0, beatsPerSlide=1.0)
+        silent = dict(params, beatPhase=0.0, a=dict(params["a"], beats=1.0), b=dict(params["b"], beats=1.0))
         for style in STYLES:
             for p in PROGRESS:
                 s = dict(params, p=p)
@@ -372,8 +372,7 @@ def render():
         pr = c["params"]
         head = ", ".join(f'"{k}": {json.dumps(v)}' for k, v in (
             ("style", c["style"]), ("styleId", c["styleId"]), ("p", c["p"]), ("aspect", pr["aspect"]),
-            ("motion", pr["motion"]), ("amplitude", pr["amplitude"]), ("beatPhase", pr["beatPhase"]),
-            ("beatsPerSlide", pr["beatsPerSlide"])))
+            ("motion", pr["motion"]), ("amplitude", pr["amplitude"]), ("beatPhase", pr["beatPhase"])))
         body.append(f'    {{{head},\n     "a": {slide_json(pr["a"])},\n     "b": {slide_json(pr["b"])},\n'
                     f'     "expected": [\n{rows(c["expected"], "      ")}\n    ]}}')
     lines.append(",\n".join(body))

@@ -16,7 +16,7 @@ Both draws use the `fetch` sampling of `tools/shader/slideshow.mjs`: bilinear by
 through the hardware filter and mips (`linear`).
 
 The same check also proves, on both GPUs, that every amplitude-0 case draws bit-identically with
-loud beat inputs (beatPhase 0.25, beatsPerSlide 2) and silent ones, and on WebGL2 over a 320 x 180
+loud beat inputs (beatPhase 0.25, both slides' beats 2) and silent ones, and on WebGL2 over a 320 x 180
 sequence with hardware sampling; and it plays a worst-case loud-audio sequence through the flash
 limiter model and the independent audit (below).
 
@@ -49,7 +49,7 @@ Shared definitions: Y = (0.2126, 0.7152, 0.0722); `mix(a, b, t) = a + (b - a) t`
 the edge. All vector operations are per axis.
 
 **Path.** e = clamp(k, 0, 1); when amplitude > 0, with
-c = 0.9 clamp(amplitude, 0, 1) / (2 PI max(beatsPerSlide, 1) + PI),
+c = 0.9 clamp(amplitude, 0, 1) / (2 PI max(beats, 1) + PI), with the slide's own beats,
 e += c sin(2 PI beatPhase) sin(PI e). Amplitude 0 reads neither beat input.
 
 **Salient rect.** a = min corner, b = max corner of `rect`; zero or negative area means unknown,
@@ -104,11 +104,11 @@ Before writing, the model asserts on every pixel of every case:
   luminance, and so does the case mean;
 - the dissolve and the iris stay within the per-channel span of A and B (they add no light);
 - the transition formula itself meets A at p = 0 and B at p = 1 (not only the endpoint shortcut);
-- with amplitude 0, the output equals the same case with beatPhase 0 and beatsPerSlide 1;
+- with amplitude 0, the output equals the same case with beatPhase 0 and both slides' beats 1;
 - with motion 0, a slide draws the same at every k.
 
 It also asserts that the path at amplitude 1 strictly increases over a whole slide
-(k = t / T, beatPhase = frac(beatsPerSlide k)) for beatsPerSlide in {1, 2, 6.5, 24, 180} and ends
+(k = t / T, beatPhase = frac(beats k)) for beats in {1, 2, 6.5, 24, 180} and ends
 at 1.
 
 ## Flash sequence

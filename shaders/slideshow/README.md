@@ -30,9 +30,9 @@ playlist and timing.
   | vec4 | Fields |
   |---|---|
   | `pass0` | (p, style, aspect, motion) |
-  | `pass1` | (amplitude, beatPhase, beatsPerSlide, 0) |
+  | `pass1` | (amplitude, beatPhase, 0, 0) |
   | `size` | (width, height, 0, 0) of the target in pixels |
-  | `slideA`, `extraA`, `rectA0`, `rectA1` | outgoing slide: (k, layout, direction, aspect0), (aspect1, 0, 0, 0), primary and secondary salient rects |
+  | `slideA`, `extraA`, `rectA0`, `rectA1` | outgoing slide: (k, layout, direction, aspect0), (aspect1, beats, 0, 0), primary and secondary salient rects |
   | `slideB`, `extraB`, `rectB0`, `rectB1` | incoming slide, same fields |
 
   Integers (style, layout) are stored as floats. Textures 0 to 3 (`uPhoto0..3`) are the outgoing
@@ -58,13 +58,13 @@ playlist and timing.
 | `style` | 0, 1, 2 | the transition |
 | `aspect` | width / height | the frame |
 | `motion` | [0, 1] | Ken Burns depth: at 1 the window closes to 1 / 1.18 of its size over a slide; 0 holds every photo still |
-| `amplitude` | [0, 1] | tempo coupling, **default 0**; at 0 `beatPhase` and `beatsPerSlide` are not read |
+| `amplitude` | [0, 1] | tempo coupling, **default 0**; at 0 `beatPhase` and the slides' `beats` are not read |
 | `beatPhase` | [0, 1) | position in the current beat, from the host's beat scheduler |
-| `beatsPerSlide` | >= 1 | beats in the slide's whole time on screen: tempo (beats/s) x (interval + transition duration) |
 | `k` | [0, 1] | the slide's Ken Burns progress, linear in its time on screen from the start of its incoming transition to the end of its outgoing one |
 | `layout` | 0, 1, 2 | the slide's layout |
 | `direction` | 0 or 1 | 0 zooms in toward the salient rect, 1 zooms out from it; alternate it for variety |
 | `aspect0`, `aspect1` | width / height | the primary and secondary photos (aspect1 for pair only) |
+| `beats` | >= 1 | beats in this slide's whole time on screen: tempo (beats/s) x seconds from the start of its incoming transition to the end of its outgoing one; each slide carries its own |
 | `rect0`, `rect1` | photo uv (x0, y0, x1, y1) | salient rects (a face, a subject); all zeros means unknown, which frames the middle |
 
 The move keeps the salient rect (grown 1.2 times about its centre) in view at every k. Tempo

@@ -55,10 +55,13 @@ const problems = [];
 
 if (JSON.stringify(V.styles) !== JSON.stringify(SLIDESHOW_STYLES)) problems.push('vectors.json styles differ from slideshow.mjs');
 if (JSON.stringify(V.layouts) !== JSON.stringify(SLIDESHOW_LAYOUTS)) problems.push('vectors.json layouts differ from slideshow.mjs');
-const caseBlock = (c, extra = {}) => slideshowBlock({ ...c, style: c.styleId, width: N, height: N, ...extra });
+const caseBlock = (c, beats) => slideshowBlock({
+  ...c, style: c.styleId, width: N, height: N,
+  ...(beats && { beatPhase: beats.beatPhase, a: { ...c.a, beats: beats.beats }, b: { ...c.b, beats: beats.beats } }),
+});
 const blocks = V.cases.map(c => caseBlock(c));
 // Amplitude-0 cases with loud beat inputs and with silent ones, which must draw the same.
-const LOUD = { beatPhase: 0.25, beatsPerSlide: 2 }, SILENT = { beatPhase: 0, beatsPerSlide: 1 };
+const LOUD = { beatPhase: 0.25, beats: 2 }, SILENT = { beatPhase: 0, beats: 1 };
 const calm = V.cases.filter(c => c.amplitude === 0);
 const identity = calm.flatMap(c => [caseBlock(c, LOUD), caseBlock(c, SILENT)]);
 const flat = img => new Float32Array(img.flatMap(([r, g, b]) => [r, g, b, 1]));
@@ -139,7 +142,7 @@ function sequence(slides, W, H, fps, amplitude) {
     const i = Math.min(Math.floor(t / INTERVAL), slides.length - 1);
     const tau = t - i * INTERVAL;
     const D = DURATION[slides[i].style];
-    const slide = (j, k) => ({ ...slides[j].slide, k });
+    const slide = (j, k) => ({ ...slides[j].slide, k, beats: BPS * life(j) });
     const inTransition = i > 0 && tau < D;
     const b = slide(i, tau / life(i));
     const a = inTransition ? slide(i - 1, (t - (i - 1) * INTERVAL) / life(i - 1)) : b;
@@ -147,7 +150,7 @@ function sequence(slides, W, H, fps, amplitude) {
       t, photos: inTransition ? [...slides[i - 1].photos, ...slides[i].photos] : [...slides[i].photos, ...slides[i].photos],
       block: Array.from(slideshowBlock({
         p: inTransition ? smooth(tau / D) : 0, style: slides[i].style, aspect: W / H, motion: 1,
-        amplitude, beatPhase: (t * BPS) % 1, beatsPerSlide: BPS * life(i), width: W, height: H, a, b,
+        amplitude, beatPhase: (t * BPS) % 1, width: W, height: H, a, b,
       })),
     });
   }
@@ -191,7 +194,7 @@ sameOutput('WebGL2 audio identity (fetch, 8x8)', web.pixels.slice(blocks.length 
   const frames = sequence(FLASH, W, H, 4, 0);
   const pairs = frames.flatMap(f => {
     const loud = Float32Array.from(f.block), silent = Float32Array.from(f.block);
-    loud[5] = 0.25; loud[6] = 7; silent[5] = 0; silent[6] = 1;
+    loud[5] = 0.25; loud[17] = loud[33] = 7; silent[5] = 0; silent[17] = silent[33] = 1;
     return [{ photos: f.photos, block: Array.from(loud) }, { photos: f.photos, block: Array.from(silent) }];
   });
   const r = await page.evaluate(drawIdentity, { fs: slideshowGLSL300({ sampling: 'linear' }), W, H, pairs });
@@ -297,7 +300,7 @@ if (METAL && msl.fetch && msl.linear) {
     writeFileSync(join(dir, 'linear.metal'), msl.linear);
     const W = 1920, H = 1080;
     const combos = SLIDESHOW_LAYOUTS.flatMap(layout => SLIDESHOW_STYLES.map(style => ({ layout, style })));
-    const slide = layout => ({ layout, k: 0.5, aspect0: layout === 'cover' ? 1.5 : 0.75, aspect1: 0.66, rect0: [0.3, 0.2, 0.7, 0.6] });
+    const slide = layout => ({ layout, k: 0.5, beats: 40, aspect0: layout === 'cover' ? 1.5 : 0.75, aspect1: 0.66, rect0: [0.3, 0.2, 0.7, 0.6] });
     writeFileSync(cfg, JSON.stringify({
       metal: join(dir, 'linear.metal'), function: SLIDESHOW_FUNCTION,
       perf: {
@@ -305,7 +308,7 @@ if (METAL && msl.fetch && msl.linear) {
         blocks: [
           hex(slideshowBlock({ p: 0, aspect: W / H, width: W, height: H, a: slide('cover') })),
           ...combos.map(({ layout, style }) => hex(slideshowBlock({
-            p: 0.5, style, aspect: W / H, amplitude: 1, beatPhase: 0.25, beatsPerSlide: 40, width: W, height: H,
+            p: 0.5, style, aspect: W / H, amplitude: 1, beatPhase: 0.25, width: W, height: H,
             a: slide(layout), b: slide(layout),
           }))),
         ],
