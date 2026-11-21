@@ -225,3 +225,48 @@ listed in `tasks.md`.
 - **Counting only S/F pairs that are more than 0.2 apart:** a per-pixel 2-D distance against a
   stored state would need the state's chromaticity in the texel, and the texel has no room for it.
   The zones over-count by a small set instead.
+
+## 10. Status: held after Codex design review round 1 (2026-11-21)
+
+Not implemented. Round 1 returned HOLD, and P1-a below cannot be closed with the current tracker
+texel.
+
+**P1-a: a staggered intermediate state.** The side fires at the first F colour, and an F colour
+can be well within 0.2 of the S state it left. Take A (60, 0, 18), which is S; B (35, 0, 32), F but
+0.165 from A; and C (0, 0, 60), 0.397 from A.
+
+- Stripe 1 shows A, then B from frame 1, C at 8, B from 9, and A at 16.
+- Stripe 2 shows A, then B at 7, C at 8, B at 9, and A from 10.
+
+The side fires down at frames 1 and 7 and up at 16 and 10. The 6-frame stagger is longer than
+`COVERAGE_MS`, so the area is never summed. Both stripes cross 0.2 from A together at frame 8,
+where an exact reading fires them as one large area. The limiter passes the input and the auditor
+records 0.
+
+The luma and 320 rules have no such gap, because `trackStep` measures from an exact extreme. A
+sound u'v' rule has to fire where the colour first passes 0.2 from the S state, so it needs that
+state's chromaticity per pixel.
+
+The texel has 4 free bits: z bits 13 to 15 and y bit 14. The triangle has an area of 0.00625 in
+u'v'. Split into the at most 13 S cells those bits allow, some cell is at least 0.025 across, an
+eighth of the threshold. Any quantized reference therefore fires early for a B in that band, and
+the same repro returns. Rings at "possibly far" and "certainly far" narrow the repro without
+closing it: B and C in the band can still lie on opposite sides of A.
+
+**What a sound version needs:** per-pixel chromaticity state, either the S reference to about
+0.002 (11 to 13 bits) or 1-D extreme trackers along several u'v' directions. That widens the
+tracker texel, or adds a second tracker texture, on every leg and host. It is a host contract
+change and needs an owner decision.
+
+**The other round 1 findings** can be fixed and would be fixed with the redesign:
+
+- **P1-b, liveness.** From a zero seed, a constant (1, 0, 0) asks for both red directions every
+  frame: up from the unknown side, down from the unknown 320 memory. The grey fallback is black,
+  so the pixel stays black while grants are spent. The fix: an unknown side fires nothing on a
+  frame where the 320 rule fires for that pixel, so a constant colour never asks for both.
+- **P2.** The exhaustive check also asserts that every nonblack colour with r / (r + g + b) >= 0.8
+  in float64 is S.
+- **P2.** The no-regression rule allows changes caused by the seed, such as `reset-short-black`
+  frame 308.
+- **P3.** The zero-start impact (section 6) and the flash count in the proposal (section 7) are
+  corrected.

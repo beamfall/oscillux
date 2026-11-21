@@ -5,7 +5,8 @@
 
 - [ ] 1.1 Write the proposal, the design (zones, classifier and its exhaustive check, side
       tracker, encoding, auditor, consequences, vectors, probe) and the spec delta
-- [ ] 1.2 Codex design review: no P1 or P2 left, in at most two delta rounds
+- [ ] 1.2 Codex design review: no P1 or P2 left, in at most two delta rounds. Round 1 HOLD:
+      held on P1-a (design.md section 10)
 
 ## 2. Model, auditor and legs
 
