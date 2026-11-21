@@ -5,11 +5,13 @@
 // striated by vertical rays, hot at their lower rim and fading violet toward
 // the top. Snow on the valley walls takes the curtains' light, and the calm
 // lake mirrors the whole sky with a soft ripple. The camera rises and settles
-// over a long, eased cycle; its speed follows the shared beat profile. Audio
-// drives the light and the curtain shape only: each band of the spectrum sets
-// how far its rays reach up the sheet, the bass heats the rim and ripples the
-// folds, each beat sends a violet front climbing every curtain, build-ups
-// quicken the sway, and the treble sparks the rim and the stars.
+// over a long, eased cycle; its speed follows the shared beat profile, gently.
+// Audio drives the light and the curtain shape only: each band of the
+// spectrum sets how far its rays reach up the sheet, the bass ripples the
+// folds and warms the rim a little, each beat sends a violet front climbing
+// every curtain, and the treble sparks the rim and the stars. The overall
+// light follows the level rather than the kick, and the curtains drift and
+// shimmer slowly, so no large area flashes.
 // param0 = Curtains (fold count) ; param1 = Sway (warp and drift) ; param2 = Altitude (curtain height)
 
 // Spectrum at eight stops, read once per frame and blended locally.
@@ -116,10 +118,10 @@ float auCurtain(vec2 xz, float hn, float flow, vec2 w, float folds, float sway, 
     // the rays reach up by the spectrum, which repeats along every fold, so
     // the curtains draw the music across the sky as rays of light
     float bnd = auSpec(abs(fract(along * 0.16) * 2.0 - 1.0), sa, sb);
-    float reach = 0.65 + 0.8 * bnd;
+    float reach = 0.75 + 0.35 * bnd;
     float vert = smoothstep(-0.015, 0.02, hl) * exp(-max(hl, 0.0) * 2.4 / reach);
     // vertical rays: the same striation at every height, shimmering
-    float rays = vnoise(vec2(along * 36.0, flow * 0.25 + shim));
+    float rays = vnoise(vec2(along * 36.0, flow * 0.08 + shim));
     rays = 0.15 + 1.1 * rays * rays;
     return sheet * vert * rays;
 }
@@ -134,22 +136,22 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
               float shim, float rush) {
     if (rd.y <= 0.0) return vec3(0.0);
     float folds = mix(0.7, 1.6, u.param0);
-    float sway = mix(0.4, 1.2, u.param1) * (1.0 + 0.5 * rush);
+    float sway = mix(0.4, 1.2, u.param1);
     float span = mix(45.0, 120.0, u.param2);
     float rdy = max(rd.y, 0.035);
     // one fold warp per pixel, taken at the rim height
     vec2 w = auWarp(ro.xz + rd.xz * ((60.0 - ro.y) / rdy), flow, folds);
     vec3 acc = vec3(0.0);
-    float beat = u.bassImpact;
+    float beat = 0.05 * u.bassImpact;
     float bc = floor(mod(u.beatCount, 64.0)) + saturate(u.beatPhase);
-    vec3 fringe = peakWhite(palVisual(0.97, u), 0.15 + 0.3 * u.treble) * (0.9 + 0.4 * beat + 0.3 * u.bass);
+    vec3 fringe = peakWhite(palVisual(0.97, u), 0.18 + 0.05 * u.level) * (1.0 + 0.08 * u.level);
     // green rim to violet crown: three palette reads per pixel, not per layer
     vec3 cLow = palVisual(0.72, u);
     vec3 cMid = palVisual(0.47, u);
     vec3 cTop = palVisual(0.02, u);
     float bp = saturate(u.beatPhase);
     float front = 1.15 * pow(bp, 0.7);
-    float bAmp = (0.5 + 0.4 * beat) * (1.0 - bp);
+    float bAmp = 0.15 * smoothstep(0.0, 0.2, bp) * (1.0 - bp);
     for (int i = 0; i < 56; i++) {
         if (i >= n) break;
         float hn = (float(i) + dither) / float(n);
@@ -157,7 +159,7 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
         float t = (h - ro.y) / rdy;
         vec2 xz = ro.xz + rd.xz * t;
         float along, rim;
-        float d = auCurtain(xz, hn, flow, w, folds, sway, sa, sb, shim, beat + 0.5 * u.bass, along, rim);
+        float d = auCurtain(xz, hn, flow, w, folds, sway, sa, sb, shim, 0.4 * u.level, along, rim);
         if (d < 0.002) continue;
         float fade = exp(-t * 0.0016);
         // beats run as pulses along the folds
@@ -167,13 +169,13 @@ vec3 auAurora(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dithe
         // each beat sends a bright front climbing the curtains from the rim
         float fd = hs - front;
         float climb = exp(-fd * fd * 45.0) * bAmp;
-        float lit = (0.75 + 0.4 * energy) * (1.0 + pulse * (0.4 + 0.2 * beat)) * (1.0 + 1.5 * hn) * (1.0 + 0.25 * rush);
+        float lit = (0.8 + 0.3 * energy) * (1.0 + 0.15 * pulse) * (1.0 + 1.5 * hn);
         vec3 c = mix(mix(cLow, cMid, saturate(hs * 2.2)), cTop, saturate(hs * 1.6 - 0.6));
         // hot magenta-white lower fringe, heated by the bass
         c += fringe * rim;
         // the climbing front glows in the crown colour, so every beat runs a
         // violet wave up through the green
-        c += cTop * climb * 1.5;
+        c += cTop * climb * 0.8;
         acc += c * d * lit * fade;
     }
     // looking straight up through the sheets saturates; ease it
@@ -192,7 +194,7 @@ vec3 auSky(vec3 ro, vec3 rd, VisualUniforms u, float flow, int n, float dither, 
     float sd = length(fract(sp) - 0.2 - 0.6 * sh);
     float mag = pow(hash21(cell + 17.0), 24.0);
     float tw = 0.7 + 0.3 * sin(mod(u.time, 600.0) * (3.0 + 4.0 * sh.x) + sh.y * 30.0);
-    col += vec3(0.8, 0.88, 1.0) * mag * exp(-sd * sd * 90.0) * 6.0 * tw * (0.6 + 0.8 * u.treble)
+    col += vec3(0.8, 0.88, 1.0) * mag * exp(-sd * sd * 90.0) * 6.0 * tw * (0.8 + 0.1 * u.level)
          * smoothstep(0.0, 0.08, rd.y);
     // a faint milky band
     float md = rd.y - 0.45 * rd.x - 0.35;
@@ -229,7 +231,7 @@ vec3 auRock(vec3 p, vec3 rd, float dist, VisualUniforms u, float flow, float ene
     float along, rim;
     float folds = mix(0.7, 1.6, u.param0);
     vec2 oxz = p.xz + vec2(0.0, 50.0);
-    float over = auCurtain(oxz, 0.1, flow, auWarp(oxz, flow, folds), folds, mix(0.4, 1.2, u.param1), sa, sb, shim, u.bassImpact, along, rim);
+    float over = auCurtain(oxz, 0.1, flow, auWarp(oxz, flow, folds), folds, mix(0.4, 1.2, u.param1), sa, sb, shim, 0.4 * u.level, along, rim);
     vec3 light = mix(vec3(0.45, 0.5, 0.6), palVisual(0.62, u), 0.6) * (0.32 + 0.25 * energy) * (0.45 + 3.2 * over) + vec3(0.02, 0.03, 0.065);
     // two-tone sky light: the curtains overhead key the upward faces in
     // green, the violet crowns and the night sky fill the rest
@@ -255,7 +257,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     p.y = -p.y;
     float detail = osDetail(u);
 
-    vec2 fl = osFlight(u, 3.2, 1.0);
+    vec2 fl = osFlight(u, 1.0, -0.35);
     float z = fl.x;
     // a long, eased rise and settle, independent of the audio
     float cyc = 0.5 - 0.5 * cos(mod(u.time, 720.0) * 0.0873);
@@ -266,16 +268,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 rd = osCamera(ro, ta, roll, 1.25, p);
 
     // curtain drift: steady, with the flight's surges
-    float flow = mod(u.time, 600.0) * mix(0.6, 1.6, u.param1) + fl.x * 0.15;
+    float flow = mod(u.time, 600.0) * mix(0.2, 0.5, u.param1) + fl.x * 0.008;
     int n = osSteps(14.0, 32.0, detail);
-    vec4 sA = vec4(bandAt(u, 0.0), bandAt(u, 1.0 / 7.0), bandAt(u, 2.0 / 7.0), bandAt(u, 3.0 / 7.0));
-    vec4 sB = vec4(bandAt(u, 4.0 / 7.0), bandAt(u, 5.0 / 7.0), bandAt(u, 6.0 / 7.0), bandAt(u, 1.0));
+    vec4 lv4 = vec4(saturate(u.level));
+    vec4 sA = mix(lv4, vec4(bandAt(u, 0.0), bandAt(u, 1.0 / 7.0), bandAt(u, 2.0 / 7.0), bandAt(u, 3.0 / 7.0)), 0.3);
+    vec4 sB = mix(lv4, vec4(bandAt(u, 4.0 / 7.0), bandAt(u, 5.0 / 7.0), bandAt(u, 6.0 / 7.0), bandAt(u, 1.0)), 0.3);
     float rush = saturate((fl.y - 1.0) / 3.5);
-    // the rays shimmer about once a second, faster as a build gathers
-    float shim = mod(u.time, 600.0) * 0.9 + fl.x * 0.25;
+    // the rays shimmer every few seconds, a little faster as a build gathers
+    float shim = mod(u.time, 600.0) * 0.15 + fl.x * 0.015;
     float dither = hash21(floor(uv * u.resolution) + vec2(0.37, 0.71));
     float xb = saturate(0.5 + 0.42 * rd.x / max(abs(rd.z) + abs(rd.y), 0.2));
-    float energy = bandAt(u, 0.04 + 0.7 * xb) * 0.7 + 0.3 * u.level;
+    float energy = bandAt(u, 0.04 + 0.7 * xb) * 0.06 + 0.6 * u.level;
     int oct = detail > 0.5 ? 4 : 3;
     int steps = osSteps(36.0, 66.0, detail);
 
@@ -290,7 +293,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     } else if (tw < 420.0) {
         // calm lake: a softly rippled mirror of the sky and the walls
         vec3 pos = ro + rd * tw;
-        float wt = mod(u.time, 600.0) * 0.6;
+        float wt = mod(u.time, 600.0) * 0.4;
+
         // fine wavelets running across the view streak the mirror
         float wv = vnoise(pos.xz * vec2(0.05, 0.11) + vec2(0.0, wt * 0.2));
         float rip = sin(pos.z * 1.1 + wt * 2.0 + 6.0 * wv) * 0.6 + sin(pos.z * 2.7 - wt * 1.3 + pos.x * 0.35) * 0.3;

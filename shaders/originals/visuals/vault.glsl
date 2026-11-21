@@ -3,17 +3,30 @@
 // A projection-mapping show inside a cathedral at night. The camera walks a
 // raymarched vaulted hall of pale stone whose ribs, webbing, walls and piers
 // are the projection screen: graphic light is mapped onto the architecture in
-// time with the music. Every two beats a new pattern wipes down the hall from
-// the camera outward: light pouring down the ribs from the crown, a tiled
-// reveal across the webbing, a spectrum meter climbing each bay, a scan plane
-// racing down the nave, scrolling chevrons over the vault. Each beat swaps
-// the projector's colour between warm and its cool complement; a burst draws
-// every edge of the hall as a neon outline; a breakdown blacks the
-// projectors out until only the backlit stained glass glows. The polished
-// floor mirrors the show. The walk follows the shared 32-beat speed profile
-// and the roll eases to a new side every eight beats; audio drives the light
-// only, never the camera.
+// time with the music. Every eight beats a new pattern slowly fades in over the
+// last: light pouring gently down the ribs from the crown, a
+// tiled reveal across the webbing, a spectrum meter climbing each bay, a scan
+// plane gliding down the nave, chevrons drifting over the vault. Every
+// pattern paints in the projector's warm colour and its cool complement; a faint
+// neon outline traces every edge of the hall, and the backlit stained glass
+// glows steadily. The polished floor mirrors the show. The camera glides very
+// slowly down the hall with a level horizon, and the stone right beside it
+// stays dim, so no bright stripe streams past; the smoothed level gently lifts the
+// projectors and the reds are kept just off saturated red, so the show never
+// flashes or blacks out and audio never moves the camera.
 // param0 = Grandeur ; param1 = Ornament ; param2 = Walk Speed
+
+// The palette read without the library's per-beat and spectral-centroid hue
+// nudge, so large lit areas never shimmer with the music; under the host's
+// palette tour the cross-fade between palettes is spread over the whole tour
+// step, so the colours change slowly.
+vec3 vtPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palByIndex(t, int(floor(u.palette.x + 0.5)));
+    int a = int(mod(floor(u.palette.z), 32.0));
+    int b = int(mod(float(a + 1), 32.0));
+    float blend = smoothstep(0.0, 1.0, fract(u.palette.z));
+    return mix(palByIndex(t, a), palByIndex(t, b), blend);
+}
 
 const float VT_BAY = 3.0;      // rib and column spacing
 const float VT_ROOM = 24.0;    // room length
@@ -121,9 +134,9 @@ float vtMap(vec3 p, vec4 r, float orn) {
 
 // Everything the projectors need that is the same for the whole frame.
 struct VtShow {
-    int pNew;      // pattern being wiped in
-    int pOld;      // pattern being wiped out
-    float wipe;    // depth of the wipe front
+    int pNew;      // pattern fading in
+    int pOld;      // pattern fading out
+    float wipe;    // crossfade, 0 old to 1 new
     float life;    // 0..1 through the pattern's two beats
     float bp;      // beat phase
     float zc;      // camera depth
@@ -149,13 +162,13 @@ vec3 vtPattern(int pid, float z, float vs, float vc, float side, float bay, floa
                float fw, float seed, float life, float bp, float zc, float eq, vec3 cA, vec3 cB) {
     if (pid == 0) {
         // light pours down the ribs from the crown, bay after bay
-        float fr = fract(bp * 0.9 + bay * 0.11);
+        float fr = fract(life + bay * 0.11);
         float front = vc * (1.0 - fr);
         float d = vs - front;
-        float head = exp(-d * d * 14.0);
-        float tail = d > 0.0 ? exp(-d * 1.6) : 0.0;
+        float head = exp(-d * d * 3.0);
+        float tail = d > 0.0 ? exp(-d * 0.8) : 0.0;
         vec3 c = mix(cA, cB, step(0.0, side));
-        return c * (rib * (head * 4.0 + tail * 1.2 + 0.15) + (1.0 - rib) * (head * 0.5 + tail * 0.12));
+        return c * (rib * (head * 0.6 + tail * 0.35 + 0.4) + (1.0 - rib) * (head * 0.08 + tail * 0.04 + 0.06));
     }
     if (pid == 1) {
         // a tiled reveal: tiles switch on in a scattered order
@@ -163,15 +176,15 @@ vec3 vtPattern(int pid, float z, float vs, float vc, float side, float bay, floa
         vec2 cell = floor(g);
         vec2 f = abs(fract(g) - 0.5);
         float h = hash21(cell + vec2(seed * 13.7, seed * 3.1));
-        float rev = smoothstep(h - 0.05, h + 0.05, life * 1.5);
+        float rev = smoothstep(h - 0.3, h + 0.3, life * 1.4);
         float tile = 1.0 - smoothstep(0.40 - fw * 1.6, 0.44 + fw * 1.6, max(f.x, f.y));
         float h2 = fract(h * 31.7);
         vec3 c = h2 < 0.65 ? cA : h2 < 0.92 ? cB : vec3(1.0);
-        return c * tile * rev * (0.6 + 1.6 * fract(h * 7.3)) * (1.0 - rib * 0.6);
+        return c * tile * (0.15 + 0.5 * rev) * (0.7 + 0.3 * fract(h * 7.3)) * (1.0 - rib * 0.6);
     }
     if (pid == 2) {
         // each bay a spectrum meter, segmented like LEDs, peaking white
-        float lvl = saturate(eq * 1.1 + 0.05) * vc;
+        float lvl = saturate(0.42 + 0.03 * eq) * vc;
         float fill = 1.0 - smoothstep(lvl - fw, lvl + fw, vs);
         float seg = smoothstep(0.10, 0.16, fract(vs * 3.0)) * smoothstep(1.0, 0.94, fract(vs * 3.0));
         float cap = vtLine(vs - lvl - 0.08, 0.04, fw);
@@ -179,24 +192,24 @@ vec3 vtPattern(int pid, float z, float vs, float vc, float side, float bay, floa
         vec3 c = mod(bay, 2.0) < 1.0 ? cA : cB;
         c = mix(c, vec3(1.0), 0.35 * smoothstep(0.75, 1.0, vs / vc));
         float top = smoothstep(lvl - 0.9, lvl, vs);
-        return c * (fill * seg * (0.35 + 0.9 * top) + cap * 3.0) * (1.0 - rib * 0.7) + cB * rib * 0.2;
+        return c * (fill * seg * (0.35 + 0.6 * top) + cap * 1.2) * (1.0 - rib * 0.7) + cB * rib * 0.2;
     }
     if (pid == 3) {
-        // a scan plane races down the nave, leaving contour lines behind it
-        float zf = zc + 2.0 + 34.0 * fract(bp);
+        // a scan plane glides down the nave, leaving contour lines behind it
+        float zf = zc + 3.0 + 10.0 * life;
         float d = z - zf;
-        float slice = exp(-d * d * 40.0);
-        float trail = d < 0.0 ? exp(d * 0.45) : 0.0;
+        float slice = exp(-d * d * 4.0);
+        float trail = d < 0.0 ? exp(d * 0.25) : 0.0;
         float cont = vtLine(fract(vs * 2.0 + 0.5) - 0.5, 0.05, fw * 2.0);
-        return mix(cA, vec3(1.0), 0.4) * slice * 5.0 + cB * cont * trail * 1.4 + cA * trail * 0.08;
+        return mix(cA, vec3(1.0), 0.3) * slice * 0.5 + cB * cont * (0.3 + 0.5 * trail) + cA * (0.05 + 0.05 * trail);
     }
-    // chevrons scroll down the vault, pointing along the walk
-    float w = z * 0.45 + vs * 0.55 - life * 2.0;
+    // chevrons drift down the vault, pointing along the walk
+    float w = z * 0.45 + vs * 0.55 - life * 0.5;
     float s = fract(w);
     float k = floor(w);
     float band = smoothstep(0.0, 0.04 + fw, s) * (1.0 - smoothstep(0.42 - fw, 0.46 + fw, s));
     vec3 c = mod(k, 2.0) < 1.0 ? cA : cB;
-    return c * band * 1.4 * (1.0 - rib * 0.5) + c * rib * band * 1.6;
+    return c * (0.1 + 0.7 * band) * (1.0 - rib * 0.5) + c * rib * band * 0.8;
 }
 
 // Light leaving a surface point.
@@ -244,15 +257,13 @@ vec3 vtShade(vec3 pos, vec3 n, vec4 r, float orn, vec3 rd, float fw,
                 * (1.0 - smoothstep(rw * 2.5 + 0.05 - ew, rw * 2.5 + 0.05 + ew, nearWall)) * (1.0 - onFloor);
     float rib = max(onRib, onCol);
 
-    // ---- the projection: the new pattern behind the wipe, the old beyond it ----
+    // ---- the projection: the new pattern slowly fading in over the old ----
     float eq = bandAt(u, fract(bay * 0.0625 + 0.03));
-    bool fresh = pos.z < S.wipe;
-    vec3 L = fresh
-        ? vtPattern(S.pNew, pos.z, vs, vc, side, bay, rib, fw, S.seed, S.life, S.bp, S.zc, eq, S.cA, S.cB)
-        : vtPattern(S.pOld, pos.z, vs, vc, side, bay, rib, fw, S.seedOld, S.life + 1.0, S.bp, S.zc, eq, S.cOA, S.cOB);
-    // the wipe front itself is a bright seam
-    float wd = pos.z - S.wipe;
-    L += mix(S.cA, vec3(1.0), 0.5) * exp(-wd * wd * 30.0) * 2.5 * step(S.wipe, S.zc + 45.0);
+    vec3 L = vtPattern(S.pNew, pos.z, vs, vc, side, bay, rib, fw, S.seed, S.life, S.bp, S.zc, eq, S.cA, S.cB);
+    if (S.wipe < 1.0) {
+        vec3 Lo = vtPattern(S.pOld, pos.z, vs, vc, side, bay, rib, fw, S.seedOld, S.life + 1.0, S.bp, S.zc, eq, S.cOA, S.cOB);
+        L = mix(Lo, L, S.wipe);
+    }
     L *= S.proj * (onFloor > 0.5 ? 0.25 : 1.0);
 
     // ---- neon outline: every edge of the hall ----
@@ -267,12 +278,12 @@ vec3 vtShade(vec3 pos, vec3 n, vec4 r, float orn, vec3 rd, float fw,
 
     vec3 col = stone * L * 2.2 + outl;
 
-    // the stained glass, lit from outside, each pane breathing with its band
+    // the stained glass, lit from outside, each pane breathing a little with its band
     float isWin = step(r.x - 0.02, pos.x) * step(0.5, -n.x);
     if (isWin > 0.5) {
         vec3 gl = vtGlass(pos.z, pos.y, sy, 1.0, gs);
         float pane = bandAt(u, fract(pos.y * 1.7 + pos.z * 0.31));
-        col += gl * (0.9 + 1.4 * pane) * mix(2.2, 0.8, S.proj);
+        col += gl * (1.15 + 0.04 * pane) * mix(2.2, 0.8, S.proj);
     }
     // the glass spills a faint glow on the stone; the show bounces off the floor
     col += stone * gs.cool * 0.012 * (1.0 + 2.0 * (1.0 - S.proj)) * smoothstep(-1.0, sy, pos.y);
@@ -286,30 +297,16 @@ vec3 vtNormal(vec3 p, vec4 r, float orn) {
                    + k.yxy * vtMap(p + k.yxy, r, orn) + k.xxx * vtMap(p + k.xxx, r, orn) + 1e-6);
 }
 
-// Speed over the shared 32-beat profile, as osFlight, with the cycle's
-// running distance read from a table instead of summed per pixel.
-const float VT_RUN[33] = float[33](0.0, 1.0, 2.0, 3.0, 4.15, 5.6, 7.35, 9.4, 12.25, 15.75, 19.25, 22.75, 25.3, 26.325, 27.0, 27.95, 29.0, 30.15, 31.4, 32.75, 33.75, 34.35, 34.95, 35.55, 36.6, 38.475, 41.1, 44.475, 48.6, 53.1, 57.6, 61.05, 62.75);
-vec2 vtFlight(VisualUniforms u, float cruise, float surge) {
-    float n = floor(u.beatCount);
-    int k = int(mod(n, 32.0));
-    float ph = saturate(u.beatPhase);
-    float v0 = osBeatSpeed(n);
-    float v1 = osBeatSpeed(n + 1.0);
-    float beats = floor(n / 32.0) * VT_RUN[32] + VT_RUN[k] + v0 * ph + 0.5 * (v1 - v0) * ph * ph;
-    return vec2(u.time * cruise * 0.2 + beats * (cruise * 0.4 + surge), mix(v0, v1, ph));
-}
-
-
 // The palette read once per pixel at its five stops and blended locally.
 struct VtPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 VtPalette vtPalLoad(VisualUniforms u) {
     VtPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = vtPalStill(0.0, u);
+    P.c1 = vtPalStill(0.26, u);
+    P.c2 = vtPalStill(0.52, u);
+    P.c3 = vtPalStill(0.78, u);
+    P.c4 = vtPalStill(0.999, u);
     return P;
 }
 
@@ -334,6 +331,23 @@ int vtPick(float k) {
     return a == b ? int(mod(float(a) + 1.0, 5.0)) : a;
 }
 
+// Keep reds just off saturated red: lift the weaker of green and blue until,
+// after the tone curve, they carry at least 0.3 of the red.
+float vtTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float vtToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 vtOffRed(vec3 c) {
+    float r = vtTone(c.r), g = vtTone(c.g), b = vtTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, vtToneInv(g + need));
+    else c.b = max(c.b, vtToneInv(b + need));
+    return c;
+}
+
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 sp = centered(uv, u.resolution);
     sp.y = -sp.y;
@@ -341,58 +355,53 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float grand = mix(0.85, 1.45, u.param0);
     float orn = mix(0.4, 1.4, u.param1);
 
-    float cruise = mix(1.2, 4.0, u.param2);
-    vec2 fl = vtFlight(u, cruise, 0.55 * mix(0.6, 1.4, u.param2));
-    float zc = mod(fl.x, VT_WRAP);
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    // a very slow, steady glide down the hall: no speed surges, and slow
+    // enough that the bright stripes on the near walls never stream past
+    float zc = mod(5.0 + mix(0.005, 0.02, u.param2) * u.time, VT_WRAP);
 
     VtPalette P = vtPalLoad(u);
     float sec = u.beatCount / 16.0;
-    float chorus = step(2.0, mod(floor(sec), 4.0));
+    float cyc = mod(sec, 4.0);
+    float chorus = smoothstep(1.5, 2.0, cyc) * (1.0 - smoothstep(3.5, 4.0, cyc));
     VtGlassSet gs;
     gs.warm = vtPal(P, 0.72);
-    gs.cool = vtComp(vtPal(P, mix(0.7, 0.45, chorus)));
+    gs.cool = vtComp(vtPal(P, mix(0.7, 0.62, chorus)));
     gs.red = vtPal(P, 0.3);
     gs.gold = vtPal(P, 0.6);
     gs.ember = vtPal(P, 0.42);
 
-    // ---- the show: a new pattern every two beats, a colour swap every beat ----
+    // ---- the show: a new pattern every eight beats, its colours traded ----
     float n = floor(u.beatCount);
     float bp = saturate(u.beatPhase);
-    float k2 = floor(n / 2.0);
+    float k2 = floor(n / 8.0);
     VtShow S;
     S.pNew = vtPick(k2);
     S.pOld = vtPick(k2 - 1.0);
-    S.life = (n - 2.0 * k2 + bp) * 0.5;
-    float wf = smoothstep(0.0, 0.3, S.life);
-    S.wipe = zc + 0.3 + 52.0 * wf * wf;
+    S.life = (n - 8.0 * k2 + bp) / 8.0;
+    S.wipe = smoothstep(0.0, 0.9, S.life);
     S.bp = bp;
     S.zc = zc;
     S.seed = mod(k2, 97.0);
     S.seedOld = mod(k2 - 1.0, 97.0);
-    vec3 warm = vtVivid(vtPal(P, mix(0.62, 0.8, chorus)));
+    vec3 warm = vtVivid(vtPal(P, mix(0.62, 0.68, chorus)));
     vec3 cool = vtVivid(vtComp(warm) + 0.02);
-    float odd = mod(n, 2.0);
-    // the swap eases in quickly so complements never meet as grey
-    float sw = smoothstep(0.0, 0.06, bp);
-    vec3 cNow = odd > 0.5 ? warm : cool;
-    vec3 cPrev = odd > 0.5 ? cool : warm;
-    S.cA = mix(cPrev, cNow, sw);
-    S.cB = mix(cNow, cPrev, sw);
-    S.cOA = mix(cNow, cPrev, sw);
-    S.cOB = mix(cPrev, cNow, sw);
-    // breakdown: the projectors black out; burst: the outline blazes
-    S.proj = (0.08 + 0.92 * smoothstep(0.55, 1.15, fl.y)) * (0.8 + 0.45 * u.beat) * (0.8 + 0.4 * u.amplitude);
-    S.outline = 0.12 + 0.9 * smoothstep(1.6, 3.5, fl.y) + 0.25 * u.bassImpact;
+    // every pattern keeps the same two colours, so a new pattern changes the
+    // shapes of the light, never the colour of whole walls at once
+    S.cA = warm;
+    S.cB = cool;
+    S.cOA = warm;
+    S.cOB = cool;
+    // steady projectors and a faint outline, lifted a little by the level
+    S.proj = 0.85 + 0.03 * u.level;
+    S.outline = 0.2 + 0.03 * u.level;
 
-    // camera: slow sway, eased roll; audio never moves it
+    // camera: slow sway, level horizon; audio never moves it
     float tw = mod(u.time, 600.0);
     vec4 rc = vtRoomAt(zc, grand);
     vec3 ro = vec3(0.3 * sin(tw * 0.17) * rc.x * 0.4, -0.15 + 0.06 * sin(tw * 0.13), zc);
     vec3 ta = vec3(0.35 * sin(tw * 0.17 + 0.8), 0.15 + 0.2 * sin(tw * 0.071), zc + 6.0);
-    float fov = 1.2 - 0.25 * rush + 0.1 * lull;
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.12), fov, sp);
+    float fov = 1.2;
+    vec3 rd = osCamera(ro, ta, 0.0, fov, sp);
     float pixA = 2.0 / (u.resolution.y * fov);
 
     // ---- primary march ----
@@ -445,6 +454,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         }
     }
 
+    // the projectors are aimed down the hall: the stone right beside the
+    // walker stays dim, so nothing bright drifts past the edges of the view
+    col *= mix(0.3, 1.0, smoothstep(0.6, 3.2, tt));
+
     // the projectors' light hangs faintly in the air of the nave
     float haze = 1.0 - exp(-min(tt, 40.0) * 0.04);
     col += (S.cA + S.cB) * haze * 0.006 * S.proj;
@@ -455,5 +468,5 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.3 * smoothstep(0.8, 1.9, length(sp));
     float ign = fract(52.9829189 * fract(dot(uv * u.resolution, vec2(0.06711056, 0.00583715))));
     col += (ign - 0.5) * 0.0015;
-    return max(col, 0.0); // LINEAR HDR — post chain tonemaps
+    return vtOffRed(max(col, 0.0)); // LINEAR HDR — post chain tonemaps
 }

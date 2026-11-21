@@ -5,12 +5,24 @@
 // ribbons of light that stream past at different depths. The glass bends them
 // into swimming loops with spectral fringes, focuses the light into a caustic
 // web on the back wall, and its own surface carries crisp softbox and strip
-// light reflections along every swell. The ribbons stream on the shared
-// 32-beat speed profile (cruise, build, burst, brake, drift), the liquid runs
-// slowly downward and every beat drops a ripple ring into it. Bass swells the
-// ripples, the spectrum lights the ring and ribbons, mids the caustics, treble
-// adds a fine shiver that sparks the highlights.
+// light reflections along every swell. The ribbons drift and sway slowly, the
+// liquid creeps downward and every beat drops a shallow ripple ring into it.
+// The upper spectrum lights the ring and ribbons, mids the caustics, treble
+// adds a fine shiver that sparks the highlights; no beat brightens the scene
+// as a whole. The whole frame is held at one mean palette luma, so the
+// palette tour recolours it without pumping its brightness.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Refraction ; param1 = Caustics ; param2 = Flow
+
+// The palette read: the visual's own palette (3) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 loPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 3, u); }
+vec3 loPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = loPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 float loFbm(vec2 p, int n) {
     float v = 0.0, a = 0.5, s = 0.0;
@@ -22,6 +34,12 @@ float loFbm(vec2 p, int n) {
         a *= 0.5;
     }
     return v / s;
+}
+
+// Keeps a colour just off saturated red: green and blue never fall below a
+// fraction of red, so red light never reads as a red flash.
+vec3 loOffRed(vec3 c) {
+    return max(c, vec3(0.0, 0.2 * c.r, 0.16 * c.r));
 }
 
 // Ripple ring dropped by beat k at seeded position, age in beats.
@@ -43,7 +61,7 @@ vec2 loWarp(vec2 q, float tw) {
 
 // w is the warp at this point: the taps share one warp and its first-order
 // change, since it is far smoother than the tap spacing.
-float loHeight(vec2 p, vec2 flow, vec2 w, int oct, float rough, vec4 rip, vec4 hero) {
+float loHeight(vec2 p, vec2 flow, vec2 w, int oct, float rough, vec4 rip) {
     vec2 q = p * 0.78 + flow;
     // Pools of liquid with rounded, meniscus edges over flat clear glass: the
     // flat glass shows the sculpture crisp, the pools lens it, the edges catch light.
@@ -51,14 +69,11 @@ float loHeight(vec2 p, vec2 flow, vec2 w, int oct, float rough, vec4 rip, vec4 h
     float bead = smoothstep(0.42, 0.68, n);
     float h = 0.30 * (sqrt(bead + 0.02) - 0.1414) + 0.05 * n;
     h += loRing(p, rip.x, rip.y, rip.z) + loRing(p, rip.x - 1.0, rip.y + 1.0, rip.w);
-    // Every eight beats a broad swell runs out from the sculpture's ring.
-    float xh = length(p - hero.xy) - 0.1 - 0.42 * hero.z;
-    h += hero.w * exp(-xh * xh * 30.0) * sin(xh * 24.0);
     return h;
 }
 
 // The neon sculpture behind the glass, in scene coordinates s.
-vec3 loScene(vec2 s, VisualUniforms u, float drift, float tt, float glow, vec4 rib, vec3 pulse, float flare) {
+vec3 loScene(vec2 s, VisualUniforms u, float drift, float tt, float glow, vec4 rib, vec3 pulse) {
     vec3 col = vec3(0.0);
     // Ribbons of light at four depths: nearer ones stream past faster.
     for (int i = 0; i < 4; ++i) {
@@ -68,45 +83,46 @@ vec3 loScene(vec2 s, VisualUniforms u, float drift, float tt, float glow, vec4 r
         float k2 = 2.9 - 0.35 * fi;
         float a1 = 0.20 - 0.025 * fi;
         float a2 = 0.06;
-        float ph1 = k1 * x + fi * 2.1 + tt * 0.35;
-        float ph2 = k2 * x - tt * 0.6 + fi * 1.3;
-        float y = -0.78 + 0.52 * fi + 0.08 * sin(tt * 0.21 + fi * 1.7) + a1 * sin(ph1) + a2 * sin(ph2);
+        float ph1 = k1 * x + fi * 2.1 + tt * 0.06;
+        float ph2 = k2 * x - tt * 0.08 + fi * 1.3;
+        float y = -0.78 + 0.52 * fi + 0.08 * sin(tt * 0.09 + fi * 1.7) + a1 * sin(ph1) + a2 * sin(ph2);
         float dy = a1 * k1 * cos(ph1) + a2 * k2 * cos(ph2);
         float d = abs(s.y - y) * inversesqrt(1.0 + dy * dy);
-        float e = 0.35 + 2.4 * (i == 0 ? rib.x : i == 1 ? rib.y : i == 2 ? rib.z : rib.w);
-        // Each beat fires a bright pulse along one ribbon, a comet with a tail.
+        float e = 1.3 + 0.5 * (i == 0 ? rib.x : i == 1 ? rib.y : i == 2 ? rib.z : rib.w);
+        // Each beat sends a faint pulse along one ribbon, a comet with a tail.
         float pd = s.x - pulse.x;
         float pon = step(abs(pulse.y - fi), 0.5);
-        e *= 1.0 + pon * pulse.z * (5.0 * exp(-pd * pd * 40.0) + 1.6 * exp(-max(-pd, 0.0) * 3.0) * step(pd, 0.0));
-        vec3 c = palVisual(0.08 + 0.23 * fi, u);
+        e *= 1.0 + pon * pulse.z * (2.0 * exp(-pd * pd * 40.0) + 0.6 * exp(-max(-pd, 0.0) * 3.0) * step(pd, 0.0));
+        vec3 c = loOffRed(loPalSteady(0.08 + 0.23 * fi, u));
         float wid = 1.0 + 0.6 * glow;
-        col += c * e * (exp(-d * d * 7000.0 / wid) * 3.2 + exp(-d * 26.0) * 0.10 * wid);
+        col += c * e * (exp(-d * d * 10000.0 / wid) * 3.2 + exp(-d * 26.0) * 0.10 * wid);
     }
-    // Neon ring: its rim is the spectrum, mirrored left and right.
-    vec2 rc = s - vec2(0.42 * sin(tt * 0.043), 0.04 + 0.06 * sin(tt * 0.031));
+    // Neon ring: its rim is the upper spectrum, mirrored left and right.
+    vec2 rc = s - vec2(0.42 * sin(tt * 0.025), 0.04 + 0.06 * sin(tt * 0.02));
     float rr = length(rc);
     float ang = abs(atan2_(rc.y, rc.x)) / 3.14159265;
     float R = 0.60 + 0.025 * glow;
     float dr = abs(rr - R);
-    float sb = bandAt(u, 0.04 + 0.8 * ang);
-    vec3 rcCol = mix(palVisual(0.98, u), palVisual(0.52, u), smoothstep(0.1, 0.9, ang));
-    col += rcCol * (0.5 + 3.2 * sb) * (1.0 + flare + 1.2 * u.beat) * (exp(-dr * dr * 9000.0) * 3.5 + exp(-dr * 18.0) * 0.12);
+    float sb = mix(saturate(u.level), bandAt(u, 0.45 + 0.5 * ang), 0.2);
+    vec3 rcCol = loOffRed(mix(loPalSteady(0.98, u), loPalSteady(0.52, u), smoothstep(0.1, 0.9, ang)));
+    col += rcCol * (2.4 + 0.5 * sb) * 1.3 * (exp(-dr * dr * 9000.0) * 3.5 + exp(-dr * 18.0) * 0.12);
     return col;
 }
 
 // Studio rig seen in the glass: softbox, two coloured strips, a top bar.
 vec3 loRig(vec2 r, VisualUniforms u) {
     // a dim dome, graded top to bottom, so every swell shows its shape
-    vec3 col = palRoleFog(0.62, u) * 0.025 * smoothstep(-0.6, 0.9, r.y);
+    vec3 col = loPalSteadyFog(0.62, u) * 0.025 * smoothstep(-0.6, 0.9, r.y);
     // the key softbox up-left: a broad soft lobe with a brighter core
     vec2 k = (r - vec2(-0.32, 0.38)) * vec2(1.0, 2.2);
     float kd = dot(k, k);
-    col += vec3(1.0, 0.96, 0.92) * (exp(-kd * 14.0) * 1.2 + exp(-kd * 70.0) * 5.0) * (0.8 + 0.4 * u.level);
-    // two coloured strip lights, lit by the low and high bands
+    col += vec3(1.0, 0.96, 0.92) * (exp(-kd * 14.0) * 1.2 + exp(-kd * 70.0) * 5.0) * (0.9 + 0.15 * u.level);
+    // two coloured strip lights, lit by two upper bands
     vec2 a1 = vec2((r.x - 0.58) * 7.0, (r.y + 0.05) * 1.4);
     vec2 a2 = vec2((r.x + 0.66) * 7.0, (r.y - 0.08) * 1.4);
-    col += palRoleTrace(0.25, u) * exp(-dot(a1, a1) * 2.0) * (1.4 + 3.0 * band(u, 4));
-    col += palRolePeak(0.55, u) * exp(-dot(a2, a2) * 2.0) * (1.4 + 3.0 * band(u, 26));
+    float sl = saturate(u.level);
+    col += loPalSteady(0.25, u) * exp(-dot(a1, a1) * 2.0) * (2.8 + 0.5 * mix(sl, band(u, 34), 0.2));
+    col += loPalSteady(0.55, u) * exp(-dot(a2, a2) * 2.0) * (1.9 + 0.6 * mix(sl, band(u, 26), 0.2));
     return col;
 }
 
@@ -124,9 +140,19 @@ vec3 loBokeh(vec2 s, VisualUniforms u) {
     float px = 2.0 * cells / max(u.resolution.y, 1.0) / R;
     float disc = smoothstep(1.0, 1.0 - 0.06 - px, r);
     float rim = disc * smoothstep(0.55, 1.0, r);
-    float lvl = 0.25 + 1.4 * bandAt(u, hash21(id + 2.2));
-    vec3 c = palVisual(fract(h.y * 3.1 + 0.2), u);
+    float lvl = 0.7 + 0.3 * mix(
+saturate(u.level), bandAt(u, 0.45 + 0.5 * hash21(id + 2.2)), 0.2);
+    vec3 c = loOffRed(loPalSteady(fract(h.y * 3.1 + 0.2), u));
     return c * (disc * 0.035 + rim * 0.03) * lvl;
+}
+
+// One gain for the whole palette that holds its mean luma fixed, so the
+// palette tour's crossfades change the colours but never brighten or darken
+// the whole frame.
+float loGain(VisualUniforms u) {
+    float l = 0.25 * (luma(loPalSteady(0.125, u)) + luma(loPalSteady(0.375, u))
+                    + luma(loPalSteady(0.625, u)) + luma(loPalSteady(0.875, u)));
+    return clamp(0.22 / max(l, 1e-3), 0.4, 1.5);
 }
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -140,28 +166,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float causticAmt = mix(0.4, 1.8, u.param1);
     float flowRate = mix(0.25, 1.2, u.param2);
 
-    // Ribbons stream on the speed profile; the liquid itself flows steadily.
-    vec2 fl = osFlight(u, 1.0, 0.8);
-    float drift = fl.x * 0.12;
+    // Ribbons drift slowly and the liquid creeps down the glass: fast motion of
+    // the lensed neon would flash.
     float tt = mod(u.time, 1200.0);
-    vec2 flow = vec2(0.03 * sin(tt * 0.05), tt * 0.11 * flowRate);
-    float tw = tt * 0.05 * flowRate;
+    float drift = tt * 0.012;
+    vec2 flow = vec2(0.03 * sin(tt * 0.02), tt * 0.014 * flowRate);
+    float tw = tt * 0.007 * flowRate;
 
-    // Beat ripples: this beat's ring and the last one's, amplitude from bass.
+    // Beat ripples: this beat's ring and the last one's, kept shallow so the
+    // lensed neon only wavers as they spread.
     float bc = mod(floor(u.beatCount), 512.0);
     float age = saturate(u.beatPhase);
-    float bass = saturate(u.bass);
-    vec4 rip = vec4(bc, age, (0.006 + 0.010 * bass + 0.008 * u.bassImpact),
-                    0.006 + 0.010 * bass);
-    // Every eight beats the ring flares and a broad swell runs out from it.
-    vec2 ringC = vec2(0.42 * sin(tt * 0.043), 0.04 + 0.06 * sin(tt * 0.031));
-    float ageH = mod(floor(u.beatCount), 8.0) + age;
-    float heroA = exp(-ageH * 0.55) * smoothstep(0.0, 0.15, ageH) * (0.010 + 0.016 * bass);
-    vec4 hero = vec4(ringC, ageH, heroA);
-    float flare = 2.2 * exp(-ageH * 2.5) * (0.5 + 0.5 * saturate(u.bassImpact + u.level));
-    // A pulse runs along one ribbon per beat, left to right.
-    vec3 pulse = vec3(-1.5 + 3.7 * age, mod(floor(u.beatCount), 4.0), 0.4 + 0.8 * saturate(u.beat + u.onset));
-    float micro = 0.002 + 0.008 * saturate(u.treble);
+    vec4 rip = vec4(bc, age, 0.0006, 0.0006);
+    // A faint pulse runs along one ribbon per beat, left to right.
+    vec3 pulse = vec3(-1.5 + 3.7 * age, mod(floor(u.beatCount), 4.0), 0.05);
+    float micro = 0.0004 + 0.0001 * saturate(u.level);
 
     // Five taps: slope for refraction and highlights, curvature for caustics.
     float e = 0.012;
@@ -169,16 +188,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 w0 = loWarp(wq, tw);
     vec2 wdx = (loWarp(wq + vec2(0.04, 0.0), tw) - w0) * (0.78 * e / 0.04);
     vec2 wdy = (loWarp(wq + vec2(0.0, 0.04), tw) - w0) * (0.78 * e / 0.04);
-    float h0 = loHeight(p, flow, w0, oct, rough, rip, hero);
-    float hx1 = loHeight(p + vec2(e, 0.0), flow, w0 + wdx, oct, rough, rip, hero);
-    float hx0 = loHeight(p - vec2(e, 0.0), flow, w0 - wdx, oct, rough, rip, hero);
-    float hy1 = loHeight(p + vec2(0.0, e), flow, w0 + wdy, oct, rough, rip, hero);
-    float hy0 = loHeight(p - vec2(0.0, e), flow, w0 - wdy, oct, rough, rip, hero);
+    float h0 = loHeight(p, flow, w0, oct, rough, rip);
+    float hx1 = loHeight(p + vec2(e, 0.0), flow, w0 + wdx, oct, rough, rip);
+    float hx0 = loHeight(p - vec2(e, 0.0), flow, w0 - wdx, oct, rough, rip);
+    float hy1 = loHeight(p + vec2(0.0, e), flow, w0 + wdy, oct, rough, rip);
+    float hy0 = loHeight(p - vec2(0.0, e), flow, w0 - wdy, oct, rough, rip);
     vec2 grad = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e);
     float lap = (hx1 + hx0 + hy1 + hy0 - 4.0 * h0) / (e * e);
     // The treble shiver tilts the surface only; kept out of the curvature so
     // the value-noise lattice never prints into the caustics.
-    vec2 mq = p * 11.0 + flow * 4.0;
+    vec2 mq = p * 11.0 + flow * 2.0;
     float m0 = vnoise(mq);
     grad += micro * vec2(vnoise(mq + vec2(0.05, 0.0)) - m0, vnoise(mq + vec2(0.0, 0.05)) - m0) * (11.0 / 0.05);
 
@@ -199,18 +218,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float lam = 2.3 * inversesqrt(max(1.0 - dq * dq, 0.0) + 0.06);
 
     // Transmitted scene with dispersion: red bends least, blue most.
-    float glow = saturate(u.mid);
+    float glow = saturate(0.24 + 0.4 * u.level);
     vec2 off = mix(-grad * refr, -dd * lam, inDrop);
-    vec4 rib = vec4(bandAt(u, 0.06), bandAt(u, 0.26), bandAt(u, 0.46), bandAt(u, 0.66));
+    float rl = saturate(u.level);
+    vec4 rib = mix(vec4(rl), vec4(bandAt(u, 0.5), bandAt(u, 0.62), bandAt(u, 0.74), bandAt(u, 0.86)), 0.2);
     vec3 col;
-    col.r = loScene(p + off * 0.90, u, drift, tt, glow, rib, pulse, flare).r;
-    col.g = loScene(p + off * 1.00, u, drift, tt, glow, rib, pulse, flare).g;
-    col.b = loScene(p + off * 1.12, u, drift, tt, glow, rib, pulse, flare).b;
+    col.r = loScene(p + off * 0.90, u, drift, tt, glow, rib, pulse).r;
+    col.g = loScene(p + off * 1.00, u, drift, tt, glow, rib, pulse).g;
+    col.b = loScene(p + off * 1.12, u, drift, tt, glow, rib, pulse).b;
 
     // Back wall caustics: the glass focuses a cool wash into a web. Per-channel
     // focus depths split the web into spectral edges.
     float hue = 0.30 + 0.12 * sin(tt * 0.02) + 0.1 * h0;
-    vec3 wash = palVisual(hue, u);
+    vec3 wash = loOffRed(loPalSteady(hue, u));
     float D = 0.02 * causticAmt;
     vec3 focus = vec3(1.0 / max(1.0 + D * 0.88 * lap, 0.25),
                       1.0 / max(1.0 + D * 1.00 * lap, 0.25),
@@ -221,10 +241,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += wash * focus * wallLight * causticAmt;
 
     // Thick beads tint the light they pass, like coloured glass.
-    vec3 absorb = mix(vec3(1.0), palVisual(0.12, u) * 1.1, 0.35 * smoothstep(0.45, 0.85, h0));
+    vec3 absorb = mix(vec3(1.0), loOffRed(loPalSteady(0.12, u)) * 1.1, 0.35 * smoothstep(0.45, 0.85, h0));
     col *= absorb;
     // Deep backdrop: near-black, faintly graded so the sculpture has a room.
-    col += mix(palRoleFog(0.05, u), palRoleFog(0.55, u), uv.x) * 0.006 * (1.2 - 0.5 * abs(p.y));
+    col += mix(loPalSteadyFog(0.05, u), loPalSteadyFog(0.55, u), uv.x) * 0.006 * (1.2 - 0.5 * abs(p.y));
 
     // Surface: crisp studio reflections on the swells, Fresnel-weighted.
     vec3 n = normalize(vec3(-grad * 0.55, 1.0));
@@ -236,11 +256,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += loRig(r.xy, u) * (0.12 + fres);
     // Pin specular glints where the shiver catches the key light.
     float nh = saturate(dot(n, normalize(vec3(-0.35, 0.45, 1.0))));
-    col += vec3(1.0, 0.97, 0.94) * pow(nh, 300.0) * (1.5 + 3.0 * saturate(u.treble));
+    col += vec3(1.0, 0.97, 0.94) * pow(nh, 300.0) * (1.0 + 0.1 * saturate(u.level));
+
+
 
     // Gentle lens falloff, not a black frame.
     col *= 1.0 - 0.35 * smoothstep(0.7, 1.9, length(p));
 
     col = feedbackTrail(col, uv, min(u.trailDecay, 0.40), 0.0, 0.0);
+    col *= loGain(u);
     return col; // LINEAR HDR
 }

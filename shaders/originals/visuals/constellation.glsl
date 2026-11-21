@@ -3,19 +3,22 @@
 // A slow drift through a deep star cluster drawn as a living star chart.
 // Stars sit on stacked depth sheets that stream past with true parallax: far
 // sheets glitter finely, near ones swim by large and soft as out-of-focus
-// bokeh, and in a burst the stars stretch into short streaks. Star colours
+// bokeh. Star colours
 // follow temperature: blue-white, white and a few gold giants, the gold being
 // the palette's own complement. On every beat a new set of constellation
 // lines draws itself between the bright stars: a gold-hot spark races ahead,
 // the line cools behind it to the figure's colour, and each star it reaches
 // lights up inside a fine chart ring, the lines stopping short of the rings.
-// Every sixteen beats a star goes nova: a gold flash with diffraction spikes,
-// a shock ring that sweeps out across the sky, re-lighting every line and
-// star it passes, and a light echo in the dust. Behind it all a dust lane
-// glows magenta and blue. The drift follows the shared 32-beat speed profile
-// and the roll eases to a new side every eight beats. Audio drives light
-// only: the spectrum lights the stars, the beat draws the lines, bass sends
-// pulses along them and treble makes the brightest stars flare.
+// Every sixteen beats a star goes nova: a gold flare that swells in over a
+// beat, with diffraction spikes, a faint shock ring that spreads slowly out
+// across the sky, softly re-lighting the lines and stars it passes, and a
+// light echo in the dust. Behind it all a dust lane glows magenta and blue.
+// The drift is slow and steady and the sky turns once every ten minutes, so
+// the star field never streams past fast enough to flash. Calm under loud
+// music, audio drives light only: the smoothed level plus a modest band term
+// lights the stars, the beat draws the lines, soft pulses run along them, the
+// brightest stars flare gently with the level and the dust lane swells only
+// faintly after each beat.
 // param0 = Drift Speed ; param1 = Link Density ; param2 = Pulse
 
 const float CN_FOCUS = 2.0;    // depth of the focal plane
@@ -120,7 +123,7 @@ vec4 cnLink(vec2 q, vec2 a, vec2 b, vec2 ca, vec2 dc, vec2 blk, vec3 fig, float 
     float halo = exp(-d / (w * 2.5)) * 0.35;
     // bass pulse running along the held line
     float pp = fract(u.beatPhase + h * 0.3);
-    float pulse = exp(-(sg - pp) * (sg - pp) * 60.0) * u.bassImpact;
+    float pulse = exp(-(sg - pp) * (sg - pp) * 60.0) * (0.2 + 0.2 * saturate(u.level));
     float line = drawn * fade * lenFade * cut * (0.6 + 2.4 * pulse);
     // the spark at the growing tip, fading as the line completes; the line is
     // hot just behind it and cools to the figure colour
@@ -154,13 +157,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float t = mod(u.time, 600.0);
     float px = 2.0 / max(u.resolution.y, 1.0);   // one pixel in screen units
 
-    // the drift: the shared beat speed profile, an eased bank, a slow turn
-    vec2 fl = osFlight(u, mix(0.5, 1.6, u.param0), 0.4 * mix(0.5, 1.5, u.param0));
-    float travel = fl.x * 0.03;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float roll = osBank(u, 0.22) + t * 0.01;
+    // the drift: slow and steady, and the sky turns once every ten minutes
+    float travel = mod(u.time, 36000.0) * 0.57 * mix(0.5, 1.6, u.param0) * 0.03;
+    float roll = t * 0.0104720;
     p = rot2(roll) * p;
-    p *= 1.0 + 0.10 * rush;   // a touch wider in a burst
     vec2 cam = vec2(sin(t * 0.061) * 1.6 + sin(t * 0.023) * 0.9,
                     cos(t * 0.047) * 1.1);
 
@@ -181,14 +181,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 hp = (hash22(vec2(mod(hn, 251.0), 3.7)) - 0.5) * vec2(1.5, 0.9);
     vec2 dh = p - hp;
     float rh = length(dh);
-    float hEnv = smoothstep(0.0, 0.06, ha) * exp(-ha * 0.42) * (0.75 + 0.5 * saturate(u.level + u.bassImpact));
-    float hR = 0.03 + 1.6 * (1.0 - exp(-ha * 0.32));
+    float hEnv = smoothstep(0.0, 0.8, ha) * exp(-ha * 0.42) * (0.8 + 0.2 * saturate(u.level));
+    float hR = 0.03 + 1.6 * (1.0 - exp(-ha * 0.15));
     float hW = 0.007 + 0.006 * ha;
     float hx = (rh - hR) / hW;
     float hRing = exp(-hx * hx) * smoothstep(0.0, 0.1, ha) * exp(-ha * 0.55) * (0.007 / hW + 0.4);
-    // the sweep re-lights what the ring passes, trailing a little behind it
+    // the sweep softly re-lights what the ring passes, trailing a little behind it
     float hx2 = (rh - hR + hW * 1.5) / (hW * 3.0);
-    float sweep = exp(-hx2 * hx2) * smoothstep(0.0, 0.1, ha) * exp(-ha * 0.2);
+    float sweep = exp(-hx2 * hx2) * smoothstep(0.0, 0.1, ha) * exp(-ha * 0.2) * 0.3;
 
     // deep background: blue-black space and a two-tone dust lane
     vec2 bp = p * (1.0 + 0.12 * sin(t * 0.021)) + cam * 0.1 + vec2(t * 0.008, 0.0);
@@ -204,21 +204,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // dark absorbing lanes cut across both colours
     float lanes = 1.0 - 0.85 * smoothstep(0.52, 0.72, vnoise(bp * 2.3 + warp * 2.6)) * lw;
     vec3 col = vec3(0.0015, 0.0012, 0.006) + palVisual(0.2, u) * 0.025 * lw;
-    // the dust is magenta on one side of the flow, blue on the other, and
-    // warms toward magenta as a burst builds
-    vec3 nebCol = mix(cPink, cBlue, smoothstep(0.38, 0.60, warp.y) * (1.0 - 0.5 * rush));
+    // the dust is magenta on one side of the flow, blue on the other
+    vec3 nebCol = mix(cPink, cBlue, smoothstep(0.38, 0.60, warp.y));
     col += nebCol * neb * 0.5 * (0.8 + 0.4 * u.level);
     // hot emission knots where the filaments bunch up
-    col += mix(nebCol, white, 0.3) * neb * neb * neb * 1.4 * (0.7 + 0.5 * u.mid);
+    col += mix(nebCol, white, 0.3) * neb * neb * neb * 1.4 * (0.8 + 0.2 * saturate(u.level));
     // light echo: the nova lights the dust around it
     col += cGold * (neb + 0.03) * hEnv * (exp(-rh * 2.5) * 1.2 + sweep * 0.8);
     col *= lanes;
 
-    float lineGain = (0.8 + 1.2 * u.level) * (0.7 + 0.3 * pulseAmt) * (1.0 + 2.5 * sweep);
+    float lineGain = (0.9 + 0.5 * saturate(u.level)) * (0.7 + 0.3 * pulseAmt) * (1.0 + 1.5 * sweep);
     // four spectrum bands read once; stars pick one by hash
     vec4 bq = vec4(band(u, 1), band(u, 5), band(u, 9), band(u, 13));
-    float rp = length(p);
-    vec2 rdir = p / max(rp, 1e-3);
 
     int layers = osSteps(3.0, 5.0, detail);
     float nl = float(layers);
@@ -283,23 +280,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float hs = hash21(id * vec2(1.93, 0.71) + key * 2.3);
         float ht = fract(hs * 7.3);
         vec3 tint = ht < 0.55 ? mix(cBlue, white, 0.45) : (ht < 0.84 ? white * 0.9 : mix(cGold, white, 0.1));
-        float lvl = 0.4 + 2.2 * cnPick(bq, hs);
+        float lvl = 0.6 + 0.6 * saturate(u.level) + 0.8 * cnPick(bq, hs);
         // stars of a forming figure light up as the line reaches them
         float lit = fig.y * smoothstep(0.0, 0.25, fig.x - (dot(cnLocal(id, blk, fig.z), vec2(1.0)) * 0.3)) *
-                    (1.0 - smoothstep(5.0, 8.0, fig.x)) * (1.0 + 1.2 * u.bassImpact);
-        lvl = (lvl + 1.6 * lit) * (1.0 + 2.0 * sweep);
+                    (1.0 - smoothstep(5.0, 8.0, fig.x)) * (1.0 + 0.1 * u.bassImpact);
+        lvl = (lvl + 1.2 * lit) * (1.0 + 1.2 * sweep);
         vec2 dq = (q - s0) * sc;
-        // burst streaks: stretched along the screen-radial flow, which grows
-        // with distance from the centre and nearness
-        vec2 rq = rk * rdir;
-        float str = 1.0 + rush * min(rp * 2.2 / z, 5.0);
-        vec2 dqs = dq - rq * dot(dq, rq) * (1.0 - 1.0 / str);
-        float sE = inversesqrt(str);
-        float big = step(0.7, hs) * (1.0 + 2.0 * u.treble) * saturate(1.0 - blur * 80.0);
+        float big = step(0.7, hs) * (1.0 + 0.5 * saturate(u.level)) * saturate(1.0 - blur * 80.0);
         float rf = max(r, px * 0.6);
         float flare = big * (exp(-abs(dq.x) / (r * 12.0) - abs(dq.y) / (rf * 0.4)) +
                              exp(-abs(dq.y) / (r * 12.0) - abs(dq.x) / (rf * 0.4))) * (r / rf);
-        light += ((tint * 0.75 + 0.35) * cnGlow(dqs, r * 1.2, blur) * sE * (1.6 + 1.2 * step(0.7, hs))
+        light += ((tint * 0.75 + 0.35) * cnGlow(dq, r * 1.2, blur) * (1.6 + 1.2 * step(0.7, hs))
                  + mix(tint, cBlue, 0.4) * flare * 0.8) * lvl;
         // a lit star sits in a fine chart ring of the figure's colour
         float dl = length(dq);
@@ -318,9 +309,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float rd = max(0.0016 / z + 0.0009, px * 0.55);
         float bd = hd.z * hd.z * hd.z * (0.6 + 1.6 * cnPick(bq, hd.x)) * (1.0 + 1.5 * sweep);
         vec2 dqd = (qd - sd) * sc / CN_DUST;
-        dqd -= rq * dot(dqd, rq) * (1.0 - 1.0 / str);
         vec3 dTint = fract(hd.x * 13.0) < 0.18 ? mix(cGold, white, 0.4) : mix(white, cBlue, 0.35);
-        light += dTint * cnGlow(dqd, rd, blur * 0.8) * bd * sE * 2.2;
+        light += dTint * cnGlow(dqd, rd, blur * 0.8) * bd * 2.2;
 
         col += light * fog;
     }
@@ -331,10 +321,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 aa = abs(da);
     float spikes = exp(-aa.y / (0.0016 + 0.012 * aa.x) - aa.x * 3.0) + exp(-aa.x / (0.0016 + 0.012 * aa.y) - aa.y * 3.0);
     float nCore = exp(-rh * rh / 0.00025) * 4.0 + exp(-rh / 0.03) * 0.6;
-    col += (mix(cGold, white, 0.55) * nCore + mix(cGold, cBlue, 0.25) * spikes * 0.9) * hEnv * (1.0 + 0.5 * u.treble);
-    col += mix(mix(cGold, white, 0.3), cPink, saturate(ha / 6.0)) * hRing * 0.5;
+    col += (mix(cGold, white, 0.55) * nCore + mix(cGold, cBlue, 0.25) * spikes * 0.9) * hEnv * (1.0 + 0.2 * saturate(u.level));
+    col += mix(mix(cGold, white, 0.3), cPink, saturate(ha / 6.0)) * hRing * 0.3;
 
-    // the beat lifts the dust lane a little, never the frame
-    col += palRolePeak(0.6, u) * neb * 0.06 * u.bassImpact * pulseAmt;
+    // the dust lane swells a little just after each beat, never the frame
+    float bph = saturate(u.beatPhase);
+    float bSw = smoothstep(0.0, 0.3, bph) * (1.0 - bph) * (1.0 - bph) * 2.0;
+    col += palRolePeak(0.6, u) * neb * 0.06 * bSw * pulseAmt;
     return col; // LINEAR HDR — post chain tonemaps
 }

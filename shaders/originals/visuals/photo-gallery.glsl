@@ -5,9 +5,11 @@
 // throws a rainbow sheen as it turns; spotlights pour shafts of light through
 // the haze onto each card, and the black mirror floor doubles the whole hall.
 // Cards hang in rows at four depths, so they slide past in parallax. The
-// glide follows the shared 32-beat speed profile with an eased bank. Audio
-// drives the light: each card's foil follows a spectrum band, the beat lifts
-// one card's glow and bass warms the spotlights.
+// glide is slow and steady, easing only a little faster on the shared 32-beat
+// speed profile's builds and bursts, with an eased bank. Audio drives the
+// light gently: each card's foil and rim follow the level and a little of a
+// spectrum band, the beat's card glows a touch brighter, and a soft pulse
+// runs down the floor strips; nothing large brightens on the beat.
 // param0 = Cards ; param1 = Drift ; param2 = Edges
 
 const float PG_FLOOR = -1.35;
@@ -90,13 +92,13 @@ vec3 pgShade(vec3 rd, vec2 q, vec3 n, vec3 id, VisualUniforms u, float edgeAmt, 
     float key = hash21(id.xy + 0.7);
     float b = bandAt(u, fract(key * 3.7 + id.y * 0.13));
     float pick = step(abs(mod(u.beatCount, 7.0) - mod(id.y + id.x * 3.0, 7.0)), 0.5);
-    float lift = pick * (0.3 + 0.7 * u.beat);
+    float lift = pick * 0.3;
     vec3 v = -rd;
     float ndv = saturate(dot(n, v));
     vec3 photo = pgPhoto(q, id.z > 0.5 ? 1.0 : -1.0);
     // spotlight from above: brighter at the top of the card
     float spot = 0.75 + 0.35 * q.y;
-    vec3 col = photo * spot * (1.0 + 0.25 * lift + 0.10 * u.level);
+    vec3 col = photo * spot * (1.0 + 0.08 * lift + 0.05 * u.level);
     // holographic foil: a narrow rainbow band sweeps over the print as the card
     // turns against the camera; the hue runs through the full spectrum across it
     float g = dot(q, vec2(0.8, 0.6)) * 1.3 + (1.0 - ndv) * 3.0 + dot(v.xy, vec2(2.0, -1.4));
@@ -110,7 +112,7 @@ vec3 pgShade(vec3 rd, vec2 q, vec3 n, vec3 id, VisualUniforms u, float edgeAmt, 
     // additive sheen fades out on bright print, a multiplicative tint takes over.
     float hiL = smoothstep(0.2, 0.75, lum);
     col *= mix(vec3(1.0), 0.45 + 0.85 * foil, sheen * hiL * 0.55);
-    col += foil * onPrint * (1.0 - 0.8 * hiL) * (0.012 + sheen * (0.3 + 1.0 * b + 0.8 * lift));
+    col += foil * onPrint * (1.0 - 0.8 * hiL) * (0.012 + sheen * (0.35 + 0.2 * b + 0.15 * lift));
     // the foil darkens the print a little either side of the band, so it reads as a film
     col *= 1.0 - 0.12 * exp(-sp * sp * 14.0) * (1.0 - sheen);
     // glass: fresnel reflection of the dark hall and a hard spot glint
@@ -123,7 +125,7 @@ vec3 pgShade(vec3 rd, vec2 q, vec3 n, vec3 id, VisualUniforms u, float edgeAmt, 
     float edge = 1.0 - smoothstep(0.0, 0.025, min(e.x * 1.0, e.y * 1.6));
     // lit glass edge: the photo's complementary accent on the beat's card, palette elsewhere
     vec3 rim = mix(pgPal(P, key), P.accent, 0.35 + 0.65 * lift);
-    col += rim * edge * edgeAmt * (0.6 + 2.2 * b + 2.5 * lift + 0.6 * u.onset);
+    col += rim * edge * edgeAmt * (0.75 + 0.3 * b + 0.4 * lift);
     return col;
 }
 
@@ -168,7 +170,7 @@ vec3 pgBokeh(vec2 p, float camX, VisualUniforms u, int layers, PgPal P) {
         float disc = smoothstep(1.0, 0.8, d) * (0.45 + 0.55 * smoothstep(0.5, 0.95, d));
         float b = bandAt(u, fract(h.y * 5.3));
         vec3 bc = h.y > 0.55 ? P.accent : pgPal(P, h.x * 7.1 + 0.3);
-        acc += bc * disc * (0.015 + 0.08 * b) / (1.0 + fl * 0.6);
+        acc += bc * disc * (0.03 + 0.02 * b) / (1.0 + fl * 0.6);
     }
     return acc;
 }
@@ -187,11 +189,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     int rows = detail > 0.5 ? 4 : 3;
 
     // camera: a tracking glide along the hall on the shared speed profile
-    vec2 fl = osFlight(u, 0.32, 0.22);
+    vec2 fl = osFlight(u, 0.0, 0.006);
+    fl.x += 0.09 * u.time;
+
     float rush = saturate((fl.y - 1.0) / 3.5);
     vec3 ro = vec3(fl.x, -0.25 + 0.12 * sin(t * 0.07), 0.0);
-    vec3 ta = ro + vec3(1.1 + 0.5 * rush, 0.25 + 0.05 * sin(t * 0.05), 6.0);
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.04), 1.55 - 0.1 * rush, p);
+    vec3 ta = ro + vec3(1.1 + 0.12 * rush, 0.25 + 0.05 * sin(t * 0.05), 6.0);
+    vec3 rd = osCamera(ro, ta, osBank(u, 0.04), 1.55 - 0.03 * rush, p);
+
 
     // the photo's key colour from nine fixed taps, weighted toward saturated
     // pixels; the accent is its complement, kept saturated and bright
@@ -249,7 +254,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec4 cd = pgCard(float(r), c0, 0.0, row, t, drift);
             pool += exp(-(pgSq(fp.x - cd.x) * 1.4 + pgSq(fp.z - cd.z) * 2.5));
         }
-        col += keyLight * P.d * pool * (0.05 + 0.05 * u.bassImpact);
+        col += keyLight * P.d * pool * (0.07 + 0.01 * u.level);
         // accent light strips set in the floor between the rows: fixed dashes
         // that stream past with the glide, and a pulse shot down them on each beat
         float pxA = tFloor * 2.0 / (max(u.resolution.y, 1.0) * 1.5) / max(-rd.y, 0.04);
@@ -259,8 +264,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float w = 0.025 + pxA;
             float line = exp(-pgSq((fp.z - zl) / w)) * (0.025 / w);
             float dash = 0.35 + 0.65 * smoothstep(0.2, 0.0, abs(fract(fp.x * 0.25 + float(s) * 0.33) - 0.5) - 0.3);
-            float pulse = exp(-pgSq(fp.x - ro.x - 1.5 - 16.0 * bp) * 0.6) * (1.0 - bp) * (0.3 + 0.7 * u.bassImpact);
-            float lit = dash * (0.25 + 0.6 * bandAt(u, 0.1 + 0.3 * float(s))) + 3.0 * pulse;
+            float pulse = exp(-pgSq(fp.x - ro.x - 1.5 - 16.0 * bp) * 0.6) * (1.0 - bp) * 0.4;
+            float lit = dash * (0.3 + 0.1 * u.level + 0.12 * bandAt(u, 0.1 + 0.3 * float(s))) + 0.5 * pulse;
             col += accent * line * lit * exp(-tFloor * 0.04) * 2.2;
             // and their glow on the wet floor around them
             col += accent * exp(-abs(fp.z - zl) * 5.0) * lit * 0.08 * exp(-tFloor * 0.04);
@@ -275,7 +280,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float fogAmt = 1.0 - exp(-tEnd * 0.06);
     col = mix(col, fogC * 0.03, fogAmt);
     float sh = pgShafts(ro, rd, tEnd, density, drift, t, rows);
-    col += mix(P3, keyLight, 0.6) * sh * (0.06 + 0.07 * u.bassImpact + 0.02 * u.level);
+    col += mix(P3, keyLight, 0.6) * sh * (0.08 + 0.02 * u.level);
     col += pgBokeh(p, ro.x, u, detail > 0.5 ? 3 : 1, P);
     // a faint glow high in the hall
     col += fogC * 0.025 * smoothstep(0.0, 0.6, p.y + 0.2);

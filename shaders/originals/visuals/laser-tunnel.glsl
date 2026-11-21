@@ -8,13 +8,16 @@
 // glass, and the glass mirrors those lines. Sheets burn in a warm family that
 // drifts through the palette with the bars and the builds; beam fans and the
 // scanner beams thrown from deep in the shaft burn in the cool complement.
-// Every eight beats the rig re-patches (sheets turn to fans and back), and each
-// beat the next fixture down the shaft hits harder while a shock plane races
-// away. The camera follows the shared 32-beat speed profile (cruise, build,
-// burst, brake, drift), drifts slowly off axis and eases its roll every eight
-// beats; planes fade before they reach the lens, so nothing flashes the frame.
-// Audio drives only light: a spectrum band per fixture, bass the chase and the
-// shock plane, treble the pulses on the scanner beams.
+// Every eight beats the rig slowly re-patches over about five beats (sheets
+// fade into fans and back), and each
+// beat the next fixture down the shaft swells softly while a faint shock plane
+// drifts away. Calm under loud music: the camera flies at an unhurried, steady cruise
+// with no beat surges, drifts slowly off axis with a gentle roll, and planes
+// and the lines they scribe fade before they reach the lens, so nothing flashes the frame. Audio drives
+// only light: the smoothed level plus a faint band term per fixture, with
+// small soft beat accents on the chase and the shock plane; the scanner beams
+// sweep slowly and their dashes crawl gently.
+// Reds are kept just off saturated red.
 // The shaft and every plane are solved analytically, so it costs little.
 // param0 = Speed ; param1 = Sides ; param2 = Rail Glow
 
@@ -65,6 +68,11 @@ float ltBar(float d, float hw, float w) {
     return saturate((hw - abs(d)) / w + 0.5) * min(1.0, 2.0 * hw / w + 0.15);
 }
 
+// Keep reds just off saturated red (judged after the filmic curve).
+float ltTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float ltToneInv(float y) { y = clamp(y, 0.0, 0.999); float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y; return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a); }
+vec3 ltOffRed(vec3 c) { float r = ltTone(c.r), g = ltTone(c.g), b = ltTone(c.b); float need = 0.3 * r - g - b; if (need <= 0.0) return c; if (c.g > c.b) c.g = max(c.g, ltToneInv(g + need)); else c.b = max(c.b, ltToneInv(b + need)); return c; }
+
 // Warm family: a smooth cycle through the palette's first three stops.
 vec3 ltWarm(float h, vec3 a, vec3 b, vec3 c) {
     float x = fract(h) * 3.0;
@@ -80,11 +88,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     float sides = floor(mix(4.0, 8.0, u.param1) + 0.5);
     float railGlow = mix(0.3, 1.2, u.param2);
-    float cruise = mix(5.0, 16.0, u.param0);
-    float surge = 1.4 * mix(0.5, 1.5, u.param0);
+    float cruise = mix(1.0, 3.0, u.param0);
+    float surge = -0.4 * cruise;                   // cancels the beat profile
     vec2 fl = osFlight(u, cruise, surge);
     float z = mod(fl.x, LT_WRAP);
-    float speed = fl.y;
+    float speed = 1.0;
     float rush = saturate((speed - 1.0) / 3.0);
     float lull = saturate(1.0 - speed);
     // distance covered in about one frame at a 120 bpm reference tempo: the
@@ -94,7 +102,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tt = mod(u.time, 600.0);
     float bp = saturate(u.beatPhase);
     float beats = mod(u.beatCount, 512.0) + bp;
-    float bass = u.bassImpact;
+    float lev = saturate(u.level);
+    float bass = 0.0;
 
     // palette read once at fixed stops, blended locally
     vec3 cA = palVisual(0.02, u);
@@ -110,7 +119,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 look = vec2(sin(tt * 0.19 - 0.9), sin(tt * 0.13 + 0.3)) * 0.4;
     vec3 ro = vec3(off, z);
     vec3 ta = vec3(look, z + 8.0);
-    float roll = osBank(u, 0.38) + 0.12 * sin(tt * 0.07);
+    float roll = osBank(u, 0.01) + 0.12 * sin(tt * 0.07);
     float fov = 1.15 - 0.22 * rush + 0.08 * lull;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
     float px = 2.0 / (u.resolution.y * fov);
@@ -140,7 +149,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float fixture = floor(beats);                  // which fixture the chase is on
     float phrase = beats / 8.0;
     float pk = floor(phrase);
-    float pBlend = smoothstep(0.0, 0.3, fract(phrase));
+    float pBlend = smoothstep(0.0, 0.6, fract(phrase));
 
     vec3 air = vec3(0.0);   // laser planes seen in the haze
     vec3 wall = vec3(0.0);  // lines scribed on the glass
@@ -163,16 +172,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec2 tg = vec2(-rad.y, rad.x);
         float hsd = LT_R * tan(3.14159265 / sides);
         vec3 E = vec3(rad * (LT_R - 0.03) + tg * (hs2 - 0.5) * hsd * 1.1, seg * LT_SP + 1.5 * hs2);
-        float tilt = 0.6 * sin(tt * (0.19 + 0.08 * hs) + hs * 6.2831853);
-        float yaw = 0.45 * sin(tt * (0.15 + 0.07 * hs2) + hs2 * 6.2831853);
+        float tilt = 0.6 * sin(tt * (0.07 + 0.03 * hs) + hs * 6.2831853);
+        float yaw = 0.45 * sin(tt * (0.06 + 0.03 * hs2) + hs2 * 6.2831853);
         vec3 N = normalize(vec3(rad * sin(tilt) + tg * sin(yaw), cos(tilt)));
         vec3 D0 = vec3(-rad, 0.0);
         D0 = normalize(D0 - N * dot(D0, N));
         vec3 P0 = cross(N, D0);
-        float sw = 0.7 * sin(tt * (0.27 + 0.2 * hs) + hs2 * 9.0);
+        float sw = 0.7 * sin(tt * (0.09 + 0.06 * hs) + hs2 * 9.0);
         vec3 D = D0 * cos(sw) + P0 * sin(sw);
         vec3 P = cross(N, D);
-        float open = 0.5 + 0.4 * (0.5 + 0.5 * sin(tt * 0.19 + hs * 5.0)) + 0.2 * rush;
+        float open = 0.5 + 0.4 * (0.5 + 0.5 * sin(tt * 0.07 + hs * 5.0)) + 0.2 * rush;
         // the rig re-patches every eight beats: sheets turn to beam fans
         float fanM = mix(step(0.55, hash11(sid * 1.3 + pk * 7.7)), step(0.55, hash11(sid * 1.3 + (pk + 1.0) * 7.7)), pBlend);
         float nb = 7.0 + 2.0 * floor(hs2 * 4.0);
@@ -180,8 +189,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // light level: one spectrum band per fixture, and a chase down the
         // shaft that hits the next fixture on every beat
         float bl = bandAt(u, fract(0.08 + hs * 0.8));
-        float chase = (mod(seg - fixture, 4.0) < 0.5 ? 1.0 : 0.0) * (1.0 - bp) * (1.0 - bp) * (0.6 + 1.6 * bass);
-        float lvl = 0.3 + 1.5 * bl + chase;
+        float chase = (mod(seg - fixture, 4.0) < 0.5 ? 1.0 : 0.0) * sin(3.14159265 * bp) * sin(3.14159265 * bp) * (0.06 + 0.04 * lev);
+        float lvl = 0.35 + 0.25 * lev + 0.05 * bl + chase;
         vec3 sc = mix(ltWarm(hue + 0.13 * hs, cA, cB, cC), cool, fanM);
 
         // ---- the plane in the haze ----
@@ -196,7 +205,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float ang = atan2_(xv, yv);
         float j = (ang + open) / (2.0 * open) * nb;
         float jw = fwidth(j);
-        float near = smoothstep(0.6, 3.0 + 9.0 * rush, tk);
+        float near = smoothstep(1.5, 8.0 + 9.0 * rush, tk);
         float vis = smoothstep(open, open - 0.07, abs(ang)) * smoothstep(0.0, 0.2, L)
                   * near * step(0.2, tk) * step(tk, t);
         if (vis > 0.001) {
@@ -232,8 +241,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float dots = mix(1.0, ltLine(jW, dotW, fwidth(jW)) * 0.6 / max(dotW, 0.05) + 0.06, fanM);
         float keep = 0.012 / lw;
         float line = ltBar(dw, lw, fwidth(dw)) * keep;
-        float nearW = smoothstep(0.4, 2.5 + 6.0 * rush, t);
-        wall += sc * (line * 3.2 * dots + exp(-abs(dw) * 7.0) * 0.05) * maskW * lvl * nearW;
+        float nearW = smoothstep(0.8, 5.0 + 6.0 * rush, t);
+        wall += sc * (line * 2.4 * dots + exp(-abs(dw) * 7.0) * 0.05) * maskW * lvl * nearW;
 
         float dr = dot(h2 - E, N);
         vec3 vr = h2 - E - N * dr;
@@ -249,11 +258,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float r2 = fx * fx + fy * fy;
         float spot = exp(-r2 * 14000.0) * 1.3 + exp(-sqrt(r2) * 70.0) * 0.1
                    + exp(-abs(fy) * 1100.0 - abs(fx) * 9.0) * 0.22;
-        flare += peakWhite(sc, 0.35) * spot * step(0.5, tE) * smoothstep(1.0, 3.5, tE) * (0.4 + lvl) * exp(-tE * fogK * 0.6);
+        flare += peakWhite(sc, 0.35) * spot * step(0.5, tE) * smoothstep(1.0, 3.5, tE) * (0.3 + 0.5 * lvl) * exp(-tE * fogK * 0.6);
     }
 
     // black glass: a dim engraved panel grid lit by the haze, then the lines
-    vec3 hazeC = mix(ltWarm(hue, cA, cB, cC), cool, 0.4) * (0.6 + 0.6 * u.amplitude);
+    vec3 hazeC = mix(ltWarm(hue, cA, cB, cC), cool, 0.4) * (0.75 + 0.25 * lev);
     float hsW = LT_R * tan(3.14159265 / sides);
     vec2 tgW = vec2(-sin(th), cos(th));
     float s = dot(h.xy, tgW);
@@ -270,13 +279,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float rail = ltBar(ec, 0.015, fwidth(ec));
     float corner = mod(hit.y + (s > 0.0 ? 1.0 : 0.0), sides);
     float rb = bandAt(u, fract(corner * 0.13 + 0.1));
-    float pulse = 0.55 + 0.45 * sin(h.z * 0.7 - tt * 3.0 + corner * 1.7);
-    col += cool * (rail * 0.3 + exp(-ec * 14.0) * 0.03) * railGlow * (0.3 + 1.6 * rb) * pulse;
+    float pulse = 0.75 + 0.25 * sin(h.z * 0.7 - tt * 0.4 + corner * 1.7);
+    col += cool * (rail * 0.3 + exp(-ec * 14.0) * 0.03) * railGlow * (0.6 + 0.3 * lev + 0.06 * rb) * pulse;
 
     // depth haze toward a deep throat
     col *= exp(-t * fogK);
     col += (hazeC * 0.02 + hazeE * 0.025) * (1.0 - exp(-t * fogK));
-    col += air * (0.7 + 0.3 * u.level);
+    col += air * (0.85 + 0.15 * lev);
     col += flare;
 
     // shock plane: a ring of light launched on each beat, racing down the shaft
@@ -285,12 +294,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec2 qs = ro.xy + rd.xy * ts;
         float dwS = max(ltInside(qs, sides), 0.0);
         float smS = vnoise(qs * 2.2 + vec2(smokeT, beats));
-        float fade = (1.0 - bp) * bass * smoothstep(0.8, 4.0, ts);
+        float fade = sin(3.14159265 * bp) * (0.04 + 0.04 * lev + bass) * smoothstep(0.8, 4.0, ts);
         col += palRoleBass(0.1, u) * (exp(-dwS * 20.0) * 2.2 + exp(-dwS * 3.0) * 0.25 * smS) * fade * exp(-ts * fogK);
     }
 
     // scanner beams: emitters deep in the throat throw cool beams up the shaft
-    float sweep = 0.21 * tt + 0.5 * sin(tt * 0.11);
+    float sweep = 0.1 * tt + 0.4 * sin(tt * 0.07);
     int nBeams = osSteps(1.0, 2.0, detail);
     for (int b = 0; b < 4; b++) {
         if (b >= nBeams) break;
@@ -298,8 +307,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float side = mod(fb, 2.0);
         float ae = sweep + 3.14159265 * side;
         vec3 em = vec3(vec2(cos(ae), sin(ae)) * LT_R * 0.9, z + 26.0 + 4.0 * side);
-        float at = ae + 3.14159265 + 0.9 * sin(tt * (0.23 + 0.04 * fb) + fb * 1.7);
-        float zEnd = z + 3.5 + 2.5 * sin(tt * 0.13 + fb * 2.3);
+        float at = ae + 3.14159265 + 0.5 * sin(tt * (0.12 + 0.03 * fb) + fb * 1.7);
+        float zEnd = z + 3.5 + 2.0 * sin(tt * 0.08 + fb * 2.3);
         vec3 tip = vec3(vec2(cos(at), sin(at)) * LT_R * 0.98, zEnd);
         vec3 Db = tip - em;
         float Lb = max(length(Db), 1e-3);
@@ -317,11 +326,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float core = exp(-d * d / (wcore * wcore)) * (0.008 / wcore);
         float smB = 0.3 + 1.3 * vnoise(pb.xy * 2.0 + vec2(pb.z * 0.35 - smokeT * 2.0, fb * 5.0));
         float halo = (exp(-d * 7.0) * 0.06 + exp(-d * 34.0) * 0.3) * smB;
-        float dash = smoothstep(0.6, 1.0, sin(sb * 0.8 + tt * 9.0 + fb * 2.0));
+        float dash = smoothstep(0.6, 1.0, sin(sb * 0.8 + tt * 0.8 + fb * 2.0));
         float bandL = bandAt(u, fract(0.55 + fb * 0.11));
         vec3 bc = mix(cool, cE + 0.3 * cD, 0.25 * fb / 3.0);
         float vis = step(tb, t + 0.05) * exp(-tb * fogK * 0.7);
-        col += (peakWhite(bc, 0.15) * core * 1.1 + bc * halo * 0.7) * (0.3 + 0.7 * bandL + dash * (0.4 + 2.5 * u.treble)) * vis;
+        col += (peakWhite(bc, 0.15) * core * 1.1 + bc * halo * 0.7) * (0.5 + 0.3 * lev + 0.05 * bandL + dash * (0.08 + 0.04 * lev)) * vis;
         float tTip = max(dot(tip - ro, rd), 0.0);
         vec3 dvt = (ro + rd * tTip - tip) / max(tTip, 0.5);
         float fxt = dot(dvt, cr);
@@ -329,8 +338,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float r2t = fxt * fxt + fyt * fyt;
         float spotT = exp(-r2t * 9000.0) * 1.2 + exp(-sqrt(r2t) * 60.0) * 0.1
                     + exp(-abs(fyt) * 900.0 - abs(fxt) * 7.0) * 0.3;
-        col += peakWhite(bc, 0.4) * spotT * step(tTip, t + 0.2) * (0.5 + 1.2 * bandL) * smoothstep(1.5, 4.0, tTip);
+        col += peakWhite(bc, 0.4) * spotT * step(tTip, t + 0.2) * (0.7 + 0.3 * lev + 0.05 * bandL) * smoothstep(1.5, 4.0, tTip);
     }
 
-    return col; // LINEAR HDR
+    return ltOffRed(max(col, vec3(0.0))); // LINEAR HDR
 }

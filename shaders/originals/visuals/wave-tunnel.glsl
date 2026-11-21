@@ -7,12 +7,25 @@
 // each ring shifts hue around its circumference, an echo trace in a contrasting
 // hue rides just inside it with a faint lit ribbon between the two, beads of
 // light ride the trace peaks and line up into streams, and sparse stars streak
-// past with the flight speed. The camera
-// follows the shared 32-beat speed profile (cruise, build, burst, brake,
-// drift), banks into the bends and eases its roll every eight beats. Audio
-// drives only light and shape: the spectrum shapes and lights the rings, the
-// onset flares the nearest ring, bass thickens the ring cores.
+// gently past. The camera
+// glides slowly along the shared 32-beat speed profile (cruise, build, burst,
+// brake, drift) and rolls gently into the bends, slow enough that the bright
+// rings never sweep a large area within the flash budget. Audio drives only
+// shape and steady light, always smoothed: the level with only a trace of
+// the spectrum shapes the rings and lifts the beads, so no ring twitches, the overall level breathes
+// the ring glow gently, the beat sends a faint wave down the ribbons, the
+// ribbon shimmer drifts slowly, and the level barely warms the core glow; nothing
+// flashes on the beat and the hue barely follows the spectral centroid.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Velocity ; param1 = Ring Density ; param2 = Wall Turbulence
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 wtPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 23, u); }
 
 const float WT_R = 1.7;   // base ring radius
 
@@ -22,11 +35,11 @@ struct WtPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 WtPal wtPalLoad(VisualUniforms u) {
     WtPal P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = wtPalSteady(0.0, u);
+    P.c1 = wtPalSteady(0.26, u);
+    P.c2 = wtPalSteady(0.52, u);
+    P.c3 = wtPalSteady(0.78, u);
+    P.c4 = wtPalSteady(0.999, u);
     return P;
 }
 
@@ -52,10 +65,10 @@ vec2 wtPath(float z) {
 // lvl is the spectrum read at this angle; one read per ring keeps it cheap.
 float wtSlice(float t01, float id, float lvl, VisualUniforms u) {
     float seed = hash11(id * 3.71);
-    float w = (lvl - 0.45) * 0.9;
-    w += sin(t01 * 6.2831853 * 3.0 + id * 1.7) * 0.28 * (0.4 + lvl);
+    float w = (lvl - 0.45) * 0.03;
+    w += sin(t01 * 6.2831853 * 3.0 + id * 1.7) * 0.17;
     w += sin(t01 * 6.2831853 * 7.0 - id * 2.3 + seed * 6.0) * 0.14;
-    w += sin(t01 * 6.2831853 * 13.0 + id * 5.1) * 0.06 * u.treble;
+    w += sin(t01 * 6.2831853 * 13.0 + id * 5.1) * 0.006 * saturate(u.level);
     return w;
 }
 
@@ -66,8 +79,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tt = mod(u.time, 600.0);
     WtPal P = wtPalLoad(u);
 
-    float cruise = mix(3.0, 11.0, u.param0);
-    vec2 fl = osFlight(u, cruise, 1.0 * mix(0.5, 1.5, u.param0));
+    float cruise = mix(0.6, 2.2, u.param0);
+    vec2 fl = osFlight(u, 0.1 * cruise, -0.04 * cruise);
     float speed = fl.y;
     float rush = saturate((speed - 1.0) / 3.0);
     float lull = saturate(1.0 - speed);
@@ -80,8 +93,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 ro = vec3(wtPath(z), z);
     vec3 ta = vec3(wtPath(z + 7.0), z + 7.0);
     vec2 bend = wtPath(z + 12.0) - 2.0 * wtPath(z + 6.0) + wtPath(z);
-    float roll = -0.35 * bend.x + osBank(u, 0.26);
-    float fov = 1.25 - 0.25 * rush + 0.1 * lull;
+    float roll = -0.35 * bend.x;
+    float fov = 1.25;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
     float px = 2.0 / (u.resolution.y * fov);   // ray spread per pixel
 
@@ -91,7 +104,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float neb2 = vnoise(sky * 1.7 - vec2(tt * 0.013, 0.0) + 7.0);
     float lane = smoothstep(0.35, 0.75, vnoise(sky * 3.1 + vec2(tt * 0.007, 4.0)));
     // builds walk the hue of the whole corridor; drops settle it back
-    float hueShift = 0.22 * rush + 0.06 * u.spectralCentroid;
+    float hueShift = 0.008 * saturate(u.spectralCentroid);
     vec3 nebCol = mix(wtPal(P, 0.97 + hueShift), wtPal(P, 0.2 + hueShift), smoothstep(0.25, 0.75, neb2));
     nebCol = mix(nebCol, wtPal(P, 0.5 + hueShift), smoothstep(0.7, 0.95, neb) * 0.6);
     nebCol = wtSat(nebCol, 1.6);
@@ -100,13 +113,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 col = nebCol * (gas * gas * 0.16 + 0.03 * smoothstep(0.6, 0.9, neb2) * gas) * (1.0 - 0.9 * lane);
     // the beat sends a wave of light down the corridor, away from the camera
     float wave = 2.0 + 30.0 * saturate(u.beatPhase);
-    float waveAmp = pow(1.0 - saturate(u.beatPhase), 1.5) * (0.5 + 0.8 * u.amplitude);
+    float waveAmp = smoothstep(0.0, 0.2, saturate(u.beatPhase)) * pow(1.0 - saturate(u.beatPhase), 1.5) * (0.2 + 0.1 * saturate(u.level));
 
     // ---- the rings, front to back ----
     int nR = osSteps(10.0, 30.0, detail);
     float k0 = floor(z / sp) + 1.0;
     float rdz = max(rd.z, 0.05);
-    float coreW = 0.022 + 0.018 * u.bassImpact;
+    float coreW = 0.022;
     for (int k = 0; k < 30; k++) {
         if (k >= nR) break;
         float id = k0 + float(k);
@@ -119,17 +132,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float nearFade = smoothstep(0.0, 1.2, tk);   // planes fade in as they leave the lens
 
         // star dust outside the corridor, on the same planes: it streams
-        // outward and stretches with the flight speed
+        // outward in short, steady streaks
         if (k < 14 && rq > WT_R * (1.0 + turb) + 0.4) {
             vec2 g = q * 1.4;
             vec2 c = floor(g);
             vec2 h = hash22(c + vec2(mod(id, 512.0) * 7.31, 3.0));
             vec2 dv = (g - c - 0.2 - 0.6 * h) / 1.4;
             vec2 rad = q / max(rq, 1e-3);
-            float stretch = 1.0 + 1.1 * speed * rq / (tk + 0.6);
+            float stretch = 1.0 + 0.2 * rq / (tk + 0.6);
             vec2 dl = vec2(dot(dv, rad) / stretch, dot(dv, vec2(-rad.y, rad.x)));
             float sw = max(0.009, fp);
-            float tw = 0.6 + 0.4 * sin(tt * (2.0 + 3.0 * h.y) + h.x * 40.0);
+            float tw = 0.9 + 0.1 * sin(tt * (0.5 + 0.7 * h.y) + h.x * 40.0);
             float star = exp(-dot(dl, dl) / (sw * sw)) * (0.009 / sw) * step(0.94, h.x) / sqrt(stretch);
             col += mix(vec3(1.0), wtPal(P, h.y), 0.65) * star * 3.2 * tw * fog * nearFade;
         }
@@ -140,7 +153,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float t01 = atan2_(q.y, q.x) / 6.2831853 + 0.5;
         float rid = mod(id, 1000.0);
         float age = fract(rid * 0.618);
-        float lvl = bandAtWrapped(u, t01 + age);
+        float lvl = 0.5 * saturate(u.level) + 0.06 * bandAtWrapped(u, t01 + age);
         float d = rq - WT_R * (1.0 + wtSlice(t01, rid, lvl, u) * turb);
 
         // wide footprints spread the energy instead of aliasing
@@ -151,20 +164,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float halo = exp(-abs(d) * 9.0) * 0.24;
 
         // hue walks along the corridor and drifts in time: a gradient in depth
-        float hue = fract(id * 0.045 + 0.12 * age + 0.10 * u.spectralCentroid + tt * 0.01
+        float hue = fract(id * 0.045 + 0.12 * age + tt * 0.01
                           + 0.16 * sin(t01 * 6.2831853 + rid * 0.9));
         hue += hueShift;
-        vec3 rc = accentize(wtPal(P, hue + 0.03 * u.beatPhase), u.accent, 0.07);
+        vec3 rc = accentize(wtPal(P, hue), u.accent, 0.07);
         // keep the rings saturated: push away from their own grey
         rc = wtSat(rc, 1.8);
         float pw = exp(-(tk - wave) * (tk - wave) * 0.12) * waveAmp;
-        float e = (0.4 + 1.2 * lvl + 1.4 * pw) * fog * nearFade;
+        float e = (1.24 + 0.02 * saturate(u.level)) * fog * nearFade;
         // a white-hot filament inside a saturated glow, split slightly by
         // dispersion toward the edge of the view
-        float ca = (0.006 + 0.01 * rush) * rq;
+        float ca = 0.008 * rq;
         float cR = exp(-(d + ca) * (d + ca) / (w * w)) * coreW / w;
         float cB = exp(-(d - ca) * (d - ca) / (w * w)) * coreW / w;
-        vec3 hotCore = vec3(cR, core, cB) * core * (0.3 + 0.7 * pw + 0.4 * lvl);
+        vec3 hotCore = vec3(cR, core, cB) * core * 0.4;
         float glow = exp(-abs(d) * 1.6) * 0.025;
         col += (rc * (core * 0.9 + halo + glow) + hotCore) * e;
 
@@ -173,10 +186,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float d2 = rq - WT_R * (0.93 + wtSlice(t01 + 0.07, rid + 0.5, lvl, u) * turb * 0.8);
         float w2 = max(0.016, fp);
         float core2 = exp(-d2 * d2 / (w2 * w2)) * 0.016 / w2;
-        vec3 rc2 = wtSat(wtPal(P, hue + 0.42 + 0.03 * u.beatPhase), 1.8);
+        vec3 rc2 = wtSat(wtPal(P, hue + 0.42), 1.8);
         float lo = min(d, d2), hi = max(d, d2);
         float rib = smoothstep(-fp - 0.01, fp + 0.01, -lo) * smoothstep(-fp - 0.01, fp + 0.01, hi);
-        float ribF = rib * (0.16 + 0.5 * pw) * (0.7 + 0.3 * sin(t01 * 6.2831853 * 24.0 + rid * 3.0 - tt * 4.0) * (1.0 - saturate(fp * 30.0)));
+        float ribF = rib * (0.2 + 0.04 * pw) * (0.94 + 0.06 * sin(t01 * 6.2831853 * 24.0 + rid * 3.0 - tt * 0.4) * (1.0 - saturate(fp * 30.0)));
         col += (rc2 * (core2 * 1.5 + exp(-abs(d2) * 7.0) * 0.06) + mix(rc, rc2, 0.5) * ribF) * e;
 
         // beads on the trace peaks: they line up across rings into streams
@@ -184,17 +197,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec2 bd = vec2(bc * 6.2831853 / 12.0 * rq, d);
         float bw = max(0.05, fp);
         float bead = exp(-dot(bd, bd) / (bw * bw)) * (0.05 / bw);
-        col += peakWhite(rc, 0.35) * bead * (0.3 + 3.0 * lvl * lvl) * fog * nearFade;
+        col += peakWhite(rc, 0.35) * bead * (0.8 + 0.08 * lvl) * fog * nearFade;
 
-        // onset: the nearest rings flare white-hot
-        col += peakWhite(rc, 0.5) * core * u.onset * 1.8 * exp(-tk * 0.5) * nearFade;
-    }
+            }
 
-    // ---- a distant coal where the corridor leads, brighter on bass ----
+    // ---- a distant coal where the corridor leads, a touch brighter when loud ----
     vec3 farDir = normalize(vec3(wtPath(z + 40.0), z + 40.0) - ro);
     float fd = max(1.0 - dot(rd, farDir), 0.0);
-    vec3 coal = mix(wtPal(P, 0.16 + hueShift), wtPal(P, 0.03 + 0.18 * 0.06 + 0.04 * u.beatPhase), 0.62 + 0.25 * u.bassImpact);
-    col += coal * (exp(-fd * 300.0) * 0.8 + exp(-fd * 30.0) * 0.12) * (0.5 + 1.2 * u.bass);
+    vec3 coal = mix(wtPal(P, 0.16 + hueShift), wtPal(P, 0.03 + 0.18 * 0.06), 0.65);
+    col += coal * (exp(-fd * 300.0) * 0.8 + exp(-fd * 30.0) * 0.12) * (0.95 + 0.05 * saturate(u.level));
     // shafts of contrasting light fan out of the coal down the corridor
     vec3 fx = normalize(cross(farDir, vec3(0.0, 1.0, 0.0)));
     vec3 fy = cross(fx, farDir);
@@ -203,7 +214,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float shafts = vnoise(fdir * 5.0 + vec2(tt * 0.11, -tt * 0.07));
     shafts = shafts * shafts * shafts * (0.6 + 0.4 * vnoise(fdir * 13.0 - tt * 0.05));
     vec3 shaftC = wtSat(wtPal(P, 0.7 + hueShift), 1.4);
-    col += shaftC * shafts * exp(-fd * 7.0) * (0.2 + 0.35 * u.bassImpact + 0.25 * waveAmp) * (1.0 - exp(-fd * 400.0));
+    col += shaftC * shafts * exp(-fd * 7.0) * 0.3 * (1.0 - exp(-fd * 400.0));
 
     return col; // LINEAR HDR
 }

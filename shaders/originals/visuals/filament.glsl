@@ -5,15 +5,27 @@
 // is a glowing wire with a lit front and a darker back. The coil's axis is a
 // plucked string: band energies weight its standing-wave harmonics (bass the
 // fundamental, treble the high harmonics) in two planes, and each beat plucks
-// a kink that runs out to the lead-in wires. Temperature carries the music:
-// the coil smoulders deep red in a breakdown, runs orange at cruise and goes
-// white-hot in a burst, with hot spots racing along it and a warm/cool rim
-// accent that alternates each beat. A shallow lens melts the far coil into a
+// a small kink that runs out to the lead-in wires. The bands are smoothed
+// toward the level, so the string sways rather than snaps. The coil burns at
+// a steady orange heat that the level warms only slightly, with faint hot
+// spots and a soft warm/cool rim accent that alternates each beat; the
+// palette is held at one mean luma and the centroid only leans the hues. A shallow lens melts the far coil into a
 // soft tube and the studio behind into palette bokeh; studio softboxes slide
 // across the glass as long curved highlights. The camera glides along the
-// tube on the shared cruise/build/burst/brake profile; audio drives heat,
-// light and the string's shape, never the camera.
+// tube at a steady pace with no surges; audio drives heat, light and the
+// string's shape, never the camera.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Tension ; param1 = Glow ; param2 = Heat
+
+// The palette read: the visual's own palette (2) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 flPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 2, u); }
+vec3 flPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = flPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 const float FL_L = 6.0;        // half length of the string
 const float FL_FLOOR = -1.15;  // floor height
 const float FL_RC = 1.15;      // radius that bounds the string's motion
@@ -31,11 +43,17 @@ struct FlPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 FlPalette flPalLoad(VisualUniforms u) {
     FlPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = flPalSteady(0.0, u);
+    P.c1 = flPalSteady(0.26, u);
+    P.c2 = flPalSteady(0.52, u);
+    P.c3 = flPalSteady(0.78, u);
+    P.c4 = flPalSteady(0.999, u);
+    // the palette tour's crossfades keep one overall brightness: the five
+    // stops are scaled together to a fixed mean luma, so a tour step changes
+    // the colours but never brightens or darkens the whole frame
+    float gl = 0.2 * (luma(P.c0) + luma(P.c1) + luma(P.c2) + luma(P.c3) + luma(P.c4));
+    float gk = clamp(0.32 / max(gl, 1e-3), 0.4, 3.0);
+    P.c0 *= gk; P.c1 *= gk; P.c2 *= gk; P.c3 *= gk; P.c4 *= gk;
     return P;
 }
 
@@ -76,12 +94,13 @@ void flCoefs(VisualUniforms u, vec4 w0, vec4 w1, float tension, float pluck, flo
     float t = mod(u.time, 600.0);
     vec4 fa = vec4(1.0, 2.0, 3.0, 4.0);
     vec4 fb = vec4(5.0, 6.0, 7.0, 8.0);
-    float drive = pluck * (0.45 + 0.95 * u.amplitude);
+    float drive = pluck * (0.66 + 0.05 * u.level);
     // 0.80 / sqrt(n)
     vec4 aa = w0 * (1.25 - 0.09 * fa) * vec4(0.8, 0.5656854, 0.4618802, 0.4) * drive;
     vec4 ab = w1 * (1.25 - 0.09 * fb) * vec4(0.3577709, 0.3265986, 0.3023716, 0.2828427) * drive;
-    vec4 pa = tension * (2.0 + 1.35 * fa) * t + fa * 1.7 + ph;
-    vec4 pb = tension * (2.0 + 1.35 * fb) * t + fb * 1.7 + ph;
+    // a slow sway: the harmonics ring at a sixth of their old rate
+    vec4 pa = tension * (0.7 + 0.45 * fa) * 0.5 * t + fa * 1.7 + ph;
+    vec4 pb = tension * (0.7 + 0.45 * fb) * 0.5 * t + fb * 1.7 + ph;
     float sum = dot(aa, vec4(1.0)) + dot(ab, vec4(1.0));
     // keep the whole motion inside the bounding cylinder
     float k = min(1.0, 0.75 / max(sum, 1e-4));
@@ -241,14 +260,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float t = mod(u.time, 600.0);
     FlPalette P = flPalLoad(u);
     float bp = saturate(u.beatPhase);
-    float cen = u.spectralCentroid;
+    // the centroid only leans the hues a little, so the wire never flickers
+    float cen = 0.5 + 0.25 * (u.spectralCentroid - 0.5);
+
     float bn = mod(floor(u.beatCount), 64.0);
     float odd = mod(bn, 2.0);
 
     // ---- camera: a glide along the tube on the shared speed profile ----
-    vec2 fl = flFlight(u, 0.32, 0.06);
-    float surge = smoothstep(1.0, 4.0, fl.y);
-    float ph = fl.x * 0.42;
+    // a steady glide: the speed profile no longer surges the camera
+    vec2 fl = flFlight(u, 1.4, -0.56);
+    float surge = 0.0;
+    float ph = fl.x * 0.22;
     float xc = 3.4 * sin(ph * 0.5);
     float rad = 1.95 + 0.35 * sin(ph * 0.53 + 0.4);
     float el = 0.10 + 0.30 * sin(ph * 0.77 + 1.3);
@@ -262,17 +284,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float aperture = 0.055;
 
     // ---- the string's state: the coil's axis ----
-    float pluck = (exp(-2.4 * u.beatPhase) * (0.40 + 0.60 * saturate(u.onset)) + 0.32 + 0.22 * surge) * 0.62;
-    float bow = 0.12 * u.bassImpact;
+    float pluck = 0.38 * 0.62;
+    float bow = 0.015 + 0.01 * u.level;
     vec4 bw0, bw1;
     flBands(u, bw0, bw1);
+    // the shape and heat read the bands smoothed toward the level, so no
+    // single bin can jerk the bright wire from frame to frame
+    bw0 = mix(vec4(0.4 + 0.08 * u.level), bw0, 0.06);
+    bw1 = mix(vec4(0.4 + 0.08 * u.level), bw1, 0.06);
     vec4 y0, y1, z0, z1, e0, e1;
     flCoefs(u, bw0, bw1, tension, pluck, 0.0, y0, y1, z0, z1, e0, e1);
     float sp = 0.25 + 0.5 * hash11(bn + 3.0);
     float kinkA = sp + bp * 0.9;
     float kinkB = abs(sp - bp * 0.9);
     kinkA = kinkA > 1.0 ? 2.0 - kinkA : kinkA;
-    float kinkAmp = 0.10 * smoothstep(0.0, 0.05, bp) * exp(-2.8 * bp) * (0.3 + 0.7 * saturate(u.onset));
+    float kinkAmp = 0.006 * smoothstep
+(0.0, 0.2, bp) * exp(-2.0 * bp) * (0.8 + 0.2 * u.level);
     vec3 kink = vec3(kinkA, kinkB, kinkAmp);
 
     // ---- colours ----
@@ -283,10 +310,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 cHi = flPal(P, 0.999);
     vec3 amber = vec3(1.0, 0.52, 0.16);
     // the beat accent alternates cool and warm, easing out over the beat
-    float acc = exp(-3.0 * bp);
+    float acc = 0.05 * exp(-1.5 * bp);
     vec3 cAcc = mix(cCool * 1.4 + 0.1, amber * 1.3, odd);
-    // base heat follows the flight: smoulder in a drift, white in a burst
-    float heat0 = heatAmt * (0.30 + 0.36 * surge + 0.16 * u.amplitude + 0.08 * u.bassImpact);
+    // a steady base heat that the level warms only slightly
+    float heat0 = heatAmt * (0.43 + 0.04 * u.level);
 
     // ---- glass tube: where the ray meets it, for the reflections at the end ----
     float gA = rd.y * rd.y + rd.z * rd.z;
@@ -304,11 +331,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec2 q1 = vec2(az + 0.9 + 0.3 * sin(t * 0.04), rd.y - 0.25);
         float pool0 = exp(-dot(q0, q0) * 3.0);
         float pool1 = exp(-dot(q1, q1) * 5.0);
-        col += cCool * pool0 * (0.050 + 0.040 * u.bass + 0.03 * surge);
-        col += mix(cMid, cHi, 0.4) * pool1 * (0.030 + 0.030 * u.mid);
+        col += cCool * pool0 * (0.060 + 0.015 * u.level);
+        col += mix(cMid, cHi, 0.4) * pool1 * (0.040 + 0.010 * u.level);
     }
     int nlay = osSteps(1.0, 3.0, detail);
-    float trebW = u.treble * u.onset * 0.14;
+    float trebW = 0.0;
     for (int j = 0; j < 3; j++) {
         if (j >= nlay) break;
         float fj = float(j);
@@ -332,7 +359,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         cm = peakWhite(cm, trebW);
         float twinkle = 0.75 + 0.25 * sin(t * (0.6 + h.x) + h.y * 40.0);
         float bandK = bandAt(u, pick);
-        col += cm * disk * on * (0.030 + 0.070 * bandK) * twinkle * (1.0 - 0.25 * fj);
+        col += cm * disk * on * (0.040 + 0.025 * mix(u.level, bandK, 0.3)) * twinkle * (1.0 - 0.25 * fj);
     }
 
     int nseg = osSteps(24.0, 56.0, detail);
@@ -345,7 +372,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec4 q0, q1, w0, w1, g0, g1;
         flCoefs(u, bw0, bw1, tension * (1.13 + 0.21 * fj), pluck * 0.8, 2.1 + 1.7 * fj, q0, q1, w0, w1, g0, g1);
         vec3 sb = flTrace(ro - off, rd, q0, q1, w0, w1, 0.0, vec3(0.0), nsis);
-        float hs = heat0 * 0.85 + 0.25 * flBand8(0.2 + 0.3 * fj + 0.5 * sb.z, bw0, bw1);
+        float hs = heat0 * 0.85 + 0.06 * flBand8(0.2 + 0.3 * fj + 0.5 * sb.z, bw0, bw1);
         vec3 cs = flHeat(hs, tint);
         float ls = flLens(sb.x, sb.y, FL_R * 0.9, tf, pix, aperture);
         col += cs * (ls * 0.22 + exp(-sb.x * 4.0) * 0.003) * glowAmt;
@@ -360,7 +387,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     packet *= packet;
     float kf = exp(-(sC - kinkA) * (sC - kinkA) * 160.0) + exp(-(sC - kinkB) * (sC - kinkB) * 160.0);
     float eC = flBand8(sC, bw0, bw1);
-    float heat = heat0 + 0.26 * eC + 0.20 * packet + kf * kinkAmp * 5.0;
+    float heat = heat0 + 0.04 * eC + 0.03 * packet + kf * kinkAmp * 2.0;
     // the coil cools toward its anchors, where the lead-in wires sink the heat
     heat *= 0.55 + 0.45 * smoothstep(0.0, 0.06, sC) * smoothstep(1.0, 0.94, sC);
     vec3 E = flHeat(heat, tint) * glowAmt;
@@ -419,7 +446,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // ---- pluck sparks: tungsten glints thrown off the pluck point ----
     int nspk = osSteps(4.0, 10.0, detail);
-    float spkLife = (1.0 - bp) * (1.0 - bp) * saturate(u.onset * 1.4 + 0.15);
+    float spkLife = (1.0 - bp) * (1.0 - bp) * 0.05 * (0.5 + 0.5 * u.level);
+
     vec3 sp0 = flPoint(sp, y0, y1, z0, z1, bow, kink);
     vec3 cPkA = flHeat(1.05, tint) * 0.9;
     vec3 cPkB = cAcc * 2.0;
@@ -481,7 +509,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                 vec2 sp2 = fov * vec2(dot(X, rt), dot(X, cu)) / zz;
                 vec2 dq = p - sp2;
                 float st = (exp(-abs(dq.y) * 260.0) + 0.18 * exp(-abs(dq.y) * 55.0)) * exp(-abs(dq.x) * 1.6) + exp(-dot(dq, dq) * 900.0) * 0.6;
-                col += cS * st * kinkAmp * 6.0 * glowAmt;
+                col += cS * st * kinkAmp * 3.0 * glowAmt;
+
             }
         }
     }

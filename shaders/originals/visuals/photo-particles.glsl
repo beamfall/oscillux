@@ -4,12 +4,13 @@
 // colour. A dissolve front eats into the wall with a glowing ember edge, and
 // the freed beads break away and stream toward the camera in perspective,
 // keeping their colour, stretching into streaks at speed and opening into soft
-// bokeh as they pass the lens. The stream follows the 32-beat speed profile,
-// the wall dissolves furthest on the bursts and re-forms in the breakdown, and
-// the spectrum lights the particles in palette colour. The beads grade the
-// photo through the palette wheel, which turns with the beat count; a pulse
-// runs out across the wall on every beat, and the ember edge and some of the
-// particles burn in the palette's complement.
+// bokeh as they pass the lens. The stream drifts at a slow, nearly steady
+// pace, the wall dissolves a little further on the bursts and re-forms in the
+// breakdown, and the level and spectrum softly light the particles in palette
+// colour. The beads grade the photo through the palette wheel, which turns
+// slowly with the beat count; a faint pulse runs out across the wall on each
+// beat, and the ember edge and some of the particles burn in the palette's
+// complement. Nothing flashes on the kick and the view never banks.
 // param0 = Particle Size ; param1 = Scatter ; param2 = Color
 
 vec3 ppPhoto(vec2 o, float aspect, VisualUniforms u) {
@@ -89,7 +90,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float scatter = mix(0.4, 1.5, u.param1);
     float chroma  = mix(0.15, 0.75, u.param2);
 
-    vec2 fl = osFlight(u, 6.0, 1.0);
+    vec2 fl = osFlight(u, 2.4, -0.6);
     float dz = mod(fl.x, 1000.0);
     float rush = saturate((fl.y - 1.0) / 3.5);
 
@@ -97,11 +98,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float cyc = mod(u.beatCount + saturate(u.beatPhase), 32.0);
     float burst = max(smoothstep(8.0, 0.0, abs(cyc - 10.0)), smoothstep(6.0, 0.0, abs(cyc - 29.5)));
     burst = max(burst, smoothstep(4.0, 0.0, abs(cyc + 2.5)));
-    float diss = (0.36 + 0.26 * burst) * (0.55 + 0.45 * scatter) + 0.03 * u.bassImpact;
-    float drift = 0.05 * t;
+    float diss = (0.38 + 0.08 * burst) * (0.55 + 0.45 * scatter);
+    float drift = 0.03 * t;
     // the colour wheel turns a little every beat and leans further in a rush
     float bcount = u.beatCount + saturate(u.beatPhase);
-    float hueOff = mod(bcount, 256.0) * (0.137 / 16.0) + 0.12 * rush;
+    float hueOff = mod(bcount, 256.0) * (0.137 / 16.0) + 0.02 * rush;
     vec3 kc0 = palVisual(0.04, u);
     vec3 kc1 = palVisual(0.34, u);
     vec3 kc2 = palVisual(0.64, u);
@@ -116,7 +117,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     acc = mix(acc, accent, 0.7);
 
     // the wall sits in gentle perspective that eases from side to side
-    vec2 tilt = vec2(osBank(u, 0.10), 0.05 * sin(t * 0.07));
+    vec2 tilt = vec2(0.06 * sin(t * 0.031), 0.04 * sin(t * 0.023 + 1.0));
     vec2 P = p / (1.0 + dot(tilt, p)) * 0.96;
 
     // ---- the bead wall ----
@@ -147,23 +148,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float pulse = exp(-pow((length(bo) - 2.4 * bph) / 0.18, 2.0)) * (1.0 - bph);
     // the bead grades its pixel through the palette wheel: dark pixels sink to
     // the deep end, bright ones climb into the lead colours
-    vec3 tintB = PKPAL(hueOff + 0.20 + 0.62 * lum + 0.10 * hb + 0.25 * pulse);
+    vec3 tintB = PKPAL(hueOff + 0.20 + 0.62 * lum + 0.10 * hb + 0.06 * pulse);
     vec3 tn = tintB / max(max(tintB.r, max(tintB.g, tintB.b)), 0.05);
     vec3 duoB = tn * tn * lum * (0.15 + 0.85 * lum);
     // the beads keep the photo's own colour; the palette only grades them
     // matched to the photo's own value so the grade shifts hue, never brightness
     vec3 tq = tn * tn;
     duoB = tq * (luma(pc) * 0.62 / max(max(tq.r, max(tq.g, tq.b)), 0.05));
-    vec3 beadCol = mix(pc * 0.62, duoB, (0.1 + 0.5 * chroma) * (1.0 - smoothstep(0.1, 0.6, lum))) * lam * (0.80 + 0.6 * shimmer);
-    beadCol *= 1.0 + pulse * (0.5 + 0.8 * u.bass);
-    beadCol += accent * accent * pulse * (0.10 + 0.25 * u.bass) * lam;
+    vec3 beadCol = mix(pc * 0.62, duoB, (0.1 + 0.5 * chroma) * (1.0 - smoothstep(0.1, 0.6, lum))) * lam * (0.88 + 0.12 * u.level + 0.12 * shimmer);
+    beadCol *= 1.0 + pulse * 0.10;
+    beadCol += accent * accent * pulse * 0.04 * lam;
     beadCol = max(mix(vec3(luma(beadCol)), beadCol, 1.7), vec3(0.0));
-    beadCol += mix(vec3(1.1), tintB * 1.6, 0.5) * spec * (0.20 + 0.4 * lum) * (0.6 + 0.8 * u.treble);
+    beadCol += mix(vec3(1.1), tintB * 1.6, 0.5) * spec * (0.20 + 0.4 * lum) * (0.8 + 0.2 * u.level);
     // a soft light sweep crosses the wall on the flight clock
     float sw = bo.x * 0.55 + bo.y * 0.35 - (mod(dz * 0.06, 7.0) - 3.5);
     float sweep = exp(-sw * sw * 6.0);
-    beadCol *= 1.0 + 0.6 * sweep * (0.6 + 0.6 * u.mid);
-    beadCol += PKPAL(hueOff + 0.62 + 0.2 * hb) * sweep * spec * 2.0;
+    beadCol *= 1.0 + 0.2 * sweep;
+    beadCol += PKPAL(hueOff + 0.62 + 0.2 * hb) * sweep * spec * 0.8;
     beadCol *= 1.0 + 1.2 * lift;
     vec3 col = beadCol * bead;
 
@@ -184,7 +185,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     eOut /= max(max(eOut.r, max(eOut.g, eOut.b)), 0.05);
     eOut = mix(eOut * eOut, accent * accent, 0.6);
     vec3 eHot = acc * acc;
-    float eAmp = 0.7 + 1.0 * u.bassImpact + 0.4 * u.level;
+    float eAmp = 0.75 + 0.25 * u.level;
     col += (eOut * eGlow * eGlow * eGlow * 0.32 + eHot * pow(eGlow, 18.0) * 0.55) * eAmp;
 
     // ---- freed particles streaming toward the camera ----
@@ -206,7 +207,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float h = hash21(id);
         vec2 co = (c + 0.5) / nf;
         float freed = ppGone(co, diss, drift);
-        float dens = 0.50 + 0.25 * u.level;
+        float dens = 0.45;
         if (h > dens * (freed > 0.5 ? 1.0 : 0.10)) continue;
 
         vec2 hj = hash22(id + 3.3);
@@ -215,7 +216,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // stretch along the flight direction, more when fast and close
         vec2 rd = pr > 1e-3 ? P / pr : vec2(1.0, 0.0);
         float rad = 0.05 + 0.05 * fract(hj.x * 7.1);
-        float st = min((0.5 + 3.0 * rush) * z, 0.20 / rad - 1.0);
+        float st = min((0.5 + 0.6 * rush) * z, 0.20 / rad - 1.0);
         float dr = dot(df, rd);
         float dtg = dot(df, vec2(-rd.y, rd.x));
         float dist = length(vec2(dr / (1.0 + st), dtg));
@@ -229,9 +230,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float bandL = bandAt(u, h / max(dens, 1e-3));
         vec3 spec2 = fract(h * 5.7) < 0.22 ? acc : PKPAL(hueOff + 0.38 + 0.42 * fract(h * 2.3) + 0.1 * z);
         spec2 *= spec2 * 1.4;
-        vec3 pcol = mix(src * 1.3, spec2 * (0.5 + luma(src)), 0.25 + 0.45 * chroma) * (0.45 + 1.5 * bandL);
-        pcol += mix(vec3(1.0), spec2, 0.5) * 1.2 * smoothstep(rad * 0.45, 0.0, dist) * (1.0 - soft) * (0.4 + u.onset);
-        col += pcol * m * fade * (1.0 + 0.5 * u.onset);
+        vec3 pcol = mix(src * 1.3, spec2 * (0.5 + luma(src)), 0.25 + 0.45 * chroma) * (0.6 + 0.25 * u.level + 0.25 * bandL);
+        pcol += mix(vec3(1.0), spec2, 0.5) * 1.2 * smoothstep(rad * 0.45, 0.0, dist) * (1.0 - soft) * 0.4;
+        col += pcol * m * fade;
     }
 
     // vignette keeps the corners deep

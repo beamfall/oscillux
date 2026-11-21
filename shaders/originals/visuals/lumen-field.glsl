@@ -2,17 +2,20 @@
 // Lumen field.
 // A low glide down an open aisle through a field of glowing light stems
 // under an aurora. Each stem carries an HDR orb at its tip; the rows recede
-// into coloured fog, the aisle is lined with floor lamps, and a wet, rippled
-// mirror floor doubles everything, the aurora included. The glide follows the
-// shared 32-beat speed profile and eases its roll every eight beats. Audio
-// drives the light: stem brightness and height follow the spectrum outward
-// from the aisle, the aurora curtains follow the spectrum across the sky
+// into coloured fog, the aisle is lined with floor lamps, and a wet, slowly
+// rippled mirror floor doubles everything, the aurora included; the water
+// lies stiller toward the horizon. The glide is
+// slow and near-steady (the shared 32-beat profile barely moves it), level
+// with no beat roll, and the aurora rays and the wind crawl gently. Audio
+// drives the light, softly: stem brightness and
+// height follow the music's smoothed level with a gentle tilt of the spectrum
+// outward from the aisle, the aurora curtains follow it across the sky
 // (cyan and blue hems over a magenta fringe, climbing into violet and a high
 // red veil; the stems run cyan by the aisle to rose at the edges and warm
 // with level and through the build),
-// every beat sends a ring of light racing out across the field from a point
-// ahead, flaring the stems and the floor as it passes, and a slow wind combs
-// the field.
+// every beat sends a faint ring of light out across the field from a point
+// ahead, lifting the stems a little as it passes, and a slow wind combs the
+// field. No beat flashes the orbs or the floor.
 // param0 = Stem Density ; param1 = Bloom ; param2 = Sway
 
 // Spectrum cache: twelve stops read once per pixel, blended locally, so the
@@ -43,7 +46,7 @@ void lfPost(vec2 c, float sp, float sway, float tw, float hs, mat3x4 B,
     e = lfB(B, 0.03 + f * 0.75 + 0.08 * (hr - 0.5));
     float h = (0.5 + 2.8 * hr * hr) * (0.75 + 0.55 * e);
     // wind: a slow gust front travelling across the field
-    float g = sin(dot(base, vec2(0.23, 0.11)) - tw) + 0.5 * sin(dot(base, vec2(-0.13, 0.31)) - tw * 0.7 + 1.7);
+    float g = sin(dot(base, vec2(0.23, 0.11)) - tw * 0.5) + 0.5 * sin(dot(base, vec2(-0.13, 0.31)) - tw * 0.35 + 1.7);
     vec2 lean = vec2(0.9, 0.35) * g * sway * h;
     tip = vec3(base.x + lean.x, h, base.y + lean.y);
     hue = lfHue(c, abs(c.x), e, tw, hs);
@@ -95,7 +98,7 @@ vec3 lfField(vec3 ro, vec3 rd, float tmax, float pix, float blur, int rows, floa
             float d2 = dot(dv, dv);
             float fog = exp(-t * fogK) * (1.0 - smoothstep(reach - 3.0 * sp, reach, b2.y - ro.z));
             float wv = lfRing(b2, wv4.xy, wv4.z);
-            float lit = (0.14 + 1.1 * e * e + 0.5 * e) * fog;
+            float lit = (0.14 + 0.75 * e * e + 0.4 * e) * fog;
 
             // stem: thin hot core and a soft halo, never thinner than a pixel;
             // widening keeps the energy, so far stems do not shimmer
@@ -108,7 +111,7 @@ vec3 lfField(vec3 ro, vec3 rd, float tmax, float pix, float blur, int rows, floa
             float ps = fract(u.beatPhase * 1.15 - hash21(c) * 0.15);
             float pq = (s - ps) * 8.0;
             float pulse = exp(-pq * pq) * (1.0 - smoothstep(0.75, 1.0, ps));
-            stem *= (0.15 + 0.85 * s * s) * (1.0 + 3.0 * pulse * (0.3 + e));
+            stem *= (0.15 + 0.85 * s * s) * (1.0 + 0.15 * pulse * (0.3 + e));
             stem *= step(t, tmax);
 
             // tip orb: a hot core in a coloured bloom
@@ -131,11 +134,10 @@ vec3 lfField(vec3 ro, vec3 rd, float tmax, float pix, float blur, int rows, floa
             vec3 c0 = palVisual(hue, u);
             vec3 cw = peakWhite(c0, 0.55);
             // the orbs flare on the beat itself
-            vec3 tipc = (peakWhite(c0, 0.15 + 0.4 * e + 0.3 * wv + 0.3 * u.beat) * orb + c0 * bl) * step(tt, tmax)
-                      * (1.0 + 1.5 * u.beat);
+            vec3 tipc = (peakWhite(c0, 0.15 + 0.3 * e + 0.1 * wv) * orb + c0 * bl) * step(tt, tmax);
 
             // the ring flares the whole post toward white as it passes
-            acc += (mix(c0, cw, 0.5 * wv) * stem + tipc) * lit * (1.0 + 2.5 * wv * wv4.w) +
+            acc += (mix(c0, cw, 0.3 * wv) * stem + tipc) * lit * (1.0 + 0.8 * wv * wv4.w) +
                    c0 * stem * fog * wv * wv4.w * 0.5;
         }
     }
@@ -171,8 +173,8 @@ vec3 lfFar(vec3 ro, vec3 rd, float tmax, float sp, float pix, float reach, float
         float hue = lfHue(cl, abs(c.x), e, tw, hs);
         float fade = smoothstep(reach - 3.0 * sp, reach, xz.y - ro.z) * exp(-t * fogK);
         float wv = lfRing(oxz, wv4.xy, wv4.z);
-        acc += peakWhite(palVisual(hue, u), 0.3 + 0.4 * wv) * orb * 3.0 * fade *
-               (0.14 + 1.1 * e * e + 0.5 * e) * (1.0 + 3.0 * wv * wv4.w) * step(0.35, hr);
+        acc += peakWhite(palVisual(hue, u), 0.3 + 0.1 * wv) * orb * 3.0 * fade *
+               (0.14 + 1.1 * e * e + 0.5 * e) * (1.0 + 0.8 * wv * wv4.w) * step(0.35, hr);
     }
     return acc;
 }
@@ -201,7 +203,7 @@ vec3 lfAurora(vec3 rd, float zc, float tw, float detail, float rush, float bass,
     if (el <= -0.04) return vec3(0.0);
     float az = atan2_(rd.x, max(rd.z, 1e-3) + abs(rd.x) * 0.2);
     vec3 acc = vec3(0.0);
-    float chn = 1.0 + 1.6 * rush;
+    float chn = 1.0 + 0.3 * rush;
     for (int i = 0; i < 3; i++) {
         float fi = float(i);
         // curtains drift sideways as the glide carries the camera on
@@ -270,7 +272,7 @@ vec3 lfSky(vec3 rd, float zc, float tw, float detail, float rush, float bass, fl
     float h = max(rd.y, 0.0);
     vec3 col = sk.fog * (exp(-h * 16.0) * 1.2 + exp(-h * 3.0) * 0.4) +
                mix(sk.m, sk.r, 0.3) * 0.045 * exp(-h * 26.0) + sk.v * 0.01 * exp(-h * 6.0) + vec3(0.001, 0.0008, 0.004);
-    return col + 0.55 * lfAurora(rd, zc, tw, detail, rush, bass, bph, sk, B);
+    return col + 0.55 * lfAurora(rd, zc, 0.5 * tw, detail, rush, bass, bph, sk, B);
 }
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -283,15 +285,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float sway = mix(0.03, 0.22, u.param2);
     float tw = mod(u.time, 600.0) * 0.9;
 
-    vec2 fl = osFlight(u, 1.8, 0.7);
+    vec2 fl = osFlight(u, 0.32, -0.12);
     float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float x = 0.2 * sp * sin(z * 0.045) + 0.1 * sp * sin(u.time * 0.13);
-    float alt = 1.0 + 0.12 * sin(u.time * 0.21);
+    float rush = 0.4 * saturate((fl.y - 1.0) / 3.5);
+    float x = 0.2 * sp * sin(z * 0.045) + 0.1 * sp * sin(u.time * 0.07);
+    float alt = 1.0 + 0.06 * sin(u.time * 0.11);
     vec3 ro = vec3(x, alt, z);
     vec3 ta = vec3(0.25 * sp * sin((z + 8.0) * 0.045), 1.25, z + 8.0);
-    float roll = osBank(u, 0.07) - 0.25 * (ta.x - ro.x) / 8.0;
-    float fov = 1.25 - 0.18 * rush;
+    float roll = -0.25 * (ta.x - ro.x) / 8.0;
+    float fov = 1.25;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
     float pix = 2.0 / (u.resolution.y * fov);
 
@@ -302,7 +304,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     mat3x4 B;
     for (int i = 0; i < 3; i++) {
         float f0 = float(i * 4) / 11.0;
-        B[i] = vec4(bandAt(u, f0), bandAt(u, f0 + 1.0 / 11.0), bandAt(u, f0 + 2.0 / 11.0), bandAt(u, f0 + 3.0 / 11.0));
+        B[i] = 0.5 * u.level + 0.15 * vec4(bandAt(u, f0), bandAt(u, f0 + 1.0 / 11.0), bandAt(u, f0 + 2.0 / 11.0), bandAt(u, f0 + 3.0 / 11.0));
     }
     // sky colours, five palette reads drifting slowly
     LfSkyPal sk;
@@ -314,14 +316,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     sk.r = lfSat(palVisual(0.17 + sd, u));
     sk.fog = mix(palVisual(0.42, u), sk.m, 0.25 + 0.15 * sin(u.time * 0.05)) * 0.04;
     vec3 fogCol = sk.fog;
-    float hs = 0.12 * rush;
-    float bass = u.bassImpact;
+    float hs = 0.04 * rush;
+    float bass = 0.15 * u.level;
     float bph = saturate(u.beatPhase);
     // the beat ring: born on the beat a little ahead of the camera and racing
     // outward across the field; centre, radius and strength
     float bp = saturate(u.beatPhase);
     vec2 wc = vec2(0.0, ro.z + 12.0);
-    float wAmp = (1.0 - bp) * (1.0 - bp) * (0.25 + 0.75 * u.bassImpact);
+    float wAmp = smoothstep(0.0, 0.25, bp) * (1.0 - bp) * (1.0 - bp) * (0.045 + 0.02 * u.level);
     vec4 wv = vec4(wc, 1.0 + 28.0 * pow(bp, 0.7), wAmp);
     vec3 ringC = lfSat(palVisual(0.27 + 0.05 * sin(u.time * 0.07), u));
 
@@ -338,14 +340,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 fp = ro + rd * tf;
         // wet floor: a rippled mirror; ripples run mostly across the view, so
         // reflections stretch into streaks toward the viewer
-        vec2 n2 = vec2(vnoise(fp.xz * vec2(3.0, 1.2) + vec2(0.0, tw * 0.5)) - 0.5,
-                       vnoise(fp.zx * vec2(2.2, 4.0) + 3.0 - tw * 0.3) - 0.5);
+        vec2 n2 = vec2(vnoise(fp.xz * vec2(3.0, 1.2) + vec2(0.0, tw * 0.06)) - 0.5,
+                       vnoise(fp.zx * vec2(2.2, 4.0) + 3.0 - tw * 0.04) - 0.5);
         // the ring rolls a swell through the water as it passes
         float rq = length(fp.xz - wc) - wv.z;
         float swell = exp(-rq * rq * 0.5) * wAmp;
         vec2 rdir = normalize(fp.xz - wc + 1e-4);
-        vec3 rn = normalize(vec3(n2.x * 0.035 + rdir.x * swell * 0.12, 1.0,
-                                 n2.y * 0.16 + rdir.y * swell * 0.12));
+        // far water calms toward the horizon so distant reflections do not shimmer
+        float calm = 1.0 / (1.0 + 0.08 * tf);
+        vec3 rn = normalize(vec3(n2.x * 0.03 * calm + rdir.x * swell * 0.12, 1.0,
+                                 n2.y * 0.12 * calm + rdir.y * swell * 0.12));
         vec3 rr = reflect(rd, rn);
         rr.y = abs(rr.y);
         float fres = 0.3 + 0.7 * pow(1.0 - saturate(-rd.y), 5.0);

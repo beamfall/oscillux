@@ -9,13 +9,17 @@
 // The disc turns differentially (inner gas faster), its approaching side
 // Doppler-shifted to azure and beamed bright, the receding side crimson, its
 // inner edge dimmed by gravitational redshift. Hot spots orbit at their own
-// Kepler rates trailing sheared tails, each beat sends a density ripple out
-// from the inner edge, and twin relativistic jets stream knots along the spin
-// axis. The orbit and the disc's spin follow the 32-beat speed profile and the
-// roll eases every eight beats; bass heats the inner disc, the jets and the
-// photon ring, the spectrum lights the disc ring by ring (lows inside, highs
-// outside) and the hot spots, and treble makes the stars glitter. Audio never
-// moves the camera.
+// Kepler rates trailing sheared tails, each beat sends an azure density wave
+// out from the inner edge (it recolours the gas it passes at the light the gas
+// already has, so the disc never flashes as a whole), and twin relativistic
+// jets stream knots along the spin axis. The orbit follows the 32-beat speed
+// profile, the disc turns at a steady beat-locked rate (no surges, so its fine
+// bright streaks never sweep fast) and the roll eases every eight beats; a soft
+// swell inside each beat barely heats the inner disc, the jets and the photon
+// ring (nothing jumps on the kick, and the level, not the bass, sets the glow), the spectrum lights the
+// disc ring by ring (lows inside, highs outside) and the hot spots, and treble
+// makes the stars glitter. The crimson side is kept a touch rose, off
+// saturated red. Audio never moves the camera.
 // param0 = Pull (how close the orbit is) ; param1 = Spin (disc speed) ;
 // param2 = Disk Detail (streak contrast and fine structure)
 
@@ -25,7 +29,7 @@ const float EH_ISCO = 3.0;     // innermost stable orbit
 // The palette, read once per pixel at fixed stops and blended locally.
 struct EhPal { vec3 t0; vec3 t1; vec3 t2; vec3 t3; vec3 t4; vec3 sky; vec3 neb; };
 
-// the disc's temperature ramp, palVisual(x) for x in 0.1..1 from five stops
+// the disc's temperature ramp, the palette at x for x in 0.1..1 from five stops
 vec3 ehTemp(EhPal P, float x) {
     float k = saturate((x - 0.1) / 0.9) * 4.0;
     vec3 c = mix(P.t0, P.t1, saturate(k));
@@ -76,6 +80,14 @@ float ehFbmP(vec2 p, float per, int oct) {
 
 // Light the disc gives off where the ray crosses it at `hit`, travelling along v.
 // Returns rgb and opacity.
+// a soft swell that rises and falls inside each beat and is zero on the kick,
+// so audio light never jumps over large areas
+float ehSwellOf(VisualUniforms u) {
+    float s = sin(3.14159265 * saturate(u.beatPhase));
+    return s * s * u.level;
+}
+#define ehSwell ehSwellOf(u)
+
 vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, VisualUniforms u) {
     float rr = length(hit.xz);
     float ang = atan2_(hit.z, hit.x) / 6.2831853;          // turns, -0.5..0.5
@@ -94,7 +106,10 @@ vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, Visual
     float n2 = ehFbmP(vec2(rx + 17.3, a2), per, oct);
     float n = mix(n2, n1, w1);
     float detail = mix(0.6, 1.5, u.param2);
-    float streak = saturate(0.5 + (n - 0.5) * 2.6 * detail);
+    // a soft contrast curve: a hard clip turned wide areas of the gas flat at
+    // exactly 0 or 1, which read as painted patches
+    float sx = (n - 0.5) * 1.0 * detail;
+    float streak = 0.5 + 0.5 * sx * inversesqrt(1.0 + sx * sx);
     streak = streak * streak;
 
     // orbiting hot spots: bright plasma clumps riding the flow, each a whole
@@ -110,7 +125,7 @@ vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, Visual
         float al = da * 6.2831853 * rr;                       // arc length
         float tail = al < 0.0 ? 2.6 : 0.7;                    // longer behind
         float dr = rr - ri;
-        float pump = 0.55 + 1.3 * bandAt(u, 0.08 + 0.2 * fi) + 0.6 * u.bassImpact;
+        float pump = 0.55 + 1.3 * bandAt(u, 0.08 + 0.2 * fi) + 0.12 * ehSwell;
         spots += exp(-dr * dr * 6.0 - al * al / (tail * tail)) * pump * (1.4 - 0.18 * fi);
     }
 
@@ -118,7 +133,7 @@ vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, Visual
     float bp = saturate(u.beatPhase);
     float rw = EH_ISCO + 0.3 + 7.5 * bp;
     float rd0 = (rr - rw) / (0.35 + 0.9 * bp);
-    float ripple = exp(-rd0 * rd0) * (1.0 - bp) * (1.0 - bp) * smoothstep(0.0, 0.06, bp) * (0.35 + 0.9 * u.bassImpact);
+    float ripple = exp(-rd0 * rd0) * (1.0 - bp) * (1.0 - bp) * smoothstep(0.0, 0.06, bp);
 
     // radial profile: sharp inner edge at the ISCO, long soft outer fade
     float prof = smoothstep(EH_ISCO - 0.35, EH_ISCO + 0.5, rr) * (1.0 - smoothstep(EH_OUTER * 0.45, EH_OUTER, rr));
@@ -131,16 +146,18 @@ vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, Visual
     float cosT = dot(vdir, -normalize(v));
     float g = sqrt(max(1.0 - 1.0 / rr, 0.0)) / (gam * (1.0 - beta * cosT));
     float beam = g * g * g;
+    // soft knee on the beaming so the approaching side stays bright without
+    // burning a flat white field that the limiter has to hold
     beam = mix(beam, 1.0, 0.06);
+    beam = beam / (1.0 + 0.35 * max(beam - 1.0, 0.0));
 
     // audio: spectrum by radius, bass heats the inner edge
     float sp = bandAt(u, saturate((rr - EH_ISCO) / (EH_OUTER * 0.6 - EH_ISCO)));
-    float heat = 1.0 + 0.8 * u.bassImpact * exp(-(rr - EH_ISCO) * 0.8) + 0.25 * u.bass;
-    float glow = inten * (0.12 + 1.9 * streak + 1.5 * spots + 1.4 * ripple * (0.4 + streak)) * (0.75 + 0.7 * sp) * heat;
+    float heat = 1.0 + 0.1 * ehSwell * exp(-(rr - EH_ISCO) * 0.8) + 0.12 * u.level;
+    float glow = inten * (0.35 + 1.1 * streak + 1.0 * spots + 0.1 * ripple * (0.4 + streak)) * (0.75 + 0.7 * sp) * heat;
     // the beat's density wave burns cool against the warm gas: the complementary accent
     float rdC = (rr - rw) / (0.2 + 0.35 * bp);
-    float rippleC = exp(-rdC * rdC) * (1.0 - bp) * (1.0 - bp) * smoothstep(0.0, 0.06, bp) * (0.3 + 0.8 * u.bassImpact)
-                  * prof * pow(EH_ISCO / rr, 1.2) * (0.5 + streak);
+    float rippleC = exp(-rdC * rdC) * (1.0 - bp) * (1.0 - bp) * smoothstep(0.0, 0.06, bp) * prof;
 
     float temp = pow(EH_ISCO / rr, 0.6) * g;               // seen temperature
     vec3 c = ehTemp(P, 0.1 + 0.62 * temp);
@@ -152,10 +169,13 @@ vec4 ehDisc(vec3 hit, vec3 v, float t, float spotClock, int oct, EhPal P, Visual
     vec3 shifted = hsv2rgb(vec3(fract(1.1 - 0.52 * blueW), 0.8, 1.0)) * cmax * (0.8 + 0.3 * blueW);
     c = mix(c, shifted, smoothstep(0.0, 0.25, blueW));
     c = mix(c, vec3(1.0, 0.16, 0.34) * (0.4 + luma(c)), 0.6 * (1.0 - smoothstep(0.45, 0.9, g)));
-    vec3 rgb = c * glow * beam * 2.4;
+    vec3 rgb = c * glow * beam * 1.9;
     // the clumps burn hotter than the gas around them
-    rgb += peakWhite(c, 0.25) * spots * (0.25 + 1.5 * streak) * prof * pow(EH_ISCO / rr, 1.1) * beam * (1.0 + 0.6 * sp);
-    rgb += vec3(0.3, 0.85, 1.7) * rippleC * beam * 3.0;
+    rgb += peakWhite(c, 0.25) * spots * (0.2 + 0.8 * streak) * prof * pow(EH_ISCO / rr, 1.1) * beam * (1.0 + 0.6 * sp);
+    // the wave recolours the gas it passes at the light it already has, so it
+    // reads as a travelling azure band rather than a flash of the whole disc
+    vec3 cool = vec3(0.3, 0.85, 1.7);
+    rgb = mix(rgb, cool * (luma(rgb) / luma(cool)), saturate(rippleC * 0.7));
     float alpha = saturate(prof * (0.55 + 0.45 * streak));
     return vec4(rgb, alpha);
 }
@@ -172,7 +192,7 @@ vec3 ehSky(vec3 d, float pxa, float t, int layers, bool clouds, EhPal P, VisualU
         col += P.neb * 0.022 * band * (0.2 + cl) * (1.0 - 0.8 * dust);
         col += vec3(0.4, 0.5, 1.0) * 0.06 * band * cl * cl * (1.0 - 0.85 * dust);
     }
-    float tw = 0.8 + 0.7 * u.treble;
+    float tw = 0.85 + 0.3 * u.level;
     for (int l = 0; l < 2; ++l) {
         if (l >= layers) break;
         float sc = l == 0 ? 70.0 : 170.0;
@@ -203,30 +223,32 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     int layers = osSteps(1.0, 2.0, detail);
     float t = mod(u.time, 600.0);
 
+    // its own palette under the vivid tour too: the tour's whole-frame cross-fade
+    // moved every pixel's light together and the flash limiter held patches
     EhPal P;
-    P.t0 = palVisual(0.1, u);
-    P.t1 = palVisual(0.325, u);
-    P.t2 = palVisual(0.55, u);
-    P.t3 = palVisual(0.775, u);
-    P.t4 = palVisual(1.0, u);
-    P.sky = palVisual(0.06, u);
-    P.neb = palVisual(0.3, u);
-    vec3 ringBase = palVisual(0.75, u);
+    P.t0 = osPalCalm(0.1, 12, u);
+    P.t1 = osPalCalm(0.325, 12, u);
+    P.t2 = osPalCalm(0.55, 12, u);
+    P.t3 = osPalCalm(0.775, 12, u);
+    P.t4 = osPalCalm(1.0, 12, u);
+    P.sky = osPalCalm(0.06, 12, u);
+    P.neb = osPalCalm(0.3, 12, u);
+    vec3 ringBase = osPalCalm(0.75, 12, u);
 
     // camera: a slow orbit following the speed profile, gentle eased roll
-    vec2 fl = osFlight(u, 0.05, 0.018);
+    vec2 fl = osFlight(u, 0.05, 0.0);
     float phi = mod(fl.x, 6.2831853) + 0.6;
     float elev = 0.19 + 0.11 * sin(mod(fl.x * 0.37, 6.2831853));
     float camR = mix(20.0, 13.0, u.param0);
     vec3 ro = camR * vec3(cos(elev) * cos(phi), sin(elev), cos(elev) * sin(phi));
     float focal = 1.9;
-    vec3 rd = osCamera(ro, vec3(0.0, -0.4, 0.0), 0.14 + osBank(u, 0.08), focal, p);
+    vec3 rd = osCamera(ro, vec3(0.0, -0.4, 0.0), 0.14 + osBank(u, 0.04), focal, p);
     float pxa = 2.0 / max(u.resolution.y, 1.0) / focal;
 
-    // the gas runs on the beat-locked speed profile too: it surges in the
-    // bursts and slows in the breakdowns
+    // the gas turns at a steady beat-locked rate: surges made its fine bright
+    // streaks sweep fast enough that the flash limiter held them as flat patches
     float spin = mix(0.5, 2.4, u.param1);
-    float clock = osFlight(u, 0.5, 0.05).x;
+    float clock = 0.5 * (u.beatCount + saturate(u.beatPhase));
     float discT = mod(clock, 600.0);
     float spotClock = mod(clock * spin, 120.0);
 
@@ -243,7 +265,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float h2 = dot(hc, hc);
     vec3 col = vec3(0.0);
     float trans = 1.0;
-    vec3 hazeCol = mix(P.t1, P.t2, 0.778) * (1.0 + 0.5 * u.bassImpact);
+    vec3 hazeCol = mix(P.t1, P.t2, 0.778) * (1.0 + 0.08 * ehSwell);
     float minR = 1e3;
     bool escaped = false;
     for (int i = 0; i < 160; ++i) {
@@ -303,19 +325,30 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float knots = 0.5 + 0.5 * sin(jy * 0.85 - mod(clock * 2.2, 6.2831853));
     knots = 0.35 + 0.65 * knots * knots * knots;
     float jetI = jetLine * smoothstep(2.7, 4.6, jy) * exp(-jy * 0.12) * knots;
-    jetI *= (0.35 + 0.9 * u.bassImpact + 0.35 * u.bass) * (0.8 + 0.25 * saturate(fl.y - 1.0));
+    jetI *= (0.55 + 0.1 * ehSwell + 0.2 * u.level) * (0.8 + 0.25 * saturate(fl.y - 1.0));
     vec3 jetCol = mix(vec3(0.3, 0.6, 1.7), vec3(0.8, 0.35, 1.7), smoothstep(4.0, 12.0, jy));
     jetCol = mix(jetCol, vec3(1.2, 1.6, 2.4), exp(-dm2 / (jc * jc)) * 0.5);
     col += jetCol * jetI * 0.22 * (cp.y < 0.0 ? trans * trans : 1.0);
 
     // photon ring: a thin hot line just outside the shadow edge plus a soft halo,
     // both closed-form in the impact parameter; the front of the disc hides it
-    float ringHeat = 1.0 + 0.9 * u.bassImpact + 0.3 * u.bass;
+    float ringHeat = 1.0 + 0.1 * ehSwell + 0.15 * u.level;
     vec3 ringCol = peakWhite(ringBase, 0.5);
     float db = bImp - EH_BC;
     float rw = max(0.03, 1.1 * pxB);
     float ringLine = exp(-max(db, 0.0) / rw) * smoothstep(-1.5 * pxB, 0.5 * pxB, db);
     float ringHalo = exp(-max(db, 0.0) * 7.0) * smoothstep(-2.0 * pxB, 0.0, db);
     col += trans * (ringCol * ringLine * 1.1 + P.t2 * ringHalo * 0.12) * ringHeat;
+    // keep the reds a touch rose rather than pure red, so the crimson side's
+    // moving streaks never read as saturated-red flicker
+    // (move red into green and blue in their own ratio at equal luminance, so orange
+    // stays amber, crimson rose, and the picture keeps its brightness)
+    float redDeficit = max(1.0 * col.r - col.g - col.b, 0.0);
+    float toG = (col.g + 0.02 * col.r) / (col.g + col.b + 0.04 * col.r + 1e-6);
+    float wGB = 0.7152 * toG + 0.0722 * (1.0 - toG);
+    float cutR = wGB / (0.2126 + wGB);
+    col.r -= redDeficit * cutR;
+    col.g += redDeficit * (1.0 - cutR) * toG;
+    col.b += redDeficit * (1.0 - cutR) * (1.0 - toG);
     return col; // LINEAR HDR — post chain tonemaps
 }

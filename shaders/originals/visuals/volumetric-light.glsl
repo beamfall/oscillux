@@ -8,11 +8,13 @@
 // pillars and by clouds drifting past outside; the deep haze down the nave
 // glows with the light it has gathered. Dust hangs in the air and only shows
 // where it crosses a shaft. The polished stone floor catches the pools of
-// light and mirrors the windows. Each window follows its own spectrum band;
-// beats roll a swell of light down the row and flare the clerestory; treble
-// makes the dust glint. The camera follows the shared speed profile, never
-// the audio. The shafts are prefiltered by the march step, so they stay
-// smooth instead of grainy at every detail level.
+// light and mirrors the windows. Calm under loud music: each window brightens
+// a little with the smoothed level plus its own band, a faint swell rolls
+// down the row on the beat, the clerestory warms with the level, clouds drift
+// slowly past and the dust glints softly. Beats never jump the light of the
+// whole hall. The camera dollies slowly and steadily with no beat surges,
+// never following the audio. Reds stay just off saturated red. The shafts are prefiltered by the march step, so they stay smooth
+// instead of grainy at every detail level.
 // param0 = Haze ; param1 = Beam Count (panes per window) ; param2 = Dust
 
 const float VL_HW = 5.0;     // half width of the hall (walls at x = -+5)
@@ -41,6 +43,24 @@ struct VLLight {
     float pen;    // penumbra growth per unit travelled
     vec3 avgT;    // mean glass tint, for shafts blurred past the pane size
 };
+
+// Keeps every red just off saturated red once tonemapped: green (for warm
+// reds) or blue (for pink ones) rises to at least 0.3 of red, so no red area
+// can strobe, while the hue barely moves.
+float vlTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float vlToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 vlOffRed(vec3 c) {
+    float r = vlTone(c.r), g = vlTone(c.g), b = vlTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, vlToneInv(g + need));
+    else c.b = max(c.b, vlToneInv(b + need));
+    return c;
+}
 
 // Interleaved gradient noise: a well spread per-pixel offset, so the march
 // jitter reads as a fine, even dither instead of white grain.
@@ -97,7 +117,7 @@ vec3 vlWindow(vec2 q, float pen, VLLight lt) {
     // never aliases into grain inside a wide, far shaft
     tint = mix(tint, lt.avgT, saturate(pen * 0.7 - 1.1));
     // clouds drifting past outside
-    float cx0 = q.x * 0.09 - lt.tw * 0.55;
+    float cx0 = q.x * 0.09 - lt.tw * 0.2;
     float cl = sin(cx0) * sin(cx0 * 0.61 + q.y * 0.11 + 1.3) + 0.4 * sin(cx0 * 1.7 - q.y * 0.07 + 0.4);
     cl = 0.15 + 0.85 * smoothstep(-0.75, 0.25, cl);
     float k8 = mod(k, 8.0);
@@ -105,7 +125,7 @@ vec3 vlWindow(vec2 q, float pen, VLLight lt) {
     vec4 selB = step(abs(vec4(k8) - vec4(4.0, 5.0, 6.0, 7.0)), vec4(0.5));
     float e = dot(lt.eA, sel) + dot(lt.eB, selB);
     float sw = exp(-abs(k * VL_SP - lt.wave) * 0.15);
-    float lvl = 0.5 + 0.7 * e * e + 0.25 * e + 1.0 * sw * lt.bass;
+    float lvl = 0.8 + 0.15 * e + 0.12 * sw * lt.bass;
     return tint * (inside * lead * cl * lvl);
 }
 
@@ -307,7 +327,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tw = mod(u.time, 600.0);
 
     // ---- camera: slow dolly down the nave, looking up toward the windows ----
-    vec2 fl = osFlight(u, 0.4, 0.22);
+    vec2 fl = osFlight(u, 0.3, -0.12);
     float rush = saturate((fl.y - 1.0) / 3.5);
     // the gaze wanders slowly between the windows, the nave and the vault
     float gz = sin(tw * 0.031) + 0.5 * sin(tw * 0.017 + 2.0);
@@ -318,23 +338,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float pix = 2.0 / (u.resolution.y * 1.2);
 
     VLLight lt;
-    float boost = 1.0 + 0.15 * u.bassImpact;
+    float boost = 1.0;
     lt.sun = palVisual(0.22, u) * vec3(1.0, 0.95, 0.85) * 1.3 * boost;
     // the stained glass shifts hue as the flight builds and bursts
     lt.paneA = palVisual(0.04 + 0.08 * rush, u) * boost;
     lt.paneB = palVisual(0.62 - 0.1 * rush, u) * boost;
     lt.paneC = palVisual(0.86 - 0.06 * rush, u) * boost;
     lt.cool = palVisual(0.84 + 0.05 * sin(tw * 0.03) - 0.08 * rush, u) * 1.1;
-    lt.eA = vec4(bandAt(u, 0.04), bandAt(u, 0.30), bandAt(u, 0.12), bandAt(u, 0.46));
-    lt.eB = vec4(bandAt(u, 0.21), bandAt(u, 0.55), bandAt(u, 0.08), bandAt(u, 0.38));
+    float lev = saturate(u.level);
+    lt.eA = 0.6 * lev + 0.4 * vec4(bandAt(u, 0.04), bandAt(u, 0.30), bandAt(u, 0.12), bandAt(u, 0.46));
+    lt.eB = 0.6 * lev + 0.4 * vec4(bandAt(u, 0.21), bandAt(u, 0.55), bandAt(u, 0.08), bandAt(u, 0.38));
     // sunlight direction (travel), swinging slowly over minutes
     lt.L = normalize(vec3(0.7, -0.6 + 0.05 * sin(tw * 0.011), -0.15 + 0.2 * sin(tw * 0.013)));
     lt.L2 = normalize(vec3(-0.55, -0.78, 0.22 + 0.12 * sin(tw * 0.017 + 1.0)));
     lt.cols = floor(mix(2.0, 4.0, u.param1) + 0.5);
     lt.tw = tw;
     lt.wave = ro.z - 6.0 + saturate(u.beatPhase) * 40.0;
-    lt.bass = u.bassImpact;
-    lt.flare = saturate(0.6 * u.bassImpact + 0.5 * bandAt(u, 0.7) + 0.25 * u.treble);
+    lt.bass = 0.15 + 0.15 * lev;
+    lt.flare = 0.12 * lev + 0.05 * bandAt(u, 0.7);
     lt.pen = 0.012;
     lt.avgT = (lt.sun * 0.49 + (lt.paneA * 0.4 + lt.paneB * 0.35 + lt.paneC * 0.25) * 0.75) * 1.03;
     vec3 L = lt.L;
@@ -420,7 +441,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // the nave, so the far end is luminous rather than black
     float rest = max(tHit - span, 0.0);
     float Tr = exp(-sig * 0.6 * rest);
-    vec3 farGlow = (lt.sun * 0.045 * (0.7 + 0.6 * lt.eA.x) + lt.cool * 0.012 * (1.0 + lt.flare)) * haze + amb * 3.0;
+    vec3 farGlow = (lt.sun * 0.045 * 1.0 + lt.cool * 0.012 * (1.0 + lt.flare)) * haze + amb * 3.0;
     col = col * T * Tr + scat + farGlow * (1.0 - Tr) * T;
     if (edge) {
         float TrP = exp(-sig * 0.6 * max(tP - span, 0.0));
@@ -458,11 +479,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float w = max(max(r, t * pix * 0.8), coc);
             float dd = length(q.xy - mp);
             float k = exp(-dd * dd / (w * w)) * (r * r) / (w * w);
-            float tws = 0.5 + 0.5 * sin(tw * (2.0 + 3.0 * h.y) + h.x * 90.0);
-            vec3 mc = peakWhite(s, 0.08 + 0.4 * u.treble * tws);
+            float tws = 0.5 + 0.5 * sin(tw * (0.7 + 1.0 * h.y) + h.x * 90.0);
+            vec3 mc = peakWhite(s, 0.08 + 0.1 * lev * tws);
             float br = 0.25 + 1.5 * h.y * h.y;
-            col += mc * k * br * (0.6 + 2.0 * u.treble * tws) * 34.0;
+            col += mc * k * br * (0.7 + 0.3 * lev * tws) * 34.0;
         }
     }
-    return max(col, vec3(0.0));
+    return vlOffRed(max(col, vec3(0.0)));
 }

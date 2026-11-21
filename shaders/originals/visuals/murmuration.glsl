@@ -8,13 +8,23 @@
 // dark fold bands, where it tilts to the low sun they show pale undersides and
 // a few glint. Thousands of V-winged birds are drawn from jittered cells on
 // tilted grids at three depths plus a fine layer that fills the folds, so near
-// and far birds drift at different rates. The flock's tempo follows the
-// 32-beat speed profile (cruise, build, burst, brake, drift); the camera never
-// moves. Once a bar a banking wave, strength from the bass, rolls through the
-// flock as a dark ridge with a band of birds rolling over behind it to flash
-// their pale undersides, warm one bar and cool silver the next; treble lights the glints, the spectrum warms the
-// afterglow. A still lagoon mirrors it all.
+// and far birds drift at different rates; wings beat lazily. Calm under loud music: the flock
+// moves at a slow, steady tempo so the dense birds never stream fast enough
+// to flicker, and the camera never moves. Every four bars a faint banking
+// wave, strength from the smoothed level, rolls slowly through the flock with a soft
+// band of birds turning their pale undersides (glints stay put), their tone easing slowly
+// between warm and cool silver; the smoothed level lights the glints and warms the afterglow.
+// A still lagoon mirrors it all.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Flock Spread ; param1 = Wave Strength ; param2 = Wind
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 muPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 11, u); }
 
 const float MU_HY = -0.46;   // horizon height in centred screen units
 
@@ -70,7 +80,7 @@ vec3 muSheet(vec2 q, float tau, float wx, float wa) {
     float x = dot(q, bd) - wx;
     float pr = x * exp(-x * x * 20.0);
     g += bd * wa * (-24.0 * pr);
-    band += saturate(wa * 420.0 * pr * pr);
+    band += saturate(wa * 150.0 * pr * pr);
     return vec3(g, saturate(band));
 }
 
@@ -89,7 +99,7 @@ vec3 muSky(vec2 p, float t, int oct, MuPal P, VisualUniforms u) {
     // afterglow: brightest low and toward the set sun on the right
     float sunX = 0.55;
     float side = exp(-abs(p.x - sunX) * 0.9);
-    float warmth = 0.85 + 0.6 * bandRange(u, 0, 12);
+    float warmth = 1.0 + 0.03 * saturate(u.level);
     vec3 col = mix(mid, dome, smoothstep(0.15, 1.3, h));
     col = mix(col, ember * (0.35 + 0.5 * side) * warmth, exp(-h * 5.0) * 0.85);
     col += glow * exp(-h * 16.0) * (0.6 + 1.9 * side) * warmth;
@@ -99,7 +109,7 @@ vec3 muSky(vec2 p, float t, int oct, MuPal P, VisualUniforms u) {
     vec2 sd = p - vec2(sunX, MU_HY - 0.12);
     vec2 dn = sd / max(length(sd), 1e-3);
     float ray = smoothstep(0.35, 0.9, vnoise(dn * 5.5 + vec2(t * 0.012, 0.0)) * 0.8 + 0.2 * vnoise(dn * 13.0 - vec2(t * 0.02, 0.0)));
-    col += glow * ray * exp(-h * 2.0) * (0.06 + 0.22 * side) * (0.7 + 0.4 * u.amplitude);
+    col += glow * ray * exp(-h * 2.0) * (0.06 + 0.22 * side) * (0.96 + 0.04 * saturate(u.level));
 
     // cloud deck in perspective, lit from below by the afterglow
     float dz = 0.32 / (h + 0.035);
@@ -123,7 +133,7 @@ vec3 muSky(vec2 p, float t, int oct, MuPal P, VisualUniforms u) {
     float sr = hash21(si + 3.1);
     float star = step(0.965, sr) * (1.0 - smoothstep(0.0, 0.12, length(fract(sp) - 0.5)));
     col += vec3(0.8, 0.9, 1.0) * star * smoothstep(0.5, 1.2, h) * (1.0 - dens) *
-           (0.4 + 0.3 * sin(t * 2.0 + sr * 60.0));
+           (0.5 + 0.2 * sin(t * 0.8 + sr * 60.0));
     return col;
 }
 
@@ -150,10 +160,10 @@ vec3 muScene(vec2 p, float t, float tau, int lay, int oct, float px, MuPal P, Vi
     // internal filaments: birds bunch into streams and thin into veils
     float inner = 0.45 + 0.75 * vnoise(q * vec2(4.5, 7.0) + w * 3.0 + vec2(tau * 0.04, 0.0));
 
-    // the banking pulse sweeps the flock once a bar, strength from the bass
-    float b4 = (mod(u.beatCount, 4.0) + saturate(u.beatPhase)) * 0.25;
+    // the banking pulse sweeps the flock every sixteen beats, strength from the level
+    float b4 = (mod(u.beatCount, 16.0) + saturate(u.beatPhase)) * 0.0625;
     float wavePos = -2.0 + 4.0 * b4;
-    float waveAmp = (0.06 + 0.22 * u.bass + 0.12 * u.bassImpact) * mix(0.3, 1.2, u.param1);
+    float waveAmp = (0.012 + 0.012 * saturate(u.level)) * mix(0.3, 1.2, u.param1);
     vec3 sh3 = muSheet(q, tau, wavePos, waveAmp);
     vec2 sg = sh3.xy;
     float fold = sh3.z;                          // the narrow bands where the sheet turns edge-on
@@ -162,19 +172,20 @@ vec3 muScene(vec2 p, float t, float tau, int lay, int oct, float px, MuPal P, Vi
     // pale undersides where the sheet tilts toward the low sun
     float under = smoothstep(0.6, 1.6, dot(sg, vec2(0.85, -0.5))) * (1.0 - 0.5 * edgeOn);
     // the turn: just behind the ridge the birds roll over and flash their pale
-    // undersides, a light band sweeping the flock; warm on one bar, cool
-    // silver on the next
+    // undersides, a faint light band sweeping the flock; the pale tone eases
+    // between warm and cool silver over sixteen beats
     float wx = dot(q, vec2(0.92, 0.38)) - wavePos + 0.12;
-    float turn = exp(-wx * wx * 9.0) * saturate(0.35 + 0.8 * u.bass + 0.5 * u.bassImpact) * mix(0.4, 1.2, u.param1)
+    float turn = exp(-wx * wx * 9.0) * (0.07 + 0.03 * saturate(u.level)) * mix(0.4, 1.2, u.param1)
                * smoothstep(0.0, 0.08, b4) * (1.0 - smoothstep(0.82, 0.98, b4));
+    float under0 = under;
     under = max(under, turn);
-    bool coolBar = mod(floor(u.beatCount / 4.0), 2.0) > 0.5;
-    vec3 paleC = coolBar ? mix(P.mid * 2.2, vec3(0.75, 0.85, 1.0), 0.55) : P.pale;
+    float coolMix = 0.5 - 0.5 * cos(3.14159265 * (mod(u.beatCount, 16.0) + saturate(u.beatPhase)) / 8.0);
+    vec3 paleC = mix(P.pale, mix(P.mid * 2.2, vec3(0.75, 0.85, 1.0), 0.55), coolMix);
 
     // the mass: sub-pixel birds as a translucent dark body, densest in folds
     float lowLight = exp(-max(p.y - MU_HY, 0.0) * 2.5);
     vec3 shade = mix(P.shA * 0.012, P.shB * 0.03, lowLight);
-    vec3 pale = paleC * (0.05 + 0.12 * lowLight) * (0.8 + 0.6 * u.treble) * (1.0 + 2.2 * turn);
+    vec3 pale = paleC * (0.05 + 0.12 * lowLight) * (0.95 + 0.1 * saturate(u.level)) * (1.0 + 0.4 * turn);
     float body = min(dens * inner * (0.2 + 0.6 * fold) + core * 0.06, 0.78) * (lay == 1 ? 1.25 : 1.0);
     col = mix(col, mix(shade, pale, under * 0.6), saturate(body));
 
@@ -182,7 +193,7 @@ vec3 muScene(vec2 p, float t, float tau, int lay, int oct, float px, MuPal P, Vi
     // flapping wings, far ones fine; each layer on its own tilted grid. A
     // fourth, finest layer fills the folds, where the edge-on sheet packs the
     // birds tight in projection.
-    float glintBoost = 0.5 + 1.0 * u.treble + 0.6 * u.onset;
+    float glintBoost = 0.85 + 0.15 * saturate(u.level);
     for (int k = 0; k < 4; ++k) {
         if (k >= lay) break;
         int L = lay == 1 ? 1 : k;   // a single layer draws the full mid-depth flock
@@ -200,7 +211,7 @@ vec3 muScene(vec2 p, float t, float tau, int lay, int oct, float px, MuPal P, Vi
         if (present <= 0.0) continue;
         vec2 j = 0.2 + 0.6 * hash22(id + 19.1 + fL) +
                  0.08 * vec2(sin(tau * 0.9 + h.y * 6.28), cos(tau * 1.1 + h.x * 6.28));
-        float flap = sin(t * (11.0 + 4.0 * h.y) + h.y * 40.0);
+        float flap = sin(t * (2.0 + 0.8 * h.y) + h.y * 40.0);
         vec2 d = (f - j) * cellPx;                        // in pixels
         float span = 1.5 - 0.3 * fL;
         // a V of two wings; edge-on birds shrink to a dash
@@ -208,9 +219,10 @@ vec3 muScene(vec2 p, float t, float tau, int lay, int oct, float px, MuPal P, Vi
         float dist = min(muSeg(d, tip), muSeg(d, vec2(-tip.x, tip.y)));
         float a = (1.0 - smoothstep(0.3, 1.05 - 0.15 * fL, dist)) * present;
         // birds showing their undersides to the low sun catch its light
-        float glint = step(1.0 - (0.008 + 0.06 * under) * glintBoost, hash21(id + fL * 3.0));
+        float gth = 1.0 - (0.008 + 0.06 * under0) * 0.85;
+        float glint = smoothstep(gth - 0.02, gth + 0.02, hash21(id + fL * 3.0));
         vec3 bird = mix(shade, pale * 1.6, under * 0.5);
-        bird = mix(bird, mix(paleC, P.gl1, h.y) * (0.25 + 0.9 * lowLight) * glintBoost,
+        bird = mix(bird, mix(paleC, P.gl1, h.y) * (0.2 + 0.6 * lowLight) * glintBoost,
                    glint * under);
         col = mix(col, bird, a);
     }
@@ -260,23 +272,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     float t = mod(u.time, 600.0);
     float wind = mix(0.5, 1.6, u.param2);
-    float tau = mod(osFlight(u, 2.0 * wind, 1.0 * wind).x, 4000.0);
+    float tau = mod(mod(u.time, 36000.0) * 0.45 * wind, 4000.0);
 
     MuPal P;
-    P.dome = palVisual(0.0, u);
-    P.mid = palVisual(0.16, u);
-    P.glow = palVisual(0.80, u);
-    P.ember = palVisual(0.96, u);
-    P.sun = palVisual(0.72, u);
-    P.cloud = palVisual(0.04, u);
-    P.cirr = palVisual(0.88, u);
-    P.shA = palVisual(0.03, u);
-    P.shB = palVisual(0.92, u);
-    P.pale = palVisual(0.62, u);
-    P.gl1 = palVisual(0.87, u);
-    P.land = palVisual(0.9, u);
-    P.water = palVisual(0.05, u);
-    P.glit = palVisual(0.7, u);
+    P.dome = muPalSteady(0.0, u);
+    P.mid = muPalSteady(0.16, u);
+    P.glow = muPalSteady(0.80, u);
+    P.ember = muPalSteady(0.96, u);
+    P.sun = muPalSteady(0.72, u);
+    P.cloud = muPalSteady(0.04, u);
+    P.cirr = muPalSteady(0.88, u);
+    P.shA = muPalSteady(0.03, u);
+    P.shB = muPalSteady(0.92, u);
+    P.pale = muPalSteady(0.62, u);
+    P.gl1 = muPalSteady(0.87, u);
+    P.land = muPalSteady(0.9, u);
+    P.water = muPalSteady(0.05, u);
+    P.glit = muPalSteady(0.7, u);
 
     vec3 col;
     if (p.y >= MU_HY) {
@@ -289,18 +301,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // lagoon: a rippled mirror, darker toward the viewer
         float below = MU_HY - p.y;
         float dz = 1.0 / (below + 0.02);
-        vec2 rip = vec2(vnoise(vec2(p.x * dz * 2.0, dz * 6.0 - t * 0.6)),
-                        vnoise(vec2(p.x * dz * 3.1 + 4.0, dz * 9.0 + t * 0.4))) - 0.5;
+        vec2 rip = vec2(vnoise(vec2(p.x * dz * 2.0, dz * 6.0 - t * 0.3)),
+                        vnoise(vec2(p.x * dz * 3.1 + 4.0, dz * 9.0 + t * 0.2))) - 0.5;
         vec2 m = vec2(p.x + rip.x * 0.03 * below, MU_HY + below + rip.y * 0.05 * below);
         float sh = muShore(m.x);
         vec3 refl = m.y < sh ? P.land * 0.02 : muScene(m, t, tau, lay > 1 ? 1 : 0, oct - 1, px, P, u);
         float fres = mix(0.75, 0.25, saturate(below * 2.2));
         col = refl * fres + P.water * 0.004;
         // glitter along the afterglow's path, lit by the treble
-        vec2 gc = vec2(p.x * dz * 9.0, dz * 3.0 - t * 0.3);
+        vec2 gc = vec2(p.x * dz * 9.0, dz * 3.0 - t * 0.15);
         float gl = step(0.93, hash21(floor(gc))) * (1.0 - smoothstep(0.0, 0.35, length(fract(gc) - 0.5)));
         col += P.glit * gl * exp(-abs(p.x - 0.55) * 2.5) * exp(-below * 6.0) *
-               (0.6 + 2.5 * u.treble);
+               (0.7 + 0.3 * saturate(u.level));
     }
 
     // reed beds in the foreground corners, black against the water

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Rain.
 // A slow walk at ankle height down a rain-soaked street at night. Both walls
-// carry rows of upright neon tubes that stand as tall as their spectrum band,
+// carry rows of upright neon tubes whose height breathes with their band,
 // so the street is a spectrum running low to high and back; neon gates span
 // the street overhead and a strip line runs along each wall. The black floor
 // is wet: puddles mirror everything in long vertical smears, every drop rings
 // the puddles and throws a crown of droplets near the camera, and the falling
-// rain is lit by whichever neon it passes. The camera's pace follows the
-// 32-beat profile and the roll eases every eight beats. Audio drives the
-// light: the spectrum sets the tubes, the bass lifts the gates and strips, a
-// beat sends a pulse down the street, the treble sparkles the rain.
+// rain is lit by whichever neon it passes, nearest drops dimmest. The camera
+// keeps a slow steady pace with no roll. Audio drives the light, gently: the
+// smoothed level with a trace of each band sets the tubes and the tower
+// meter, a beat sends a faint pulse down the street, and nothing flashes or
+// jumps with the kick, so the neon glows and fades instead of strobing.
 // param0 = Density ; param1 = Fall Speed ; param2 = Reflection
 
 const float RN_W = 4.2;      // street half-width
@@ -21,6 +22,23 @@ const float RN_CELL = 0.6;   // ripple / splash cell
 const float RN_FOG = 0.042;
 
 float rnHash(vec2 c) { return hash21(mod(c, 1024.0) + 0.5); }
+
+// Keeps every red just off saturated red once tonemapped: green and blue
+// rise together until they make 0.27 of red, so no red area can strobe.
+float rnTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float rnToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 rnOffRed(vec3 c) {
+    float r = rnTone(c.r), g = rnTone(c.g), b = rnTone(c.b);
+    float need = 0.27 * r - g - b;
+    if (need <= 0.0) return c;
+    c.g = rnToneInv(g + 0.5 * need);
+    c.b = rnToneInv(b + 0.5 * need);
+    return c;
+}
 
 // Spectrum position of a tube: along each wall the bars run low to high and back.
 float rnBarF(float cz, float side) {
@@ -42,16 +60,16 @@ vec3 rnWall(vec2 w, float side, float blur, float zb, VisualUniforms u) {
     float cz = floor(qz);
     float lz = (qz - cz - 0.5) * RN_BAR;
     float f = rnBarF(cz, side);
-    float lv = bandAt(u, 0.03 + 0.9 * f);
-    float top = 0.6 + 2.6 * lv;
+    float lv = 0.45 * saturate(u.level) + 0.3 * bandAt(u, 0.03 + 0.9 * f);
+    float top = 0.9 + 1.6 * lv;
     float dxb = max(abs(lz) - 0.04, 0.0);
     float dyb = max(max(0.15 - w.y, w.y - top), 0.0) / bs;
     float d = length(vec2(dxb, dyb));
     vec3 bc = palVisual(0.05 + 0.85 * f, u);
-    bc = peakWhite(bc, 0.5 * smoothstep(top - 0.35, top, w.y) * lv);
+    bc = peakWhite(bc, 0.25 * smoothstep(top - 0.35, top, w.y) * lv);
     float core = 1.0 - smoothstep(0.0, 0.012 + 0.05 * blur, d);
     float halo = exp(-d * 5.0 / (1.0 + blur * 2.0));
-    vec3 e = bc * (core * 3.2 + halo * 0.45) * (0.35 + 1.1 * lv);
+    vec3 e = bc * (core * 3.2 + halo * 0.45) * (0.5 + 0.5 * lv);
     // storefront segments: a sign line at its own height, lifted by the bass and
     // swept by the beat pulse, over a softly lit shop window
     float qs = w.x / 7.0 + side * 0.31;
@@ -64,7 +82,7 @@ vec3 rnWall(vec2 w, float side, float blur, float zb, VisualUniforms u) {
     float dzs = max(abs(ls - 3.5) - sl, 0.0);
     float dys = length(vec2(dzs, (w.y - hy) / bs));
     vec3 sc = palVisual(fract(0.3 + 0.55 * h1 + 0.25 * side), u);
-    float drive = 0.25 + 0.9 * u.bassImpact + 0.3 * u.bass + 2.0 * rnPulse(w.x, zb, u);
+    float drive = 0.85 + 0.1 * u.level + 0.08 * rnPulse(w.x, zb, u);
     e += sc * ((1.0 - smoothstep(0.0, 0.02 + 0.06 * blur, dys)) * 2.2 + exp(-dys * 8.0) * 0.3) * drive;
     if (h2 > 0.35) {
         vec2 sd = vec2(max(abs(ls - 3.5) - 2.2, 0.0), max(abs(w.y - 1.05) - 0.8, 0.0) / bs);
@@ -93,7 +111,7 @@ vec3 rnWall(vec2 w, float side, float blur, float zb, VisualUniforms u) {
             vec3 gcA = palVisual(fract(0.12 + 0.62 * g2 + 0.5 * side), u);
             vec3 gcB = palVisual(fract(0.62 + 0.62 * g2 + 0.5 * side), u);
             float glv = bandAt(u, 0.1 + 0.8 * g1);
-            float gdrive = 0.45 + 1.3 * glv + 1.5 * rnPulse(w.x, zb, u);
+            float gdrive = 0.7 + 0.3 * u.level + 0.2 * glv + 0.12 * rnPulse(w.x, zb, u);
             e += gcA * ((1.0 - smoothstep(0.0, 0.025 + 0.06 * blur, bd)) * 2.6 + exp(-bd * 7.0) * 0.25) * gdrive;
             if (box < 0.0) {
                 // glyph grid: two columns of blocks, each a stack of strokes
@@ -131,7 +149,7 @@ vec3 rnGates(vec3 ro, vec3 rd, float tmax, float blur, VisualUniforms u, float z
     vec3 e = vec3(0.0);
     if (rd.z < 0.02) return e;
     float g0 = floor(ro.z / RN_GATE) + 1.0;
-    float drive = 0.35 + 1.0 * u.bassImpact + 0.4 * u.bass;
+    float drive = 0.95 + 0.1 * u.level;
     vec3 acc = mod(floor(u.beatCount), 2.0) < 0.5 ? vec3(1.0, 0.5, 0.12) : vec3(0.1, 0.65, 1.0);
     for (int k = 0; k < 4; k++) {
         float gi = g0 + float(k);
@@ -143,8 +161,8 @@ vec3 rnGates(vec3 ro, vec3 rd, float tmax, float blur, VisualUniforms u, float z
         float d = length(vec2(dx, dy)) / (1.0 + 0.004 * t);
         vec3 gc = palVisual(0.55 + 0.4 * rnHash(vec2(gi, 2.0)), u);
         float pls = rnPulse(gi * RN_GATE, zb, u);
-        gc = mix(gc, acc, 0.7 * pls);
-        float pz = 1.0 + 2.0 * pls;
+        gc = mix(gc, acc, 0.15 * pls);
+        float pz = 1.0 + 0.15 * pls;
         e += gc * ((1.0 - smoothstep(0.0, 0.035 + 0.08 * blur, d)) * 3.0 + exp(-d * 4.5) * 0.35)
              * drive * pz * exp(-t * RN_FOG);
     }
@@ -175,7 +193,7 @@ vec3 rnSky(vec3 rd, vec3 ha, vec3 hb, float blur, float open, VisualUniforms u) 
     vec3 under = mix(palVisual(0.62, u), vec3(0.55, 0.1, 0.9), 0.4);
     float hi = smoothstep(0.06, 0.35, e) * open;
     vec3 c = base * (1.0 - 0.5 * hi)
-           + under * smoothstep(0.6, 1.3, cn) * hi * (0.035 + 0.05 * glow + 0.06 * u.bassImpact);
+           + under * smoothstep(0.6, 1.3, cn) * hi * (0.035 + 0.05 * glow);
     // side towers: dark, with sparse warm windows and a thin neon crown
     for (int k = 0; k < 2; k++) {
         float cx = k == 0 ? -0.15 : 0.13;
@@ -196,7 +214,7 @@ vec3 rnSky(vec3 rd, vec3 ha, vec3 hb, float blur, float open, VisualUniforms u) 
         float f = saturate((az + 0.075) / 0.15);
         float colI = floor(f * 12.0);
         float fb = (colI + 0.5) / 12.0;
-        float lv = bandAt(u, 0.03 + 0.9 * abs(fb * 2.0 - 1.0));
+        float lv = 0.45 * saturate(u.level) + 0.3 * bandAt(u, 0.03 + 0.9 * abs(fb * 2.0 - 1.0));
         float fill = ttop * (0.12 + 0.82 * lv);
         vec2 wq = vec2(f * 12.0, e / 0.011);
         vec2 wl = abs(fract(wq) - 0.5);
@@ -204,18 +222,18 @@ vec3 rnSky(vec3 rd, vec3 ha, vec3 hb, float blur, float open, VisualUniforms u) 
         vec3 wcol = palVisual(0.05 + 0.85 * abs(fb * 2.0 - 1.0), u);
         float on = smoothstep(fill + 0.004, fill - 0.004, e);
         float topRow = exp(-abs(e - fill) * 300.0);
-        c = base * 0.3 + wcol * win * (on * (0.8 + 1.4 * lv) + topRow * 2.0 + 0.03);
+        c = base * 0.3 + wcol * win * (on * (0.9 + 0.5 * lv) + topRow * 1.2 + 0.03);
         // the spine
         float par = mod(floor(u.beatCount), 2.0);
         vec3 acc = par < 0.5 ? vec3(1.0, 0.5, 0.12) : vec3(0.1, 0.65, 1.0);
         float sp = exp(-az * az * 90000.0 / (1.0 + blur * 6.0));
         float pulse = exp(-abs(e - ttop * saturate(u.beatPhase)) * 40.0) * (1.0 - saturate(u.beatPhase));
-        c += acc * sp * (0.4 + 2.5 * pulse + 0.8 * u.bassImpact);
+        c += acc * sp * (0.6 + 0.2 * pulse);
     }
     // the crown of the tower and its slow warning beacon
     float bd = length(vec2(az, (e - ttop - 0.012) * 0.6));
-    float blink = smoothstep(0.6, 0.9, fract(tm * 0.5));
-    c += vec3(1.0, 0.15, 0.08) * exp(-bd * bd * 4e5 / (1.0 + blur * 8.0)) * (0.3 + 3.0 * blink);
+    float blink = 0.5 - 0.5 * cos(tm * 3.14159265);
+    c += vec3(1.0, 0.15, 0.08) * exp(-bd * bd * 4e5 / (1.0 + blur * 8.0)) * (0.3 + 1.0 * blink);
     c += mix(palVisual(0.9, u), vec3(1.0), 0.3) * exp(-abs(e - ttop) * 500.0) * step(abs(az), 0.075) * 0.8;
     return c;
 }
@@ -238,7 +256,7 @@ vec3 rnTrace(vec3 ro, vec3 rd, float blur, float zb, vec3 ha, vec3 hb, VisualUni
         if (fog > 0.01) c = rnWall(pw.zy, side, blur + tw * 0.004, zb, u) * fog;
         // a neon line along the parapet
         float pe = exp(-abs(pw.y - roof) * 14.0 / (1.0 + blur * 3.0 + tw * 0.01));
-        c += palVisual(side > 0.0 ? 0.82 : 0.28, u) * pe * 0.6 * fog * (0.6 + 0.6 * u.bass);
+        c += palVisual(side > 0.0 ? 0.82 : 0.28, u) * pe * 0.6 * fog * (0.8 + 0.2 * u.level);
         c += far * (1.0 - fog);
     }
     c += rnGates(ro, rd, tw, blur, u, zb);
@@ -253,11 +271,11 @@ vec3 rnLight(vec3 q, VisualUniforms u) {
         float dw = max(RN_W - side * q.x, 0.05);
         float qz = q.z / RN_BAR + side * 0.37;
         float f = rnBarF(floor(qz), side);
-        l += palVisual(0.05 + 0.85 * f, u) * (0.3 + 1.2 * u.level) / (1.0 + dw * dw * 0.35);
+        l += palVisual(0.05 + 0.85 * f, u) * (0.5 + 0.5 * u.level) / (1.0 + dw * dw * 0.35);
     }
     float gz = q.z - RN_GATE * floor(q.z / RN_GATE + 0.5);
     float gy = q.y - RN_GY;
-    l += palVisual(0.75, u) * (0.3 + 1.0 * u.bassImpact) / (1.0 + (gz * gz + gy * gy) * 0.25);
+    l += palVisual(0.75, u) * 0.6 / (1.0 + (gz * gz + gy * gy) * 0.25);
     return l;
 }
 
@@ -277,15 +295,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
     float tm = mod(u.time, 600.0);
     float dens = mix(0.25, 0.85, u.param0);
-    float fall = mix(5.0, 13.0, u.param1);
+    float fall = mix(2.5, 6.5, u.param1);
     float wet = u.param2;
 
     // camera: ankle height, a slow walk with a gentle weave; the audio never moves it
-    vec2 fl = osFlight(u, 1.4, 0.55);
+    vec2 fl = osFlight(u, 0.0, 0.0);
+    fl.x += 0.22 * u.time;
     float z = fl.x;
     vec3 ro = vec3(1.1 * sin(z * 0.045) + 0.4 * sin(z * 0.11 + 1.0), 0.5 + 0.08 * sin(z * 0.07), z);
     vec3 ta = vec3(0.6 * sin((z + 7.0) * 0.045) + 0.3 * sin(z * 0.03 + 2.0), 1.35, z + 7.0);
-    float roll = osBank(u, 0.05);
+    float roll = 0.0;
     vec3 rd = osCamera(ro, ta, roll, 1.2, p);
     float zb = z + 3.0 + 34.0 * saturate(u.beatPhase);
     float hl = 0.03 + 0.05 * u.level;
@@ -359,7 +378,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float r = 0.12 + 0.3 * below;
         float cone = exp(-dot(dd, dd) / (r * r)) * smoothstep(0.0, 0.4, below);
         float grain = 0.7 + 0.6 * vnoise(vec2(p.x * 60.0, p.y * 6.0 + tm * fall * 0.6));
-        col += lc * cone * grain * (0.7 / (1.0 + 0.5 * below)) * (0.5 + 0.7 * u.bassImpact + 0.3 * u.bass)
+        col += lc * cone * grain * (0.7 / (1.0 + 0.5 * below)) * (0.85 + 0.15 * u.level)
                * exp(-sc * RN_FOG) * inversesqrt(rl2);
     }
 
@@ -400,10 +419,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             }
             // the crown's base flash right at impact
             vec2 b = vec2(l.x * 0.5, l.y - 0.01);
-            a += exp(-dot(b, b) * 9000.0) * saturate(1.0 - age * 8.0) * 3.5;
+            a += exp(-dot(b, b) * 9000.0) * saturate(1.0 - age * 8.0) * 1.5;
             if (a > 0.002) sp += (rnLight(vec3(q.x, 0.3, q.z), u) + vec3(0.05, 0.06, 0.09)) * a * fade * exp(-t * RN_FOG);
         }
-        col += sp * (0.9 + 1.4 * u.treble);
+        col += sp * (0.9 + 0.2 * u.level);
     }
 
     // falling rain in parallax layers, each streak lit by the neon it passes
@@ -430,9 +449,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float w = 0.0035 + t * 0.0016 + 0.012 * exp(-t * 2.5);
         float sx = 1.0 - smoothstep(0.0, w, abs(lq.x - ox));
         float sy = smoothstep(oy, oy + len * 0.6, lq.y) * (1.0 - smoothstep(oy + len * 0.85, oy + len, lq.y));
-        float a = sx * sy * (0.0035 / w);
+        float a = sx * sy * (0.0035 / w) * (0.35 + 0.65 * smoothstep(0.5, 2.5, t));
         if (a > 0.001) rain += rnLight(q, u) * a * exp(-t * RN_FOG);
     }
-    col += rain * (0.35 + 0.5 * u.treble + 0.2 * u.level);
-    return col; // LINEAR HDR — post chain tonemaps
+    col += rain * (0.35 + 0.15 * u.level);
+    return rnOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

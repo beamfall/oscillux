@@ -6,12 +6,13 @@
 // lines of light particles, each rung tuned to a band of the spectrum so the
 // molecules play like a running equaliser. Pulses of light stream along the
 // backbones, two more helices stand in the dark, thin streaks of light fly
-// out of the vanishing point as the flight surges, and everything near or far
-// is thrown softly out of focus. Backbones are cyan and magenta over black,
-// the warm accent is orange: each beat a wave of it runs down every helix and
-// ignites scattered rungs. The camera's speed follows the shared 32-beat
-// profile and the helices spin faster through bursts. Audio drives the light,
-// never the camera.
+// out of the vanishing point, and everything near or far is thrown softly out
+// of focus. Backbones are cyan and magenta over black, the warm accent is
+// orange. Calm under loud music: the rungs and beads brighten with the
+// smoothed level plus a modest band term, each beat sends only a faint warm
+// wave down the helices and warms a few scattered rungs, and the camera
+// glides at a slow steady pace with a gentle bank and no beat surges. Audio
+// drives the light, never the camera.
 // param0 = Twist ; param1 = Depth ; param2 = Sparkle
 
 const float HX_TAU = 6.2831853;
@@ -119,9 +120,11 @@ vec3 hxDraw(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, vec4 look, vec2 o, float
     vec3 col = vec3(0.0);
     vec3 cA = cs[0], cB = cs[1], c0 = cs[2], c1 = cs[3], c2 = cs[4];
     // each beat a wave of warm light runs down the helices, away from the camera
+    // it swells and fades within the beat, so no light jumps on the kick
     float bp = saturate(u.beatPhase);
-    float front = 1.5 + 34.0 * (1.0 - (1.0 - bp) * (1.0 - bp));
-    float wAmp = (1.0 - bp) * (0.45 + 0.55 * saturate(u.beat + u.bassImpact));
+    float front = 1.0 + 26.0 * bp;
+    float wAmp = smoothstep(0.0, 0.35, bp) * (1.0 - bp) * (0.1 + 0.06 * saturate(u.level));
+    float lev = saturate(u.level);
     // The path's three sine terms and the strand angle are stepped by
     // rotation, so the loop needs no trigonometry. Each backbone segment bends
     // through the arc's midpoint, so the strands curve instead of kinking: the
@@ -209,15 +212,15 @@ vec3 hxDraw(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, vec4 look, vec2 o, float
             float sA = min(hxSeg(p, a0.xy, ah).x, hxSeg(p, ah, am.xy).x);
             float sB = min(hxSeg(p, b0.xy, bh).x, hxSeg(p, bh, bm.xy).x);
             // pulses streaming along the backbones, away from the camera
-            float flowA = exp(-fract(ri * 0.11 - u.time * 0.5 + seed) * 6.0);
-            float flowB = exp(-fract(ri * 0.11 - u.time * 0.5 + seed + 0.5) * 6.0);
+            float flowA = exp(-fract(ri * 0.11 - u.time * 0.3 + seed) * 6.0);
+            float flowB = exp(-fract(ri * 0.11 - u.time * 0.3 + seed + 0.5) * 6.0);
             float dz = zs - front;
             float wave = wAmp * (exp(-dz * dz * 0.35) + 0.35 * exp(-max(-dz, 0.0) * 0.4) * step(dz, 0.0));
             float gA = hxGlow(sA, w * 1.4, fl), gB = hxGlow(sB, w * 1.4, fl);
-            float keep = 1.0 - 0.6 * saturate(wave);
-            col += cA * gA * (0.35 + 1.6 * flowA * (0.4 + u.flux)) * dimW * keep;
-            col += cB * gB * (0.35 + 1.6 * flowB * (0.4 + u.flux)) * dimW * keep;
-            col += c2 * (gA + gB) * wave * 1.1 * dimW;
+            float keep = 1.0 - 0.25 * saturate(wave);
+            col += cA * gA * (0.5 + 0.6 * flowA * (0.7 + 0.3 * lev)) * dimW * keep;
+            col += cB * gB * (0.5 + 0.6 * flowB * (0.7 + 0.3 * lev)) * dimW * keep;
+            col += c2 * (gA + gB) * wave * 0.6 * dimW;
 
             if (rungNear) {
             // the base-pair rung: a dotted line of light, two-tone, tuned to its band
@@ -229,7 +232,7 @@ vec3 hxDraw(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, vec4 look, vec2 o, float
             float gap = smoothstep(0.015, 0.05, abs(sR.y - 0.5));
             float ft = saturate(f + (sR.y > 0.5 ? 0.12 : -0.06));
             vec3 rc = ft < 0.5 ? mix(c0, c1, ft * 2.0) : mix(c1, c2, ft * 2.0 - 1.0);
-            float e = (0.22 + 2.8 * lv * lv + 3.0 * ig + 2.0 * wave) * dots * gap;
+            float e = (0.35 + 0.5 * lev + 0.6 * lv * lv + 1.5 * ig + 1.0 * wave) * dots * gap;
             // far turns keep only their backbones; rungs beside the camera fade out
             float detailFade = smoothstep(26.0, 9.0, zs) * smoothstep(1.8, 4.0, zs);
             col += rc * hxGlow(sR.x, w, fl) * e * dimW * detailFade;
@@ -237,8 +240,8 @@ vec3 hxDraw(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, vec4 look, vec2 o, float
             // glowing beads where rungs meet the backbones
             float wb = w * 1.7;
             float bead = hxGlow(length(p - am.xy), wb, fl) + hxGlow(length(p - bm.xy), wb, fl);
-            float glint = u.onset * sparkle * step(0.7, hash21(vec2(idx, beatKey + 9.0)));
-            col += mix(mix(rc, c2, saturate(wave)), vec3(1.0), 0.25) * bead * (0.12 + 0.5 * lv + 1.0 * ig + 0.6 * glint + 1.5 * wave) * dimW * detailFade;
+            float glint = 0.05 * u.onset * sparkle * step(0.7, hash21(vec2(idx, beatKey + 9.0)));
+            col += mix(mix(rc, c2, saturate(wave)), vec3(1.0), 0.25) * bead * (0.18 + 0.2 * lev + 0.15 * lv + 0.6 * ig + 0.6 * glint + 0.6 * wave) * dimW * detailFade;
             }
         }
         }
@@ -259,19 +262,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float depth = mix(0.6, 1.6, u.param1);
     float sparkle = mix(0.3, 1.6, u.param2);
 
-    vec2 fl = osFlight(u, 2.6, 1.0);
-    float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
-    float spin = mod(u.time * 0.09 + z * 0.03, HX_TAU);
+    // a slow, steady glide with no beat surges
+    float z = 8.0 + 0.45 * u.time;
+    float spin = mod(u.time * 0.05 + z * 0.03, HX_TAU);
     float cyc = fract((mod(u.beatCount, 256.0) + saturate(u.beatPhase)) / 32.0);
     float hs = 0.035 * sin(cyc * HX_TAU);
 
     vec3 ro = vec3(hxPath(z) + vec2(0.3 * sin(z * 0.019), 0.2 * sin(z * 0.027 + 1.0)), z);
     vec3 ta = vec3(hxPath(z + 7.0) + vec2(0.15 * sin(z * 0.017), 0.1), z + 7.0);
     float curve = hxPath(z + 9.0).x - 2.0 * hxPath(z + 4.5).x + hxPath(z).x;
-    float roll = -0.3 * curve + osBank(u, 0.14);
-    float fov = 1.05 - 0.14 * rush + 0.06 * lull;
+    float roll = -0.3 * curve + osBank(u, 0.02);
+    float fov = 1.05;
     vec3 fw = normalize(ta - ro);
     vec3 up = vec3(sin(roll), cos(roll), 0.0);
     vec3 rt = normalize(cross(fw, up));
@@ -279,7 +280,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 rd = normalize(p.x * rt + p.y * cu + fov * fw);
 
     float bp = saturate(u.beatPhase);
-    float flare = (1.0 - bp) * (1.0 - bp) * (0.3 + 0.7 * saturate(u.beat + u.bassImpact));
+    float we = sin(3.14159265 * bp);
+    float flare = we * we * (0.08 + 0.06 * saturate(u.level));
     float beatKey = mod(floor(u.beatCount), 64.0);
 
     // background: deep haze, gas walls along the avenue and the light at the
@@ -294,20 +296,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 gq = sq * 1.5 + vec2(mod(u.time * 0.008, 50.0), 0.0);
     float neb = mix(hxGas(gq * exp2(-zt) + 3.7), hxGas(gq * exp2(1.0 - zt) + 3.7), zt);
     float wall = smoothstep(0.15, 1.1, rr);
-    float gasLit = smoothstep(0.4, 0.78, neb) * wall * (1.0 + 0.7 * rush + 0.5 * u.bassImpact * (1.0 - saturate(u.beatPhase)));
+    float gasLit = smoothstep(0.4, 0.78, neb) * wall * (1.0 + 0.1 * saturate(u.level));
     float gh = 0.5 + 0.5 * sin(HX_TAU * ang + 5.0 * neb + 0.4 * z * 0.035);
     vec3 gas = mix(hxPal(P, 0.24 + hs), hxPal(P, 0.52 + hs), gh);
     vec3 col = hxPal(P, 0.05) * 0.0015 + gas * gasLit * gasLit * 0.07;
-    col += hxPal(P, 0.99) * (0.006 * pow(vp, 8.0) + 0.05 * pow(vp, 90.0)) * (1.0 + 0.6 * rush);
+    col += hxPal(P, 0.99) * (0.006 * pow(vp, 8.0) + 0.05 * pow(vp, 90.0));
     // light streaming down the avenue: thin streaks fly out of the vanishing
-    // point, longer and brighter as the flight surges
+    // point at a steady length
     {
         float lanes = 90.0;
         float ln = floor(ang * lanes);
         float lh = hash11(ln * 1.37 + 3.1);
         float lx = abs(fract(ang * lanes) - 0.5);
         float ph = fract(-0.35 / max(rr, 0.05) + z * 0.035 * (0.7 + 0.6 * lh) + lh * 7.0);
-        float len = 0.04 + 0.12 * rush;
+        float len = 0.04;
         float tail = 1.0 - saturate(ph / len);
         float sk = tail * tail * step(0.55, lh);
         // a constant thin width on screen, whatever the radius
@@ -315,7 +317,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float sw = 0.0016 + 0.0015 * rr;
         sk *= exp(-wx * wx / (sw * sw)) * smoothstep(0.08, 0.5, rr);
         vec3 skc = hxPal(P, lh < 0.75 ? 0.985 : 0.24 + hs);
-        col += skc * sk * (0.06 + 0.4 * rush + 0.15 * u.flux);
+        col += skc * sk * (0.06 + 0.04 * saturate(u.level));
     }
 
     float zFrom = (floor(z / HX_SP) - 1.0) * HX_SP;
@@ -358,7 +360,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float mh = hash21(key + 4.0);
         vec3 mc = hxPal(P, mh < 0.3 ? 0.985 : 0.2 + 0.4 * mh);
         float fadeM = smoothstep(0.0, 2.0, tp) * exp(-tp * 0.06);
-        col += mc * (disk * 0.6 + ringE * 0.6) * fadeM * (0.06 + 0.25 * u.treble) / (1.0 + 5.0 * rad);
+        col += mc * (disk * 0.6 + ringE * 0.6) * fadeM * (0.08 + 0.05 * saturate(u.level)) / (1.0 + 5.0 * rad);
     }
     return col; // LINEAR HDR — post chain tonemaps
 }

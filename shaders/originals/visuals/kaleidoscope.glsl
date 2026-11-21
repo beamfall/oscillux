@@ -3,23 +3,36 @@
 // Looking down a real mirror kaleidoscope. Radial mirrors fold the view into
 // segments and a lattice of three mirrors repeats it to the edges of the
 // frame. Inside the object chamber a stream of 3D pieces (glass marbles, cut
-// cubes, dichroic rings and neon rods) tumbles toward the eyepiece on the
-// shared speed profile, so the mirrored mandala blooms outward from every
-// cell, cruising, surging and drifting. The pieces are raymarched and lit:
+// cubes, dichroic rings and neon rods) drifts slowly and steadily toward the
+// eyepiece, so the mirrored mandala blooms gently outward from every cell.
+// The pieces are raymarched and lit:
 // glass refracts the oil wheel behind it with a little dispersion and darkens
 // at its grazing rim, rods burn, dichroic rings shift colour as they turn,
 // and every mirror bounce costs a little light, so the pattern dims toward
 // the edges as in a real tube. The end of the tube is a backlit oil wheel,
 // coloured liquid slowly folding through dark ink, so no mirror cell is ever
-// an empty hole. Audio drives light only: the
-// spectrum lights single pieces, bass the tube's end light and the rods,
-// treble the glints, the beat the glass rims.
+// an empty hole. Audio drives soft light only: the smoothed level and a
+// little spectrum lift the end light, rods, glints and edges, a faint warm
+// front runs along the mirror joints each beat, and the reds are kept just
+// off saturated red, so nothing large flashes.
 // param0 = Segments (radial mirror count, 2..16) ; param1 = Spin ; param2 = Vortex
 
 // Fold into the three-mirror lattice: hexagonal cells of inradius 0.5, each
 // folded into twelve mirrored wedges. Returns the point in the base triangle.
 // z is the cell centre's distance from the axis, in cells: roughly how many
 // mirror bounces the light took to get there.
+// The palette read without the library's per-beat and spectral-centroid hue
+// nudge, so large lit areas never shimmer with the music; under the host's
+// palette tour the cross-fade between palettes is spread over the whole tour
+// step, so the colours change slowly.
+vec3 kaPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palByIndex(t, int(floor(u.palette.x + 0.5)));
+    int a = int(mod(floor(u.palette.z), 32.0));
+    int b = int(mod(float(a + 1), 32.0));
+    float blend = smoothstep(0.0, 1.0, fract(u.palette.z));
+    return mix(palByIndex(t, a), palByIndex(t, b), blend);
+}
+
 vec3 kaFold(vec2 q) {
     const vec2 r = vec2(1.0, 1.7320508);
     vec2 a = mod(q, r) - 0.5 * r;
@@ -51,6 +64,24 @@ float kaPiece(vec3 q, float kind, float s) {
 
 const int KA_N = 12;
 
+// Keeps every red just off saturated red once tonemapped: green (for warm
+// reds) or blue (for pink ones) rises to at least 0.3 of red, so no red area
+// can strobe, while the hue barely moves.
+float kaTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float kaToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 kaOffRed(vec3 c) {
+    float r = kaTone(c.r), g = kaTone(c.g), b = kaTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, kaToneInv(g + need));
+    else c.b = max(c.b, kaToneInv(b + need));
+    return c;
+}
+
 // The palette is read once per pixel at its five stops and blended here:
 // each library read walks the whole stop table, and a pixel needs a dozen
 // colours. kaComp is the hue opposite a colour at the same lightness, the
@@ -59,11 +90,11 @@ struct KaPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 KaPalette kaPalLoad(VisualUniforms u) {
     KaPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = kaPalStill(0.0, u);
+    P.c1 = kaPalStill(0.26, u);
+    P.c2 = kaPalStill(0.52, u);
+    P.c3 = kaPalStill(0.78, u);
+    P.c4 = kaPalStill(0.999, u);
     return P;
 }
 
@@ -120,14 +151,14 @@ vec3 kaEnv(vec3 d, VisualUniforms u, float T, vec3 ec, KaPalette P, vec3 warm, f
     float fil = 1.0 - abs(2.0 * n2 - 1.0);
     fil *= fil; fil *= fil; fil *= fil;
     vec3 hc = kaPal(P, 0.1 + 1.3 * n1 + 0.012 * T);
-    float back = (0.0015 + 0.022 * exp(-ax * 2.0)) * (0.75 + 0.5 * u.bassImpact);
+    float back = (0.0015 + 0.022 * exp(-ax * 2.0)) * (0.85 + 0.15 * u.level);
     // the ink in the cool palette, the filaments where two inks meet in the
     // warm complement, so the backdrop of every cell holds two hue families
     vec3 col = (hc * hc * ink * 1.2 + warm * fil * 0.5) * back;
     // the lamp behind the frosted end: a small white-hot heart in the warm
     // colour inside a tighter cool halo, so each cell centre reads as a
     // light source rather than a haze
-    col += (peakWhite(warm, 0.5) * exp(-ax * 500.0) * 1.1 + ec * (exp(-ax * 60.0) * 0.16 + exp(-ax * 14.0) * 0.008)) * (0.6 + 0.8 * u.bassImpact);
+    col += (peakWhite(warm, 0.5) * exp(-ax * 500.0) * 1.1 + ec * (exp(-ax * 60.0) * 0.16 + exp(-ax * 14.0) * 0.008)) * (0.8 + 0.15 * u.level);
     col *= smoothstep(-0.1, 0.4, d.z);
     // glitter sand lying on the frosted glass, twinkling with the treble
     vec2 gq = g * 14.0;
@@ -136,8 +167,8 @@ vec3 kaEnv(vec3 d, VisualUniforms u, float T, vec3 ec, KaPalette P, vec3 warm, f
     vec2 go = gq - gi - 0.2 - 0.6 * gh;
     float gl = exp(-dot(go, go) * 600.0) * step(0.6, gh.y) * smoothstep(0.2, 0.6, d.z);
     if (gl > 0.002) {
-        float tw = 0.5 + 0.5 * sin(T * (1.0 + 2.0 * gh.x) + gh.y * 6.2831853);
-        col += mix(kaPal(P, gh.x), warm, step(0.8, gh.y)) * gl * (0.2 + 1.6 * u.treble) * tw;
+        float tw = 0.5 + 0.5 * sin(T * (0.3 + 0.4 * gh.x) + gh.y * 6.2831853);
+        col += mix(kaPal(P, gh.x), warm, step(0.8, gh.y)) * gl * (0.4 + 0.1 * u.level) * (0.7 + 0.3 * tw);
     }
     float wa = atan2_(d.y, d.x) * 0.4774648 + 0.02 * T;
     float wk = exp(-max(d.z, 0.0) * 6.0) * smoothstep(-1.0, 0.0, d.z);
@@ -153,25 +184,12 @@ vec3 kaEnv(vec3 d, VisualUniforms u, float T, vec3 ec, KaPalette P, vec3 warm, f
 vec3 kaEnvLite(vec3 d, vec3 ec, VisualUniforms u) {
     vec2 g = d.xy / max(d.z, 0.25);
     float ax = dot(g, g);
-    vec3 col = ec * (exp(-ax * 80.0) * 0.4 + exp(-ax * 12.0) * 0.015) * (0.6 + 0.8 * u.bassImpact);
+    vec3 col = ec * (exp(-ax * 80.0) * 0.4 + exp(-ax * 12.0) * 0.015) * (0.8 + 0.15 * u.level);
     col *= smoothstep(-0.1, 0.4, d.z);
     float wa = atan2_(d.y, d.x) * 0.4774648;
     float wk = 0.5 + 0.5 * cos(wa * 18.8495559);
     col += ec * ec * wk * wk * 0.3 * exp(-max(d.z, 0.0) * 6.0) * smoothstep(-1.0, 0.0, d.z);
     return col;
-}
-
-// Speed over the shared 32-beat profile, as osFlight, with the cycle's
-// running distance read from a table instead of summed per pixel.
-const float KA_RUN[33] = float[33](0.0, 1.0, 2.0, 3.0, 4.15, 5.6, 7.35, 9.4, 12.25, 15.75, 19.25, 22.75, 25.3, 26.325, 27.0, 27.95, 29.0, 30.15, 31.4, 32.75, 33.75, 34.35, 34.95, 35.55, 36.6, 38.475, 41.1, 44.475, 48.6, 53.1, 57.6, 61.05, 62.75);
-vec2 kaFlight(VisualUniforms u, float cruise, float surge) {
-    float n = floor(u.beatCount);
-    int k = int(mod(n, 32.0));
-    float ph = saturate(u.beatPhase);
-    float v0 = osBeatSpeed(n);
-    float v1 = osBeatSpeed(n + 1.0);
-    float beats = floor(n / 32.0) * KA_RUN[32] + KA_RUN[k] + v0 * ph + 0.5 * (v1 - v0) * ph * ph;
-    return vec2(u.time * cruise * 0.2 + beats * (cruise * 0.4 + surge), mix(v0, v1, ph));
 }
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -188,10 +206,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // the warm counterweight drifts between the complements of two stops
     vec3 warm = kaWarm(P);
 
-    vec2 fl = kaFlight(u, 1.0, 0.5);
 
     // slow eased turn of the whole tube, never driven by audio
-    p = rot2(0.012 * spin * T + osBank(u, 0.15)) * p;
+    p = rot2(0.006 * spin * T) * p;
     float r = length(p);
     p *= 1.0 + 0.04 * r * r;                            // a touch of lens barrel
     p = rot2(vortex * 0.5 * log(1.0 + 1.6 * r)) * p;    // the vortex twist
@@ -210,7 +227,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // the stream of pieces: each slot flies from the far end to the lens,
     // then returns far away in a new place
-    float flow = fl.x * 0.08;
+    float flow = 0.03 * u.time;
     vec4 pc[KA_N];     // centre, size
     vec4 pr[KA_N];     // two rotations as cos/sin pairs
     vec4 pk[KA_N];     // kind, hue, spectrum position, grow
@@ -221,8 +238,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     int nh = 0;
     float t0 = 9.0, t1 = 0.0;
     vec3 glow = vec3(0.0);
-    float rodLvl = 0.3 + 0.7 * u.level;
-    float cr = spin * (0.05 * T + 0.02 * fl.x);
+    float rodLvl = 0.6 + 0.3 * u.level;
+    float cr = spin * 0.03 * T;
     for (int i = 0; i < KA_N; i++) {
         float fi = float(i);
         float cyc = flow + fi / float(KA_N);
@@ -255,14 +272,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float hc = sqrt(R * R - d2);
             t0 = min(t0, b - hc);
             t1 = max(t1, b + hc);
-            float a1 = T * (0.25 + 0.2 * h.y) + h.x * 6.0;
-            float a2 = T * (0.18 + 0.15 * h.x) + h.y * 6.0;
+            float a1 = T * (0.05 + 0.03 * h.y) + h.x * 6.0;
+            float a2 = T * (0.035 + 0.025 * h.x) + h.y * 6.0;
             pr[i] = vec4(cos(a1), sin(a1), cos(a2), sin(a2));
             if (nh < 4) { hl[nh] = i; hs[nh] = vec2(b - hc, b + hc); nh++; }
         }
         float gk = exp(-d2 / (pc[i].w * pc[i].w) * 6.0) * pk[i].w * step(0.0, b);
         if (pk[i].x > 2.5 && gk > 0.002) {
-            glow += kaPal(P, pk[i].y) * (0.05 + 0.25 * rodLvl + 0.1 * u.bassImpact) * gk;
+            glow += kaPal(P, pk[i].y) * (0.1 + 0.12 * rodLvl) * gk;
         }
     }
 
@@ -325,7 +342,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // every fourth slot turns warm: amber glass among the cool pieces
         vec3 gc = mod(float(hid), 4.0) > 2.5 ? warm : kaPal(P, m0.y);
         float lvl = bandAt(u, m0.z);
-        float light = 0.6 + 1.4 * lvl;
+        float light = 0.88 + 0.08 * u.level + 0.06 * lvl;
         float ndv = saturate(-dot(n, rd));
         float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
         vec3 rf = reflect(rd, n);
@@ -360,21 +377,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             }
             back += 0.11 * blc * blc + 0.006;
             sc = tint * (back * 3.2 + 0.03) * light * (1.0 - fres) * (0.25 + 0.75 * rim);
-            sc += env * fres * 1.2 + peakWhite(gc, 0.85) * spec * (1.5 + 3.0 * u.treble);
+            sc += env * fres * 1.2 + peakWhite(gc, 0.6) * spec * (1.0 + 0.1 * u.level);
             // the backlight focused through the glass: a soft caustic heart
-            sc += tint * pow(ndv, 6.0) * (0.08 + 0.25 * u.beat) * light;
+            sc += tint * pow(ndv, 6.0) * 0.1 * light;
             vec3 aq = abs(q) / max(sz * 0.62, 1e-3);
             if (m0.x > 0.5) {
                 // cut stone: light gathers in the edges and the chamfers
                 float mid = max(min(aq.x, aq.y), min(max(aq.x, aq.y), aq.z));
                 float edge = smoothstep(0.8, 0.97, mid);
-                sc += peakWhite(gc, 0.4) * edge * (0.25 + 1.0 * lvl + 0.6 * u.beat) * (0.3 + 0.7 * fres + 0.4 * ndv);
+                sc += peakWhite(gc, 0.4) * edge * (0.42 + 0.08 * lvl) * (0.3 + 0.7 * fres + 0.4 * ndv);
             } else {
                 // marble: a twisted ribbon of colour glows inside
                 float w = q.x * 0.8 + q.z * 0.6 + 0.35 * sin(q.y / max(sz, 1e-3) * 3.0);
                 float rib = exp(-w * w / max(sz * sz, 1e-4) * 22.0);
                 vec3 rc = kaPal(P, m0.y + 0.5);
-                sc += rc * rc * rib * (0.3 + 1.6 * lvl) * (0.3 + 0.7 * ndv) * rim;
+                sc += rc * rc * rib * (0.6 + 0.1 * lvl) * (0.3 + 0.7 * ndv) * rim;
             }
         } else if (m0.x < 2.5) {
             // dichroic glass: its colour shifts with the viewing angle
@@ -382,10 +399,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
             dc *= dc * 1.3;
             sc = dc * (0.06 + 0.3 * ndv * ndv + 1.4 * fres) * light + env * dc * 1.5
-               + peakWhite(dc, 0.9) * spec * (1.5 + 3.0 * u.treble);
+               + peakWhite(dc, 0.6) * spec * (1.0 + 0.1 * u.level);
         } else {
             // neon rod: emissive, hotter in its core
-            sc = gc * gc * (1.2 + 2.6 * lvl + 0.8 * u.bassImpact) * (0.4 + 0.6 * ndv) + peakWhite(gc, 0.3) * ndv * ndv * 0.6;
+            sc = gc * gc * (1.55 + 0.15 * lvl) * (0.4 + 0.6 * ndv) + peakWhite(gc, 0.3) * ndv * ndv * 0.6;
         }
         float fogA = 1.0 - exp(-t * 0.18);
         col = mix(sc, fogCol, fogA);
@@ -403,11 +420,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // the frame as a whole never flashes.
     float bp = saturate(u.beatPhase);
     float front = 0.1 + 2.0 * sqrt(bp);
-    float wave = exp(-(r - front) * (r - front) * 40.0) * (1.0 - bp) * (1.0 - bp) * (0.5 + 0.7 * u.amplitude);
+    float wave = exp(-(r - front) * (r - front) * 40.0) * (1.0 - bp) * (1.0 - bp) * (0.3 + 0.05 * u.level);
     float line = exp(-seam / (pix * 1.2 + 1e-4)) + 0.15 * exp(-seam * 60.0);
-    col += warm * line * (0.006 + 0.03 * u.bassImpact + 0.9 * wave);
+    col += warm * line * (0.008 + 0.006 * u.level + 0.06 * wave);
 
 
     col *= 1.0 - 0.4 * smoothstep(0.7, 1.8, r);
-    return col; // LINEAR HDR — post chain tonemaps
+    return kaOffRed(col); // LINEAR HDR — post chain tonemaps
 }

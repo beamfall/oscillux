@@ -7,13 +7,15 @@
 // red, green and blue fringes, and its edges burn as thin filaments. A white
 // beam enters through a slot, strikes the central prism and leaves as a
 // fanned spectrum sheet that lands on the walls and floor as rainbows, which
-// the mirrors multiply into a star. The prism turns a step on every beat, so
-// the spectrum sweeps the room in time; bass brightens the beam and the fan,
-// and every beat sends a rainbow caustic ring across the floor. Spectrum bars
-// rise along the foot of the walls, sparse LED points stud the ceiling and a
-// few lamps hang in the air, all on the spectrum bands. The camera's drift
-// follows the shared speed profile, never the audio; its rush brightens the
-// fan.
+// the mirrors multiply into a star. The prism sways a little with the beat,
+// so the spectrum drifts slowly round the room; the smoothed level warms the
+// beam and the fan, and every beat sends a faint rainbow caustic ring across
+// the floor. Spectrum bars rise along the foot of the walls, sparse LED points
+// stud the ceiling and a few lamps hang in the air, all breathing with the
+// level and a trace of their own band, so the mirrored lattice glows rather
+// than flashes. The camera drifts slowly and level, never moved by the audio.
+// Reds are kept just off saturated red.
+
 // param0 = Facets (prism count) ; param1 = Sweep (drift pace, hue chase) ;
 // param2 = Edge Glow
 
@@ -22,7 +24,29 @@ const float PR_H = 4.4;    // room height
 const float PR_BEAMY = 1.05;
 const float PR_HS = 6.235; // half a wall's length: PR_RI * sqrt(3)
 
+// The fitted filmic curve the post chain applies per channel, and its inverse.
+float prTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float prToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+
+// Keeps every red just off saturated red once tonemapped: green and blue
+// rise together until they make 0.27 of red, a slight desaturation that keeps
+// the hue, so no red area can strobe.
+vec3 prOffRed(vec3 c) {
+    float r = prTone(c.r), g = prTone(c.g), b = prTone(c.b);
+    float need = 0.27 * r - g - b;
+    if (need <= 0.0) return c;
+    c.g = prToneInv(g + 0.5 * need);
+    c.b = prToneInv(b + 0.5 * need);
+    return c;
+}
+
+
 // Smoothly saturated version of a palette colour: kills the pastel, keeps hue.
+
 vec3 prDeep(vec3 c) {
     c = clamp(mix(vec3(luma(c)), c, 1.5), vec3(0.0), vec3(4.0));
     return c * c * 1.5;
@@ -170,9 +194,9 @@ vec3 prVolume(vec3 ro, vec3 rd, float seg, float dist, PrScene sc, int lamps, fl
         tc = clamp(dot(sc.bs + sc.bd * sb - ro, rd), 0.0, seg);
         float dist2 = length(ro + rd * tc - sc.bs - sc.bd * sb);
         float bw = max(0.008, (dist + tc) * sc.pix * 1.3);
-        col += vec3(2.0, 1.9, 1.75) * exp(-dist2 * dist2 / (bw * bw)) * (0.014 / max(bw, 0.014)) * (0.7 + 0.6 * u.bassImpact) * bk *
+        col += vec3(2.0, 1.9, 1.75) * exp(-dist2 * dist2 / (bw * bw)) * (0.014 / max(bw, 0.014)) * (0.9 + 0.1 * u.level) * bk *
                smoothstep(0.4, 1.4, dist + tc);
-        col += vec3(0.6, 0.58, 0.55) * exp(-dist2 * 6.0) * 0.05 * (1.0 + 0.8 * u.bassImpact);
+        col += vec3(0.6, 0.58, 0.55) * exp(-dist2 * 6.0) * 0.05 * (1.0 + 0.2 * u.level);
     }
     // the slot where the beam enters, a hot point on the wall
     vec3 ap = sc.bs - ro;
@@ -200,12 +224,12 @@ vec3 prVolume(vec3 ro, vec3 rd, float seg, float dist, PrScene sc, int lamps, fl
         float tt = clamp(dot(to, rd), 0.0, seg);
         vec3 ov = to - rd * tt;
         float o2 = dot(ov, ov);
-        float e = bandAt(u, 0.05 + 0.85 * lp.w);
+        float e = 0.45 * saturate(u.level) + 0.15 * bandAt(u, 0.05 + 0.85 * lp.w);
         float w = max(0.05, (dist + tt) * sc.pix * 1.4);
         float k = 0.05 / w;
         vec3 lc = prSpectrum(fract(lp.w + sc.chase * 0.3)) * 1.2;
         col += (peakWhite(lc, 0.15) * k * k * exp(-o2 / (w * w)) * 1.4 + lc * exp(-sqrt(o2) * 9.0) * 0.05) *
-               (0.25 + 1.6 * e * e + 0.5 * e);
+               (0.4 + 0.6 * e);
     }
     return col;
 }
@@ -228,8 +252,8 @@ vec3 prWallLight(vec3 p, int k, float w, PrScene sc, VisualUniforms u) {
     float bi = floor(s / bw);
     float ls = s - (bi + 0.5) * bw;
     float f = abs(bi + 0.5) * bw / PR_HS;
-    float e = bandAt(u, saturate(0.03 + 0.9 * f));
-    float hgt = 0.15 + 1.9 * e;
+    float e = 0.45 * saturate(u.level) + 0.15 * bandAt(u, saturate(0.03 + 0.9 * f));
+    float hgt = 0.3 + 1.2 * e;
     if (p.y < hgt + 0.3) {
         float cw = max(0.022, w);
         float core = (1.0 - smoothstep(cw, cw + max(w, 0.02), abs(ls))) * (0.03 / cw);
@@ -265,7 +289,7 @@ vec3 prFloorLight(vec3 p, float w, PrScene sc, VisualUniforms u) {
     float net = sin(p.x * 9.0 + sc.tw * 0.7) * sin(p.z * 9.0 - sc.tw * 0.9) +
                 sin((p.x + p.z) * 6.0 - sc.tw * 0.5);
     net = pow(saturate(0.5 + 0.35 * net), 6.0);
-    col += rc * net * sc.ringA * 0.5 * smoothstep(sc.ringR, sc.ringR - 1.2, r) * smoothstep(0.4, 0.8, r);
+    col += rc * net * sc.ringA * 0.25 * smoothstep(sc.ringR, sc.ringR - 1.2, r) * smoothstep(0.4, 0.8, r);
     // a steady caustic pool around the central prism's foot
     col += prSpectrum(fract(a * 0.159 + sc.tw * 0.02)) * net * 0.08 * exp(-r * 1.6) * smoothstep(0.45, 0.6, r);
     // the fan's trace across the floor
@@ -288,9 +312,9 @@ vec3 prCeilLight(vec3 p, float w, PrScene sc, VisualUniforms u) {
     float d = length(cf) * 0.55;
     float ww = max(0.015, w);
     float k = 0.015 / ww;
-    float e = bandAt(u, hsh);
+    float e = 0.45 * saturate(u.level) + 0.15 * bandAt(u, hsh);
     vec3 c = prDeep(palVisual(fract(hsh * 0.7 + sc.chase), u));
-    return peakWhite(c, 0.3) * k * k * exp(-d * d / (ww * ww)) * (0.2 + 1.4 * e * e) * step(0.8, hsh);
+    return peakWhite(c, 0.3) * k * k * exp(-d * d / (ww * ww)) * (0.3 + 0.5 * e) * step(0.8, hsh);
 }
 
 // Trace through the mirror room: up to maxB straight segments. Prisms
@@ -354,7 +378,7 @@ vec3 prTrace(vec3 ro, vec3 rd, vec3 thr0, float dist0, float ior, int maxB, int 
             vec3 fringe = prSpectrum(saturate(dm / (6.0 * w))) * exp(-dm / (4.0 * w)) * 0.3;
             vec3 rim = prDeep(palVisual(0.55 + 0.11 * float(pid), u));
             float eg = pid == 0 ? 1.0 : 0.45;
-            col += thr * (peakWhite(rim, 0.3) * edge + fringe) * sc.edgeGlow * eg * (0.6 + 0.9 * u.bassImpact);
+            col += thr * (peakWhite(rim, 0.3) * edge + fringe) * sc.edgeGlow * eg * (0.9 + 0.1 * u.level);
             float cosi = saturate(-dot(rd, nP));
             float fr = 0.04 + 0.96 * pow(1.0 - cosi, 5.0);
             vec3 d1 = refract(rd, nP, 1.0 / ior);
@@ -423,7 +447,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     sc.count = floor(mix(1.0, 5.0, u.param0) + 0.5);
     sc.tw = tw;
     // the shared speed profile: drift pace, and the rush that brightens the fan
-    vec2 fl = osFlight(u, mix(0.1, 0.32, u.param1), mix(0.03, 0.12, u.param1));
+    vec2 fl = osFlight(u, mix(0.1, 0.32, u.param1), mix(0.01, 0.04, u.param1));
+
     float rush = saturate((fl.y - 1.0) / 3.5);
     sc.edgeGlow = mix(0.5, 2.0, u.param2);
     sc.chase = tw * mix(0.01, 0.05, u.param1);
@@ -439,23 +464,25 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 inc = normalize(sc.bd.xz);
     // the central prism turns a step on every beat, so the spectrum sweeps
     // across the walls in time
-    float kb = u.beatCount + smoothstep(0.0, 0.4, saturate(u.beatPhase));
-    float dev = 0.7 + 0.12 * sin(tw * 0.023) + 0.1 * sin(kb * 2.39996);
+    float kb = u.beatCount + smoothstep(0.0, 1.0, saturate(u.beatPhase));
+    float dev = 0.7 + 0.12 * sin(tw * 0.023) + 0.01 * sin(kb * 2.39996);
     sc.fanDir = vec2(inc.x * cos(dev) - inc.y * sin(dev), inc.x * sin(dev) + inc.y * cos(dev));
-    sc.fanE = (0.6 + 0.3 * u.bass + 0.4 * u.bassImpact) * (1.0 + 0.6 * rush);
+    sc.fanE = (0.8 + 0.1 * u.level) * (1.0 + 0.15 * rush);
     float bp = saturate(u.beatPhase);
     sc.ringR = 0.5 + 3.2 * pow(bp, 0.6);
-    sc.ringA = (1.0 - bp) * (1.0 - bp) * (0.3 + 0.9 * u.bassImpact);
+    sc.ringA = smoothstep(0.0, 0.3, bp) * (1.0 - bp) * 0.05;
+
+
 
     // ---- camera: a slow drift around the prisms, gazing in and out ----
-    float oa = fl.x * 0.09;
+    float oa = fl.x * 0.07;
     float orad = 2.75 + 0.2 * sin(oa * 0.7 + 1.0);
     vec3 ro = vec3(cos(oa) * orad, 1.8 + 0.3 * sin(tw * 0.043) + 0.12 * sin(oa * 1.3), sin(oa) * orad);
     // the gaze swings between the central prism and the lattice beyond it
     float gz = 0.5 + 0.5 * sin(tw * 0.021);
     vec3 side = vec3(-sin(oa), 0.0, cos(oa));
     vec3 ta = mix(vec3(0.0, 0.95, 0.0), ro + side * 3.0 + vec3(0.0, 0.4 * sin(tw * 0.017), 0.0), gz * 0.4);
-    float roll = osBank(u, 0.05);
+    float roll = 0.0;
     float fov = 1.2;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
     sc.pix = 2.0 / (u.resolution.y * fov);
@@ -504,5 +531,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col += c;
         }
     }
-    return max(col, vec3(0.0)); // LINEAR HDR; the post chain tonemaps
+    return prOffRed(max(col, vec3(0.0))); // LINEAR HDR; the post chain tonemaps
+
 }

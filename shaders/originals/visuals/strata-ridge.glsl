@@ -2,15 +2,19 @@
 // Strata Ridge.
 // Blue-hour mountain ranges stacked into the distance under a huge rising moon.
 // Each range is a filled silhouette whose crest is a glowing spectrum trace,
-// in the spirit of the stacked-ridge album plate: the spectrum lifts the peaks
-// of every range, faint strata lines echo each crest down its face, and cold
-// mist pools in the valleys between ranges, thicker and paler with distance.
-// The view trucks sideways along the shared speed profile, so near ranges
-// slide past faster than far ones; a beat runs a bright shimmer along the
+// in the spirit of the stacked-ridge album plate: the level gently lifts the
+// peaks of every range and the spectrum softly lights each crest, faint strata
+// lines echo each crest down its face, and cold mist pools in the valleys
+// between ranges, thicker and paler with distance. The view trucks slowly and
+// steadily sideways with no roll, so near ranges slide past faster than far
+// ones; every four beats a faint shimmer eases along the thin cores of the
 // front crests. A still lake below mirrors the moon, the ranges and their
 // traces, broken by ripples and a moon glitter path. Audio drives light and
 // shape only.
 // param0 = Ridge Count ; param1 = Peak Drama ; param2 = Afterglow (crest glow and mist)
+
+const float SR_SHB = 4.0;
+const float SR_SHG = 0.4;
 
 float srTri(float x) { return abs(fract(x) - 0.5) * 2.0; }
 
@@ -29,7 +33,9 @@ float srCrest(float x, float fi, float t, float shift, float drama, float oct3,
     s = bandAt(u, fq);
     float base = mix(0.12, -0.47, pow(t, 1.1));
     float amp = mix(0.2, 0.4, t);
-    return base + amp * (n + drama * s * s * (0.2 + 0.6 * n));
+    // the level, not the kick, lifts the peaks, so the crests never jump
+    float lift = 0.3 * saturate(u.level);
+    return base + amp * (n + drama * lift * (0.2 + 0.6 * n));
 }
 
 // The sky and the ranges seen along screen point p.
@@ -71,7 +77,7 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
         float ac = length(rel + md * clamp(al, 0.0, 0.28));
         float tail = exp(-max(al, 0.0) * 9.0) * step(-0.004, al);
         float fade = sin(3.14159 * mt);
-        col += mix(vec3(0.6, 0.85, 1.0), vec3(1.4, 1.4, 1.5), tail) * smoothstep(0.004, 0.0, ac) * tail * fade * 1.4 * glow;
+        col += mix(vec3(0.6, 0.85, 1.0), vec3(1.4, 1.4, 1.5), tail) * smoothstep(0.004, 0.0, ac) * tail * fade * 0.6 * glow;
     }
     // moon disk with soft maria
     float md = smoothstep(0.185, 0.18, mr);
@@ -83,7 +89,12 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
     const int MAXR = 13;
     int ranges = int(mix(7.0, 13.0, u.param0) * mix(0.62, 1.0, detail) + 0.5);
     vec3 mistCool = vec3(0.012, 0.034, 0.110) + palVisual(0.97, u) * 0.025;
-    float shimmerX = mix(-2.2, 2.2, saturate(u.beatPhase));
+    // the shimmer crosses the front crests once every SR_SHB beats, fading in
+    // and out instead of riding the kick
+    float shPh = fract((floor(u.beatCount) + saturate(u.beatPhase)) / SR_SHB);
+    float shimmerX = mix(-2.2, 2.2, shPh);
+    float shimAmt = sin(3.14159 * shPh);
+    shimAmt *= shimAmt * (0.4 + 0.6 * saturate(u.level));
     float moonLit = exp(-abs(p.x - moonP.x) * 1.6);
     for (int i = 0; i < MAXR; i++) {
         if (i >= ranges) break;
@@ -101,7 +112,7 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
         float pd = abs(dy) / pg;
         // the crest trace itself: thin HDR core plus a soft halo above
         float g = smoothstep(0.05, 0.7, s);
-        float shim = exp(-(p.x - shimmerX) * (p.x - shimmerX) * 6.0) * u.bassImpact * smoothstep(0.6, 1.0, t);
+        float shim = exp(-(p.x - shimmerX) * (p.x - shimmerX) * 6.0) * shimAmt * smoothstep(0.6, 1.0, t);
         float lw = mix(0.8, 1.6, t);
         float core = smoothstep(lw + 1.0, lw - 0.5, pd);
         float halo = exp(max(dy, -1.0) / (pxs * mix(3.0, 7.0, t))) * step(dy, 0.0);
@@ -109,7 +120,7 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
         // ones magenta and coral, the near ones gold; the band each crest
         // draws nudges its hue, and loud stretches burn toward white
         vec3 tc = palVisual(mix(0.08, 0.72, t * t) + 0.08 * (fq - 0.5), u);
-        tc = mix(tc, vec3(1.6, 1.5, 1.4), 0.2 * g * g * g * g);
+        tc = mix(tc, vec3(1.6, 1.5, 1.4), 0.08 * g * g);
         // distant crests cool toward blue, so depth reads warm to cold
         tc = mix(tc, vec3(0.25, 0.45, 1.0) * 0.7, aer * 0.6);
         if (dy > 0.0) {
@@ -122,22 +133,22 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
             fill = mix(fill, mistCol, mist * 0.6);
             // strata: faint traces echoing the crest down the face
             float sp = mix(0.014, 0.032, t);
-            float k = dy / sp - tm * 0.35;
+            float k = dy / sp - tm * 0.15;
             // contours crowd together on steep flanks, so they fade out there
             float line = smoothstep(1.2, 0.0, abs(fract(k) - 0.5) * sp / pg) * exp(-dy * mix(16.0, 7.0, t))
                        * smoothstep(2.2 * pxs, 1.3 * pxs, pgTrue);
-            fill += tc * line * (0.012 + 0.025 * u.mid) * glow * (1.0 - aer);
+            fill += tc * line * (0.015 + 0.01 * saturate(u.level)) * glow * (1.0 - aer);
             // moon rim light catching the crest edge
             fill += moonGlow * exp(-pd / 5.0) * moonLit * 0.2 * (1.0 - 0.5 * aer);
             // the crest's own light spills a little way down the face below it
             fill += tc * exp(-dy / (pxs * mix(14.0, 30.0, t))) * (0.03 + 0.1 * g * g) * (1.0 - aer) * glow;
             col = fill;
         }
-        float inten = (0.12 + 1.5 * g * g * drama) * mix(0.3, 1.0, t) * (1.0 - 0.6 * aer) * glow;
-        inten *= 1.0 + 0.25 * u.bassImpact + 1.8 * shim;
+        float inten = (0.3 + (0.25 * saturate(u.level) + 0.3 * g * g) * drama) * mix(0.3, 1.0, t) * (1.0 - 0.6 * aer) * glow;
         // the halo only lifts what is still dark, so a crest passing behind
-        // another never doubles into a glint where they meet
-        col += tc * inten * (core * 1.4 + halo * 0.3 * saturate(1.0 - 3.0 * luma(col)));
+        // another never doubles into a glint where they meet; the shimmer
+        // brightens the thin core only
+        col += tc * inten * (core * 1.4 * (1.0 + SR_SHG * shim) + halo * 0.3 * saturate(1.0 - 3.0 * luma(col)));
     }
     return col;
 }
@@ -149,18 +160,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float drama = mix(0.4, 1.5, u.param1);
     float glow = mix(0.5, 1.6, u.param2);
 
-    // eased roll, very slight; the truck follows the shared speed profile
-    p = rot2(osBank(u, 0.025)) * p;
-    vec2 fl = osFlight(u, 0.1, 0.11);
-    float camX = fl.x;
+    // no roll; the truck is slow and steady
     float tm = mod(u.time, 600.0);
+    float camX = tm * 0.14;
 
     // a still lake below the ranges mirrors them, with perspective ripples
     const float lakeY = -0.37;
     float below = max(lakeY - p.y, 0.0);
     float inLake = step(p.y, lakeY);
     float zl = 1.0 / (below + 0.04);
-    vec2 rq = vec2(p.x * zl * 0.6 + camX * 2.0, zl * 1.1 - tm * 0.3);
+    vec2 rq = vec2(p.x * zl * 0.6 + camX * 2.0, zl * 1.1 - tm * 0.15);
     float rip = (vnoise(rq) - 0.5) + 0.5 * (vnoise(rq * 2.3 + 4.0) - 0.5);
     vec2 q = p;
     q.y = mix(p.y, 2.0 * lakeY - p.y + rip * 0.012 * below * 2.0, inLake);
@@ -171,11 +180,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         col *= fres * vec3(0.85, 0.9, 1.05);
         // moon glitter path, sparkling on the ripples
         float path = exp(-abs(p.x - 0.55) * mix(10.0, 3.0, saturate(below * 2.0)));
-        vec2 gq = vec2(p.x * zl * 4.0 + camX * 6.0, zl * 9.0 - tm * 1.2);
+        vec2 gq = vec2(p.x * zl * 4.0 + camX * 3.0, zl * 9.0 - tm * 0.4);
         vec2 gc = floor(gq);
         vec2 gf = fract(gq) - 0.5;
-        float glint = step(0.55 - 0.25 * u.treble, hash21(gc)) * smoothstep(0.5, 0.0, abs(gf.x) * 1.2 + abs(gf.y) * 3.0);
-        col += mix(vec3(0.55, 0.72, 1.0), palVisual(0.97, u), 0.3) * path * (glint * 1.6 + 0.06) * (0.7 + 0.3 * u.bassImpact) * glow;
+        float glint = step(0.5, hash21(gc)) * smoothstep(0.5, 0.0, abs(gf.x) * 1.2 + abs(gf.y) * 3.0);
+        col += mix(vec3(0.55, 0.72, 1.0), palVisual(0.97, u), 0.3) * path * (glint * 0.7 + 0.06) * 0.85 * glow;
     }
     // a thin band of shore mist on the waterline
     float ay = abs(p.y - lakeY);

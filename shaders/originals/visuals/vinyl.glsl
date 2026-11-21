@@ -1,13 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Vinyl.
 // A macro product shot of a spinning record. A low, tilted camera drifts over
-// the grooves; two lights rake across them and the grooves throw long
+// the grooves; two lights rake slowly across them and the grooves throw long
 // anisotropic sheen streaks that break into the spectrum along the radius
-// (outer grooves low, inner high). A soft light sweep crosses the disc every
-// eight beats, the label turns, the stylus sparks on the bass, and the studio
-// behind melts into bokeh. The camera follows the shared 32-beat speed profile;
-// audio drives light and colour, never the camera.
+// (outer grooves low, inner high). The softbox swells a little every eight
+// beats, a faint teal wave runs out through the grooves on each beat, the label
+// turns, the stylus glows softly with the beat, and the studio behind melts
+// into bokeh. Camera and lights move on a slow, steady clock; the level, not
+// the kick, sets the light, gently, and audio never moves the camera.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Groove Count ; param1 = Spin ; param2 = Needle
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them. The fog and peak roles read the same steady palette.
+vec3 vyPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 30, u); }
+vec3 vyPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = vyPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 const float VY_LABEL = 0.34;
 const float VY_PLATTER = 1.035;
@@ -79,13 +93,13 @@ vec3 vyCapNormal(vec3 pos, vec3 a, vec3 b, float r) {
 vec3 vyStudio(vec3 rd, VisualUniforms u, float sweep, vec3 teal, VyPal P, vec3 fog, bool soft) {
     vec3 col = fog * 0.012 * (1.0 - abs(rd.y));
     // a warm back glow low behind the record, breathing with the mids
-    col += vyPal(P, 0.35) * exp(-abs(rd.y - 0.1) * 5.0) * (0.012 + 0.02 * u.mid);
+    col += vyPal(P, 0.35) * exp(-abs(rd.y - 0.1) * 5.0) * (0.014 + 0.01 * u.level);
     // softbox overhead: a large soft rectangle the record mirrors
     if (rd.y > 0.05) {
         vec2 q = rd.xz / rd.y;
         vec2 b = abs(q - vec2(-0.6, 0.9)) - vec2(0.7, 0.18);
         float box = 1.0 - smoothstep(-0.05, 0.12, max(b.x, b.y));
-        col += vec3(1.0, 0.92, 0.85) * box * (0.25 + 0.5 * sweep);
+        col += vec3(1.0, 0.92, 0.85) * box * (0.3 + 0.12 * sweep);
     }
     float az = atan2_(rd.x, rd.z) / 6.2831853 + 0.5;
     float el = rd.y;
@@ -93,7 +107,7 @@ vec3 vyStudio(vec3 rd, VisualUniforms u, float sweep, vec3 teal, VyPal P, vec3 f
     if (soft) {
         // curved chrome would alias the discs: reflect their blurred average
         float w = 0.5 + 0.5 * sin(az * 37.699112);
-        return col + mix(vyPal(P, 0.3), teal * 0.6, w) * band0 * (0.04 + 0.1 * u.mid);
+        return col + mix(vyPal(P, 0.3), teal * 0.6, w) * band0 * (0.05 + 0.04 * u.level);
     }
     // bokeh: hashed discs on a direction grid, each lit by one band
     vec2 g = vec2(az * 30.0, el * 9.5);
@@ -110,12 +124,12 @@ vec3 vyStudio(vec3 rd, VisualUniforms u, float sweep, vec3 teal, VyPal P, vec3 f
         float dd = length(d);
         float disc = 1.0 - smoothstep(rad - 0.025, rad, dd);
         float ring = exp(-(dd - rad + 0.015) * (dd - rad + 0.015) * 3000.0);
-        float lvl = bandAt(u, hash21(cid + 9.0));
+        float lvl = mix(u.level, bandAt(u, hash21(cid + 9.0)), 0.1);
         float on = step(0.25, hash21(cid + 5.0)) * band0;
         vec3 c = hh.y > 0.62 ? teal : vyPal(P, 0.2 + 0.7 * hh.x);
         // a lens-like disc: brighter rim, a faint cool fringe outside it
         float fringe = exp(-(dd - rad - 0.01) * (dd - rad - 0.01) * 2500.0);
-        col += (c * (disc * 0.22 + ring * 0.4) + teal * fringe * 0.08) * on * (0.25 + 1.6 * lvl);
+        col += (c * (disc * 0.22 + ring * 0.4) + teal * fringe * 0.08) * on * (0.5 + 0.6 * lvl);
     }
     return col;
 }
@@ -131,33 +145,34 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tm = mod(u.time, 600.0);
     float spin = mod(u.time * spinRate, 6.2831853);
 
-    VyPal P = VyPal(palVisual(0.1, u), palVisual(0.3, u), palVisual(0.5, u), palVisual(0.7, u), palVisual(0.9, u));
-    vec3 fog = palRoleFog(0.15, u);
-    vec3 peak = palRolePeak(0.2, u);
-    vec3 trace = palRoleTrace(0.25, u);
-    float bassI = saturate(u.bassImpact);
+    VyPal P = VyPal(vyPalSteady(0.1, u), vyPalSteady(0.3, u), vyPalSteady(0.5, u), vyPalSteady(0.7, u), vyPalSteady(0.9, u));
+    vec3 fog = vyPalSteadyFog(0.15, u);
+    vec3 peak = vyPalSteady(0.2, u);
+    vec3 trace = vyPalSteady(0.25, u);
+    // small highlights (stylus, strobe dots, label ring) pulse on a smooth beat swell
+    float bp = saturate(u.beatPhase);
+    float bSw = smoothstep(0.0, 0.3, bp) * (1.0 - bp) * (1.0 - bp) * 2.0;
+    float pulse = 0.4 * u.level + 0.15 * bSw;
 
-    // ---- camera: a low macro drift on the shared speed profile ----
-    vec2 fl = osFlight(u, 1.0, 0.2);
-    // bursts of the speed profile open the light up; brakes let it settle
-    float burst = smoothstep(1.6, 4.0, fl.y);
-    float s1 = sin(fl.x * 0.021);
-    float s2 = sin(fl.x * 0.013 + 1.3);
+    // ---- camera: a low macro drift on a slow, steady clock ----
+    float fl = mod(u.time, 36000.0) * 0.8;
+    float s1 = sin(fl * 0.021);
+    float s2 = sin(fl * 0.013 + 1.3);
     float phi = -2.35 + 0.3 * s1;
     float dist = 1.08 + 0.14 * s2;
     float camH = 0.2 + 0.05 * sin(u.time * 0.053);
     vec3 ro = vec3(sin(phi) * dist, camH, cos(phi) * dist);
     vec3 ta = vec3(sin(phi) * 0.22, -0.02, cos(phi) * 0.22) + vec3(0.08 * s2, 0.0, 0.06 * s1);
-    float roll = 0.14 + osBank(u, 0.05);
+    float roll = 0.14 + 0.04 * sin(mod(u.time, 628.31853) * 0.05);
     vec3 rd = osCamera(ro, ta, roll, 2.3, p);
     float focus = length(ta - ro);
     float pixA = 2.0 / (max(u.resolution.y, 1.0) * 2.3);   // radians per pixel
 
     // ---- lights: a key that drifts, a coloured rim, the orbiting spot and a front fill ----
-    float ka = 0.4 + 0.9 * sin(tm * 0.11);
+    float ka = 0.4 + 0.9 * sin(tm * 0.0104720);
     vec3 teal = vyComp(P.b) * 1.5;
     // a teal spot orbits the deck so its streak sweeps round the disc
-    float oa = mod(tm * 0.35, 6.2831853);
+    float oa = mod(tm * 0.0209440, 6.2831853);
     vec3 Lo = normalize(vec3(cos(oa), 0.4, sin(oa)));
     vec3 Lk = normalize(vec3(cos(ka), 0.55, sin(ka)));
     vec3 Lr = normalize(vec3(-sin(phi) * 0.9 + 0.3, 0.22, -cos(phi) * 0.9));
@@ -170,7 +185,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float sb = (u.beatCount + saturate(u.beatPhase)) / 8.0;
     float sweepT = fract(sb);
     float sweepOn = smoothstep(0.0, 0.15, sweepT) * (1.0 - smoothstep(0.75, 1.0, sweepT));
-    float level = 0.6 + 0.6 * u.level;
+    float level = 0.8 + 0.3 * u.level;
 
     // ---- tonearm geometry ----
     vec3 sty = vec3(0.5805, 0.012, 0.2176);
@@ -252,23 +267,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col = lc * diff * 0.35 * level;
             col += peakWhite(lc, 0.5) * (printRing + arcs * 0.6 + blocks * 0.5) * 0.25 * level;
             // the printed ring lights up with the bass, a teal accent on the label
-            col += teal * smoothstep(0.004 + pix, 0.0, abs(r - 0.29)) * (0.1 + 0.9 * bassI) * 0.5;
+            col += teal * smoothstep(0.004 + pix, 0.0, abs(r - 0.29)) * (0.1 + 0.9 * pulse) * 0.5;
             float sheenL = pow(saturate(dot(reflect(-Lk, vec3(0.0, 1.0, 0.0)), V)), 12.0);
             col += vec3(0.9, 0.85, 0.8) * sheenL * 0.15;
             // spindle
             float sp = smoothstep(0.03 + pix, 0.022, r);
-            col = mix(col, vec3(0.05) + vec3(1.6, 1.5, 1.4) * pow(saturate(1.0 - r / 0.03), 3.0) * (0.4 + 1.0 * u.beat), sp);
+            col = mix(col, vec3(0.05) + vec3(1.6, 1.5, 1.4) * pow(saturate(1.0 - r / 0.03), 3.0) * (0.4 + 0.5 * bSw), sp);
         } else {
             // ---- grooved vinyl ----
             float fBin = saturate((1.0 - r) / (1.0 - VY_LABEL));     // outer = low
-            float lvl = bandAt(u, fBin * 0.9);
+            float lvl = saturate(mix(u.level * (1.0 - 0.2 * fBin), bandAt(u, fBin * 0.9), 0.1));
             // tracks separated by polish gaps; loudness bands give each track its sheen
             float tr = (r - VY_LABEL) / (0.985 - VY_LABEL) * 6.0;
             float gapD = abs(fract(tr) - 0.5) * 2.0;
             float gap = smoothstep(0.985, 0.995, gapD) * step(r, 0.985);
             float leadIn = smoothstep(0.985, 0.99, r);
             float polish = max(gap, leadIn);
-            float loud = 0.4 + 0.6 * vnoise(vec2(r * 120.0 + cs.x * 4.0, cs.y * 4.0 + 3.0));
+            float loud = 0.88 + 0.12 * vnoise(vec2(r * 120.0 + cs.x * 4.0, cs.y * 4.0 + 3.0));
             // groove rings, filtered so they fade before aliasing
             float gp = r * grooves;
             float gw = grooves * pix;
@@ -278,7 +293,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
             // anisotropic sheen along the groove tangent
             float expo = mix(900.0, 260.0, blur);
-            float warp = 0.035 * cs.y + 0.015 * (cs.x * cs.x - cs.y * cs.y);
+            float warp = 0.15 * (0.035 * cs.y + 0.015 * (cs.x * cs.x - cs.y * cs.y));
             T = normalize(T + vec3(0.0, warp, 0.0));
             vec3 Hk = normalize(Lk + V);
             vec3 Ho = normalize(Lo + V);
@@ -295,18 +310,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float ar = exp(-trr * trr * expo * 0.3);
             float af = exp(-tf * tf * expo * 0.8);
             float akw = exp(-tk * tk * 40.0);   // wide faint halo around the key streak
-            float specMul = (1.0 - polish) * loud * (0.55 + 0.45 * micro);
+            float specMul = (1.0 - polish) * loud * (0.78 + 0.22 * micro);
             // grating colour: hue walks with the offset from the streak's core
             vec3 kc = vyPal(P, 0.62 + 0.3 * clamp(tk * 8.0, -1.0, 1.0));
             kc = mix(kc, vec3(1.0, 0.94, 0.88), ak * ak * 0.6);
             vec3 rc = vyPal(P, 0.2 + 0.12 * fBin);
-            // the key light swells on each beat as well
-            float kick = 1.0 + 0.6 * burst + 0.5 * u.beat;
-            col = kc * (ak * 1.6 + akw * 0.06) * specMul * (0.8 + 2.4 * lvl) * level * kick;
-            col += rc * ar * specMul * (0.5 + 2.0 * lvl) * level;
-            col += teal * ao * specMul * (0.5 + 1.8 * u.mid + 1.2 * lvl) * level;
+            // the key light swells softly on each beat
+            float kick = 1.2;
+            col = kc * (ak * 1.2 + akw * 0.06) * specMul * (1.2 + 1.0 * lvl) * level * kick;
+            col += rc * ar * specMul * (0.8 + 0.8 * lvl) * level;
+            col += teal * ao * specMul * (0.8 + 0.3 * u.level + 0.5 * lvl) * level;
             // the fill streak, with first-order diffraction fringes either side of it
-            col += fillC * af * specMul * (0.15 + 1.1 * lvl + 0.5 * bassI) * level;
+            col += fillC * af * specMul * (0.35 + 0.45 * lvl + 0.2 * u.level) * level;
             float d1 = abs(tf) - 0.075;
             float lobe = exp(-d1 * d1 * mix(5200.0, 1400.0, blur));
             vec3 fringe = vyPal(P, 0.5 + 0.4 * clamp(tf * 9.0, -1.0, 1.0) + 0.15 * fBin);
@@ -320,25 +335,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col += refl * fres * mix(0.12, 0.6, polish);
             col += vec3(0.0025, 0.002, 0.0025);
 
-            // luminous grooves: the spectrum glows in the dark between streaks, more on a burst
+            // luminous grooves: the spectrum glows in the dark between streaks
             float glowRing = pow(gl, 8.0) * ringC + 0.08;
             col += vyPal(P, 0.08 + 0.3 * fBin + 0.1 * u.spectralCentroid)
-                 * glowRing * lvl * lvl * (0.25 + 0.6 * burst) * (1.0 - polish);
+                 * glowRing * lvl * lvl * 0.43 * (1.0 - polish);
 
-            // each beat a teal wave runs out through the grooves from the label,
+            // each beat a faint teal wave runs out through the grooves from the label,
             // brightest as it leaves
-            float bp = saturate(u.beatPhase);
             float wr = VY_LABEL + (1.0 - VY_LABEL) * (1.0 - (1.0 - bp) * (1.0 - bp));
-            float wv = exp(-(r - wr) * (r - wr) * 900.0) * (1.0 - bp) * (0.2 + 1.8 * u.beat);
-            col += teal * wv * (0.35 + 0.65 * micro) * (0.15 + 0.95 * bassI) * (1.0 - polish);
-
-            // a light bar crossing the disc every eight beats, a teal edge trailing it
-            float sx = mix(-1.4, 1.4, sweepT);
-            vec2 sdir = vec2(cos(-phi + 0.6), sin(-phi + 0.6));
-            float sd = dot(q, sdir) - sx;
-            float sweep = exp(-sd * sd * 220.0) * sweepOn;
-            float sweepE = exp(-(sd + 0.1) * (sd + 0.1) * 420.0) * sweepOn;
-            col += (P.d * vec3(1.1, 1.0, 0.95) * sweep * 1.2 + teal * sweepE * 0.45) * (0.2 + 0.8 * specMul);
+            float wv = exp(-(r - wr) * (r - wr) * 900.0) * (1.0 - bp) * 0.12;
+            col += teal * wv * (0.35 + 0.65 * micro) * (0.3 + 0.35 * u.level) * (1.0 - polish);
 
             // playing groove: the stylus line glows on the beat
             float playR = length(sty.xz);
@@ -346,7 +352,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             // brightest just behind the stylus, fading round the turn
             float behind = fract((atan2_(q.y, q.x) - atan2_(sty.z, sty.x)) / 6.2831853 + 1.0);
             hot *= 0.15 + 0.85 * exp(-behind * 5.0);
-            col += peak * hot * (0.1 + 1.6 * bassI) * needle;
+            col += peak * hot * (0.25 + 0.8 * pulse) * needle;
         }
     } else {
         // ---- platter lip, strobe dots, plinth and the studio ----
@@ -371,7 +377,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                 float dots = smoothstep(0.25, 0.1, abs(dotsA)) * smoothstep(0.004, 0.0, row);
                 vec3 cn = vec3(cp.x, 0.0, cp.z) / VY_PLATTER;
                 float lit = 0.1 + 0.9 * saturate(dot(cn, Lk));
-                col = vec3(0.03, 0.03, 0.035) * lit + trace * dots * (1.0 + 2.5 * bassI);
+                col = vec3(0.03, 0.03, 0.035) * lit + trace * dots * (1.2 + 1.0 * pulse);
                 col += vyStudio(reflect(rd, cn), u, sweepOn, teal, P, fog, true) * 0.3;
             }
         }
@@ -390,7 +396,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col = mix(col, bg, smoothstep(1.5, 5.0, pd));
             // the platter's glow spills onto the plinth
             float pl = length(pp.xz) - VY_PLATTER;
-            col += trace * exp(-max(pl, 0.0) * 12.0) * 0.05 * (1.0 + 2.0 * bassI);
+            col += trace * exp(-max(pl, 0.0) * 12.0) * 0.05 * (1.4 + 0.6 * u.level);
         }
     }
 
@@ -412,15 +418,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 sh = vySegRay(ro, rd, vec3(-0.9, 1.7, 1.25), vec3(0.15, 0.0, 0.1));
     float shW = 0.16 + 0.1 * (1.0 - saturate(sh.y));
     float shaft = exp(-sh.x * sh.x / (shW * shW)) * smoothstep(0.0, 0.3, tHit - sh.y + 0.3);
-    col += mix(vec3(1.0, 0.9, 0.8), P.c, 0.35) * shaft * (0.025 + 0.04 * u.mid + 0.05 * sweepOn);
+    col += mix(vec3(1.0, 0.9, 0.8), P.c, 0.35) * shaft * (0.03 + 0.015 * u.level + 0.015 * sweepOn);
 
-    // stylus spark on the bass, a small hot glint at the contact point
+    // stylus spark on the beat, a small hot glint at the contact point
     vec3 so = sty - ro;
     float sa = dot(so, rd);
     if (sa > 0.0) {
         float sd2 = max(dot(so, so) - sa * sa, 0.0) / (sa * sa);
         float spark = 3e-6 / (sd2 + 3e-6) + 0.02 * exp(-sd2 * 4000.0);
-        col += palRoleBass(0.1, u) * spark * needle * (0.3 + 1.5 * bassI + 0.8 * u.flux);
+        col += vyPalSteady(0.1, u) * spark * needle * (0.3 + 0.8 * pulse);
     }
 
     // dust motes drifting through the key light
@@ -434,7 +440,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (ma <= 0.0 || ma > tHit) continue;
         float md2 = max(dot(mo, mo) - ma * ma, 0.0) / (ma * ma);
         float m = 1.5e-6 / (md2 + 1.5e-6);
-        col += vec3(1.0, 0.9, 0.8) * m * (0.15 + 0.8 * u.treble);
+        col += vec3(1.0, 0.9, 0.8) * m * (0.2 + 0.2 * u.level);
     }
 
     return col; // LINEAR HDR — post chain tonemaps

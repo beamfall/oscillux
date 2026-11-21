@@ -9,9 +9,20 @@
 // The ball lens shows the photo inverted and magnified with chromatic edges,
 // ringed by a glowing circular waveform. Softbox reflections sweep across the
 // faces and the bevels catch light. The turning wave and the slow ring spin
-// follow the shared 32-beat speed profile; audio drives the light, the
-// waveform ring and the dispersion.
+// run at a steady, unhurried pace with no surges; a soft light chase walks
+// round the ring, a caustic band slides slowly out along the glass and a faint
+// shock ring leaves the lens on each beat. The level lifts the light, the
+// waveform ring and the dispersion only a little, so no large area pulses.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Shard Spin ; param1 = Refraction ; param2 = Glow
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 ppPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 31, u); }
 
 const float PP_TAU = 6.2831853;
 const float PP_K = 12.0;     // prisms in the ring
@@ -35,7 +46,7 @@ vec3 ppPal(float t, vec3 c0, vec3 c1, vec3 c2, vec3 c3) {
 }
 #define PPAL(t) ppPal(t, pc0, pc1, pc2, pc3)
 // the rim role (a palette hue lifted toward its peak on hits)
-#define PPRIM(t) mix(PPAL(t), peakWhite(PPAL((t) + 0.18), saturate(u.onset * 0.18 + u.bassImpact * 0.10)), 0.35 + 0.35 * u.flux)
+#define PPRIM(t) mix(PPAL(t), peakWhite(PPAL((t) + 0.18), saturate(u.onset * 0.03 + u.level * 0.05)), 0.45)
 
 // mirrored repeat, so refracted samples never hit a hard image edge
 vec2 ppMirror(vec2 x) { return 1.0 - abs(1.0 - mod(x, 2.0)); }
@@ -149,22 +160,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // turning wave and ring spin follow the speed profile; wrapped so every
     // use below is periodic over the wrap
-    vec2 fl = osFlight(u, spinAmt, 0.25 * spinAmt);
+    vec2 fl = osFlight(u, 0.15 * spinAmt, -0.06 * spinAmt);
     float dw = mod(fl.x, PP_TAU * 20.0);
     float rush = saturate((fl.y - 1.0) / 3.5);
     float spin = dw * 0.07;
     // the iris opens on builds and breathes with the bass
-    float irisR = PP_R0 + 0.45 * rush + 0.12 * u.bassImpact;
+    float irisR = PP_R0 + 0.02 * rush + 0.03 * u.level;
     // the palette walks round the wheel with the music and jumps ahead on builds
     float bc = u.beatCount + saturate(u.beatPhase);
-    float hueOff = mod(bc, 256.0) * (0.137 / 16.0) + 0.12 * rush;
+    float hueOff = mod(bc, 256.0) * (0.137 / 16.0) + 0.02 * rush;
     // a light chase runs round the ring, a prism and a half per beat
-    float cpos = mod(bc * 1.5, PP_K);
-    float kick = exp(-4.0 * saturate(u.beatPhase));
-    vec3 pc0 = palVisual(0.02, u);
-    vec3 pc1 = palVisual(0.34, u);
-    vec3 pc2 = palVisual(0.62, u);
-    vec3 pc3 = palVisual(0.97, u);
+    float cpos = mod(bc * 0.25, PP_K);
+    float kick = 0.0;
+    vec3 pc0 = ppPalSteady(0.02, u);
+    vec3 pc1 = ppPalSteady(0.34, u);
+    vec3 pc2 = ppPalSteady(0.62, u);
+    vec3 pc3 = ppPalSteady(0.97, u);
     // the photo's key and an accent complementary to it
     vec3 key = ppKey(u);
     vec3 accent = ppAccent(key, pc0, pc1, pc2, pc3);
@@ -178,7 +189,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float w2 = PP_TAU * 7.0 / 600.0;
     float w3 = PP_TAU * 5.0 / 600.0;
     vec3 ro = vec3(0.75 * sin(t * w1), 0.45 * sin(t * w2 + 1.3), -3.3 + 0.35 * sin(t * w3 + 0.4));
-    vec3 rd = osCamera(ro, vec3(0.0), osBank(u, 0.07), 1.65, p);
+    vec3 rd = osCamera(ro, vec3(0.0), 0.0, 1.65, p);
 
     // the ring plane z = 0 picks the candidate prisms
     float tz = -ro.z / max(rd.z, 1e-3);
@@ -197,7 +208,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float phi = phi0 + spin;
         float hb = hash11(idx * 7.13 + 1.7);
         // a two-lobed wave runs round the ring; each prism turns on its radial axis
-        float th = (0.60 + 0.35 * rush) * sin(dw - phi0 * 2.0 + hb * 0.6)
+        float th = 0.5 * sin(dw - phi0 * 2.0 + hb * 0.6)
                  + 0.22 * sin(dw * 0.35 + idx * 2.1);
         vec3 er = vec3(cos(phi), sin(phi), 0.0);
         vec3 et = vec3(-sin(phi), cos(phi), 0.0);
@@ -238,7 +249,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         bool side = abs(bNL.z) < 0.5;            // entered through a bevel face
         vec2 off = bW.xy * refr * (sgn * (0.35 + 0.30 * hb) + 0.30 * bS)
                  + normalize(bH.xy + vec2(1e-4)) * refr * 0.20 * sin(bTh);
-        float disp = refr * (0.12 + 0.12 * u.bassImpact + 0.08 * rush) * (side ? 4.0 : 1.0);
+        float disp = refr * (0.14 + 0.02 * u.level) * (side ? 4.0 : 1.0);
         float tq = (PP_ZP - bH.z) / max(rd.z, 1e-3);
         vec2 qb = (bH + rd * tq).xy;
         vec3 acc = vec3(0.0), ws = vec3(0.0);
@@ -262,10 +273,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float dc = abs(mod(bId - cpos + 0.5 * PP_K, PP_K) - 0.5 * PP_K);
         float chase = exp(-dc * dc * 0.9);
         // the chased prism clears to the true photo
-        trans = mix(trans, duo, (0.42 + 0.2 * rush) * (1.0 - 0.8 * chase));
+        trans = mix(trans, duo, 0.45 * (1.0 - 0.3 * chase));
         trans = max(mix(vec3(luma(trans)), trans, 1.45), vec3(0.0)) * smoothstep(0.0, 0.16, L);
         trans /= 1.0 + 0.45 * luma(trans);     // soft shoulder keeps highlights coloured
-        trans *= 0.70 + chase * (0.45 + 0.8 * kick * u.beat + 0.4 * u.bass);
+        trans *= 0.70 + chase * (0.05 + 0.03 * u.level);
 
         vec3 n = bN * (dot(rd, bN) > 0.0 ? -1.0 : 1.0);
         float ci = saturate(-dot(rd, n));
@@ -274,7 +285,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         col = trans * (1.0 - fres) * (0.70 + 0.30 * abs(cos(bTh))) + refl * fres * 0.55;
 
         vec3 rim = mix(PPAL(bId / PP_K + hueOff + 0.5 + 0.2 * bS), accent * 1.4, 0.45 + 0.45 * chase);
-        float lit = 0.06 + 1.2 * bnd + 0.4 * u.bassImpact + 1.6 * chase;
+        float lit = 0.3 + 0.15 * u.level + 0.1 * bnd + 0.1 * chase;
         if (side) {
             // the slab's thickness: a lit, rainbow-split glass edge
             col = col * 0.35 + rim * glow * min(lit, 1.4);
@@ -283,17 +294,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             // fades along the prism and a bright caustic band that slides
             // outward with every beat
             float rr = bR - irisR;
-            float band = exp(-pow((rr - 6.5 * saturate(u.beatPhase)) * 1.6, 2.0)) * u.beat;
+            float band = exp(-pow((rr - 6.5 * fract(t * 0.05)) * 1.6, 2.0)) * 0.08;
             vec3 pipe = PPAL(hk + 0.5);
-            col += pipe * pipe * glow * (exp(-rr * 1.1) * (0.05 + 0.45 * bnd + 0.6 * chase)
-                                       + band * (0.25 + 0.6 * chase) * (1.0 - 0.5 * abs(bS)));
+            col += pipe * pipe * glow * (exp(-rr * 1.1) * (0.12 + 0.08 * u.level + 0.04 * bnd + 0.05 * chase)
+                                       + band * (0.2 + 0.2 * chase) * (1.0 - 0.5 * abs(bS)));
             // a fine lit line where the face meets the bevel
             float e = min((1.0 - abs(bS)) * bR * wa, (bR - irisR));
             float line = 1.0 - smoothstep(0.0, 0.010 + 0.004 * bR, e);
             col += mix(rim, vec3(1.0), 0.3) * line * glow * (0.3 + lit);
             // spectral fringe just inside the edge
             float fr = exp(-e * 34.0) * (1.0 - line);
-            col += ppSpectrum(fract(e * 6.0 + bId * 0.13)) * fr * glow * (0.15 + 0.8 * bnd) * refr;
+            col += ppSpectrum(fract(e * 6.0 + bId * 0.13)) * fr * glow * (0.2 + 0.15 * u.level + 0.1 * bnd) * refr;
         }
     } else if (tBall > 0.0) {
         // ---- the crystal ball: the photo inverted and magnified ----
@@ -328,7 +339,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float ci = saturate(-dot(rd, n1));
         float fres = 0.04 + 0.96 * pow(1.0 - ci, 5.0);
         ball = ball * (1.0 - fres) + ppEnv(reflect(rd, n1), lightTurn, envTop, envA, envB) * fres * 1.4;
-        ball += accent * pow(1.0 - ci, 3.0) * glow * (0.35 + 0.7 * u.bass + 0.8 * kick * u.beat);
+        ball += accent * pow(1.0 - ci, 3.0) * glow * (0.4 + 0.2 * u.level);
         col = ball;
     } else {
         // ---- the photo deep behind, seen between the prisms ----
@@ -342,7 +353,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float fan = smoothstep(irisR, irisR + 0.6, r0) * exp(-max(r0 - irisR, 0.0) * 0.35);
         vec3 spec = mix(hsv2rgb(vec3(0.78 * saturate(g * 5.0 + 0.5), 0.80, 1.0)), accent, 0.45);
         col += spec * rays * rays * fan * exp(-g * g * 70.0) * glow * refr
-             * (0.06 + 0.40 * gb + 0.20 * u.bassImpact + 0.9 * kick * u.beat + 0.3 * rush);
+             * (0.12 + 0.08 * u.level + 0.04 * gb);
     }
 
     // ---- the circular waveform ring round the ball ----
@@ -351,15 +362,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float ringR = PP_RB + 0.10 + 0.22 * b;
     float occl = (bestT < 1e8 || tBall > 0.0) ? 0.0 : 1.0;
     float rd0 = r0 - ringR;
-    vec3 ringCol = peakWhite(mix(PPAL(tw * 0.8 + 0.1 + hueOff), accent, 0.6) * 1.6, 0.4 * u.onset);
-    col += ringCol * occl * glow * (aaLine(rd0, 0.005 + 0.008 * b) * (1.0 + 2.6 * b + 1.0 * u.onset)
-                                  + exp(-abs(rd0) * 24.0) * (0.10 + 0.50 * b));
+    vec3 ringCol = peakWhite(mix(PPAL(tw * 0.8 + 0.1 + hueOff), accent, 0.6) * 1.6, 0.05 * u.onset);
+    col += ringCol * occl * glow * (aaLine(rd0, 0.005 + 0.004 * b) * (1.0 + 0.8 * b)
+                                  + exp(-abs(rd0) * 24.0) * (0.10 + 0.15 * b));
 
     // ---- on each beat a dispersed shock ring leaves the lens and runs out
     // across the glass: red, accent and violet edges slightly apart ----
     float bp = saturate(u.beatPhase);
     float rs = PP_RB + 0.2 + 6.5 * bp;
-    float sw = (1.0 - bp) * (1.0 - bp) * u.beat * glow * (1.0 + 0.6 * rush);
+    float sw = smoothstep(0.0, 0.2, bp) * (1.0 - bp) * (1.0 - bp) * glow * 0.07;
     float sx = (r0 - rs) * (16.0 - 9.0 * bp);
     vec3 shock = vec3(1.0, 0.2, 0.05) * 0.45 * exp(-(sx - 0.9) * (sx - 0.9) * 4.0)
                + accent * 1.5 * exp(-sx * sx * 3.0)

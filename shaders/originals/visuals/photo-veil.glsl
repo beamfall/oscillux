@@ -6,9 +6,10 @@
 // and stretch the print, the fold flanks catch a thin-film sheen and the
 // dark parts of the photo let the glowing veils behind shine through. Each
 // fold flank glows with its own spectrum band and every beat sweeps a soft
-// band of light across the silk. The wind and a slow camera drift follow the
-// shared 32-beat speed profile, and the camera banks gently; audio drives
-// the light and the ripples, never the camera.
+// band of light along the fold flanks. A slow, steady wind moves the folds
+// and the camera drift, the lens breathes with the shared 32-beat speed
+// profile, and the camera banks gently; audio drives the light, rising and
+// falling within each beat, never the folds or the camera.
 // param0 = Ribbons (fold density) ; param1 = Sway ; param2 = Texture
 
 const float PV_H = 2.25;      // half height of the printed photo in world units
@@ -39,6 +40,13 @@ vec2 pvFlight(VisualUniforms u, float cruise, float surge) {
     return vec2(u.time * cruise * 0.2 + beats * (cruise * 0.4 + surge), mix(v0, v1, ph));
 }
 
+// A swell that rises and falls within each beat: zero on the kick, so the
+// bass lifts the rims and the haze without a jump on the beat.
+float pvSwell(VisualUniforms u) {
+    float s = sin(3.14159265 * saturate(u.beatPhase));
+    return s * s;
+}
+
 vec2 pvMirror(vec2 x) { return 1.0 - abs(1.0 - mod(x, 2.0)); }
 
 // The print: the photo across the front sheet, mirrored past its edges and
@@ -54,17 +62,18 @@ vec3 pvPhoto(vec2 q, VisualUniforms u) {
 }
 
 // Sheet displacement and its gradient: (h, dh/dx, dh/dy). A long billow, a
-// cross swell, a fine ripple that the bass deepens, and hanging pleats.
+// cross swell, a fine ripple and hanging pleats. Their depth stays steady:
+// audio deepening the folds flashes the whole sheet's shading.
 // Wind phases use multiples of 0.05 so they stay continuous at the wrap.
 vec3 pvWave(vec2 q, float w, float s, float pk, float amp, VisualUniforms u) {
     vec3 r = vec3(0.0);
     float a = 0.42 * amp;
     float g = 1.1 * q.x + 0.45 * q.y - w * 0.6 + s;
     r += a * vec3(sin(g), 1.1 * cos(g), 0.45 * cos(g));
-    a = 0.18 * amp * (1.0 + 0.6 * u.mid);
+    a = 0.18 * amp * 1.4;
     g = -1.7 * q.x + 1.1 * q.y - w + s * 1.7 + 1.0;
     r += a * vec3(sin(g), -1.7 * cos(g), 1.1 * cos(g));
-    a = 0.04 * amp * (0.5 + 1.5 * u.bass);
+    a = 0.04 * amp * 1.6;
     g = 3.9 * q.x + 2.2 * q.y - w * 1.55 + s * 2.3 + 2.0;
     r += a * vec3(sin(g), 3.9 * cos(g), 2.2 * cos(g));
     float m = 1.3 * q.y + w * 0.35 + s;
@@ -78,7 +87,7 @@ vec3 pvWave(vec2 q, float w, float s, float pk, float amp, VisualUniforms u) {
 // front sheet's shading leans on these so the silk reads by its creases
 // rather than by broad soft glows across the billow.
 vec2 pvFine(vec2 q, float w, float s, float pk, float amp, VisualUniforms u) {
-    float a = 0.04 * amp * (0.5 + 1.5 * u.bass);
+    float a = 0.04 * amp * 1.6;
     float g = 3.9 * q.x + 2.2 * q.y - w * 1.55 + s * 2.3 + 2.0;
     vec2 r = a * cos(g) * vec2(3.9, 2.2);
     float m = 1.3 * q.y + w * 0.35 + s;
@@ -120,14 +129,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float amp = mix(0.55, 1.35, u.param1);       // billow height: Sway
     float print = mix(0.55, 1.0, u.param2);      // print strength: Texture
 
-    // ---- wind and camera on the speed profile; roll eased, no audio ----
+    // ---- a steady, slow wind (faster folds flash across the whole print);
+    // the lens breathes with the speed profile; roll eased, no audio ----
     vec2 fl = pvFlight(u, 0.45, 0.4 + 0.3 * u.param1);
-    float dw = mod(fl.x, 6.2831853 * 20.0);
+    float dw = mod(0.35 * u.time, 6.2831853 * 20.0);
     float rush = saturate((fl.y - 1.0) / 3.5);
     vec3 ro = vec3(1.30 * sin(dw * 0.05 + 0.4), -0.35 + 0.30 * sin(dw * 0.10 + 1.1),
                    -3.0 + 0.30 * sin(dw * 0.05 + 2.6));
     vec3 ta = vec3(0.20 * sin(dw * 0.05 + 2.0), 0.10 * sin(dw * 0.15), 1.0);
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.06), 1.6 + 0.1 * rush, p);
+    vec3 rd = osCamera(ro, ta, osBank(u, 0.06), 1.6 + 0.03 * rush, p);
     vec3 v = -rd;
     vec3 L = normalize(vec3(-0.85, 0.35, -0.40));     // raking key light from the left
     vec3 Lb = normalize(vec3(0.3, 0.2, 1.0));         // aurora glow from behind
@@ -153,16 +163,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 keyHue = (keyC - kLo) / max(kHi - kLo, 1e-3);
     PvPal Q = PvPal(palVisual(0.1, u), palVisual(0.3, u), palVisual(0.5, u), palVisual(0.7, u), palVisual(0.9, u), vec3(0.0));
     Q.accent = mix(Q.d, (vec3(1.0) - keyHue) * 1.25, smoothstep(0.08, 0.3, kSat));
-    float rimMix = 0.35 + 0.35 * u.flux;
-    float rimPk = saturate(u.onset * 0.18 + u.bassImpact * 0.10);
+    float rimMix = 0.4 + 0.1 * saturate(u.level);
+    float rimPk = 0.04 * pvSwell(u) * saturate(u.level);
+    float lv = saturate(u.level);
 
     // beat sweep: a soft diagonal band of light crosses the silk each beat
     float sweepPos = -3.2 + 6.4 * smoothstep(0.0, 1.0, u.beatPhase);
-    float sweepAmt = sin(3.14159 * saturate(u.beatPhase)) * (0.2 + 0.6 * u.beat);
+    float sweepAmt = sin(3.14159 * saturate(u.beatPhase)) * 0.1;
 
     // ---- the dark beyond: a faint aurora haze ----
     vec3 col = Q.a * 0.012 + vec3(0.0, 0.0, 0.004);
-    col += pvPal(Q, 0.45) * exp(-abs(rd.y + 0.05) * 6.0) * (0.010 + 0.025 * u.bass);
+    col += pvPal(Q, 0.45) * exp(-abs(rd.y + 0.05) * 6.0) * (0.012 + 0.006 * lv);
 
     // ---- two veils of aurora chiffon behind, back to front ----
     for (int k = 0; k < 2; k++) {
@@ -177,14 +188,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 nr = normalize(vec3(g.y, g.z, -1.0));
         float ndv = abs(dot(nr, v));
         float flank = pow(1.0 - ndv, 2.0);
-        float bnd = bandAt(u, saturate(0.5 + P.x * 0.16));
+        float bnd = mix(lv, bandAt(u, saturate(0.5 + P.x * 0.16)), 0.25);
         // the curtains of light: brightest on fold flanks, rising toward the hem
         float curtain = smoothstep(-3.0, 0.2, -P.y) * 0.6 + 0.4;
         vec3 hue = pvPal(Q, 0.30 + 0.38 * fk + 0.06 * P.y + 0.05 * g.x);
         // the near veil leans toward the photo's complementary accent
         hue = mix(hue, Q.accent, 0.3 * (1.0 - fk));
         float back = pow(saturate(dot(-nr, Lb) * 0.5 + 0.5), 3.0);
-        vec3 c = hue * (0.03 + flank * (0.55 + 2.6 * bnd) * curtain + back * 0.10);
+        vec3 c = hue * (0.03 + flank * (0.75 + 0.8 * bnd) * curtain + back * 0.10);
         c += hue * pow(saturate(dot(nr, hv)), 30.0) * 0.30;
         float sw = P.x * 0.55 + P.y * 0.35 - sweepPos;
         c += hue * flank * exp(-sw * sw * 9.0) * sweepAmt * 1.6;
@@ -209,19 +220,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float ao = 0.35 + 0.65 * smoothstep(0.7 * amp, -0.5 * amp, g.x);   // folds that fall away darken
     vec3 c = ph * dif * ao * 1.05 * print;
     // thin-film sheen on the fold flanks, its hue sliding with the angle
-    float bnd = bandAt(u, saturate(0.5 + P.x * 0.16));
+    float bnd = mix(lv, bandAt(u, saturate(0.5 + P.x * 0.16)), 0.25);
     vec3 film = hsv2rgb(vec3(fract(0.55 + 1.1 * (1.0 - ndv) + 0.05 * P.x), 0.75, 1.0));
     float rt = 0.55 + 0.1 * P.y;
     vec3 rim = mix(mix(pvPal(Q, rt), peakWhite(pvPal(Q, rt + 0.18), rimPk), rimMix), film, 0.45);
     rim = mix(rim, Q.accent, 0.3);
-    c += rim * flank * (0.12 + 1.4 * bnd);
+    c += rim * flank * (0.2 + 0.5 * bnd);
     // silk specular and the beat sweep
     // silk satin: a crisp highlight held off the bright print so it never glares
     float hiL = smoothstep(0.15, 0.8, lp);
     float spec = pow(saturate(dot(ns, hv)), 160.0);
-    c += (rim * 0.35 + 0.12) * spec * (0.35 + 0.4 * u.onset) * (1.0 - 0.7 * hiL);
+    c += (rim * 0.35 + 0.12) * spec * 0.35 * (1.0 - 0.7 * hiL);
     float sw = P.x * 0.55 + P.y * 0.35 - sweepPos;
-    c += rim * exp(-sw * sw * 10.0) * sweepAmt * (0.1 + flank) * (1.0 - 0.6 * hiL);
+    c += rim * exp(-sw * sw * 10.0) * sweepAmt * flank * (1.0 - 0.6 * hiL);
     // sheer where the print is dark, nearly opaque where it is bright or folded edge-on
     float a = clamp(0.66 + 0.55 * sqrt(lp) + 0.3 * flank, 0.0, 0.985) * mix(0.85, 1.0, print);
     // the free hem: below it the aurora veils show, and the hem edge glows
@@ -230,12 +241,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float hd = P.y - hemY;
     a *= smoothstep(-0.012, 0.012, hd);
     col = mix(col, c, a);
-    float hemB = bandAt(u, saturate(0.5 + P.x * 0.16));
+    float hemB = mix(lv, bandAt(u, saturate(0.5 + P.x * 0.16)), 0.25);
     float ht = 0.62 + 0.06 * P.x;
     vec3 hemC = mix(mix(pvPal(Q, ht), peakWhite(pvPal(Q, ht + 0.18), rimPk), rimMix), Q.accent, 0.35);
     col += mix(hemC, film, 0.35)
-         * (exp(-abs(hd) * 60.0) * (0.25 + 0.9 * flank + 2.4 * hemB)
-            + exp(-abs(hd) * 10.0) * (0.05 + 0.25 * hemB));
+         * (exp(-abs(hd) * 60.0) * (0.35 + 0.7 * flank + 0.7 * hemB)
+            + exp(-abs(hd) * 10.0) * (0.06 + 0.1 * hemB));
+
 
     col *= 0.45 + 0.55 * smoothstep(2.3, 0.7, length(p));
     return col; // LINEAR HDR — post chain tonemaps

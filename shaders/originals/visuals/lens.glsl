@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Lens.
-// Sound as mass. Three dark bodies, sized by the bass, mids and treble, hang in
+// Sound as mass. Three dark bodies, weighed by the smoothed level, hang in
 // front of a bright, deep field: a saturated emission nebula cut by black dust
 // lanes, a dense star field and a scatter of small spiral galaxies. Each body
 // bends that light with an exact thin-lens point-mass deflection, so stars and
 // galaxies smear into arcs and Einstein rings, and farther layers bend more
 // than nearer ones. Each body shows its black shadow and a thin photon ring.
-// The field streams past behind the lenses on the shared 32-beat speed profile
-// (cruise, build, burst, brake, drift), so the arcs sweep, surge and settle;
-// the view rolls slowly on the eased bank. Sustained energy draws the bodies
-// into a slow inspiral that merges them into one larger lens, then releases
-// them. Beats light the photon rings; mids lift the nebula, treble the stars.
+// The field drifts past at a crawl behind the lenses and the bodies wander
+// at a crawl with dimmer, slowly turning discs of soft streaks, so the arcs creep,
+// and the view sways in a slow fixed roll. A slow cycle draws the bodies
+// into an unhurried inspiral that merges them into one larger lens, then
+// releases them; the level barely nudges it, so swells never jolt them. Each beat sends a faint gravitational ripple across the field; the
+// level only breathes the masses, nebula, stars and rings a little, so the
+// lensed field never lurches or flickers with the music.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Gravity ; param1 = Merge Eagerness ; param2 = Background Richness
+
+// The palette read: the visual's own palette (1) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 lnPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 1, u); }
+vec3 lnPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = lnPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 float lnsFbm(vec2 p, int n) {
     float v = 0.0, a = 0.5, s = 0.0;
@@ -62,7 +75,7 @@ vec3 lnsGalaxies(vec2 s, float foot, VisualUniforms u) {
     float arms = 0.55 + 0.45 * sin(2.0 * atan2_(d.y, d.x) - 3.0 * log(r + 0.25) * 1.6);
     float disc = exp(-r2 * 0.7) * mix(0.55, arms, smoothstep(0.3, 1.2, r));
     float core = exp(-r2 * 5.0);
-    vec3 c = palVisual(fract(h.y * 2.7 + 0.15), u);
+    vec3 c = lnPalSteady(fract(h.y * 2.7 + 0.15), u);
     float on = smoothstep(0.58, 0.64, h.x);
     return on * keep * win * (c * disc * 2.2 + vec3(1.0, 0.93, 0.84) * core * 3.0);
 }
@@ -79,9 +92,9 @@ vec3 lnsNebula(vec2 s, VisualUniforms u, int oct, float rich, float glow, float 
     // Hue walks along the palette (never an RGB mix of opposite hues, which
     // greys out), squared so the emission is deep and saturated.
     float th = mix(0.04 + 0.25 * w.x, 0.62 + 0.30 * w.y, smoothstep(0.42, 0.58, w.x + 0.5 * (n - 0.5)));
-    vec3 c = palVisual(th, u);
+    vec3 c = lnPalSteady(th, u);
     c *= c;
-    vec3 cF = palVisual(th + 0.04, u);
+    vec3 cF = lnPalSteady(th + 0.04, u);
     cF = mix(cF * cF, vec3(1.0, 0.92, 0.85), 0.12);
     float gain = (0.55 + 0.45 * rich) * (0.8 + 0.5 * glow);
     // Inner structure: a finer field gives each cloud pillars and knots.
@@ -103,7 +116,7 @@ vec3 lnsNebula(vec2 s, VisualUniforms u, int oct, float rich, float glow, float 
     // structure would alias; it sinks into shadow instead.
     col *= 1.0 - 0.85 * smoothstep(0.012, 0.05, foot);
     // Faint cold space so nothing reads as flat black.
-    col += palVisual(0.75, u) * 0.003;
+    col += lnPalSteady(0.75, u) * 0.003;
     return col;
 }
 
@@ -111,7 +124,8 @@ vec3 lnsNebula(vec2 s, VisualUniforms u, int oct, float rich, float glow, float 
 // in units of the body's Einstein radius and fr the pixel footprint along the
 // radius in the same units. The disc runs in lanes; each lane turns rigidly at
 // a whole number of turns per 1200 s (so the time wrap is seamless), inner
-// lanes faster, Kepler-like, and the lane gaps hide the seams between them.
+// lanes faster, Kepler-like but unhurried, and the lane gaps hide the seams
+// between them; the lane streaks are soft so the turning disc never shimmers.
 // The side turning toward the viewer is beamed brighter and bluer.
 // Sparse bright stars with six-point diffraction spikes (three axes, the
 // spike width and energy kept under the lens footprint so they never alias).
@@ -135,8 +149,8 @@ vec3 lnsSpiked(vec2 s, float foot, float treble, VisualUniforms u) {
         sp += exp(-pe * pe / (w * w)) * exp(-abs(al) * 14.0);
     }
     float core = exp(-dot(d, d) / (w * w * 4.0)) * 6.0 + exp(-dot(d, d) * 900.0) * 0.6;
-    float b = (0.25 + (h - 0.86) * 6.0) * (0.8 + 0.6 * treble);
-    vec3 tint = mix(vec3(1.0, 0.96, 0.92), palVisual(fract(h * 7.3), u), 0.35);
+    float b = (0.2 + (h - 0.86) * 4.5) * (0.9 + 0.3 * treble);
+    vec3 tint = mix(vec3(1.0, 0.96, 0.92), lnPalSteady(fract(h * 7.3), u), 0.35);
     return tint * b * edge * (core + 0.9 * sp) * amp;
 }
 
@@ -151,13 +165,13 @@ vec3 lnsDisc(vec2 b, float fr, float tt, float seed, vec3 hot, vec3 warm, float 
     float k = floor(ln);
     float f = ln - k;
     float rk = rIn + (k + 0.5) / lanes * (rOut - rIn);
-    float turns = floor(64.0 * pow(rIn / rk, 1.5) + 0.5);
+    float turns = floor(16.0 * pow(rIn / rk, 1.5) + 0.5);
     vec2 q = rot2(turns * 0.0052359878 * tt + seed) * b;
     float n = vnoise(q * 6.0 + vec2(seed * 3.1 + k * 1.7, k * 0.9));
     if (hi > 0.5) n = 0.62 * n + 0.38 * vnoise(q * 15.0 + vec2(k * 2.3, seed));
     float laneC = saturate(1.6 - 2.2 * frx * lanes);
     float gap = mix(1.0, 0.55 + 0.45 * smoothstep(0.0, 0.22, f) * smoothstep(1.0, 0.78, f), laneC);
-    float streak = mix(0.75, 0.25 + 1.5 * n * n, mix(0.5, 1.0, laneC));
+    float streak = mix(0.75, 0.6 + 0.7 * n * n, mix(0.5, 1.0, laneC));
     float dop = 1.0 - 0.45 * b.x / max(rd, 1e-3);
     vec3 c = mix(warm, hot, saturate(1.15 - 1.6 * x));
     c = mix(c, vec3(0.80, 0.90, 1.15) * dot(c, vec3(0.4)), 0.7 * saturate(dop - 1.0));
@@ -175,33 +189,31 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float eager = mix(-0.06, 0.10, u.param1);
     float rich = mix(0.2, 1.0, u.param2);
 
-    float bass = saturate(u.bass);
     float mid = saturate(u.mid);
     float treble = saturate(u.treble);
     float level = saturate(u.level);
     float tt = mod(u.time, 1200.0);
 
-    // The field streams behind the lenses on the speed profile; slow eased roll.
-    vec2 fl = osFlight(u, 1.0, 0.8);
-    float dist = fl.x;
-    p = rot2(osBank(u, 0.10)) * p;
+    // The field drifts steadily behind the lenses; slow eased roll.
+    float dist = u.time * 0.05;
+    p = rot2(0.02 * sin(tt * 0.0418879)) * p;
     vec2 head = vec2(0.96, 0.28);
 
-    // Sustained energy inspirals the bodies; a slow cycle (14 turns per 1200 s)
-    // gates it so the merge breathes in and out rather than following every swell.
-    float sustain = (0.5 + 0.5 * sin(tt * 0.0733038)) * (0.68 + 0.32 * level) + 0.10 * bass;
+    // Sustained energy inspirals the bodies; a slow cycle (7 turns per 1200 s)
+    // sets its pace; the level only nudges it, so a swell never throws the
+    // bodies inward in a lurch.
+    float sustain = (0.5 + 0.5 * sin(tt * 0.0366519)) * (0.97 + 0.03 * level);
     float merge = smoothstep(0.55 - eager, 0.95 - eager, sustain);
     float orbit = 1.0 - 0.93 * merge;
-    float ph = tt * 0.0575959 + merge * 2.4;
+    float ph = tt * 0.0104720;
     vec2 c0 = orbit * vec2(0.78 * sin(ph * 0.9 + 0.4), 0.34 * sin(ph * 1.3 + 1.1));
     vec2 c1 = orbit * vec2(0.92 * sin(ph * 0.7 + 2.6), 0.42 * sin(ph * 1.1 + 4.0));
     vec2 c2 = orbit * vec2(0.70 * sin(ph * 1.2 + 4.4), 0.46 * sin(ph * 0.8 + 2.2));
-    // Einstein radii: the bands give each body its mass (shape, not camera);
-    // the kick swells the bass body on each hit.
-    float kick = saturate(u.bassImpact);
-    float t0 = grav * 0.30 * (0.85 + 0.30 * bass + 0.10 * kick);
-    float t1 = grav * 0.23 * (0.85 + 0.30 * mid);
-    float t2 = grav * 0.17 * (0.85 + 0.30 * treble);
+    // Einstein radii: the level, mids and treble give each body its mass
+    // (shape, not camera).
+    float t0 = grav * 0.30 * (0.97 + 0.03 * level);
+    float t1 = grav * 0.23 * (0.97 + 0.03 * level);
+    float t2 = grav * 0.17 * (0.97 + 0.03 * level);
 
     // Deflection and its analytic Jacobian; shadows and photon rings.
     vec2 a = vec2(0.0);
@@ -210,7 +222,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float bw = 0.0, bs = 0.0;
     vec2 cm = vec2(0.0);
     float m2 = 0.0;
-    float beat = saturate(max(u.beat, u.onset * 0.6));
+    float bp = saturate(u.beatPhase);
+    float bell = sin(3.14159265 * bp);
+    bell *= bell;
     for (int i = 0; i < 3; ++i) {
         vec2 c = i == 0 ? c0 : i == 1 ? c1 : c2;
         float te = i == 0 ? t0 : i == 1 ? t1 : t2;
@@ -224,7 +238,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // Close passes blend the shadows like liquid, under one outline.
         sd = osSmin(sd, sdi, 0.04);
         // Each ring is brighter on its approaching side, which turns slowly.
-        float sp = tt * (0.2094395 + 0.0523599 * float(i)) + 2.1 * float(i);
+        float sp = tt * (0.0523599 + 0.0130900 * float(i)) + 2.1 * float(i);
         float wi = exp(-max(sdi, 0.0) * 30.0);
         bs += wi * (0.45 + 0.55 * dot(d / r, vec2(cos(sp), sin(sp))));
         bw += wi;
@@ -234,7 +248,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // As the bodies merge their shadows fuse into one larger body.
     cm /= max(m2, 1e-4);
     float tm = sqrt(m2);
-    float fuse = smoothstep(0.72, 0.84, merge);
+    float fuse = smoothstep(0.6, 0.98, merge);
     sd = mix(sd, osSmin(sd, length(p - cm) - 0.34 * tm, 0.04), fuse);
     float beam = bs / max(bw, 1e-4);
     float shadow = smoothstep(-0.003, 0.004, sd);
@@ -248,20 +262,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     foot = min(foot, 0.5);
 
     // Gravitational waves: every beat one body (the merged one, once fused,
-    // and harder) sends a ripple across the field. It shifts the background
+    // and harder) sends a ripple across the field, easing in and out within
+    // the beat. It shifts the background
     // radially and slightly magnifies and demagnifies it as it passes.
-    float bp = saturate(u.beatPhase);
     float bsel = mod(floor(u.beatCount), 3.0);
     vec2 gc = mix(bsel < 0.5 ? c0 : bsel < 1.5 ? c1 : c2, cm, fuse);
     vec2 gd = p - gc;
     float gr = length(gd) + 1e-4;
     float gx = (gr - 0.12 - 1.9 * bp) / 0.07;
-    float genv = (1.0 - bp) * (1.0 - bp) * (0.35 + 0.65 * kick) * (1.0 + 1.2 * fuse);
+    float genv = bell * (0.02 + 0.01 * level) * (1.0 + 0.5 * fuse);
     float gw = genv * exp(-gx * gx);
-    a += gd / gr * (0.016 * gw * sin(gx * 2.6));
-    float gmag = 1.0 + 0.30 * gw * cos(gx * 2.6);
+    a += gd / gr * (0.006 * gw * sin(gx * 2.6));
+    float gmag = 1.0 + 0.08 * gw * cos(gx * 2.6);
 
-    float glow = mid;
+    float glow = 0.4 + 0.15 * level;
     // Nebula (nearest of the sources, bends least).
     vec2 sN = p - a * 0.78 + head * dist * 0.045;
     int octN = foot > 0.02 ? 2 : oct;
@@ -272,10 +286,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // on the arcs; far from the bodies the stars stay clean.
     float disp = 0.035 * hi * smoothstep(0.10, 0.45, length(a));
     vec3 kc = vec3(1.0 - disp, 1.0, 1.0 + disp);
-    vec3 starTint = mix(vec3(1.0), palVisual(0.55, u), 0.25);
+    vec3 starTint = mix(vec3(1.0), lnPalSteady(0.55, u), 0.25);
     vec2 dS = head * dist * 0.075;
     vec2 dG = head * dist * 0.060 + vec2(3.1, 7.7);
-    float twk = 0.5 * treble;
+    float twk = 0.1;
     vec3 st, gxy;
     st.g = lnsStars(p - a * 0.92 * kc.y + dS, 38.0, 1.0, foot, twk);
     gxy = lnsGalaxies(p - a + dG, foot, u);
@@ -287,26 +301,26 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         st.r = st.g;
         st.b = st.g;
     }
-    col += st * starTint * (0.9 + 0.5 * treble) * (0.5 + 0.5 * rich);
+    col += st * starTint * (1.0 + 0.1 * level) * (0.5 + 0.5 * rich);
     col += gxy * (0.6 + 0.4 * rich);
     // A few bright foreground stars with six-point diffraction spikes; they
     // are lensed with the field, so near a body the spikes bend into arcs.
-    col += lnsSpiked(p - a * 0.9 + dS * 1.15, foot, treble, u) * (0.6 + 0.4 * rich);
+    col += lnsSpiked(p - a * 0.9 + dS * 1.15, foot, 0.4 + 0.1 * level, u) * (0.6 + 0.4 * rich);
     col *= gmag;
 
     // The bodies: black shadows rimmed by a thin photon ring.
     col *= shadow;
-    vec3 ringCol = mix(palVisual(0.30, u), vec3(1.0, 0.92, 0.8), 0.45);
-    col += ringCol * ring * (0.6 + 0.4 * level + 1.2 * beat);
+    vec3 ringCol = mix(lnPalSteady(0.30, u), vec3(1.0, 0.92, 0.8), 0.45);
+    col += ringCol * ring * (0.7 + 0.2 * level + 0.05 * bell);
 
     // Accretion discs, nearly edge on. The near half crosses in front of the
     // shadow; the far half is hidden behind it, but its light, bent over the
     // top and under the bottom of the shadow, wraps it as a halo. As the bodies
     // fuse, their discs settle into one disc around the merged body, which
     // flares as it forms.
-    vec3 hotC = mix(palVisual(0.25, u), vec3(1.0, 0.95, 0.85), 0.45);
-    vec3 warmC = palVisual(0.06, u);
-    float flare = 4.0 * fuse * (1.0 - fuse) + 0.35 * fuse;
+    vec3 hotC = mix(lnPalSteady(0.25, u), vec3(1.0, 0.95, 0.85), 0.45);
+    vec3 warmC = lnPalSteady(0.06, u);
+    float flare = 0.5 * fuse * (1.0 - fuse) + 0.2 * fuse;
     vec3 discs = vec3(0.0);
     for (int i = 0; i < 3; ++i) {
         float fi = float(i);
@@ -314,8 +328,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float te = mix(i == 0 ? t0 : i == 1 ? t1 : t2, tm, fuse);
         float ci = mix(0.17 + 0.05 * fi, 0.19, fuse);
         float psi = mix(0.22 - 0.31 * fi + 0.05 * sin(tt * 0.0157080 + fi), 0.08, fuse);
-        float bnd = i == 0 ? bass : i == 1 ? mid : treble;
-        float gain = 1.6 * (0.55 + 0.9 * bnd + 0.5 * beat) * mix(1.0, 0.3333, fuse) * (1.0 + 1.6 * flare);
+        float gain = 1.0 * (0.9 + 0.1 * level) * mix(1.0, 0.3333, fuse) * (1.0 + 1.6 * flare);
         vec2 dl = rot2(-psi) * (p - c) / te;
         dl.y = -dl.y; // the image's y runs down; the far side is up on screen
         float rho = length(dl) + 1e-4;

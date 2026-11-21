@@ -2,11 +2,14 @@
 // Particles: a rising vortex of embers. Thousands of glowing particles
 // spiral up through nested spectral attractor shells round a molten light
 // column, above a black mirror floor. Embers leave the floor hot gold and
-// cool to pink and cyan as they climb; every beat sends an ignition front up
-// the column that flashes the embers it passes white-hot. A shallow depth
-// of field turns near and far particles into soft bokeh, the floor reflects
-// the whole column, and the swirl surges and brakes with the beat-locked
-// speed profile while the camera drifts round it.
+// cool to pink and cyan as they climb; every beat sends a faint ignition
+// front up the column that barely warms the embers it passes. The shells
+// glow with the smoothed level and a trace of their spectrum band, so the
+// swarm never jumps in brightness or size on the beat. A shallow depth of
+// field turns near and far particles into bokeh with hot centres, the floor
+// reflects the whole column, and the swirl turns slowly at a nearly steady
+// pace while the camera drifts slowly and level round it. Reds stay just off
+// saturated red.
 //
 // Each shell is a flared cylinder whose surface is tiled into cells that
 // rotate and rise with the flow; a pixel's ray meets each shell at most
@@ -14,11 +17,29 @@
 // cheap.
 //
 // param0 Density      -> how many cells hold a particle
-// param1 Burst        -> how far the bass impact flings the shells outward
+// param1 Burst        -> how far the bass swells the shells outward
 // param2 Trail Length -> length of each particle's motion streak
 
 const float PT_FLOOR = -1.45;
 const float PT_TOP = 2.3;
+
+// Keeps every red just off saturated red once tonemapped: green (for warm
+// reds) or blue (for pink ones) rises to at least 0.3 of red, so no red area
+// can strobe, while the hue barely moves.
+float ptTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float ptToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 ptOffRed(vec3 c) {
+    float r = ptTone(c.r), g = ptTone(c.g), b = ptTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, ptToneInv(g + need));
+    else c.b = max(c.b, ptToneInv(b + need));
+    return c;
+}
 
 vec4 ptHash41(float p) {
     uint h = hashMix(hashBits(p) ^ 0xbe633942u);
@@ -34,7 +55,7 @@ float ptBokeh(float d, float r, float sharp) {
     float rim = exp(-pow((d - r * 0.84) / max(r * 0.13, 1e-4), 2.0)) * body;
     float hot = exp(-d * d / max(r * r * 0.08, 1e-8));
     float halo = exp(-d * d / max(r * r * 2.5, 1e-8)) * 0.12;
-    return body * (0.5 + 0.3 * sharp) + rim * 0.4 * (1.0 - sharp) + hot * sharp * 2.0 + halo;
+    return body * (0.5 + 0.3 * sharp) + rim * 0.4 * (1.0 - sharp) + hot * sharp * 5.0 + halo;
 }
 
 // One shell. R(y) = r0 * (1 + flare * (y - floor)). Cells are cw wide (at
@@ -108,7 +129,7 @@ vec3 ptShell(vec3 ro, vec3 rd, vec3 fw, vec4 geo, vec4 mot, vec4 lens, vec3 c0, 
             // the beat's ignition front sweeping up the column
             float wv = exp(-pow((py - wave.x) * 3.2, 2.0)) * wave.y;
             pc = mix(pc, cHot, saturate(wv * 0.4));
-            float gain = lens.z * edge * (0.6 + 0.8 * h.w) * sz * sz / (rw * rw) * (1.0 + 2.2 * wv);
+            float gain = lens.z * edge * (0.6 + 0.8 * h.w) * sz * sz / (rw * rw) * (1.0 + 0.5 * wv);
             // the tail fades behind the head
             acc += pc * ptBokeh(d, rw, sharp) * gain * (1.0 - 0.65 * sv) / (1.0 + length(vp) / rw * 0.5);
         }
@@ -123,13 +144,13 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tm = mod(u.time, 600.0);
 
     // ---- camera: slow drift round the column on the speed profile ----
-    vec2 fc = osFlight(u, 0.035, 0.012);
+    vec2 fc = osFlight(u, 0.035, -0.01);
     float cang = mod(fc.x, 600.0) * 0.9 + 0.6;
     float camR = 3.9 + 0.35 * sin(tm * 0.037);
     float camH = 0.55 + 0.40 * sin(tm * 0.029 + 1.3);
     vec3 ro = vec3(sin(cang) * camR, camH, cos(cang) * camR);
     vec3 ta = vec3(0.0, 0.15, 0.0);
-    float roll = osBank(u, 0.06);
+    float roll = 0.0;
     float fov = 1.15;
     vec3 fw = normalize(ta - ro);
     vec3 upv = vec3(sin(roll), cos(roll), 0.0);
@@ -142,16 +163,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float apW = 0.038;
 
     // ---- flow: the swirl surges and brakes with the beat ----
-    vec2 ff = osFlight(u, 0.16, 0.07);
+    vec2 ff = osFlight(u, 0.12, -0.03);
     float flow = mod(ff.x, 600.0);
-    float burst = 1.0 + u.bassImpact * mix(0.05, 0.3, saturate(u.param1));
-    float pulse = 1.0 + 0.25 * u.beat;
+    float burst = 1.0 + 0.5 * u.level * mix(0.01, 0.06, saturate(u.param1));
+    float pulse = 1.0;
     float dens = mix(0.35, 0.85, saturate(u.param0));
-    float spark = 1.0 + 0.8 * u.onset + 0.3 * u.flux;
+    float spark = 1.0 + 0.03 * u.onset;
     float lag = mix(0.05, 0.6, saturate(u.param2)) * (0.5 + 0.5 * ff.y);
     // every beat an ignition front races up the vortex from the floor
     float bp = saturate(u.beatPhase);
-    vec2 wave = vec2(PT_FLOOR - 0.3 + bp * (PT_TOP - PT_FLOOR + 1.0), (0.45 + 1.1 * u.bass) * sqrt(1.0 - bp));
+    vec2 wave = vec2(PT_FLOOR - 0.3 + bp * (PT_TOP - PT_FLOOR + 1.0), 0.1 * smoothstep(0.0, 0.2, bp) * (1.0 - bp));
     vec3 cHot = peakWhite(palRolePeak(0.5, u), 0.2) * 1.3;
 
     // ---- floor: black mirror with a faint ripple ----
@@ -174,7 +195,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         if (k >= nShell) break;
         float fk = float(k) / 4.0;
         float r0 = (0.42 + 0.36 * float(k)) * burst;
-        float e = (0.45 + 2.2 * bandAt(u, 0.04 + 0.8 * fk)) * pulse * (k == 4 ? spark : 1.0);
+        float e = (1.45 + 0.45 * u.level + 0.12 * bandAt(u, 0.04 + 0.8 * fk)) * pulse * (k == 4 ? spark : 1.0);
         // inner shells run hotter; every shell cools toward the top
         vec3 c0 = palVisual(0.02 + 0.22 * fk + 0.05 * u.spectralCentroid, u);
         vec3 c1 = palVisual(0.50 + 0.26 * fk, u);
@@ -189,11 +210,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // sparse sparks in a wide outer shell and a backdrop of drifting motes
     {
         vec3 cs = palVisual(0.5, u);
-        float es = (0.4 + 1.6 * bandAt(u, 0.85)) * spark;
+        float es = (0.7 + 0.2 * u.level + 0.08 * bandAt(u, 0.85)) * spark;
         col += ptShell(ro, rd, fw, vec4(2.9, 0.08, 0.3, 0.22 * dens), vec4(0.35, 0.22, flow, 71.0),
                        vec4(focus, apW, es, 1.1), cs, palVisual(0.3, u), lag, wave, cHot);
         col += ptShell(ro, rd, fw, vec4(7.0, 0.0, 0.7, 0.45), vec4(0.04, 0.05, flow, 93.0),
-                       vec4(focus, apW * 0.7, 0.35 + 0.6 * u.mid, 1.8), palVisual(0.62, u), cs, lag, vec2(0.0), cHot);
+                       vec4(focus, apW * 0.7, 0.45 + 0.15 * u.level, 1.8), palVisual(0.62, u), cs, lag, vec2(0.0), cHot);
     }
 
     // ---- the vortex's luminous core and the haze around it ----
@@ -207,22 +228,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float span = smoothstep(PT_FLOOR, PT_FLOOR + 0.6, yat) * smoothstep(PT_TOP + 0.4, 0.2, yat);
         float eb = bandAt(u, 0.05);
         if (!onFloor || tca < tf) {
-            float rise = vnoise(vec2(yat * 2.6 - flow * 3.0, dax * 3.0 + 1.7));
-            float lit = (0.6 + 1.2 * eb + 0.4 * u.bassImpact) * span * (0.55 + 0.9 * rise)
-                      * (1.0 + 1.6 * wave.y * exp(-pow((yat - wave.x) * 2.5, 2.0)));
+            float rise = vnoise(vec2(yat * 2.6 - flow * 2.0, dax * 3.0 + 1.7));
+            float lit = (0.9 + 0.25 * u.level + 0.08 * eb) * span * (0.55 + 0.9 * rise)
+                      * (1.0 + 0.6 * wave.y * exp(-pow((yat - wave.x) * 2.5, 2.0)));
             col += peakWhite(coreCol, 0.25) * exp(-dax * dax * 45.0) * 0.22 * lit;
             col += coreCol * (exp(-dax * dax * 8.0) * 0.12 + exp(-dax * dax * 1.0) * 0.03) * lit;
         }
         // the haze of the chamber lit by the column, cut softly by the floor
         float hz = onFloor ? smoothstep(-1.5, 1.5, tf - tca) : 1.0;
-        col += mix(coreCol, palVisual(0.6, u), 0.5) * exp(-dax * dax * 0.25) * span * hz * 0.010 * (1.0 + eb);
+        col += mix(coreCol, palVisual(0.6, u), 0.5) * exp(-dax * dax * 0.25) * span * hz * 0.010 * (1.0 + 0.3 * eb);
     }
 
     if (onFloor) {
         // light pooled round the base of the column
         float fr = length(fpos.xz);
         float eb = bandAt(u, 0.06);
-        vec3 pool = coreCol * (0.4 + 1.4 * eb) / (fr * fr * 1.5 + 0.25)
+        vec3 pool = coreCol * (0.8 + 0.2 * u.level + 0.08 * eb) / (fr * fr * 1.5 + 0.25)
                   + palVisual(0.45, u) * 0.3 / (pow(fr - 1.2 * burst, 2.0) * 3.0 + 0.4);
         float spec = 0.7 + 0.3 * vnoise(fpos.xz * 3.3);
         vec3 flo = pool * 0.03 * spec * exp(-tf * 0.06) * pulse + refl * fres * 2.4
@@ -240,5 +261,5 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
 
     col = accentize(col, u.accent, 0.10);
-    return col; // LINEAR HDR — post chain tonemaps
+    return ptOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

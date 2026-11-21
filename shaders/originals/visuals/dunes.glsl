@@ -4,12 +4,24 @@
 // rakes across the slip faces, so every ridge splits into a burning lit side
 // and a cool shadow side; sand streams off the crests in the wind; heat haze
 // shimmers and pools into a mirage at the horizon under a banded, cloud-torn
-// sky. The camera's speed follows a 32-beat profile of cruise, build, burst,
-// brake and drift, and the roll eases to a new side every eight beats. Audio
-// drives the light: the bass lifts the crest streams, the spectrum fans the
-// sun's rays across the sky and lights the crests by position, treble glints
-// the sand.
+// sky. The camera glides at a steady, unhurried pace with a level horizon.
+// Audio only breathes in the light: the smoothed level and a gentle spectrum
+// term warm the crest lines by position and the sun's rays, sand streams lift
+// a little with the bass, and fine glints twinkle slowly in the sand. Nothing
+// flashes on the beat, so the scene stays calm under loud music.
 // param0 = Speed ; param1 = Height (dune height) ; param2 = Dune Density
+
+// The palette read without the library's per-beat and spectral-centroid hue
+// nudge, so large lit areas never shimmer with the music; under the host's
+// palette tour the cross-fade between palettes is spread over the whole tour
+// step, so the colours change slowly.
+vec3 dnPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palByIndex(t, int(floor(u.palette.x + 0.5)));
+    int a = int(mod(floor(u.palette.z), 32.0));
+    int b = int(mod(float(a + 1), 32.0));
+    float blend = smoothstep(0.0, 1.0, fract(u.palette.z));
+    return mix(palByIndex(t, a), palByIndex(t, b), blend);
+}
 
 float dnPath(float z) { return 30.0 * sin(z * 0.006) + 12.0 * sin(z * 0.017 + 2.0); }
 
@@ -54,15 +66,15 @@ vec3 dnSky(vec3 rd, vec3 sunDir, VisualUniforms u, float tm) {
     float h = rd.y;
     float sd = saturate(dot(rd, sunDir));
     float sdw = saturate(dot(normalize(vec3(rd.x, 0.0, rd.z) + 1e-4), normalize(vec3(sunDir.x, 0.0, sunDir.z))));
-    vec3 hot = palVisual(0.58, u) * vec3(1.25, 0.7, 0.45);
-    vec3 band = palVisual(0.3, u) * vec3(0.9, 0.3, 0.42) + vec3(0.06, 0.0, 0.05);
-    vec3 zen = vec3(0.008, 0.012, 0.05) + palVisual(0.1, u) * 0.015;
+    vec3 hot = dnPalStill(0.58, u) * vec3(1.25, 0.7, 0.45);
+    vec3 band = dnPalStill(0.3, u) * vec3(0.9, 0.3, 0.42) + vec3(0.06, 0.0, 0.05);
+    vec3 zen = vec3(0.008, 0.012, 0.05) + dnPalStill(0.1, u) * 0.015;
     // the horizon burns toward the sun and cools to crimson away from it
     vec3 hor = mix(band * 0.9, hot, pow(sdw, 3.0));
     vec3 col = mix(hor, band * 0.5, smoothstep(0.0, 0.12, h));
     col = mix(col, zen, smoothstep(0.06, 0.5, h));
     // the sun: a white-hot disc in an amber glow
-    col += hot * pow(sd, 14.0) * 0.5 + palVisual(0.85, u) * pow(sd, 120.0) * 1.6;
+    col += hot * pow(sd, 14.0) * 0.5 + dnPalStill(0.85, u) * pow(sd, 120.0) * 1.6;
     col += vec3(7.0, 5.2, 3.2) * smoothstep(0.99925, 0.99955, sd);
     // rays fanned around the sun, each lit by its spectrum band
     vec3 sx = normalize(cross(sunDir, vec3(0.0, 1.0, 0.0)));
@@ -72,7 +84,7 @@ vec3 dnSky(vec3 rd, vec3 sunDir, VisualUniforms u, float tm) {
     float ray = vnoise(vec2(fan * 44.0, tm * 0.08));
     ray = smoothstep(0.4, 0.95, ray);
     float rb = bandAt(u, abs(fract(fan * 2.0) * 2.0 - 1.0));
-    col += hot * ray * (0.04 + 0.5 * rb) * pow(sd, 7.0) * smoothstep(-0.02, 0.06, h);
+    col += hot * ray * (0.12 + 0.12 * u.level + 0.08 * rb) * pow(sd, 7.0) * smoothstep(-0.02, 0.06, h);
     // torn cloud bands: dark bellies with burning edges toward the sun
     // high cirrus: long thin wind-combed streaks, dark undersides and
     // hairline silver-gold edges, instead of soft painted cloud
@@ -97,26 +109,22 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float speed = mix(6.0, 18.0, u.param0);
     float amp = mix(1.6, 4.4, u.param1);
     float dens = mix(0.6, 1.5, u.param2);
-    vec2 fl = osFlight(u, speed, 1.8 * mix(0.5, 1.5, u.param0));
-    float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    float z = mod(speed * 0.25 * u.time, 20000.0);
     vec3 ro = vec3(dnPath(z), 0.0, z);
     // ride the broad swell, clear of every crest; the audio never moves it
     ro.y = dnSwell(ro.xz) + amp * 1.6 + 2.2;
     vec3 ta = vec3(dnPath(z + 24.0), 0.0, z + 24.0);
     ta.y = dnSwell(ta.xz) + amp * 1.0 + 0.8;
-    float roll = osBank(u, 0.12) - 0.01 * (dnPath(z + 30.0) - 2.0 * dnPath(z + 15.0) + dnPath(z));
-    float fov = 1.35 - 0.2 * rush + 0.08 * lull;
+    float roll = -0.01 * (dnPath(z + 30.0) - 2.0 * dnPath(z + 15.0) + dnPath(z));
+    float fov = 1.35;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
 
     // heat haze: a shimmer that thickens toward the horizon
     float shimmer = exp(-abs(rd.y) * 22.0);
-    rd.y += shimmer * 0.0035 * (vnoise(vec2(p.x * 22.0, p.y * 90.0 - tm * 6.0)) - 0.5);
+    rd.y += shimmer * 0.002 * (vnoise(vec2(p.x * 22.0, p.y * 90.0 - tm * 1.2)) - 0.5);
     rd = normalize(rd);
 
     vec3 sunDir = normalize(vec3(-0.62, 0.075, 1.0));
-    float par = mod(floor(u.beatCount), 2.0);
     vec3 col = vec3(0.0);
 
     float tmax = 520.0;
@@ -177,12 +185,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float cloud = smoothstep(0.42, 0.72, vnoise(pos.xz * 0.011 + vec2(tm * 0.55, tm * 0.2)));
         sh *= 1.0 - 0.75 * cloud;
         float dif = saturate(dot(n, sunDir));
-        vec3 sunCol = palVisual(0.6, u) * vec3(1.9, 1.05, 0.6);
+        vec3 sunCol = dnPalStill(0.6, u) * vec3(1.9, 1.05, 0.6);
         // shade is lit by the burning sky: rose low, violet from above
         // the shade takes the cool sky: lilac on the slopes, deep blue
         // under the crests, the complement of the burning lit sides
-        vec3 shadeCol = mix(vec3(0.32, 0.06, 0.42), vec3(0.04, 0.1, 0.62), saturate(n.y * 1.2 - 0.1)) + palVisual(0.2, u) * 0.03;
-        vec3 sand = mix(vec3(0.8, 0.46, 0.27), palVisual(0.7, u), 0.35);
+        vec3 shadeCol = mix(vec3(0.32, 0.06, 0.42), vec3(0.04, 0.1, 0.62), saturate(n.y * 1.2 - 0.1)) + dnPalStill(0.2, u) * 0.03;
+        vec3 sand = mix(vec3(0.8, 0.46, 0.27), dnPalStill(0.7, u), 0.35);
         vec3 sandShade = mix(sand, vec3(0.75), 0.5);
         // plus warm light bounced off the sunlit slopes into the shade
         vec3 lit = sand * sunCol * dif * sh * 1.6 + sandShade * shadeCol * 0.38 * (0.85 + 0.3 * rpl * rf)
@@ -197,28 +205,28 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float crest = exp(-(s - 0.72) * (s - 0.72) * 30000.0 / (1.0 + t * 0.05));
         crest *= 0.35 + 0.65 * hash11(mod(floor(ridge), 512.0) + 0.37);
         float xb = saturate(0.5 + 0.35 * p.x);
-        float drive = 0.3 + 1.4 * bandAt(u, 0.05 + 0.8 * xb) + 1.4 * u.bassImpact;
-        vec3 crestCol = mix(sunCol * 1.3, palRolePeak(0.8, u), 0.25 + 0.4 * u.bassImpact);
+        float drive = 0.75 + 0.15 * u.level + 0.12 * bandAt(u, 0.05 + 0.8 * xb);
+        vec3 crestCol = mix(sunCol * 1.3, dnPalStill(0.8, u), 0.35);
         // far crests break into lit segments and fade, so the rows near the
         // horizon never stack into even bands
         float brk = smoothstep(0.3, 0.7, vnoise(vec2(dot(pos.xz, vec2(0.866, 0.5)) * 0.06, floor(ridge) * 3.7)));
         crest *= mix(1.0, brk, saturate(t / 50.0));
         lit += crestCol * crest * drive * (0.3 + 0.9 * sh) * exp(-t * 0.04);
         // the cool sky rims the shadowed flanks: the complement of the burning
-        // crests, flaring on every other beat
+        // crests, steady and soft
         float rim = pow(1.0 - saturate(dot(n, -rd)), 5.0) * saturate(0.2 - 2.0 * dot(n, sunDir)) * sh;
-        vec3 cool = mix(vec3(0.2, 0.32, 1.0), palRolePeak(0.3, u), 0.25);
-        lit += cool * rim * (0.05 + 0.6 * u.beat * par + 0.15 * u.bassImpact) * exp(-t * 0.01);
+        vec3 cool = mix(vec3(0.2, 0.32, 1.0), dnPalStill(0.3, u), 0.25);
+        lit += cool * rim * (0.12 + 0.03 * u.level) * exp(-t * 0.01);
         // treble glints in the sand near the camera
         vec2 gc = floor(pos.xz * 26.0);
-        float g = step(0.992, hash21(gc + floor(mod(tm * 6.0, 100.0)))) * rf * sh * (0.15 + 4.0 * spec + dif);
-        lit += vec3(4.5, 3.6, 2.4) * g * (0.3 + 2.0 * u.treble);
+        float g = step(0.992, hash21(gc + floor(mod(tm * 1.5, 100.0)))) * rf * sh * (0.15 + 4.0 * spec + dif);
+        lit += vec3(4.5, 3.6, 2.4) * g * (0.35 + 0.1 * u.level);
 
         // dusty aerial perspective, warm toward the sun
         float fog = 1.0 - exp(-t * 0.0055);
         // far rows melt into the dust so the horizon never stacks into bands
         fog = max(fog, 0.75 * smoothstep(70.0, 260.0, t));
-        vec3 dust = mix(palVisual(0.3, u) * vec3(0.35, 0.12, 0.16), palVisual(0.6, u) * 0.9, pow(saturate(dot(rd, sunDir)), 4.0));
+        vec3 dust = mix(dnPalStill(0.3, u) * vec3(0.35, 0.12, 0.16), dnPalStill(0.6, u) * 0.9, pow(saturate(dot(rd, sunDir)), 4.0));
         col = mix(lit, dust, fog);
         // the mirage: far sand near the horizon turns into a shimmering sky mirror
         float mir = smoothstep(80.0, 300.0, t) * exp(-abs(rd.y) * 45.0);
@@ -229,9 +237,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     // blown sand glowing in the low sun, streaked by the wind
     float sw = 0.3 + 1.2 * vnoise(vec2(p.x * 7.0 - tm * 2.5, p.y * 4.0 + tm * 0.5));
-    col += palVisual(0.62, u) * vec3(1.3, 0.8, 0.5) * spray * sw * (0.06 + 0.25 * u.bass + 0.45 * u.bassImpact)
+    col += dnPalStill(0.62, u) * vec3(1.3, 0.8, 0.5) * spray * sw * (0.12 + 0.06 * u.level + 0.04 * u.bass)
          * (0.4 + 1.2 * pow(saturate(dot(rd, sunDir)), 2.0));
-    // the low sun's glare spills over the dunes, lifted a little by the beat
-    col += palVisual(0.6, u) * pow(saturate(dot(rd, sunDir)), 40.0) * (0.15 + 0.25 * u.bassImpact);
+    // the low sun's glare spills softly over the dunes
+    col += dnPalStill(0.6, u) * pow(saturate(dot(rd, sunDir)), 40.0) * (0.2 + 0.03 * u.level);
     return col; // LINEAR HDR — post chain tonemaps
 }

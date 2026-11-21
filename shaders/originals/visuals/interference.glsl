@@ -5,10 +5,13 @@
 // band's trace; the rings cross and interfere, and the surface is lit by the
 // orbs themselves, so their reflections smear into coloured glitter across
 // the crests while a ring light overhead traces the wave pattern in silver.
-// Where crests align the liquid burns HDR-hot with a moire shimmer, and every
-// beat sends a soft shockwave out from each orb. The camera circles the pool
-// on the shared 32-beat speed profile; audio drives the light and the waves,
-// never the camera.
+// Where crests align the liquid glows warm with a moire shimmer, and every
+// beat sends only a faint shockwave out from each orb. Calm under loud music:
+// the orbs and the ring light brighten with the smoothed level plus a modest
+// band term, the camera circles at a slow steady cruise with no beat surges,
+// and the ripples and glitter spread slowly, so bright crests never sweep
+// large areas; audio drives the light and the waves, never the camera. Reds
+// are kept just off pure red.
 // param0 = Ring Density ; param1 = Drift ; param2 = Heat
 
 const float IF_ORB_H = 0.55;   // orb height above the liquid
@@ -83,7 +86,7 @@ vec3 ifSky(vec3 rd, vec3 ringCol, vec3 horCol, vec3 lowCol, float lift, float ro
     float bi = mod(floor(ab), 48.0);
     float eq = bandAt(u, abs(bi - 23.5) / 24.0);
     float haze = smoothstep(0.01, 0.05, rough);            // the fog layer sees no bars
-    float seg = mix((0.35 + 1.4 * eq) * bar, 0.5 + 0.6 * u.level, haze);
+    float seg = mix((0.6 + 0.4 * saturate(u.level) + 0.35 * eq) * bar, 0.6 + 0.3 * saturate(u.level), haze);
     float x = (el - 0.36) / (0.0045 + rough);
     col += ringCol * (exp(-x * x) * seg * 4.0 * (0.0045 / (0.0045 + rough)) + exp(-abs(el - 0.36) * 30.0) * 0.12) * (1.0 + lift);
     // a dimmer warm ring low down lights the far water
@@ -108,26 +111,25 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float heat = mix(1.6, 3.4, u.param2);
 
     // camera: circles the pool on the speed profile, eased bank, slow bob
-    vec2 fl = osFlight(u, 0.5, 0.25);
+    vec2 fl = osFlight(u, 0.3, -0.12);
     float ang = fl.x * 0.045 + 0.6;
     float camH = 2.45 + 0.3 * sin(t * 0.043);
     vec3 ro = vec3(cos(ang) * 4.3, camH, sin(ang) * 4.3);
     vec3 ta = vec3(cos(ang + 1.7) * 0.5, 0.05, sin(ang + 1.7) * 0.5);
     float fov = 1.75;
-    float roll = osBank(u, 0.07);
+    float roll = osBank(u, 0.03);
     vec3 rd = osCamera(ro, ta, roll, fov, p);
     vec3 cfw = normalize(ta - ro);
     vec3 crt = normalize(cross(cfw, vec3(sin(roll), cos(roll), 0.0)));
     vec3 ccu = cross(crt, cfw);
-    // the ripples run on the same speed profile: they race in a burst and
-    // nearly stall in the brake, so the pool itself carries the tempo
-    float wph = fl.x * 0.55;
-    float surge = saturate((fl.y - 1.0) / 3.0);
+    // the ripples spread steadily and quicken on the speed profile, so the
+    // pool carries the tempo without its bright crests racing across it
+    float wph = (0.08 * t + osFlight(u, 0.1, -0.04).x) * 0.5;
 
     vec3 ringCol = mix(vec3(0.8, 0.88, 1.0), palVisual(0.78, u), 0.55);
     vec3 horCol = palVisual(0.86, u);
     vec3 lowCol = palVisual(0.3, u);
-    float lift = 0.5 * u.level;
+    float lift = 0.3 * saturate(u.level);
 
     // per-orb colour, energy and position
     vec3 tints[3];
@@ -136,9 +138,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     tints[0] = palRoleBass(0.05, u);
     tints[1] = palRoleTrace(0.44 + 0.06 * u.spectralCentroid, u);
     tints[2] = palRoleTreble(0.74, u);
-    en[0] = 0.3 + 1.5 * u.bass;
-    en[1] = 0.3 + 1.5 * u.mid;
-    en[2] = 0.3 + 1.5 * u.treble;
+    float swell = sin(3.14159265 * saturate(u.beatPhase));
+    swell *= swell;
+    // the bass orb swells smoothly through each beat (a kick-sharp jump lights
+    // its whole pool at once)
+    float lv = saturate(u.level);
+    en[0] = 0.55 + 0.5 * lv + 0.08 * u.bass * swell;
+    en[1] = 0.5 + 0.45 * lv + 0.25 * u.mid;
+    en[2] = 0.5 + 0.45 * lv + 0.25 * u.treble;
     for (int i = 0; i < 3; i++) orbs[i] = ifOrb(float(i), drift, t);
     // the triangle of orbs turns slowly about the pool, counter to the camera
     mat2 spin = rot2(-fl.x * 0.012);
@@ -157,7 +164,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float crestAll = 0.0;
         vec3 emit = vec3(0.0);
         float swR = u.beatPhase * 3.0;
-        float swAmp = exp(-u.beatPhase * 2.6) * (0.3 + 1.0 * u.bassImpact);
+        float swAmp = swell * (0.06 + 0.06 * lv);
+        float swKick = exp(-u.beatPhase * 2.6) * (0.12 + 0.05 * u.bassImpact);
         for (int i = 0; i < 3; i++) {
             float fi = float(i);
             vec2 dv = P.xz - orbs[i].xz;
@@ -186,17 +194,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float dAtt = -0.7 * r * att * att;
             float amp = 0.018 * (0.6 + 0.4 * e);
             float dh = amp * (dAtt * s * f1 + att * ds * k);
-            // beat shockwave: a soft ring racing outward
+            // beat shockwave: a soft ring racing outward; the kick ripples the
+            // surface, the glow swells and settles with the beat
             float x = (r - swR) / 0.22;
             float sw = exp(-x * x) * swAmp * att;
-            dh += -2.0 * x / 0.22 * sw * 0.03 * f1;
+            dh += -2.0 * x / 0.22 * exp(-x * x) * swKick * att * 0.03 * f1;
             grad += dh * dv / r;
 
-            float sa = s * e * att;
+            // hot zones saturate with energy, so loud passages do not make
+            // large moving crests brighter
+            float sa = s * min(e, 1.2) * att;
             sum += sa;
             float crest = smoothstep(0.5, 1.0, s) * att * e * f1;
             crestAll += crest;
-            emit += tints[i] * (crest * 0.07 + sw * 0.9 + exp(-r * 1.6) * 0.05 * e);
+            emit += tints[i] * (crest * 0.07 + sw * 0.15 + exp(-r * 1.6) * 0.13 * e);
         }
 
         // wind capillaries: three small directional wave trains that break
@@ -210,7 +221,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float fq = 9.0 + 7.0 * fj;
             float fd = exp(-fq * fq * fp * fp * 0.35);
             mfade += fd / 3.0;
-            grad += dj * (0.006 * fq * 0.3) * cos(dot(P.xz, dj) * fq - t * (1.4 + 0.5 * fj) + fj * 1.7) * fd;
+            grad += dj * (0.008 * fq * 0.3) * cos(dot(P.xz, dj) * fq - t * (0.6 + 0.2 * fj) + fj * 1.7) * fd;
         }
         float rough = (1.0 - mfade) * 0.007;
         vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
@@ -238,7 +249,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float hot = pow(cons * 0.6, heat);
         float shim = 0.75 + 0.25 * sin(sum * 9.0 + wph * 3.0);
         vec3 zone = palVisual(fract(0.18 + cons * 0.22 + 0.1 * u.spectralCentroid), u);
-        emit += zone * hot * shim * 0.35 * (0.7 + 0.6 * u.level + 0.6 * surge);
+        emit += zone * hot * shim * 0.3 * (0.8 + 0.3 * lv);
         col += emit;
 
         // distance haze toward the horizon
@@ -273,13 +284,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec3 L = orbs[i] - mp;
             lit += tints[i] * en[i] / (0.08 + dot(L, L) * 1.6);
         }
-        float tw = 0.6 + 0.4 * sin(t * 2.3 + h2 * 40.0);
-        col += lit * g * tw * 0.35 * (1.0 - smoothstep(4.0, 7.0, tc));
+        float tw = 0.75 + 0.25 * sin(t * 0.9 + h2 * 40.0);
+        col += lit * g * tw * 0.7 * (1.0 - smoothstep(4.0, 7.0, tc));
     }
 
     // the orbs themselves
     for (int i = 0; i < 3; i++) {
         col += ifOrbView(ro, rd, tHit, orbs[i], tints[i], en[i], crt, ccu, t, float(i));
     }
+    // keep reds just off pure red: the bass pool's moving crests would
+    // otherwise flicker in and out of saturated red
+    col = max(col, vec3(0.0, 0.3, 0.15) * col.r);
     return col; // LINEAR HDR — post chain tonemaps
 }

@@ -3,17 +3,34 @@
 // A night drone light show over a city lake. About a thousand drones hang in
 // the sky in rows, and every row is the live waveform drawn in LEDs: band
 // energies build its partials and each beat throws a kick that runs out along
-// the rows. Every eight beats the swarm re-forms, flying row by row from a
+// the rows. Every sixteen beats the swarm slowly re-forms, flying row by row from a
 // receding sheet of traces, to a tube whose silhouette is the waveform, to a
 // wall of spectrum bars, and back. A colour sweep rings out from the centre
-// of the formation on each beat, alternating warm and cool; onsets strobe
-// single drones; a breakdown dims the swarm to a sparse constellation and a
-// burst lights all of it. Below, a rippled lake mirrors the swarm as long
-// streaks and a low skyline glows sodium amber on the far shore. The camera
-// sweeps an arc along the shore on the shared cruise/build/burst/brake
-// profile; audio drives the drones, their light and colour, never the camera.
+// of the formation on each beat, alternating warm and cool, faint and soft.
+// The drones' light follows the smoothed level, so the swarm glows steadily:
+// no onset strobes, no breakdown or burst switching drones on and off, and
+// each row takes the next hue as it morphs. Below, a gently rippled lake
+// mirrors the swarm dimly and a low skyline glows sodium amber on the far
+// shore, its windows soft and filtered and its beacons breathing just off
+// red. The air glow holds one luma as its hue glides. The camera sweeps a
+// slow arc along the shore at a steady pace and barely rolls; audio drives
+// the drones, their light and colour, never the camera.
+// The palette is read without its per-frame centroid nudge and held at one
+// mean luma, so the palette tour recolours the scene without brightening or
+// darkening the whole frame.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Thickness (LED size) ; param1 = Trail Length (how far the sheet
 // reaches back) ; param2 = Trace Stack (how many rows fly)
+
+// The palette read: the visual's own palette (5) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 wvPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 5, u); }
+vec3 wvPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = wvPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 const float WV_HC = 12.0;     // height of the formation's centre
 const float WV_SX = 0.5;      // drone spacing along a row
@@ -38,13 +55,23 @@ float wvBand8(float s, vec4 w0, vec4 w1) {
 // The palette read once per pixel at its five stops and blended locally.
 struct WvPalette { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
+// The stops are read without the per-frame centroid nudge: the raw centroid
+// jumps from hop to hop and would flicker the whole skyline at once.
 WvPalette wvPalLoad(VisualUniforms u) {
     WvPalette P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    float cn = 0.0;
+    P.c0 = wvPalSteady(0.0 - cn, u);
+    P.c1 = wvPalSteady(0.26 - cn, u);
+    P.c2 = wvPalSteady(0.52 - cn, u);
+    P.c3 = wvPalSteady(0.78 - cn, u);
+    P.c4 = wvPalSteady(0.999 - cn, u);
+    // the palette tour's crossfades keep one overall brightness: the five
+    // stops are scaled together to a fixed mean luma, so a tour step changes
+    // the colours but never brightens or darkens the whole frame
+    float gl = 0.2 * (luma(P.c0) + luma(P.c1) + luma(P.c2) + luma(P.c3) + luma(P.c4));
+    float gk = clamp(0.32 / max(gl, 1e-3), 0.4, 3.0);
+    P.c0 *= gk; P.c1 *= gk; P.c2 *= gk; P.c3 *= gk; P.c4 *= gk;
+
     return P;
 }
 
@@ -83,6 +110,7 @@ struct WvShow {
     float morph;  // segment time in beats, for the row-by-row morph
     float depth;  // how far the sheet reaches back
     float roll;   // the tube's slow roll
+    float lv;     // the smoothed level
 };
 
 // The live waveform at x, delayed by d (in radians of the slowest partial).
@@ -113,8 +141,10 @@ vec3 wvForm(WvShow S, int f, float x, float r) {
         return vec3(WV_HC + R * cos(th), (R - 4.2) * sin(th), 1.0);
     }
     // a wall of spectrum bars: drones above the bar's height go dark
-    float b = saturate(wvBand8(abs(x) / (float(WV_NC) * WV_SX), S.b0, S.b1) * 1.15 + 0.08);
-    return vec3(WV_HC - 5.5 + r * 11.0, 0.0, smoothstep(b + 0.04, b - 0.04, r) * 0.95 + 0.05);
+    // the bars follow the smoothed level with only a little of the band, and
+    // their tops fade over several drones, so no drone blinks with the spectrum
+    float b = saturate(mix(S.lv, wvBand8(abs(x) / (float(WV_NC) * WV_SX), S.b0, S.b1), 0.25) * 1.15 + 0.08);
+    return vec3(WV_HC - 5.5 + r * 11.0, 0.0, smoothstep(b + 0.15, b - 0.15, r) * 0.9 + 0.1);
 }
 
 // The light of every drone near the ray: per row, the ray meets the row's
@@ -126,12 +156,12 @@ vec3 wvDrones(WvShow S, WvPalette P, VisualUniforms u, vec3 ro, vec3 rd, float p
     float rows = float(nr - 1);
     float rdz = rd.z > 1e-3 ? rd.z : 1e-3;
     float strobeK = floor(u.beatCount * 2.0) * 0.618;
-    float strobeA = u.onset * u.treble;
+    float strobeA = 0.0;
     for (int j = 0; j < WV_NR; j++) {
         if (j >= nr) break;
         float r = float(j) / rows;
         // the morph runs row by row through beats 5.5 to 7.9 of the segment
-        float m = smoothstep(5.5 + r * 0.9, 7.0 + r * 0.9, S.morph);
+        float m = smoothstep(8.0 + r * 3.2, 12.6 + r * 3.2, S.morph);
         float z = wvRowZ(S, S.fA, r);
         if (m > 0.0) z = mix(z, wvRowZ(S, S.fB, r), m);
         float tz = (z - ro.z) / rdz;
@@ -151,11 +181,15 @@ vec3 wvDrones(WvShow S, WvPalette P, VisualUniforms u, vec3 ro, vec3 rd, float p
             float a2 = dot(pr, pr) / (tp * tp * pix * pix);
             float sg = max(1.1, size / (tp * pix));
             float h = hash21(vec2(ic, float(j) * 7.13 + 3.0));
-            // sparse in a breakdown, every drone in a burst
+            // which drones are lit barely changes with the level
             float lit = f.z * smoothstep(h - 0.08, h + 0.08, look.x);
-            // onsets strobe single drones white
+            // the onset strobe stays off (strobeA is 0): white pops flash
+
             float strobe = step(0.93, fract(h * 17.3 + strobeK)) * strobeA;
-            float hue = look.y + 0.22 * r + 0.10 * x / (float(WV_NC) * WV_SX) + 0.06 * h;
+            // each row takes the next segment's hue as it morphs, so the
+            // swarm recolours row by row and never all at once
+            float hue = look.y + 0.15 * m + 0.22 * r + 0.10 * x / (float(WV_NC) * WV_SX) + 0.06 * h;
+
             vec3 c = wvPal(P, hue);
             c = c / max(max(c.r, max(c.g, c.b)), 0.05);
             // the beat's colour sweep rings out from the formation's centre
@@ -163,8 +197,8 @@ vec3 wvDrones(WvShow S, WvPalette P, VisualUniforms u, vec3 ro, vec3 rd, float p
             float sd = (rho - look.z) * 0.6;
             float sw = saturate(exp(-sd * sd) * sweepA);
             c = mix(mix(c, cAcc, sw), vec3(1.0), saturate(strobe));
-            float I = lit * look.w * (1.0 + 2.2 * sw) + strobe * 3.0;
-            acc += c * I * (exp(-a2 / (sg * sg)) * 1.6 + exp(-a2 * 0.03) * 0.07);
+            float I = lit * look.w * (1.0 + 0.2 * sw) + strobe * 0.8;
+            acc += c * I * (exp(-a2 / (sg * sg)) * 1.6 + exp(-a2 * 0.03) * 0.045);
         }
     }
     return acc;
@@ -172,7 +206,7 @@ vec3 wvDrones(WvShow S, WvPalette P, VisualUniforms u, vec3 ro, vec3 rd, float p
 
 // The far shore: a low skyline in sodium light under its own glow, seen from
 // height oy. Returns colour and whether a building was hit.
-vec4 wvSkyline(vec3 rd, float oy, float t, vec3 cWarm) {
+vec4 wvSkyline(vec3 rd, float oy, float t, vec3 cWarm, float pix) {
     float e = rd.y / max(length(rd.xz), 1e-3);
     float az = atan2_(rd.x, rd.z);
     float e0 = -oy / WV_SHORE;
@@ -191,14 +225,24 @@ vec4 wvSkyline(vec3 rd, float oy, float t, vec3 cWarm) {
         vec2 wi = floor(wg);
         vec2 wf = fract(wg);
         float on = step(0.72, hash21(wi + bi * 3.1));
-        float win = on * step(0.25, wf.x) * step(wf.x, 0.75) * step(0.3, wf.y) * step(wf.y, 0.7);
-        float flick = 0.75 + 0.25 * sin(t * 0.7 + hash21(wi) * 40.0);
-        col += mix(cWarm, vec3(1.0, 0.9, 0.75), step(0.8, hash21(wi + 9.0))) * win * 0.22 * flick;
+        // the windows are barely two pixels across, so each is box-filtered
+        // over its pixel footprint: hard-edged ones would pop on and off as
+        // the camera glides and make the whole shore line shimmer
+        vec2 fw = max(pix * vec2(240.0, 300.0), 1e-3);
+        vec2 wx = clamp((wf - vec2(0.25, 0.3)) / fw + 0.5, 0.0, 1.0) - clamp((wf - vec2(0.75, 0.7)) / fw + 0.5, 0.0, 1.0);
+
+        float win = on * wx.x * wx.y;
+        float flick = 0.95 + 0.05 * sin(t * 0.4 + hash21(wi) * 40.0);
+        // the windows stay a soft glow: brighter dots gliding over the dark
+        // towers would trip the flash limiter all along the shore
+        col += mix(cWarm, vec3(1.0, 0.9, 0.75), step(0.8, hash21(wi + 9.0))) * win * 0.12 * flick;
         // red beacons on the tallest towers
         float bq = (fract(bx) - 0.5) * 9.0;
         float bz = (e - top + 0.002) * 1600.0;
         float bk = step(0.92, hb) * exp(-bq * bq - bz * bz);
-        col += vec3(1.0, 0.05, 0.02) * bk * 3.0 * step(0.5, fract(t * 0.6 + hb * 3.0));
+        // they glow just off saturated red and breathe slowly instead of blinking
+        col += vec3(1.0, 0.34, 0.2) * bk * (0.7 + 0.15 * smoothstep(0.2, 0.8, 0.5 + 0.5 * sin(t * 0.6 + hb * 19.0)));
+
     }
     // light pollution over the city
     float above = max(e - e0, 0.0);
@@ -222,8 +266,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float t = mod(u.time, 600.0);
 
     // ---- the camera: an arc along the shore at the flight profile's pace ----
-    vec2 fl = wvFlight(u, 0.55, 0.35);
-    float surge = smoothstep(1.0, 4.0, fl.y);
+    vec2 fl = wvFlight(u, 0.35, -0.14);
+    float surge = 0.0;
+
     float ph = fl.x * 0.11;
     float azc = 0.55 * sin(ph * 0.35) + 0.12 * sin(ph * 0.83 + 1.0);
     float rad = 21.0 + 3.5 * sin(ph * 0.29 + 0.5);
@@ -231,7 +276,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 ro = vec3(rad * sin(azc), hgt, -rad * cos(azc));
     vec3 ta = vec3(2.5 * sin(ph * 0.51 + 0.3), WV_HC * 0.55 + 1.2 * sin(ph * 0.37), 0.0);
     float fov = 1.25;
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.05), fov, p);
+    // only a slight roll, so the shore line barely tilts across the frame
+    vec3 rd = osCamera(ro, ta, osBank(u, 0.02), fov, p);
+
     float pix = 2.0 / (u.resolution.y * fov);
 
     // ---- the show for this frame ----
@@ -242,36 +289,50 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float lowm = (S.b0.z + S.b0.w) * 0.5;
     float midb = (S.b1.x + S.b1.y) * 0.5;
     float treb = (S.b1.z + S.b1.w) * 0.5;
-    float lift = 0.45 + 0.75 * saturate(u.amplitude * 1.3);
-    S.amp = vec4(0.25 + 0.75 * bass, 0.12 + 0.55 * lowm, 0.05 + 0.40 * midb, 0.02 + 0.30 * treb) * lift;
+    float lift = 1.0 + 0.05 * saturate(u.level);
+    float lv = saturate(u.level);
+    bass = mix(lv, bass, 0.1);
+    lowm = mix(lv, lowm, 0.1);
+    midb = mix(lv, midb, 0.1);
+    treb = mix(lv, treb, 0.1);
+    S.lv = lv;
+    S.amp = vec4(0.45 + 0.15 * bass, 0.12 + 0.12 * lowm, 0.05 + 0.08 * midb, 0.02 + 0.04 * treb) * lift;
     S.kx = vec4(0.17, 0.39, 0.83, 1.71);
-    S.ph = vec4(0.9, 1.6, 2.5, 3.7) * t + vec4(0.0, 1.3, 2.9, 4.4);
+    S.ph = vec4(0.9, 1.6, 2.5, 3.7) * 0.12 * t + vec4(0.0, 1.3, 2.9, 4.4);
     float bp = fract(u.beatPhase);
     S.kick = bp * 22.0;
-    S.kickA = 1.3 * exp(-2.2 * bp) * (0.4 + 0.8 * u.bassImpact);
-    float seg = floor(u.beatCount / 8.0);
+    S.kickA = 0.01 * exp(-2.2 * bp);
+    float seg = floor(u.beatCount / 16.0);
     S.fA = int(mod(seg, 3.0));
     S.fB = int(mod(seg + 1.0, 3.0));
-    S.morph = mod(u.beatCount, 8.0) + saturate(u.beatPhase);
+    S.morph = mod(u.beatCount, 16.0) + saturate(u.beatPhase);
     S.depth = mix(6.0, 18.0, u.param1);
-    S.roll = 0.6 + t * 0.22;
+    S.roll = 0.6 + t * 0.06;
+
     int nr = int(mix(8.0, float(WV_NR), u.param2) * mix(0.6, 1.0, detail) + 0.5);
 
-    // breakdown: a sparse constellation; burst: every drone, brighter
-    float energy = saturate(0.35 + 0.45 * surge + 0.35 * u.amplitude + 0.2 * u.bassImpact);
+    // which drones are lit barely follows the level, so none blink on and off
+    float energy = saturate(0.86 + 0.03 * u.level);
+
     float odd = mod(floor(u.beatCount), 2.0);
     vec3 cWarm = vec3(1.0, 0.42, 0.10);
     vec3 cCool = wvPal(P, 0.55);
     cCool = cCool / max(max(cCool.r, max(cCool.g, cCool.b)), 0.05);
     vec3 cAcc = odd > 0.5 ? vec3(1.0, 0.62, 0.25) : mix(cCool, vec3(0.3, 0.8, 1.0), 0.5);
-    float hue0 = fract(0.008 * t + 0.12 * u.spectralCentroid + 0.15 * seg);
+    // the hue moves on a small step per eight-beat segment (the drones take
+    // it row by row with the morph) and drifts slowly
+    float hue0 = fract(0.008 * t + 0.15 * seg);
     vec4 look = vec4(mix(0.25, 1.08, energy), hue0, bp * 26.0,
-                     (0.9 + 1.3 * surge + 0.6 * u.amplitude) * mix(0.9, 1.2, u.param0));
-    float sweepA = exp(-1.6 * bp) * (0.6 + 0.6 * u.beat);
+                     (1.5 + 0.15 * surge + 0.15 * u.level) * mix(0.9, 1.2, u.param0));
+    float sweepA = exp(-1.6 * bp) * 0.1;
     float size = 0.07 * mix(0.6, 1.7, u.param0);
     vec3 C = vec3(0.0, WV_HC, 0.0);
-    vec3 airCol = wvPal(P, hue0 + 0.2);
-    airCol = max(mix(vec3(luma(airCol)), airCol, 1.5), 0.0) / max(max(airCol.r, max(airCol.g, airCol.b)), 0.05);
+    // the air glow fills the sky and the lake, so its hue glides with the
+    // beat count instead of stepping per segment, and it is held at one luma
+    // so a hue change never brightens or darkens the whole sky
+    vec3 airCol = wvPal(P, fract(0.008 * t + 0.15 * u.beatCount / 8.0) + 0.2);
+    airCol = max(mix(vec3(luma(airCol)), airCol, 1.5), 0.0);
+    airCol *= clamp(0.35 / max(luma(airCol), 0.02), 0.3, 4.0);
     airCol = mix(airCol, cAcc, 0.3 * sweepA);
     float air = 0.022 * min(look.w * look.x, 1.8);
 
@@ -296,27 +357,46 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float lit = exp(-dot(cl, cl) * 0.0012);
         col += cd * (airCol * lit * min(air, 0.06) * 2.2 + cWarm * 0.008 * exp(-rd.y * 3.0));
     }
-    vec4 shore = wvSkyline(rd, ro.y, t, cWarm);
+    vec4 shore = wvSkyline(rd, ro.y, t, cWarm, pix);
     col = col * (1.0 - shore.w) + shore.rgb;
 
     // ---- the lake ----
     float tw = rd.y < -1e-4 ? -ro.y / rd.y : 1e9;
     if (tw < WV_SHORE && shore.w < 0.5) {
         vec3 pw = ro + rd * tw;
-        // wind ripples, stirred by the bass
-        float rip = 0.010 + 0.012 * u.bass;
+        // a slow, shallow swell that the music barely stirs: deeper or faster
+        // ripples would make every reflected drone shimmer
+        float rip = 0.0032 + 0.0003 * u.level;
+
         vec2 q = pw.xz;
-        vec2 g = vec2(cos(q.x * 2.1 + q.y * 0.7 + t * 1.9), cos(q.y * 6.3 - q.x * 0.5 + t * 2.3))
-               + vec2(cos(q.x * 5.3 - q.y * 2.1 - t * 3.1), cos(q.y * 13.1 + q.x * 0.9 + t * 3.7)) * 0.5;
+        // each ripple fades out where it gets finer than a pixel on the far
+        // water, so the distant lake never sparkles with aliased waves
+        float fpz = pix * tw * tw / max(ro.y, 0.1);
+        vec4 ra = clamp(1.0 - fpz * vec4(2.1, 6.3, 5.3, 13.1) * 0.3, 0.0, 1.0);
+
+        vec2 g = vec2(cos(q.x * 2.1 + q.y * 0.7 + t * 0.18) * ra.x, cos(q.y * 6.3 - q.x * 0.5 + t * 0.21) * ra.y)
+               + vec2(cos(q.x * 5.3 - q.y * 2.1 - t * 0.28) * ra.z, cos(q.y * 13.1 + q.x * 0.9 + t * 0.33) * ra.w) * 0.3;
+
         float fade = exp(-tw * 0.012);
         vec3 n = normalize(vec3(g.x * rip * 0.35, 1.0, g.y * rip * 3.0));
         vec3 rr = reflect(rd, n);
         rr.y = max(rr.y, 0.002);
         float F = 0.02 + 0.98 * pow(1.0 - saturate(-dot(rd, n)), 5.0);
         vec3 rc = wvSky(rr, pw, C, airCol, air);
-        vec4 rsh = wvSkyline(rr, 0.0, t, cWarm);
-        rc = rc * (1.0 - rsh.w) + rsh.rgb * 0.6;
-        rc += wvDrones(S, P, u, pw, rr, pix * 1.6, size * 1.2, nr, 0.12, look, cAcc, sweepA);
+        // the city's fine window grid is mirrored through a nearly flat
+        // surface: the full ripple would shuffle whole rows of windows each
+        // frame and make the water under the shore shimmer
+        vec3 rrS = reflect(rd, normalize(vec3(n.x * 0.1, 1.0, n.z * 0.1)));
+        rrS.y = max(rrS.y, 0.002);
+        vec4 rsh = wvSkyline(rrS, 0.0, t, cWarm, pix * 1.6);
+
+        rc = rc * (1.0 - rsh.w) + rsh.rgb * 0.3;
+
+        // the swarm's reflection stays dim and only a little stretched, so
+        // its streaks never swing large areas of the water as the drones move
+        rc += 0.5 * wvDrones(S, P, u, pw, rr, pix * 1.6, size * 1.2, nr, 0.3, look, cAcc, sweepA);
+
+
         col = vec3(0.0008, 0.0010, 0.0016) + rc * F * mix(0.6, 1.0, fade);
     } else {
         // ---- the swarm ----

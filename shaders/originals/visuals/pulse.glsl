@@ -3,13 +3,14 @@
 // A kinetic light installation in a black gallery: a long field of glowing
 // glass orbs, eighteen wide, hangs from the ceiling on fine wires, a winch on
 // every wire so the whole field moves as one sculpture. Every eight beats it
-// re-forms into a new choreography (a rolling swell, a ripple tank, two
-// interfering sources, a slow spiral), and every beat a pulse rings out from
-// a point ahead, lifting the orbs it passes and recolouring them, warm and
-// cool in turn. Rings further out carry the higher bands of the spectrum. The
-// orbs pool light on the polished floor, which mirrors the field. The camera
-// glides along under one edge of the sculpture on the shared 32-beat speed
-// profile with an eased bank; audio drives the orbs only, never the camera.
+// slowly morphs into a new choreography (a rolling swell, a ripple tank, two
+// interfering sources, a slow spiral), and every beat a soft pulse rings out
+// from a point ahead, nudging the orbs it passes and tinting them warm and
+// cool in turn. The orbs glow with the smoothed level and a little of the
+// spectrum, and pool light on the polished floor, which mirrors the field.
+// The camera glides slowly and steadily along under one edge of the sculpture
+// with no bank or speed surges; audio drives soft orb light only, never the
+// camera or sudden flashes.
 // param0 = Glow ; param1 = Impact ; param2 = Wave Count
 
 const float PU_R = 0.15;      // orb radius (grid spacing is 1)
@@ -67,7 +68,7 @@ vec2 puFlight(VisualUniforms u, float tw, float cruise, float surge) {
     float v0 = osBeatSpeed(n);
     float v1 = osBeatSpeed(n + 1.0);
     float beats = puBeatRun(n) + v0 * ph + 0.5 * (v1 - v0) * ph * ph;
-    return vec2(tw * cruise * 0.2 + beats * (cruise * 0.4 + surge), mix(v0, v1, ph));
+    return vec2(tw * cruise * 0.2 + beats * (cruise * 0.07 + surge), mix(v0, v1, ph));
 }
 
 // Everything the orbs need that is the same for the whole frame.
@@ -121,13 +122,13 @@ void puOrb(vec2 c, PuField F, out float h, out vec3 e) {
     bnd = mix(bnd, F.b4, saturate(bi - 3.0));
     bnd = mix(bnd, F.b5, saturate(bi - 4.0));
     float ring = r0 + r1 + r2;
-    h = clamp(PU_BASE + F.amp * s + F.lift * ring + 0.5 * bnd, 1.55, PU_CEIL - 0.6);
+    h = clamp(PU_BASE + F.amp * s + F.lift * ring + 0.03 * bnd, 1.55, PU_CEIL - 0.6);
     float jit = hash21(mod(c, 251.0));
     vec3 base = mix(F.baseLo, F.baseHi, smoothstep(-0.6, 0.8, s));
     float s01 = saturate(0.5 + 0.5 * s);
     // the pulse recolours the orbs it passes rather than just brightening them
-    e = base * F.energy * (0.07 + 0.55 * s01 * s01 + 0.8 * bnd) * (0.8 + 0.4 * jit) * (1.0 - saturate(ring * 1.3))
-      + (F.acc0 * r0 * 1.15 + F.acc1 * r1 * 0.95 + F.acc2 * r2 * 0.75) * (0.6 + 0.4 * F.energy);
+    e = base * F.energy * (0.12 + 0.45 * s01 * s01 + 0.08 * bnd) * (0.8 + 0.4 * jit) * (1.0 - 0.3 * saturate(ring))
+      + (F.acc0 * r0 * 0.15 + F.acc1 * r1 * 0.12 + F.acc2 * r2 * 0.1) * (0.6 + 0.4 * F.energy);
 }
 
 // March the grid cell by cell. Returns the light gathered along the ray (orb
@@ -206,10 +207,10 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tw = mod(u.time, 600.0);
 
     // ---- camera: a slow glide under the field ----
-    float cruise = 1.2;
-    float surge = 0.6;
+    float cruise = 0.45;
+    float surge = 0.0;
     vec2 fl = puFlight(u, tw, cruise, surge);
-    float runK = cruise * 0.4 + surge;
+    float runK = cruise * 0.07 + surge;
     float tTerm = tw * cruise * 0.2;
     float lull = saturate(1.0 - fl.y);
     float rush = saturate((fl.y - 1.0) / 3.5);
@@ -217,8 +218,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float yaw = 0.24 + 0.1 * sin(tw * 0.027 + 1.0);
     vec3 fwd = vec3(sin(yaw), 0.0, cos(yaw));
     vec3 ta = ro + fwd * 6.0 + vec3(0.0, 1.0 + 0.3 * sin(tw * 0.06), 0.0);
-    float fov = 1.6 - 0.2 * rush + 0.1 * lull;
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.07), fov, sp);
+    float fov = 1.6 - 0.03 * rush + 0.02 * lull;
+    vec3 rd = osCamera(ro, ta, 0.0, fov, sp);
     float pixA = 2.0 / (u.resolution.y * fov);
 
     // ---- the show ----
@@ -226,7 +227,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float n = floor(u.beatCount);
     float bp = saturate(u.beatPhase);
     float sec = u.beatCount / 16.0;
-    float chorus = step(2.0, mod(floor(sec), 4.0));
+    float cyc = mod(sec, 4.0);
+    float chorus = smoothstep(1.75, 2.0, cyc) * (1.0 - smoothstep(3.75, 4.0, cyc));
     vec3 warm = puVivid(puPal(P, mix(0.5, 0.62, chorus)));
     vec3 cool = puVivid(mix(puComp(warm), vec3(0.05, 0.35, 1.0), 0.35));
 
@@ -242,20 +244,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     F.acc0 = odd ? cool : warm;
     F.acc1 = odd ? warm : cool;
     F.acc2 = odd ? cool : warm;
-    // a new choreography every eight beats, morphing in over a beat and a half
+    // a new choreography every eight beats, morphing in steadily across all
+    // eight so the whole field never lurches at once
     float blk = floor(n / 8.0);
     F.formA = int(mod(blk, 4.0));
     F.formB = int(mod(blk - 1.0, 4.0));
-    F.morph = smoothstep(0.0, 1.5, n - blk * 8.0 + bp);
+    F.morph = (n - blk * 8.0 + bp) / 8.0;
     F.anchorA = vec2(0.0, puBeatRun(blk * 8.0) * runK + 16.0);
     F.anchorB = vec2(0.0, puBeatRun(blk * 8.0 - 8.0) * runK + 16.0);
     F.k = 0.55 * waves;
-    F.ph = tw * (1.1 + 0.6 * rush);
-    F.amp = (0.8 + 0.4 * u.amplitude) * (1.0 - 0.35 * lull);
-    F.lift = impact * (0.7 + 0.5 * u.bassImpact);
-    F.ringV = 5.5;
+    F.ph = tw * 0.25;
+    F.amp = (0.8 + 0.1 * u.level) * (1.0 - 0.1 * lull);
+    F.lift = impact * 0.08;
+    F.ringV = 3.0;
     // breakdown: the field dims to a glimmer; burst: it blazes
-    F.energy = (0.35 + 0.65 * smoothstep(0.5, 1.1, fl.y)) * (1.0 + 0.5 * rush) * glow;
+    F.energy = (0.75 + 0.15 * u.level + 0.1 * smoothstep(0.5, 1.1, fl.y)) * glow;
     F.b0 = bandAt(u, 0.03);
     F.b1 = bandAt(u, 0.10);
     F.b2 = bandAt(u, 0.20);
@@ -317,5 +320,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.3 * smoothstep(0.8, 1.9, length(sp));
     float ign = fract(52.9829189 * fract(dot(uv * u.resolution, vec2(0.06711056, 0.00583715))));
     col += (ign - 0.5) * 0.0015;
-    return max(col, 0.0); // LINEAR HDR — post chain tonemaps
+    col = max(col, 0.0);
+    // a trace of green and blue under faint warm light, so near-black pixels
+    // never read as saturated red
+    col.gb += min(col.r, 0.002);
+    return col; // LINEAR HDR — post chain tonemaps
 }

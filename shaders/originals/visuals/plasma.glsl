@@ -12,7 +12,8 @@
 // the view turns slowly on the eased bank. Bass deepens the fold, mids steer
 // the flow, treble frays crests into glints, and each beat sends a crisp
 // discharge line through the gas from a re-seeded point, lighting the
-// contours it crosses (never a full-frame pulse).
+// contours it crosses; it eases in and spreads slowly, so it never sweeps a
+// large area at once (never a full-frame pulse).
 // param0 = Scale ; param1 = Turbulence ; param2 = Filaments
 
 float plzNoise(vec2 p) {
@@ -99,7 +100,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // nearly stalls in a brake, and the whole sheet drifts past along a slowly
     // turning heading. Audio never moves the view.
     PlzPalette P = plzPalLoad(u);
-    vec2 fl = plzFlight(u, 1.0, 0.7);
+    vec2 fl = plzFlight(u, 0.7, 0.1);
     float t = fl.x * 0.028;
     float rush = saturate((fl.y - 1.0) / 3.5);
     float heading = 0.6 + 0.05 * u.time * 0.1 + osBank(u, 0.5);
@@ -111,8 +112,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 q = vec2(plzFbm(sp + vec2(t, -0.6 * t) + steer, oct),
                   plzFbm(sp + vec2(5.2, 1.3) + vec2(-0.7 * t, t) - steer, oct));
 
-    // Second warp folds the lobes; bass deepens the fold.
-    float warp = (1.6 + 0.45 * bass) * turb;
+    // Second warp folds the lobes; bass deepens the fold on a smooth swell
+    // through the beat (a sharp refold on the kick moves the whole sheet at once).
+    float swell = sin(3.14159265 * saturate(u.beatPhase));
+    swell *= swell;
+    float warp = (1.75 + 0.15 * level + 0.1 * bass * swell) * turb;
     vec2 r = vec2(plzFbm(sp + warp * q + vec2(1.7, 9.2) + 0.8 * t, oct),
                   plzFbm(sp + warp * q + vec2(8.3, 2.8) - 0.9 * t, oct));
     vec2 fp = sp + warp * r;
@@ -169,27 +173,27 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     vec3 col = tint * (0.004 + 0.2 * dens + 0.45 * dens * dens * dens) * (1.0 - shadow) * diffuse;
 
-    // Beat discharge: each beat fires a shock front from a re-seeded point that
-    // sweeps outward through the gas over the beat and fades; it lights only
+    // Beat discharge: each beat a shock front eases in at a re-seeded point and
+    // spreads slowly outward through the gas over the beat, then fades; it lights only
     // the gas it crosses (a thin moving ring, far under a quarter of the frame).
     float bc = mod(u.beatCount, 256.0);
     float ph = saturate(u.beatPhase);
     vec2 seed = (hash22(vec2(bc * 1.37, 7.1)) - 0.5) * vec2(2.6, 1.3);
-    float front = length(p - seed) - (0.15 + 1.9 * ph) + (r.x - 0.5) * 0.55 + (f - 0.5) * 0.3;
-    float env = pow(1.0 - ph, 1.3) * (0.55 + 0.45 * saturate(max(u.beat, u.bassImpact)));
+    float front = length(p - seed) - (0.15 + 0.8 * ph) + (r.x - 0.5) * 0.55 + (f - 0.5) * 0.3;
+    float env = pow(1.0 - ph, 1.3) * smoothstep(0.0, 0.3, ph) * (0.6 + 0.3 * bass);
     float wave = exp(-front * front * 220.0) * env;
     float wake = exp(-max(-front, 0.0) * 9.0) * step(front, 0.0) * env * 0.3;
     // the front's own line: a crisp pixel-width core with a tight halo
     float fpx = abs(front) / max(fwidth(front), 1e-4);
-    float frontLine = (exp(-fpx * fpx * 0.5) + 0.25 * exp(-front * front * 900.0)) * env;
-    float accent = saturate(max(u.onset * 0.7, u.beat));
+    float frontLine = (exp(-fpx * fpx * 0.5) + 0.12 * exp(-front * front * 900.0)) * env * 0.7;
+    float accent = swell * bass;
 
     // Ionized sheath: a thin electric glow where the gas thins into the void.
     // A bright edge with a soft halo in field space: thin where the gas
     // boundary is sharp, diffuse where it thins out slowly.
     float ed = f - 0.355;
     float sheath = exp(-ed * ed * 5000.0) + 0.05 * exp(-abs(ed) * 45.0);
-    col += ion * sheath * (0.04 + 0.07 * mid + 0.6 * wave) * (0.4 + 0.6 * smoothstep(0.1, 0.9, r.y));
+    col += ion * sheath * (0.04 + 0.07 * mid + 0.3 * wave) * (0.4 + 0.6 * smoothstep(0.1, 0.9, r.y));
 
     // Field lines: fine iso-contours of the inner warp, so they run with the
     // folds like the plasma's magnetic striations, drawn in the ion colour
@@ -211,20 +215,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float stream = 0.5 + 0.5 * sin(dot(fp, vec2(3.1, -2.3)) * 2.2 + r.x * 9.0 - fl.x * 0.9);
     stream *= stream;
     stream *= stream * stream;
-    float lineGain = (0.1 + 1.3 * stream * (0.4 + 0.6 * level) + 3.0 * wave + 0.3 * wake) * filGain;
+    float lineGain = (0.2 + 1.3 * stream * (0.4 + 0.6 * level) + 1.0 * wave + 0.1 * wake) * filGain;
     col += mix(ion, vec3(1.0), 0.18 * stream) * lines * body * lineGain * (1.0 - 0.6 * shadow);
 
-    float crest = smoothstep(0.74 - 0.04 * wave, 0.92, fd);
+    float crest = smoothstep(0.74, 0.92, fd);
     // Hot crest colour: palette warm end, only slightly lifted toward white so
     // it stays saturated.
     vec3 hot = mix(plzPal(P, 0.30 + 0.08 * r.y + hs), vec3(1.0, 0.94, 0.86), 0.12);
-    float heat = 0.65 + 0.25 * level + 0.1 * accent + 0.5 * (wave + wake) / (0.15 + luma(hot));
+    float heat = 0.65 + 0.25 * level + 0.1 * accent + 0.25 * wave / (0.15 + luma(hot));
     col += hot * crest * crest * crest * heat * filGain * mix(0.8, 1.2, ndl);
 
     // Specular sheen in the hot colour, strongest on the dense body.
     vec3 specCol = mix(hot, vec3(1.0, 0.97, 0.92), 0.08);
     float wet = smoothstep(0.3, 0.8, dens) * (1.0 - 0.6 * shadow);
-    col += specCol * spec * wet * (0.22 + 0.18 * level + 0.25 * rush + 0.4 * wave);
+    col += specCol * spec * wet * (0.22 + 0.18 * level + 0.25 * rush + 0.15 * wave);
     // Rim: the steep flanks of each lobe catch the ion-coloured back light.
     col += ion * rim * rim * smoothstep(0.05, 0.5, dens) * (0.06 + 0.08 * mid) * (1.0 - shadow);
 
@@ -240,7 +244,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += ion * 0.003 * (1.0 - dens) * (1.0 - shadow);
 
     // Calm-but-alive in silence, gentle lift with level.
-    col *= 0.75 + 0.25 * level;
+    col *= 0.85 + 0.25 * level;
 
     return col; // LINEAR HDR — post chain tonemaps
 }

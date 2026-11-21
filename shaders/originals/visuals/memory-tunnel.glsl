@@ -6,11 +6,12 @@
 // they develop into full colour as they approach, like memories coming back.
 // Every print spills its own colour onto the charcoal walls, the soft ceiling
 // and the polished floor, which mirrors the whole hall; coloured haze hangs in
-// the air. The speed follows the shared 32-beat profile (prints smear with
-// motion blur in a burst) and the roll eases to a new side every eight beats.
-// Audio drives the light only: bass warms the lightboxes, a spectrum band
-// lights the slim ledge under each print, the beat sends a soft band of light
-// down the hall and the mids breathe in the ceiling diffuser.
+// the air. Calm under loud music: the flight runs at a slow, steady pace, the
+// roll sways gently and prints dim as they pass beside the camera, so bright
+// prints never sweep past fast enough to flash. Audio drives the light only:
+// the smoothed level warms the lightboxes and breathes in the ceiling
+// diffuser, a modest band term lights the slim ledge under each print, and
+// the ledges swell only faintly after each beat.
 // param0 = Flight ; param1 = Depth ; param2 = Pulse
 
 const float MT_HW = 1.9;      // half width of the hall
@@ -41,16 +42,6 @@ vec3 mtPal(MtPal P, float t) {
     c = mix(c, P.c2, smoothstep(1.0, 2.0, t));
     c = mix(c, P.c3, smoothstep(2.0, 3.0, t));
     return mix(c, P.c4, smoothstep(3.0, 4.0, t));
-}
-
-// The beat's band of light down the hall: it eases in over the first frame
-// or so of the beat beside the camera, brightest as it leaves, and fades as
-// it runs away.
-float mtRing(float z, float zc, float pulse, VisualUniforms u) {
-    float bp = saturate(u.beatPhase);
-    float ringZ = zc + mix(0.5, 34.0, bp);
-    return exp(-abs(z - ringZ) * 1.2) * smoothstep(0.0, 0.05, bp) * (1.0 - bp)
-         * (0.45 + 0.55 * u.level) * (0.7 + 2.0 * u.beat) * pulse;
 }
 
 // Distance to the nearest surface of the hall from inside, and which one:
@@ -90,26 +81,21 @@ vec3 mtPrintAvg(vec2 cell, VisualUniforms u) {
 float mtPrintZ(float i, float w) { return (i + 0.5 * w) * MT_PZ; }
 
 // Light leaving a wall point. w is 0 for the wall at -x and 1 for +x.
-// lk: x = camera z, y = pulse, z = the accent hue offset, w = how fast the
-// flight is going, 0 at cruise to 1 in a burst.
-vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float blur, float detail,
+// lk: x = camera z, y = pulse, z = the accent hue offset, w = how much the
+// prints passing close to the camera dim.
+vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float detail,
             bool cheap, MtPal P, VisualUniforms u) {
-    float zc = lk.x;
-    float pulse = lk.y;
     float zl = pos.z / MT_PZ - 0.5 * w;
     float row = floor(zl + 0.5);
     float zr = (zl - row) * MT_PZ;              // along the wall from the print centre
     vec2 cell = vec2(w, mod(row, 512.0));
     float y = pos.y;
 
-    float ring = mtRing(pos.z, zc, pulse, u);
-    vec3 ringCol = mtPal(P, 0.26 + lk.z);
-
     // charcoal wall, lit by the spill of this print and the ceiling
     vec2 dq = vec2(max(abs(zr) - MT_PW, 0.0), max(max(MT_PY0 - y, y - MT_PY1), 0.0));
     float dp = length(dq);
     vec3 avg = mtPrintAvg(cell, u);
-    float bassW = 1.0 + 0.3 * u.bass;
+    float bassW = 1.0 + 0.15 * saturate(u.level);
     // the spill is the print's own colour pushed toward the hall's accent, so
     // the walls between prints carry colour rather than a grey wash
     vec3 spill = mix(avg, luma(avg) * mtPal(P, 0.04 + lk.z) * 2.2, 0.45);
@@ -120,15 +106,18 @@ vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float blur, float detail,
     col *= 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.01 + fwidth(zr) * 1.5, jz));
     col += mtPal(P, 0.0) * 0.004;
 
-    // slim ledge under the print, lit by a spectrum band
+    // slim ledge under the print, lit by a spectrum band (eased toward the
+    // level) and swelling softly just after each beat
     float ledge = (1.0 - smoothstep(0.0, 0.012 + fwidth(y) * 1.5, abs(y - (MT_PY0 - 0.08))))
                 * step(abs(zr), MT_PW);
-    float lvl = band(u, int(mod(row * 5.0 + w * 23.0, 48.0)) + 4);
+    float bp = saturate(u.beatPhase);
+    float lift = 0.9 + 0.1 * lk.y * smoothstep(0.0, 0.3, bp) * (1.0 - bp) * (1.0 - bp) * 2.0;
+    float lvl = mix(saturate(u.level), band(u, int(mod(row * 5.0 + w * 23.0, 48.0)) + 4), 0.2) * lift;
     vec3 ledgeCol = mtPal(P, (mod(row + w, 2.0) < 1.0 ? 0.97 : 0.27) + lk.z);
-    col += peakWhite(ledgeCol, 0.15) * ledge * (0.3 + 2.4 * lvl) * (1.0 + 2.0 * ring);
+    col += peakWhite(ledgeCol, 0.15) * ledge * (0.5 + 0.8 * lvl);
     // the ledge washes the wall below it in its colour
     col += ledgeCol * exp(-max(MT_PY0 - 0.08 - y, 0.0) * 5.0) * step(y, MT_PY0 - 0.08)
-         * smoothstep(MT_PW + 0.3, MT_PW - 0.3, abs(zr)) * 0.05 * (0.3 + 2.0 * lvl);
+         * smoothstep(MT_PW + 0.3, MT_PW - 0.3, abs(zr)) * 0.05 * (0.5 + 0.7 * lvl);
 
     // the print itself: a thin bright frame around a backlit image
     vec2 pr = vec2(zr / (2.0 * MT_PW) + 0.5, (y - MT_PY0) / (MT_PY1 - MT_PY0));
@@ -138,11 +127,7 @@ vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float blur, float detail,
     vec2 fd = min(pr, 1.0 - pr) * vec2(2.0 * MT_PW, MT_PY1 - MT_PY0);
     float frame = inside * (1.0 - smoothstep(0.0, 0.025 + 1.5 * max(fwidth(fd.x), fwidth(fd.y)), min(fd.x, fd.y)));
     float halo = (1.0 - inside) * exp(-dp * 30.0);
-    if (inside < 0.001 && halo < 0.002) {
-        // ring of light passing over the wall
-        col += ringCol * ring * 0.11;
-        return col;
-    }
+    if (inside < 0.001 && halo < 0.002) return col;
 
     vec2 span, off;
     mtCrop(cell, span, off, u);
@@ -154,12 +139,7 @@ vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float blur, float detail,
     if (cheap) {
         photo = avg;
     } else {
-        vec3 ph0 = IMG(iuv).rgb;
-        if (blur > 0.0) {
-            vec2 bdir = vec2((w < 0.5 ? -1.0 : 1.0) * blur * span.x, 0.0);
-            ph0 = 0.5 * (ph0 + IMG(clamp(iuv - bdir, vec2(0.001), vec2(0.999))).rgb);
-        }
-        ph0 = max(ph0, vec3(0.0));
+        vec3 ph0 = max(IMG(iuv).rgb, vec3(0.0));
         photo = mix(ph0 * ph0, avg, far * mix(0.85, 1.0, 1.0 - detail));
     }
     // develop: far prints are palette duotones, near ones their true colour
@@ -179,15 +159,14 @@ vec3 mtWall(vec3 pos, float w, float t, vec4 lk, float blur, float detail,
     vec2 cq = pr - 0.5;
     float back = 1.0 - 0.4 * dot(cq, cq) * 2.0;
     float expo = mix(0.7, 1.15, hash21(cell + 3.1));
-    // in a burst the prints rushing past at the edge of view dim, so the
-    // frame's brightness swings less as they go by
+    // the prints passing at the edge of view dim, so the frame's brightness
+    // swings less as they go by
     float nearDim = mix(1.0, 0.25 + 0.75 * smoothstep(2.0, 12.0, t), lk.w);
-    vec3 lit = photo * back * expo * bassW * (1.0 + 0.3 * ring) * nearDim;
+    vec3 lit = photo * back * expo * bassW * nearDim;
     col = mix(col, lit, inside);
-    col += peakWhite(mix(avg * 2.0, ledgeCol, 0.45), 0.15) * (frame * 0.35 + halo * 0.2) * (1.0 + 1.0 * ring) * nearDim;
+    col += peakWhite(mix(avg * 2.0, ledgeCol, 0.45), 0.15) * (frame * 0.35 + halo * 0.2) * nearDim;
     // glass cover: the ceiling diffuser glides over it at grazing angles
     col += mtPal(P, 0.74) * inside * 0.02;
-    col += ringCol * ring * 0.11;
     return col;
 }
 
@@ -200,7 +179,7 @@ vec3 mtCeil(vec3 pos, vec4 lk, MtPal P, VisualUniforms u) {
     float pane = smoothstep(0.9, 0.82, abs(x)) * smoothstep(0.2, 0.17, abs(cz));
     float core = exp(-(x * x * 1.6 + cz * cz * 60.0));
     float diff = pane * (0.35 + 0.65 * core);
-    float breath = 0.8 + 0.5 * u.mid;
+    float breath = 0.9 + 0.2 * saturate(u.level);
     // the lamps alternate between two of the palette's colours down the hall
     float lc = mod(floor(zl), 2.0);
     vec3 lamp = mtPal(P, (lc < 0.5 ? 0.76 : 0.97) + lk.z);
@@ -213,10 +192,6 @@ vec3 mtCeil(vec3 pos, vec4 lk, MtPal P, VisualUniforms u) {
     vec3 s0 = mtPrintAvg(vec2(0.0, mod(r0, 512.0)), u);
     vec3 s1 = mtPrintAvg(vec2(1.0, mod(r1, 512.0)), u);
     c += s0 * exp(-(MT_HW + x) * 2.5) * 0.07 + s1 * exp(-(MT_HW - x) * 2.5) * 0.07;
-    // the beat's band runs the lamps up in sequence as it passes
-    float ring = mtRing(pos.z, lk.x, lk.y, u);
-    c += mtPal(P, 0.26 + lk.z) * ring * 0.12 * (0.4 + diff);
-    c += lamp * diff * ring * 0.16;
     return c;
 }
 
@@ -227,32 +202,29 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float pulse = mix(0.4, 1.6, u.param2);
     float tt = mod(u.time, 600.0);
 
+    // a slow, steady flight: bright prints sweeping past fast would flash
     float cruise = mix(1.6, 6.0, u.param0);
-    vec2 fl = osFlight(u, cruise, 0.9 * mix(0.5, 1.5, u.param0));
-    float zc = mod(fl.x, MT_PZ * 512.0);
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    float zc = mod(10.08 + mod(u.time, 36000.0) * cruise * 0.15, MT_PZ * 512.0);
     // every eight beats the hall's accent eases to a new place on the palette
     MtPal P = mtPalLoad(u);
     float b8 = (u.beatCount + saturate(u.beatPhase)) / 8.0;
     float k8 = floor(b8);
     float acc = 0.1 * mix(sin(k8 * 2.39996), sin((k8 + 1.0) * 2.39996), smoothstep(0.0, 1.0, b8 - k8));
-    vec4 lk = vec4(zc, pulse, acc, saturate((fl.y - 0.8) / 2.5));
+    vec4 lk = vec4(zc, pulse, acc, 0.7);
 
     // slow eased drift off the axis; audio never moves the camera
     vec3 ro = vec3(0.4 * sin(tt * 0.13), 0.15 + 0.15 * sin(tt * 0.093 + 1.1), zc);
     vec3 ta = vec3(0.55 * sin(tt * 0.13 + 0.9), 0.05 + 0.1 * sin(tt * 0.07), zc + 7.0);
-    float fov = 1.05 - 0.2 * rush + 0.08 * lull;
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.2), fov, p);
+    float fov = 1.05;
+    vec3 rd = osCamera(ro, ta, 0.1 * sin(mod(u.time, 628.31853) * 0.05), fov, p);
 
-    float blur = detail > 0.0 ? rush * 0.1 : 0.0;
     float face;
     float t = mtHit(ro, rd, face);
     vec3 pos = ro + rd * t;
     float tAll = t;
     vec3 col;
     if (face < 1.5) {
-        col = mtWall(pos, face, t, lk, blur, detail, false, P, u);
+        col = mtWall(pos, face, t, lk, detail, false, P, u);
     } else if (face < 2.5) {
         col = mtCeil(pos, lk, P, u);
     } else {
@@ -266,7 +238,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 p2 = pos + rr * t2;
         vec3 refl;
         bool cheap = detail < 0.5;
-        if (f2 < 1.5) refl = mtWall(p2, f2, t + t2, lk, blur, detail, cheap, P, u);
+        if (f2 < 1.5) refl = mtWall(p2, f2, t + t2, lk, detail, cheap, P, u);
         else refl = mtCeil(p2, lk, P, u);
         float fres = 0.22 + 0.6 * pow(1.0 - saturate(-rd.y), 5.0);
         refl *= exp(-t2 * 0.06);
@@ -309,14 +281,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float mote = exp(-dot(dv, dv) / (mw * mw)) * (0.006 / mw) * step(0.8, h.x);
         float side = smoothstep(0.0, MT_HW, abs(mp.x));
         vec3 mc = mix(mtPal(P, 0.74), mtPal(P, h.y < 0.5 ? 0.27 : 0.97), 0.5 * h.y);
-        col += mc * mote * (0.3 + 0.9 * side) * (0.8 + 0.6 * sin(tt * 1.3 + h.y * 30.0)) * exp(-tm * 0.12)
+        col += mc * mote * (0.3 + 0.9 * side) * (0.85 + 0.15 * sin(tt * 0.6 + h.y * 30.0)) * exp(-tm * 0.12)
              * smoothstep(0.2, 0.8, tm);
     }
 
     // light at the end of the hall
     float exitDot = saturate(rd.z);
     vec3 exitCol = peakWhite(mtPal(P, 0.75 + acc), 0.3);
-    col += exitCol * (pow(exitDot, 300.0) * 0.6 + pow(exitDot, 30.0) * 0.06) * (0.8 + 0.4 * u.bassImpact);
+    col += exitCol * (pow(exitDot, 300.0) * 0.6 + pow(exitDot, 30.0) * 0.06) * (0.9 + 0.15 * saturate(u.level));
 
     col *= 1.0 - 0.3 * smoothstep(0.9, 2.0, length(p));
     return col; // LINEAR HDR

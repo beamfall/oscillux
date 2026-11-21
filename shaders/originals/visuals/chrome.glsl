@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Chrome.
-// Liquid chrome: a cluster of mirror-metal bodies drifts, merges and splits in
+// Liquid chrome: a cluster of mirror-metal bodies drifts slowly, merges and splits in
 // a dark studio rigged with tall coloured light strips, an overhead ring light
 // and a sunset horizon, floating over a black glass floor of neon rings that
 // mirrors them. Every body mirrors the rig, the floor and its neighbours (one
 // extra bounce), so the light wraps round the liquid; grazing edges carry a
-// thin-film sheen. On each beat a ring of light races out across the floor
-// and a hot band drops down the rig, so streaks slide over every body; between
-// beats light chases up the LED strips and slow swells roll through the liquid. The
-// camera orbits slowly on the shared speed profile. Audio drives the light
-// rig, the body sizes and a fine surface shimmer, never the camera.
+// thin-film sheen. Calm under loud music: the rig brightens with the smoothed
+// level plus a faint spectrum term, each beat swells only a faint ring across
+// the floor and a soft band down the rig, the bodies breathe with the smoothed
+// level alone, light chases gently up the LED
+// strips and slow swells roll through the liquid. The camera orbits at a slow
+// steady cruise with no beat surges; reds are kept just off saturated red.
+// Audio drives the light rig, the body sizes and a fine shimmer gently, never
+// the camera.
 // param0 = Blob Count ; param1 = Reflection ; param2 = Surface Ripple
 
 // Speed over the shared 32-beat profile, as osFlight, with the cycle's
@@ -29,16 +32,16 @@ vec2 chFlight(VisualUniforms u, float cruise, float surge) {
 // ones on crossing orbits that dive into it and pull away again.
 vec4 chBody(int i, float ph, VisualUniforms u) {
     float fi = float(i);
-    float e = band(u, 3 + i * 9);
+    float e = saturate(u.level);
     if (i == 0) {
         vec3 c = 0.18 * vec3(sin(ph * 0.13), sin(ph * 0.11 + 1.0), cos(ph * 0.09));
-        return vec4(c, 0.78 * (0.94 + 0.16 * e + 0.08 * u.bassImpact));
+        return vec4(c, 0.78 * (0.98 + 0.03 * e));
     }
     float w = (mod(fi, 2.0) < 0.5 ? 1.0 : -1.0) * (0.16 + 0.035 * fi);
     float a = ph * w + fi * 2.39996;
     float rr = 1.25 + 0.45 * sin(ph * (0.07 + 0.013 * fi) + fi * 1.7);
     vec3 c = vec3(rr * cos(a), 0.55 * sin(ph * (0.09 + 0.02 * fi) + fi * 2.1), rr * sin(a));
-    float r = (0.5 - 0.045 * fi) * (0.9 + 0.3 * e + 0.08 * u.bassImpact);
+    float r = (0.5 - 0.045 * fi) * (0.97 + 0.05 * e);
     return vec4(c, r);
 }
 
@@ -80,6 +83,11 @@ vec2 chPanel(vec3 d, vec3 c, vec3 rt, vec2 h, float soft, float slat) {
 
 const float CH_FLOOR = 1.45;
 
+// Keep reds just off saturated red (judged after the filmic curve).
+float chTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float chToneInv(float y) { y = clamp(y, 0.0, 0.999); float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y; return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a); }
+vec3 chOffRed(vec3 c) { float r = chTone(c.r), g = chTone(c.g), b = chTone(c.b); float need = 0.3 * r - g - b; if (need <= 0.0) return c; if (c.g > c.b) c.g = max(c.g, chToneInv(g + need)); else c.b = max(c.b, chToneInv(b + need)); return c; }
+
 // The rig's colours and levels, read from the palette and spectrum once per
 // pixel; the environment is sampled up to three times per pixel.
 struct ChRig {
@@ -100,16 +108,19 @@ ChRig chRigMake(VisualUniforms u) {
     // beats alternate the accent between warm gold and an icy cool light
     float odd = mod(floor(u.beatCount), 2.0);
     k.acc = mix(c3 * vec3(1.3, 0.95, 0.6) + vec3(0.25, 0.08, 0.0), mix(c4, vec3(0.8, 0.95, 1.0), 0.4) * 1.2, odd);
-    k.e1 = 0.8 + 1.6 * bandRange(u, 0, 8);
-    k.e2 = 0.8 + 1.6 * bandRange(u, 16, 30);
-    k.e3 = 0.8 + 1.6 * bandRange(u, 34, 54);
-    k.es0 = 0.3 + 2.4 * band(u, 4); k.es1 = 0.3 + 2.4 * band(u, 15); k.es2 = 0.3 + 2.4 * band(u, 26);
-    k.es3 = 0.3 + 2.4 * band(u, 37); k.es4 = 0.3 + 2.4 * band(u, 48);
-    k.ringE = 2.0 + 0.8 * u.beat * u.level;
-    k.flE = 0.35 + 0.9 * bandRange(u, 8, 24);
+    float lv = saturate(u.level);
+    k.e1 = 0.8 + 0.2 * lv + 0.05 * bandRange(u, 0, 8);
+    k.e2 = 0.8 + 0.2 * lv + 0.05 * bandRange(u, 16, 30);
+    k.e3 = 0.8 + 0.2 * lv + 0.05 * bandRange(u, 34, 54);
+    float es = 0.5 + 0.3 * lv;
+    k.es0 = es + 0.05 * band(u, 4); k.es1 = es + 0.05 * band(u, 15); k.es2 = es + 0.05 * band(u, 26);
+    k.es3 = es + 0.05 * band(u, 37); k.es4 = es + 0.05 * band(u, 48);
+    k.ringE = 1.5 + 0.15 * lv;
+    k.flE = 0.38 + 0.12 * lv + 0.03 * bandRange(u, 8, 24);
     k.beatPh = u.beatPhase;
-    k.beatE = (0.1 + u.bassImpact) * (1.0 - u.beatPhase) * (0.8 + 0.6 * u.level);
-    k.pool = 0.6 + 0.8 * u.bass;
+    float sw = sin(3.14159265 * saturate(u.beatPhase));
+    k.beatE = 0.03 * (0.5 + 0.5 * lv) * sw * sw;
+    k.pool = 0.8 + 0.3 * lv;
     k.chase = 0.0;
     return k;
 }
@@ -180,7 +191,7 @@ vec3 chEnv(vec3 d, float ph, ChRig k, float direct) {
             float strip = smoothstep(w, w * 0.3, ad) * sv;
             // light chases up each strip, faster when the profile surges
             float cy = fract(y * 1.3 - k.chase * (1.0 + 0.37 * fi) + fi * 0.31) - 0.5;
-            strip *= 0.35 + 1.8 * exp(-cy * cy * mix(60.0, 8.0, direct));
+            strip *= 0.45 + 0.45 * exp(-cy * cy * mix(60.0, 8.0, direct));
             vec3 sc = i == 0 ? k.s0 * k.es0 : i == 1 ? k.s1 * k.es1 : i == 2 ? k.s2 * k.es2 : i == 3 ? k.s3 * k.es3 : k.s4 * k.es4;
             c += sc * strip * mix(4.0, 0.12, direct);
         }
@@ -197,27 +208,27 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
     ChRig k = chRigMake(u);
 
-    vec2 fl = chFlight(u, 1.0, 0.5);
+    vec2 fl = chFlight(u, 0.6, -0.24);
     float ph = mod(fl.x, 2400.0);
     k.chase = mod(fl.x * 0.12, 64.0);
     float tb = mod(u.time, 600.0);
     float nb = floor(mix(4.0, 6.0, u.param0) + 0.5);
     float refl = mix(0.6, 1.25, u.param1);
-    float rip = mix(0.0, 0.012, u.param2) * (0.3 + 0.7 * u.treble);
+    float rip = mix(0.0, 0.012, u.param2) * (0.3 + 0.2 * saturate(u.level));
 
     // bodies drift on their own clock; the speed profile only turns the camera
-    float bt = tb * 1.0 + ph * 0.6;
+    float bt = tb * 0.11 + ph * 0.11;
     vec4 b0 = chBody(0, bt, u), b1 = chBody(1, bt, u), b2 = chBody(2, bt, u), b3 = chBody(3, bt, u);
     vec4 b4 = chBody(4, bt, u), b5 = chBody(5, bt, u);
     vec4 b6 = vec4(1.7 * sin(bt * 0.21), 0.9 * sin(bt * 0.17 + 1.0), 1.4 * cos(bt * 0.21), 0.16);
-    vec4 wob = vec4(bt * 0.55, bt * 0.43, bt * 0.61, 0.030 * (0.6 + 0.8 * u.mid));
+    vec4 wob = vec4(bt * 0.55, bt * 0.43, bt * 0.61, 0.030 * (0.8 + 0.3 * saturate(u.level)));
 
     float orb = ph * 0.035;
     float yaw = orb + 0.3 * sin(orb * 0.6);
     float pitch = 0.1 + 0.1 * sin(orb * 0.5 + 1.0);
     float dist = 2.75 - 0.3 * sin(orb * 0.41);
     vec3 ro = dist * vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
-    vec3 rd = osCamera(ro, vec3(0.0), osBank(u, 0.06), 1.62, p);
+    vec3 rd = osCamera(ro, vec3(0.0), osBank(u, 0.01), 1.62, p);
 
     int n = osSteps(36.0, 80.0, detail);
     float t = 0.5;
@@ -245,7 +256,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float dd = length(p - bc) - br;
             float disc = smoothstep(0.02, -0.01, dd) * (0.6 + 0.4 * smoothstep(-br, 0.0, dd));
             vec3 dc = i % 3 == 0 ? k.k18 : i % 3 == 1 ? k.k92 : k.k80;
-            col += dc * disc * (0.03 + 0.10 * band(u, 6 + i * 8));
+            col += dc * disc * (0.05 + 0.04 * saturate(u.level));
         }
         // the black glass floor: its own neon rings plus a soft mirror of the
         // bodies (as spheres, blurred with height) and the rig
@@ -322,5 +333,5 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         col = rc * fr * tint * refl * ao;
     }
 
-    return col; // LINEAR HDR — post chain tonemaps
+    return chOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

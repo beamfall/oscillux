@@ -4,11 +4,14 @@
 // clusters and finned heat-sink towers stand in blocks between avenues of
 // neon and bare-copper bus traces. Data packets stream along the traces, the
 // chip tops twinkle like lit office windows, and uplink beams rise from the
-// skyline. Every beat sends a molten-copper diamond wave racing across the
-// board: it ignites the traces, rakes the towers' flanks and leaves a neon
-// wake. The glossy solder mask mirrors the towers. The camera's speed follows
-// the 32-beat profile of cruise, build, burst, brake and drift, and the roll
-// eases to a new side every eight beats. Audio drives the light, never the camera.
+// skyline. Every beat sends a faint copper or ice-blue diamond ripple across
+// the board that warms the traces it passes. The glossy solder mask mirrors
+// the towers. The camera glides at a slow steady pace with a gentle sway, and
+// packets, windows and uplink bursts move unhurriedly, so no bright structure
+// sweeps fast over the dark board. The light follows the music's smoothed
+// level with only a small spectrum term and no beat flashes; reds are kept
+// just off saturated red. Its colours come from its own palette, unnudged by
+// beat or centroid, so the host's vivid palette tour never swells the light.
 // param0 = Scale (board size under the camera) ; param1 = Pulse Speed ; param2 = Trace Brightness
 
 const float CI_C = 4.0;    // block pitch
@@ -90,6 +93,25 @@ float ciMarch(vec3 ro, vec3 rd, float tmax, int n) {
     return -1.0;
 }
 
+// The palette read: the visual's own palette with no beat or spectral nudge.
+vec3 ciPal(float t, VisualUniforms u) { return osPalCalm(t, 23, u); }
+
+// Keeps every red just off saturated red once tonemapped.
+float ciTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float ciToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 ciOffRed(vec3 c) {
+    float r = ciTone(c.r), g = ciTone(c.g), b = ciTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, ciToneInv(g + need));
+    else c.b = max(c.b, ciToneInv(b + need));
+    return c;
+}
+
 // Palette colours, band levels and beat terms, computed once per pixel.
 struct CiK {
     vec3 tA, tB, tre, pA, pB, key, glow, bass, mask, albA, albB, top, hot, cool;
@@ -99,33 +121,35 @@ struct CiK {
 
 CiK ciKMake(VisualUniforms u) {
     CiK k;
-    k.tA = palRoleTrace(0.55, u);
-    k.tB = palRoleTrace(0.95, u);
-    k.tre = palRoleTreble(0.3, u);
-    k.pA = palRolePeak(0.6, u);
-    k.pB = palRolePeak(0.95, u);
-    k.glow = palVisual(0.35, u);
+    k.tA = ciPal(0.55, u);
+    k.tB = ciPal(0.95, u);
+    k.tre = ciPal(0.3, u);
+    k.pA = ciPal(0.6, u);
+    k.pB = ciPal(0.95, u);
+    k.glow = ciPal(0.35, u);
     // warm key from the right, cool palette rim from the left
-    k.key = mix(vec3(1.0, 0.72, 0.48), palVisual(0.75, u), 0.3) * 0.1;
-    k.bass = palRoleBass(0.4, u);
-    k.mask = palVisual(0.2, u) * 0.006;
-    k.albA = palVisual(0.5, u);
-    k.albB = palVisual(0.9, u);
-    k.top = palVisual(0.02, u);
+    k.key = mix(vec3(1.0, 0.72, 0.48), ciPal(0.75, u), 0.3) * 0.1;
+    k.bass = ciPal(0.4, u);
+    k.mask = ciPal(0.2, u) * 0.006;
+    k.albA = ciPal(0.5, u);
+    k.albB = ciPal(0.9, u);
+    k.top = ciPal(0.02, u);
     // bare copper: the board's own material, the warm counterpart to the neon
     k.hot = vec3(1.0, 0.45, 0.13);
     // its complement: an ice-blue charge tinted by the palette; beat waves
     // alternate between the two
     k.cool = mix(vec3(0.16, 0.55, 1.0), k.pB, 0.3);
     k.par = mod(floor(u.beatCount), 2.0);
-    k.bA = vec4(band(u, 2), band(u, 6), band(u, 10), band(u, 16));
-    k.bB = vec4(band(u, 24), band(u, 32), band(u, 42), band(u, 54));
+    // band levels ride on the smoothed level; the spectrum only tints them
+    float lv = 0.22 * saturate(u.level);
+    k.bA = lv + 0.05 * vec4(band(u, 2), band(u, 6), band(u, 10), band(u, 16));
+    k.bB = lv + 0.05 * vec4(band(u, 24), band(u, 32), band(u, 42), band(u, 54));
     k.wPh = saturate(u.beatPhase);
-    k.wAmp = 0.7 + 0.6 * u.level;
-    k.pulse = mix(5.0, 16.0, u.param1);
+    k.wAmp = 0.005;
+    k.pulse = mix(0.4, 1.2, u.param1);
     k.tm = mod(u.time, 600.0);
-    k.bassE = u.bassImpact;
-    k.beat = u.beat;
+    k.bassE = 0.0;
+    k.beat = 0.0;
     return k;
 }
 
@@ -145,10 +169,10 @@ vec3 ciWave(vec2 xz, vec2 src, CiK k) {
     vec3 w = vec3(0.0);
     for (int i = 0; i < 2; i++) {
         float age = k.wPh + float(i);
-        float x = m - (1.5 + 34.0 * age);
+        float x = m - (1.5 + 18.0 * age);
         // white-hot as it leaves the source, then a steady glow; a function of
         // age alone, so the rollover stays seamless
-        float fade = exp(-age * 1.25) * (0.45 + 1.6 * exp(-age * 9.0));
+        float fade = exp(-age * 1.25) * (0.45 + 0.25 * exp(-age * 3.0));
         float f = (x < 0.0 ? exp(x * 1.8) : exp(-x * x * 1.6)) * fade;
         w.x += f;
         w.y += (x < 0.0 ? exp(x * 0.22) * 0.55 : 0.0) * fade;
@@ -197,7 +221,7 @@ vec3 ciBoard(vec2 xz, vec2 src, vec2 fp, CiK k, float detail, out float copper) 
         float dir = hash11(lid * 3.1) < 0.5 ? -1.0 : 1.0;
         float spd = k.pulse * (0.6 + 0.8 * hash11(lid * 5.7));
         float ph = fract((xz.y * dir - tm * spd) / 11.0 + hash11(lid * 9.3));
-        float head = exp(-ph * 22.0) * 6.0 + exp(-ph * 4.0) * 0.9 + exp(-(1.0 - ph) * 70.0) * 4.0;
+        float head = exp(-ph * 8.0) * 0.7 + exp(-ph * 3.0) * 0.3 + exp(-(1.0 - ph) * 30.0) * 0.3;
         // a packet swells its trace, so it reads at a distance
         float line = ciLines(s / 0.1, 0.17 + 0.12 * saturate(head * 0.3), fp.x / 0.1) * on * seg * step(abs(s), 0.5);
         float hc = hash11(lid * 2.3);
@@ -217,7 +241,7 @@ vec3 ciBoard(vec2 xz, vec2 src, vec2 fp, CiK k, float detail, out float copper) 
         float lid = li + 23.0 * floor(xz.y / CI_C + 0.5) + 7.0 * cell.x;
         float line = ciLines(sz / 0.1, 0.15, fp.y / 0.1) * step(0.25, hash11(lid * 1.9 + 1.0));
         float ph = fract((xz.x - tm * k.pulse * 0.7) / 6.0 + hash11(lid * 4.1));
-        float head = exp(-ph * 20.0) * 3.0;
+        float head = exp(-ph * 8.0) * 0.5;
         col += line * (k.tre * (0.08 + head * 0.6 + 4.0 * wv.y) + wcl * wv.x * 6.0);
         copper += line;
     }
@@ -279,7 +303,7 @@ vec3 ciSky(vec3 rd, CiK k) {
     vec3 col = vec3(0.0006, 0.0008, 0.002) + k.glow * 0.03 * exp(-ah * 6.0);
     col += k.top * 0.025 * smoothstep(0.0, 0.5, h) * exp(-h * 2.0);
     col += k.bass * exp(-ah * 26.0) * (0.22 + 0.25 * k.bassE);
-    col += mix(k.cool, k.hot, 1.0 - k.par) * exp(-ah * 110.0) * (0.08 + 0.25 * k.bassE);
+    col += mix(k.cool, k.hot, 0.5) * exp(-ah * 110.0) * (0.08 + 0.25 * k.bassE);
     return col;
 }
 
@@ -300,7 +324,7 @@ vec4 ciPilLight(float hp, CiK k) {
     float lv = ciLv(k, fract(hp * 5.3));
     vec3 c = fract(hp * 7.7) < 0.4 ? k.hot : mix(k.tA, k.cool, fract(hp * 3.1));
     vec3 acc = mix(k.hot, k.cool, k.par);
-    return vec4(c * (0.35 + 2.2 * lv) + acc * k.beat * 1.2, lv);
+    return vec4(c * (0.35 + 1.2 * lv) + acc * k.beat * 0.0, lv);
 }
 
 // Glow of the pillars along the ray up to tEnd, walking the super-block grid.
@@ -328,8 +352,8 @@ vec3 ciPillars(vec3 ro, vec3 rd, float tEnd, CiK k, float pixk, int n) {
             float fw = 0.012 + (tc * pixk) * (tc * pixk);
             float core = 0.012 / (r2 + fw) + 0.25 * exp(-r2 * 1.2);
             // data bursts climb the column
-            float ph = fract(y * 0.05 - k.tm * (0.35 + 0.3 * pl.w) + pl.w * 7.0);
-            float pk = exp(-ph * 9.0) * 2.5;
+            float ph = fract(y * 0.05 - k.tm * (0.08 + 0.06 * pl.w) + pl.w * 7.0);
+            float pk = exp(-ph * 4.0) * 0.4;
             float hf = exp(-max(y - 0.3, 0.0) * 0.1) * smoothstep(0.1, 0.5, y) * smoothstep(2.0, 1.2, sqrt(r2));
             vec4 lt = ciPilLight(pl.w, k);
             col += lt.rgb * core * hf * (1.0 + pk * (0.4 + lt.w)) * exp(-tc * 0.014) * smoothstep(2.0, 8.0, tc);
@@ -383,10 +407,10 @@ vec3 ciShade(vec3 pos, vec3 n, vec3 rd, vec2 src, CiK k, float bright, float fpw
             vec2 wq = g - wc - 0.5;
             float wh = hash21(wc + cell * 7.3);
             // each window cross-fades to a new state, so none of them pops
-            float st = k.tm * (0.25 + 0.5 * wh) + wh * 9.0;
+            float st = k.tm * (0.05 + 0.08 * wh) + wh * 9.0;
             float a0 = hash21(wc + floor(st) * 1.31 + cell);
             float a1 = hash21(wc + (floor(st) + 1.0) * 1.31 + cell);
-            float on = smoothstep(0.5, 0.8, mix(a0, a1, smoothstep(0.7, 1.0, fract(st))));
+            float on = smoothstep(0.5, 0.8, mix(a0, a1, smoothstep(0.0, 1.0, fract(st))));
             float fq = fpw / 0.13;
             float cov = 1.0 - smoothstep(0.3 - fq, 0.3 + fq, max(abs(wq.x), abs(wq.y)));
             cov = mix(cov, 0.36, smoothstep(0.25, 0.6, fq));
@@ -454,15 +478,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     CiK k = ciKMake(u);
 
     float speed = mix(3.5, 9.5, u.param1);
-    vec2 fl = osFlight(u, speed, 1.2 * mix(0.5, 1.5, u.param1));
-    float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    // a slow steady glide: no beat-timed surge or brake
+    float z = u.time * speed * 0.05;
+    float rush = 0.0;
+    float lull = 0.0;
     float alt = mix(3.4, 6.0, u.param0) + 0.4 * sin(u.time * 0.21);
     vec3 ro = vec3(ciPath(z), alt, z);
     vec3 ta = vec3(ciPath(z + 8.0), -1.4, z + 8.0 + alt * 0.6);
     float curve = ciPath(z + 12.0) - 2.0 * ciPath(z + 6.0) + ciPath(z);
-    float roll = -0.06 * curve + osBank(u, 0.14);
+    float roll = -0.06 * curve + 0.05 * sin(u.time * 0.05);
     float fov = 1.3 - 0.16 * rush + 0.08 * lull;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
 
@@ -507,5 +531,5 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = mix(col, fogCol + sky, fog);
     col += k.bass * fogCol * 2.0 * k.bassE * fog;
     col += ciPillars(ro, rd, t, k, pixk, osSteps(5.0, 12.0, detail)) * bright;
-    return col; // LINEAR HDR — post chain tonemaps
+    return ciOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

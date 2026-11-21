@@ -6,12 +6,23 @@
 // burns in that shell's prismatic colour, with the spectrum mapped from the
 // innermost shell (bass) to the outermost (treble). The inner shells show as
 // glass bubbles carrying glowing Chladni figures, warm against cool, and the
-// whole set surges outward on every beat. Each beat also sends a gold shell
-// racing out from the focus toward the camera. The struts taper away
-// inside a small bubble around the camera, so nothing whips past the lens.
+// whole set drifts slowly outward. Each beat sends a faint gold shell out from
+// the focus and lifts the shells' burn very slightly; the shells swell only
+// gently with the level, so the lattice never pumps as a whole.
+// The flight runs on a slow, steady clock, and the struts taper away inside a
+// small bubble around the camera, so nothing whips past the lens.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 Contour Density: how closely the shells are packed.
 // param1 Height: how far the shells swell the struts and how bright they burn.
 // param2 Reflection: how polished the struts are.
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 ltPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 31, u); }
 
 const float LA_C = 8.0;
 const float LA_FOCUS = 30.0;
@@ -101,51 +112,51 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
     float sp = mix(12.5, 6.0, u.param0);
     float swell = mix(0.2, 1.6, u.param1);
-    // the shells burn hottest on the beat they surge on
-    float burn = mix(0.5, 1.6, u.param1) * (0.8 + 0.6 * u.beat);
+    // the shells burn a little hotter just after each beat
+    float bp = saturate(u.beatPhase);
+    float bSw = smoothstep(0.0, 0.3, bp) * (1.0 - bp) * (1.0 - bp) * 2.0;
+    float burn = mix(0.5, 1.6, u.param1) * (0.98 + 0.04 * bSw);
     float polish = mix(0.15, 1.0, u.param2);
     float tm = mod(u.time, 600.0);
-    // The shells surge outward on every beat and glide between beats. Both
-    // terms wrap at whole multiples of three shells, so hues never jump.
-    float bAge = saturate(u.beatPhase);
-    float bGlide = (1.0 - bAge) * (1.0 - bAge);
-    float bEase = 1.0 - bGlide * bGlide * (1.0 - bAge);
-    float ph = tm * 0.06 + 0.35 * (mod(u.beatCount, 240.0) + bEase);
+    // The shells drift steadily outward; the phase wraps at a whole multiple
+    // of three shells (30 at tm = 600), so hues never jump.
+    float bAge = bp;
+    float ph = tm * 0.05;
 
-    vec2 fl = osFlight(u, 1.6, 0.4);
-    float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    // A slow, steady flight: fast motion of the bright struts would flash.
+    float z = mod(u.time, 36000.0) * 0.32;
+    float rush = 0.25;
+    float lull = 0.1;
     vec3 ro = vec3(laPath(z), z);
     vec3 ta = vec3(laPath(z + 8.0), z + 8.0);
     vec2 bend = laPath(z + 16.0) - 2.0 * laPath(z + 8.0) + laPath(z);
-    float roll = -0.06 * bend.x + osBank(u, 0.18) + 0.12 * sin(tm * 0.031);
+    float roll = -0.06 * bend.x + 0.1 * sin(mod(u.time, 628.31853) * 0.05) + 0.12 * sin(tm * 0.031);
     float fov = 1.05 - 0.16 * rush + 0.08 * lull;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
 
     // Spectrum by shell radius: inner shells bass, middle mids, outer treble.
     float sens = 0.6 + 0.4 * u.sensitivity;
-    float aB = 0.2 + 1.7 * bandRange(u, 0, 10) * sens;
-    float aM = 0.2 + 1.7 * bandRange(u, 10, 32) * sens;
-    float aT = 0.2 + 1.9 * bandRange(u, 32, 64) * sens;
+    float aB = 0.45 + 0.6 * mix(u.level, bandRange(u, 0, 10), 0.1) * sens;
+    float aM = 0.45 + 0.6 * mix(u.level * 0.9, bandRange(u, 10, 32), 0.1) * sens;
+    float aT = 0.45 + 0.65 * mix(u.level * 0.8, bandRange(u, 32, 64), 0.1) * sens;
 
     // Three shell hues: a warm one against two cool ones, each swaying within
-    // its family and swinging apart when the flight bursts. (The green
+    // its family. (The green
     // stretch of a palette is skipped; the host greys it.)
-    vec3 hA = palVisual(fract(0.03 + 0.05 * sin(tm * 0.05) + 0.07 * rush), u);
-    vec3 hB = palVisual(0.56 + 0.05 * sin(tm * 0.037 + 1.0), u);
-    vec3 hC = palVisual(0.86 + 0.06 * sin(tm * 0.043 + 2.0) - 0.06 * rush, u);
-    // The beat shell burns a hot gold, the warm counterpoint to the shells.
-    vec3 peak = mix(palRolePeak(0.62, u), vec3(1.8, 0.7, 0.22), 0.75);
+    vec3 hA = ltPalSteady(fract(0.03 + 0.05 * sin(tm * 0.05) ), u);
+    vec3 hB = ltPalSteady(0.56 + 0.05 * sin(tm * 0.037 + 1.0), u);
+    vec3 hC = ltPalSteady(0.86 + 0.06 * sin(tm * 0.043 + 2.0) , u);
+    // The beat shell burns a faint gold, the warm counterpoint to the shells.
+    vec3 peak = mix(ltPalSteady(0.62, u), vec3(1.8, 0.7, 0.22), 0.75);
     // The cymatic source at the focus: a white-hot core with a coloured corona.
-    float pulse = 0.6 + 0.3 * saturate(u.bassImpact) + 0.9 * u.beat;
-    vec3 coreCol = mix(palVisual(fract(0.86 + tm * 0.013), u), vec3(1.0, 0.9, 0.95), 0.15) * pulse;
-    float bAmt = 0.5 + 0.8 * saturate(u.bassImpact);
+    float pulse = 0.95 + 0.08 * bSw;
+    vec3 coreCol = mix(ltPalSteady(fract(0.86 + tm * 0.013), u), vec3(1.0, 0.9, 0.95), 0.15) * pulse;
+    float bAmt = 0.07;
     // the gold shell leaves the focus at full heat and cools as it races out,
     // so the beat lands when it fires, not when the shell reaches the camera
     vec4 bt = vec4(2.0 + 32.0 * bAge, exp(-bAge * 4.5) * bAmt, 34.0 + 32.0 * bAge, exp(-(bAge + 1.0) * 4.5) * bAmt);
     // Chladni mode drifts slowly; mids twist the figure.
-    float tw = tm * 0.21 + 1.5 * aM;
+    float tw = tm * 0.12 + 0.3 * aM;
 
     vec3 fq = laQ(vec3(laPath(z + LA_FOCUS), z + LA_FOCUS));
     vec3 qc = laQ(ro);
@@ -216,7 +227,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     vec3 glow = (hA * (gw.x + mem.x) + hB * (gw.y + mem.y) + hC * (gw.z + mem.z)) * burn + peak * (gBeat * 0.1) + coreCol * gCore;
 
-    vec3 fogCol = palVisual(0.86, u) * 0.004 + vec3(0.0002, 0.0002, 0.0005);
+    vec3 fogCol = ltPalSteady(0.86, u) * 0.004 + vec3(0.0002, 0.0002, 0.0005);
     vec3 col = fogCol;
     if (hit > 0.0) {
         vec3 pos = ro + rd * hit;
@@ -262,14 +273,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // The burn: coloured edges with a white-hot middle where the shell is densest.
         vec3 em = sc * (sh * 2.6 * burn * farF + ring * a * near + (1.0 - farF) * 0.1 * a)
                 + vec3(1.0, 0.92, 0.85) * (sh * sh * sh * 0.6 * burn * farF);
-        em += peak * laBeat(r, bt) * near * 2.6;
+        em += peak * laBeat(r, bt) * near * 1.2;
         // Crystal nodes: a white-hot core when the shell crosses them.
         // The node takes its shell from its centre, so it lights evenly.
         vec3 wn = laHue(sN.y);
         vec3 scN = (hA * wn.x + hB * wn.y + hC * wn.z) / max(wn.x + wn.y + wn.z, 1e-3);
         float shn = shN * a * near * farF;
         vec3 emN = scN * (shn * 3.8 * burn + (1.0 - farF) * 0.1 * a + 0.02) + vec3(1.0, 0.95, 0.9) * shn * 0.9 * burn
-                 + peak * laBeat(rN, bt) * near * 3.0;
+                 + peak * laBeat(rN, bt) * near * 1.4;
         em = mix(em, emN, part);
         // Lit tubes read round: brighter toward the silhouette.
         em *= 0.65 + 0.9 * fres;

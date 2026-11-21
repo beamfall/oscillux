@@ -4,11 +4,25 @@
 // the photo, shown as a giant backlit screen. Every tower is a real lens: the
 // photo seen through it is flipped, magnified and split into prismatic
 // fringes, while studio softboxes streak bright highlights down the glass.
-// The towers rise and fall with the spectrum like an equalizer skyline and
-// their rims glow in the palette. The camera orbits slowly on the shared
-// 32-beat speed profile with an eased bank; audio drives the towers' height
-// and light, never the camera.
+// The towers breathe slowly with the music's smoothed level and a trace of
+// their own band, like a calm equalizer skyline, and their rims glow softly
+// in the palette; there are no kick lifts or beat flashes, so the refracted
+// photo never jumps inside the flash budget. The camera orbits very slowly and
+// level, with no audio surge; audio only shades the towers' height and light.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Towers ; param1 = Height ; param2 = Reflection
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them. The fog and peak roles read the same steady palette.
+vec3 pglPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 31, u); }
+vec3 pglPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = pglPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 const float PG2_WALL = 3.8;    // the photo screen's depth
 const float PG2_WH = 6.0;      // half height of the photo screen
@@ -54,7 +68,7 @@ vec4 pglTower(vec2 c, VisualUniforms u, float density, float hAmt) {
     float rad = 0.17 + 0.15 * hash21(c + 9.1);
     float b = bandAt(u, saturate((ctr.x + 6.0) / 12.0));
     float row = (c.y - PG2_Z0) / (PG2_Z1 - PG2_Z0);
-    float h = (0.6 + 1.3 * h1 + 3.8 * b) * hAmt * (0.55 + 0.8 * row);
+    float h = (2.6 + 1.3 * h1 + 0.25 * u.level + 0.06 * b) * hAmt * (0.55 + 0.8 * row);
     return vec4(ctr, rad, max(h, 0.12));
 }
 
@@ -185,14 +199,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float ia = clamp(isz.x / isz.y, 0.5, 2.4);
 
     // camera: a slow orbit across the field on the shared speed profile
-    vec2 fl = pglFlight(u, 1.0, 0.5);
+    vec2 fl = pglFlight(u, 0.3, -0.1);
     float burst = smoothstep(1.6, 4.0, fl.y);
     float ang = 0.27 * sin(fl.x * 0.03) + 0.05 * sin(t * 0.05);
     vec3 ctr = vec3(0.0, 0.55, 1.0);
     float rad = 5.5 + 0.8 * sin(fl.x * 0.017 + 1.0);
     vec3 ro = ctr + vec3(sin(ang) * rad, 0.15 + 0.2 * sin(fl.x * 0.021 + 0.5), -cos(ang) * rad);
     vec3 ta = vec3(0.2 * sin(ang), 1.75, 1.6);
-    vec3 rd = osCamera(ro, ta, osBank(u, 0.03), 1.75, p);
+    vec3 rd = osCamera(ro, ta, 0.0, 1.75, p);
     vec3 rd0 = rd;
 
     int segs = detail > 0.5 ? 4 : 3;
@@ -222,11 +236,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float kLo = min(keyC.r, min(keyC.g, keyC.b));
     float kSat = (kHi - kLo) / max(kHi, 1e-3);
     vec3 keyHue = (keyC - kLo) / max(kHi - kLo, 1e-3);
-    PglPal P = PglPal(palVisual(0.1, u), palVisual(0.3, u), palVisual(0.5, u), palVisual(0.7, u), palVisual(0.9, u),
-                      palRoleFog(0.5, u), palRoleFog(0.62, u), vec3(0.0));
+    PglPal P = PglPal(pglPalSteady(0.1, u), pglPalSteady(0.3, u), pglPalSteady(0.5, u), pglPalSteady(0.7, u), pglPalSteady(0.9, u),
+                      pglPalSteadyFog(0.5, u), pglPalSteadyFog(0.62, u), vec3(0.0));
     P.accent = mix(P.c, (vec3(1.0) - keyHue) * 1.3, smoothstep(0.08, 0.3, kSat));
     vec3 cl0 = max(IMG(vec2(0.5, 0.45)).rgb, vec3(0.0));
-    vec3 causticLight = cl0 * cl0 + P.accent * (0.08 + 0.3 * u.bassImpact);
+    vec3 causticLight = cl0 * cl0 + P.accent * 0.18;
     for (int sgi = 0; sgi < 4; sgi++) {
         if (sgi >= segs) break;
         // distance to the floor and the screen
@@ -272,8 +286,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float hk = hash21(twHit.xy + 3.3);
             vec3 hue = pglPal(P, 0.45 + 0.5 * fract((twHit.x + 6.0) / 12.0 + 0.37 * hk));
             // rims alternate between the palette and the photo's complementary accent
-            vec3 rimC = hk > 0.6 ? P.accent : peakWhite(hue, 0.1 + 0.3 * u.flux);
-            col += thr * rimC * rim * (0.6 + 4.0 * b * b + 1.2 * u.beat * u.beat);
+            vec3 rimC = hk > 0.6 ? P.accent : peakWhite(hue, 0.15);
+            col += thr * rimC * rim * (1.5 + 0.25 * u.level + 0.08 * b);
             if (nHit.y < 0.5) {
                 // etched rings up the glass, antialiased to the pixel footprint:
                 // they glow toward the top with the band, and a lit ring climbs
@@ -282,15 +296,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                 float gy = hp.y / 0.2;
                 float gd = abs(fract(gy) - 0.5) * 0.2;
                 float ring = (1.0 - smoothstep(0.0, 0.006 + px, gd)) * step(0.1, hp.y) * step(hp.y, twHit.w - 0.08);
-                float nearTop = exp(-(twHit.w - hp.y) * (3.5 - 2.0 * b));
+                float nearTop = exp(-(twHit.w - hp.y) * 2.8);
                 float cph = fract(u.beatPhase + hk);
                 float climb = cph * twHit.w;
                 // it fades in at the foot and out at the top, so the wrap never pops
-                float pulse = exp(-pow((hp.y - climb) * 5.0, 2.0)) * sin(3.14159 * cph) * (0.3 + 1.2 * burst);
+                float pulse = exp(-pow((hp.y - climb) * 5.0, 2.0)) * sin(3.14159 * cph) * 0.05;
                 // rings fade out before they crowd below a few pixels apart
                 ring *= 1.0 - smoothstep(0.02, 0.045, px);
                 vec3 ringC = mix(hue, rimC, 0.25) * 1.2;
-                col += thr * ringC * ring * (0.015 + (0.5 + 2.5 * b * b) * nearTop + pulse) * (0.4 + 0.6 * ndv);
+                col += thr * ringC * ring * (0.015 + (0.6 + 0.2 * u.level) * nearTop + pulse) * (0.4 + 0.6 * ndv);
             }
             // into the glass and out the far side
             vec3 d1 = refract(d, nHit, 1.0 / PG2_IOR);
@@ -301,7 +315,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             if (nOut.y < -0.5) {
                 // the base is a lit mirror: bounce once and pick up its glow
                 col += thr * (1.0 - fres) * pglPal(P, twHit.x * 0.07 + 0.3)
-                     * (0.06 + 1.6 * b * b + 0.3 * u.bassImpact);
+                     * (1.0 + 0.1 * u.level);
                 d1.y = -d1.y;
                 float tx2 = pglCylOut(xp + d1 * 1e-3, d1, twHit, nOut);
                 if (nOut.y < -0.5) nOut = vec3(0.0, 1.0, 0.0);
@@ -313,7 +327,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             glassPath += tx;
             // light trapped in the glass: each tower glows in its own hue with its band
             float lowGlow = 1.0 - 0.6 * saturate(0.5 * (hp.y + xp.y) / twHit.w);
-            col += thr * (1.0 - fres) * hue * tx * lowGlow * (0.02 + 1.3 * b * b + 0.3 * u.beat * u.beat);
+            col += thr * (1.0 - fres) * hue * tx * lowGlow * (0.75 + 0.1 * u.level);
             // dense glass: it absorbs toward its own colour, so thick towers read deep and jewel-like
             vec3 tint = mix(vec3(1.0), hue, 0.1 + 0.14 * hk);
             thr *= (1.0 - fres) * tint * exp(-tx * 0.12);
@@ -338,7 +352,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
                 vec2 q = vec2(wp.x / PG2_WH, (wp.y + 1.2) / PG2_WH);
                 vec2 disp = bend * 0.2 + bend * glassPath * 0.015;
                 vec3 scr = pglScreen(q, disp, u, ia, taps);
-                col += thr * scr * (0.9 + 0.15 * u.level);
+                col += thr * scr * (0.95 + 0.05 * u.level);
             } else {
                 col += thr * pglEnv(d, P) * 0.15;
             }

@@ -11,10 +11,25 @@
 // gas close to the core glows cyan. Every bar an ionisation wave rolls out of
 // the core and sets the cloud edges alight as it passes. Stars sit on every
 // layer, the brightest with six-point diffraction spikes, and stretch into
-// streaks when the push surges. The push follows the 32-beat speed profile
+// short streaks when the push surges. The push follows the 32-beat speed profile
 // (cruise, build, burst, brake, drift) and the roll eases to a new side every
-// eight beats; audio drives light, never the camera.
+// eight beats; audio drives light, never the camera. The push stays slow, the
+// beat light swells smoothly and faintly, the core barely lifts with the bass and
+// the colours never shimmer with the music, so the gas never flashes across
+// large areas.
 // param0 = Density ; param1 = Swirl ; param2 = Emission
+
+// The palette read without the library's per-beat and spectral-centroid hue
+// nudge, so large lit areas never shimmer with the music; under the host's
+// palette tour the cross-fade between palettes is spread over the whole tour
+// step, so the colours change slowly.
+vec3 nbPalStill(float t, VisualUniforms u) {
+    if (u.palette.x >= 0.0) return palByIndex(t, int(floor(u.palette.x + 0.5)));
+    int a = int(mod(floor(u.palette.z), 32.0));
+    int b = int(mod(float(a + 1), 32.0));
+    float blend = smoothstep(0.0, 1.0, fract(u.palette.z));
+    return mix(palByIndex(t, a), palByIndex(t, b), blend);
+}
 
 // The palette is read once per pixel at its five stops and blended locally:
 // each library palette read walks the whole stop table, and this visual needs
@@ -23,11 +38,11 @@ struct NbPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
 NbPal nbPalLoad(VisualUniforms u) {
     NbPal P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    P.c0 = nbPalStill(0.0, u);
+    P.c1 = nbPalStill(0.26, u);
+    P.c2 = nbPalStill(0.52, u);
+    P.c3 = nbPalStill(0.78, u);
+    P.c4 = nbPalStill(0.999, u);
     return P;
 }
 
@@ -93,7 +108,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float swirl = mix(0.2, 1.3, u.param1);
     float emit = mix(0.6, 1.7, u.param2);
 
-    vec2 fl = osFlight(u, 0.46, 0.15);
+    vec2 fl = osFlight(u, 0.38, 0.08);
     float camZ = mod(fl.x, 4096.0);
     float rush = saturate((fl.y - 1.0) / 3.5);
     p = rot2(osBank(u, 0.14)) * p;
@@ -105,16 +120,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float r = length(pc);
     vec2 toC = -pc / max(r, 1e-4);
 
-    // ionisation wave: every second beat it leaves the core, slowing as it spreads
+    // ionisation wave: every bar it leaves the core, slowing as it spreads
     float bp = saturate(u.beatPhase);
-    float b4 = (mod(u.beatCount, 2.0) + bp) * 0.5;
-    // each beat the rims flare and decay (accents only, never the whole frame)
-    float kick = exp(-bp * 5.0) * (0.35 + 0.9 * u.bassImpact);
+    float b4 = (mod(u.beatCount, 4.0) + bp) * 0.25;
+    // each beat the rims swell and settle on a smooth bell (accents only, never
+    // the whole frame; a sharp kick flare sets large areas flashing)
+    float kick = (0.5 - 0.5 * cos(6.2831853 * bp)) * (0.2 + 0.3 * u.bass);
     float waveR = 0.04 + 1.5 * (1.0 - (1.0 - b4) * (1.0 - b4));
-    float waveA = (1.0 - b4) * (1.0 - b4) * smoothstep(0.0, 0.04, b4) * (0.7 + 0.9 * u.bassImpact);
+    float waveA = (1.0 - b4) * (1.0 - b4) * smoothstep(0.0, 0.25, b4) * (0.45 + 0.25 * u.bass);
     float waveW = 0.05 + 0.12 * b4;
 
-    float bassLift = 0.75 + 0.6 * u.bassImpact + 0.25 * u.bass;
+    float bassLift = 0.97 + 0.06 * u.bass;
     vec3 hot = nbPal(P, 0.70);
     vec3 white = peakWhite(hot, 0.75);
     vec3 cyan = nbPal(P, 0.97);
@@ -123,7 +139,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // deep background, the ionised cyan glow round the core, the core itself
     vec3 col = P.c0 * 0.006 + nbPal(P, 0.08) * 0.035 * exp(-r * 1.2);
     col += white * (3.0 * exp(-r * r * 300.0) + 0.35 * exp(-r * 12.0)) * bassLift;
-    col += cyan * 0.16 * exp(-r * 3.2) * bassLift;
+    col += cyan * 0.2 * exp(-r * 3.2) * bassLift;
     // the cluster: a knot of hot young stars around the core
     for (int k = 0; k < 9; ++k) {
         vec2 hk = hash22(vec2(float(k), 17.3)) - 0.5;
@@ -176,18 +192,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // where the gas is ionised close to it.
         float glow = smoothstep(0.36, 0.78, g.x) * voids * (0.55 + 0.9 * fil);
         float ion = exp(-r * 3.0) * (1.0 - 0.6 * z);
-        vec3 gas = mix(nbPal(P, 0.08 + 0.2 * hash11(id) + 0.1 * rush + 0.04 * u.spectralCentroid), warm, 0.55 * smoothstep(0.15, 0.7, lit * facing));
+        vec3 gas = mix(nbPal(P, 0.08 + 0.2 * hash11(id) + 0.1 * rush), warm, 0.55 * smoothstep(0.15, 0.7, lit * facing));
         gas = mix(gas, cyan, saturate(ion * 1.5));
-        vec3 em = gas * glow * (0.025 + 0.9 * lit * (0.3 + 0.9 * facing) + 0.25 * wave * fil) * far;
+        vec3 em = gas * glow * (0.025 + 0.9 * lit * (0.3 + 0.9 * facing) + 0.15 * wave * fil) * far;
 
         // 2. dust: crisp, frayed and dark, it swallows the light behind it; its
         // edge facing the core burns with an ionisation rim
-        float dust = smoothstep(0.5, 0.545, gx) * voids;
+        float dust = smoothstep(0.507, 0.537, gx) * voids;
         float dustA = dust * fade * densAmt * mix(0.35, 0.96, z);
         // a thin burning front at the dust edge that fades into the dust behind it
-        float rim = smoothstep(0.0, 0.05, edge) * smoothstep(0.475, 0.505, gx) * exp(-max(gx - 0.505, 0.0) * 45.0) * voids;
+        float rim = smoothstep(0.0, 0.05, edge) * smoothstep(0.483, 0.505, gx) * exp(-max(gx - 0.505, 0.0) * 60.0) * voids;
         vec3 rimCol = mix(hash11(id + 4.0) < 0.5 ? cyan : warm, white, 0.25 * lit + 0.4 * wave);
-        em += rimCol * rim * (0.05 + 3.2 * lit + 2.5 * wave) * (0.6 + 1.1 * midE + 0.8 * kick) * (0.5 + 0.9 * fil);
+        em += rimCol * rim * (0.05 + 3.2 * lit + 0.4 * wave) * (1.3 + 0.25 * midE + 0.2 * kick) * (0.5 + 0.9 * fil);
         em += nbPal(P, 0.1) * dust * (0.006 + 0.05 * facing * lit);   // faint lit face of the dust
         col = col * (1.0 - dustA) + em * fade * emit;
         float alpha = dustA;
@@ -205,7 +221,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec2 d = pc - q;
             float ql = length(q);
             vec2 qd = q / max(ql, 1e-3);
-            float stretch = 1.0 + 10.0 * rush * z * z * min(ql, 1.2);
+            float stretch = 1.0 + 4.0 * rush * z * z * min(ql, 1.2);
             float dr = dot(d, qd);
             d -= qd * dr * (1.0 - 1.0 / stretch);
             float big = step(0.972, h.x);

@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Wave Cascade: a live glass ribbon of the spectrum runs along the lip of a
-// dark waterfall of light. The curtain below is made of falling strands whose
-// brightness follows the spectrum; they stretch as they accelerate and their
-// flow rate cruises, surges and brakes with the beat profile. On each beat a
-// glossy sheet of the ribbon shears off, falls, breaks into rivulets and
-// settles into glowing strata on a mirror pool. Every bass hit sends a
-// torrent plunging down one column of the falls; where it lands, a crown of
-// spray, a mist bloom and a ring across the pool. Bar downbeats hit hardest.
+// dark waterfall of light. The curtain below is made of fine falling strands
+// whose clumps stretch as they accelerate; the flow runs at a slow, steady rate and
+// the smoothed level, with a trace of spectrum, sets how brightly the water
+// pours, so the curtain glows and fades rather than flickering. On each beat a
+// sheet of the ribbon shears off as a faint veil, falls, breaks into rivulets
+// and lights up slowly as it settles into glowing strata on a mirror pool.
+// Every beat a dim torrent runs down one column of the falls; where it
+// lands, a small crown of spray, a soft mist bloom and a faint ring across the
+// slowly rippling pool, all fading out before the next one is due. No onset flashes.
 // param0 Fall Speed ; param1 Sheet Life ; param2 Spray
 
 #define WC_TOP 0.17
 #define WC_FLOOR 0.80
-#define WC_LAND 0.42
+#define WC_LAND 0.9
 
 // The palette is read once per pixel at its five stops and blended locally,
 // and the spectrum once at 32 points (each the mean of two neighbouring
@@ -44,7 +46,7 @@ vec3 wcFog(WcPal P, float t, VisualUniforms u) {
 }
 
 vec3 wcTreble(WcPal P, float t, VisualUniforms u) {
-    return peakWhite(wcPal(P, 0.62 + t * 0.28 + 0.10 * u.spectralCentroid), u.treble * u.onset * 0.14);
+    return peakWhite(wcPal(P, 0.62 + t * 0.28 + 0.10 * u.spectralCentroid), 0.03);
 }
 
 struct WcBands { vec4 b0; vec4 b1; vec4 b2; vec4 b3; vec4 b4; vec4 b5; vec4 b6; vec4 b7; };
@@ -87,7 +89,7 @@ vec2 wcShape(float x, float seed, float phase, float live, float tw, WcBands B, 
         float liveB = wcBand(B, fract(x * 0.82 + 0.03 * sin(tw * 0.31)));
         b = mix(b, liveB * 1.6, live);
     }
-    float hi = 0.08 * (0.4 + live * u.treble * 1.6);
+    float hi = 0.08 * (0.4 + live * 0.3);
     float a1 = x * 9.0 + phase * 2.7, a2 = x * 23.0 - phase * 5.1, a3 = x * 57.0 + phase * 9.3;
     float w = sin(a1) * 0.42 + sin(a2) * 0.22 + sin(a3) * hi;
     float dw = cos(a1) * 3.78 + cos(a2) * 5.06 + cos(a3) * 57.0 * hi;
@@ -127,7 +129,7 @@ float wcStrands(float xs, float fall, float run, float cols, float wid, float se
     float line = exp(-off * off / (w * w));
     float v = sqrt(fall + 0.015) * (5.0 + 3.0 * h) - run * (0.9 + 0.6 * h2);
     float clump = smoothstep(0.32, 0.88, vnoise(vec2(id * 3.7 + seed, v * 2.4)));
-    return line * (0.12 + 1.5 * clump) * (0.3 + 0.7 * h2);
+    return line * (2.0 + 0.8 * clump) * (0.3 + 0.7 * h2);
 }
 
 // Torrent for the bass hit j beats ago: column x (aspect units), strength and
@@ -135,7 +137,7 @@ float wcStrands(float xs, float fall, float run, float cols, float wid, float se
 vec3 wcHero(float seedN, float j, float ph, VisualUniforms u) {
     float n = seedN - j;
     float down = 1.0 - step(0.5, mod(n, 4.0));
-    float k = (0.5 + 0.5 * down) * clamp(0.45 + 0.85 * u.bass, 0.0, 1.25);
+    float k = (0.75 + 0.25 * down) * (0.18 + 0.08 * u.level);
     float x = 0.18 + 0.64 * hash11(mod(n, 512.0) * 0.731 + 0.37);
     return vec3(x, k, ph + j);
 }
@@ -151,17 +153,19 @@ vec3 wcHeroC(WcPal P, float seedN, float j) {
 // for the pool with mirrored uv.
 vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspect,
              float tw, float run, float flow, float px, WcPal P, WcBands B, VisualUniforms u) {
-    float cb = wcBand(B, uv.x);
+    float cbS = (0.3 + 0.4 * u.level) * (0.5 + vnoise(vec2(uv.x * 6.5, tw * 0.05)));
+    float cb = mix(cbS, wcBand(B, uv.x), 0.1);
     float seedN = floor(u.beatCount);
     float ph = clamp(u.beatPhase, 0.0, 1.0);
     float xs = uv.x * aspect;
 
     // Live trace position here, for the curtain and the backlight.
-    float mPhase = mod(seedN, 512.0) + ph;
-    vec2 mShape = wcShape(uv.x, mod(seedN, 512.0), mPhase, 1.0, tw, B, u);
-    float mAmp = 0.10 * (0.55 + 0.75 * u.amplitude) * (1.0 + 0.25 * u.bassImpact);
-    float yM = WC_TOP + mShape.x * mAmp;
+    float mPhase = tw * 0.25;
+    vec2 mShape = wcShape(uv.x, 0.0, mPhase, 0.15, tw, B, u);
+    float mAmp = 0.10 * (0.85 + 0.2 * u.level);
+    float yM = WC_TOP + wcShape(uv.x, 0.0, mPhase, 0.0, tw, B, u).x * mAmp;
     float below = uv.y - yM;
+    float belowT = uv.y - (WC_TOP + mShape.x * mAmp);
 
     vec3 fogC = mix(wcFog(P, 0.55 + 0.10 * u.spectralCentroid, u), wcPal(P, 0.12 + 0.2 * uv.x), 0.5);
     vec3 col = fogC * (0.006 + 0.012 * smoothstep(0.0, 0.8, uv.y));
@@ -173,15 +177,15 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
         float fall = max(below, 0.0);
         float lip = smoothstep(-0.01, 0.02, below);
         float depthFade = exp(-fall * 1.3);
-        float far = detail < -0.5 ? 0.0 : wcStrands(xs, fall, run * 0.55, 95.0, 0.10, 3.0);
-        float mid = wcStrands(xs, fall, run * 0.8, 38.0, 0.08, 11.0);
+        float far = detail < -0.5 ? 0.0 : wcStrands(xs, fall, run * 0.55, 95.0, 0.08, 3.0);
+        float mid = wcStrands(xs, fall, run * 0.8, 38.0, 0.06, 11.0);
         float near = 0.0;
         if (detail > 0.5) near = wcStrands(xs + 0.05 * sin(tw * 0.07), fall, run * 1.15, 11.0, 0.16, 23.0);
         else if (detail > -0.5) mid = mix(mid, wcStrands(xs, fall, run * 0.8, 17.0, 0.12, 5.0), 0.35);
         riv = mid;
-        float pour = (0.25 + 1.1 * cb) * lip;
+        float pour = (0.6 + 0.3 * cb) * lip;
         vec3 farC = mix(fogC, wcPal(P, 0.02 + 0.12 * uv.x), 0.6);
-        vec3 midC = mix(wcPal(P, 0.30 + 0.35 * uv.x + 0.03 * u.beatPhase), wcPal(P, 0.12), smoothstep(0.0, 0.6, fall));
+        vec3 midC = mix(wcPal(P, 0.30 + 0.35 * uv.x), wcPal(P, 0.12), smoothstep(0.0, 0.6, fall));
         vec3 nearC = wcPal(P, 0.42 + 0.2 * uv.x);
         col += farC * far * pour * 0.055 * (0.5 + depthFade);
         col += midC * mid * pour * (0.04 + 0.08 * depthFade) * (0.7 + 0.3 * flow);
@@ -196,29 +200,26 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
             float a = hh.z;
             float dx = (xs - hh.x * aspect);
             float down = step(0.75, hh.y);
-            float w = mix(0.09, 0.17, down) * (1.0 + 0.5 * smoothstep(0.0, 1.0, a));
+            float w = mix(0.035, 0.045, down);
             float colM = exp(-dx * dx / (w * w));
-            if (a > 1.6) continue;
-            float f = min(1.0, (a / WC_LAND) * (a / WC_LAND));
+            if (a > 2.0) continue;
+            float f = min(1.0, a / WC_LAND);
             // a ragged front: each rivulet's head runs a little ahead or behind
             float yF = yM + (WC_FLOOR - yM) * f
                      + (detail < -0.5 ? 0.0 : 0.05 * (vnoise(vec2(xs * 38.0, mod(seedN - float(j), 512.0) * 1.3)) - 0.5) * (1.0 - f * f));
-            // bar downbeats also send a fainter surge across the whole curtain
-            float wide = down * 0.28 * smoothstep(yF + 0.02, yF - 0.06, uv.y) * (1.0 - smoothstep(0.3, 1.0, a));
-            heroLight += heroC * hh.y * wide * (mid + 0.5 * far) * (0.6 + 0.4 * cb) * lip;
             if (colM < 0.003) continue;
             float body = smoothstep(yF + 0.012, yF - 0.03, uv.y) * lip;
-            float thin = exp(-max(a - WC_LAND, 0.0) * 3.2) * (1.0 - smoothstep(1.2, 1.6, a));
+            float thin = 1.0 - smoothstep(WC_LAND, 2.0, a);
             float tor = hh.y * colM * body * thin;
             float crest = hh.y * colM * exp(-abs(uv.y - yF) * 45.0) * (1.0 - smoothstep(0.8, 1.0, f));
             // the torrent is the curtain's own strands running hot, with a white-hot core
             float rush = mid + 0.6 * far + near * 0.35;
-            heroLight += heroC * (tor * (0.02 + 1.3 * rush) + crest * 2.2 * rush);
-            heroLight += peakWhite(heroC, 0.55) * tor * exp(-dx * dx / (w * w * 0.04)) * (0.08 + 0.7 * mid);
+            heroLight += heroC * (tor * (0.07 + 0.08 * rush) + crest * 0.15 * rush);
+            heroLight += peakWhite(heroC, 0.55) * tor * exp(-dx * dx / (w * w * 0.04)) * (0.05 + 0.05 * mid);
             // volumetric spill: the torrent lights the mist around it
             heroLight += heroC * hh.y * exp(-dx * dx / (w * w * 5.0)) * body * thin * 0.035;
         }
-        col += heroLight;
+        col += heroLight * 0.5;
 
         // backlit spray: slow clouds of palette light drifting behind the
         // strands, cool at the lip and deepening as the water falls
@@ -228,10 +229,10 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
         vec3 cloudC = mix(wcPal(P, 0.36 + 0.22 * uv.x + 0.06 * sin(tw * 0.09)),
                           wcPal(P, 0.02 + 0.20 * uv.x + 0.06 * u.spectralCentroid), smoothstep(0.0, 0.5, fall));
         col += cloudC * cloud * lip * exp(-fall * 1.2)
-             * (0.065 + 0.11 * u.amplitude + 0.16 * u.bassImpact * (1.0 - ph)) * (0.6 + 0.6 * cb);
+             * (0.08 + 0.05 * u.level) * (0.7 + 0.4 * cb);
     } else {
         // Backlight haze over the lip of the falls.
-        col += wcPal(P, 0.4 + 0.3 * uv.x + 0.03 * u.beatPhase) * exp(below * 18.0) * 0.07 * (0.6 + u.amplitude);
+        col += wcPal(P, 0.4 + 0.3 * uv.x) * exp(below * 18.0) * 0.07 * (0.8 + 0.3 * u.level);
     }
 
     // ---- falling sheets: one detaches per beat and breaks into rivulets ----
@@ -250,18 +251,18 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
         float veilLen = min(0.015 + vel * 0.5, 0.13);
         // falling sheets come toward the viewer: they widen with a slight drift
         float grow = 1.0 + 0.09 * age;
-        float reach = 0.105 * grow * exp(-age * 0.30) * (0.6 + 0.6 * u.amplitude);
+        float reach = 0.105 * grow * exp(-age * 0.30) * (0.85 + 0.2 * u.level);
         if (d0 < -reach - 0.04 - 3.0 * veilLen || d0 > reach + 0.13) continue;
         float xq = 0.5 + (uv.x - 0.5) / grow + age * 0.010;
         float live = 1.0 - smoothstep(0.0, 0.45, age);
-        float amp = 0.085 * grow * exp(-age * 0.30) * (0.6 + 0.6 * u.amplitude) * mix(1.0, 0.45, settled);
+        float amp = 0.085 * grow * exp(-age * 0.30) * (0.85 + 0.2 * u.level) * mix(1.0, 0.45, settled);
         vec2 sh = wcShape(xq, seed, seed + live * ph, live, tw, B, u);
         float ys = yj + sh.x * amp;
         float slope = sh.y * amp / (aspect * grow);
         float d = uv.y - ys;
 
-        float fade = exp(-age * life) * (1.0 - 0.45 * settled)
-                   * (1.0 - smoothstep(float(nSheets) - 1.2, float(nSheets), age));
+        float fade = exp(-age * life) * (1.0 - 0.7 * settled)
+                   * (1.0 - smoothstep(float(nSheets) - 2.2, float(nSheets), age));
         // sheets keep to the cool end of the palette; the warm accent belongs to the torrents
         vec3 sc = wcPal(P, fract(0.92 + 0.62 * fract(seed * 0.137 + 0.08 * xq)));
         sc = accentize(sc, u.accent, 0.08);
@@ -270,7 +271,7 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
         float twc = cos(tw0);
         float opn = smoothstep(0.0, 2.0, age) * (1.0 - settled);
         float th = (mix(0.0045, 0.008 + 0.042 * abs(twc), opn) + 0.004 * settled) * grow;
-        vec3 c = wcRibbon(d, th, slope, sin(tw0) * 0.9 * opn, sc, px) * 1.5;
+        vec3 c = wcRibbon(d, th, slope, sin(tw0) * 0.9 * opn, sc, px) * 1.1;
         // soft glow and motion streaks trailing up toward where it came from
         float dm = d - th * 0.5;
         c += sc * (exp(-abs(dm) * 90.0) * 0.16 + exp(-abs(dm) * 30.0) * 0.06);
@@ -283,24 +284,30 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
         // mid-fall the sheet tears into the rivulets of the curtain
         float tear = smoothstep(0.7, 2.6, age) * (1.0 - settled);
         c *= mix(1.0, 0.12 + 1.3 * riv, tear);
-        col += c * fade * (0.45 + 0.55 * cb);
-        spill += sc * exp(-abs(d0) * 9.0) * (1.0 - smoothstep(0.08, 0.12, abs(d0))) * fade;
+        c *= fade * (0.75 + 0.25 * cb);
+        // while it drops fast the sheet is a faint veil, then it lights up again
+        // slowly once it has settled on the pool
+        float lit = smoothstep(0.0, 2.0, yFall - yStack);
+        float capL = mix(0.02, 0.3, lit);
+        float lc = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        col += c * min(1.0, capL / max(lc, 1e-4));
+        spill += sc * exp(-abs(d0) * 9.0) * (1.0 - smoothstep(0.08, 0.12, abs(d0))) * fade * mix(0.25, 1.0, settled);
     }
     // sheets light the falling curtain behind them
     col += spill * (0.03 + 0.5 * riv) * 0.22;
 
     // ---- live trace: hot glass tube ----
     float mSlope = mShape.y * mAmp / aspect;
-    vec3 mc = wcPal(P, fract(uv.x * 0.7 + 0.10 * u.spectralCentroid) + 0.03 * u.beatPhase);
-    float hot = 1.0 + 1.2 * cb;
+    vec3 mc = wcPal(P, fract(uv.x * 0.7 + 0.10 * u.spectralCentroid));
+    float hot = 1.0 + 0.5 * cb;
     float mth = 0.0065;
-    col += wcRibbon(below + mth * 0.5, mth, mSlope, 0.0, mc, px) * 1.5 * hot;
-    col += mc * exp(-abs(below) * 50.0) * (0.22 + 0.4 * u.amplitude);
+    col += wcRibbon(belowT + mth * 0.5, mth, mSlope, 0.0, mc, px) * 1.5 * hot;
+    col += mc * exp(-abs(belowT) * 50.0) * (0.25 + 0.15 * u.level);
     // the torrent's source flares white-gold on the lip
     vec3 h0 = wcHero(seedN, 0.0, ph, u);
     float lx = (xs - h0.x * aspect);
     col += peakWhite(wcHeroC(P, seedN, 0.0), 0.5) * h0.y * exp(-lx * lx * 60.0) * exp(-abs(below) * 120.0)
-         * exp(-ph * 3.0) * 1.4;
+         * smoothstep(0.0, 0.4, ph) * exp(-ph * 1.5) * 0.3;
     return col;
 }
 
@@ -319,9 +326,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float seedN = floor(u.beatCount);
     float ph = clamp(u.beatPhase, 0.0, 1.0);
     // Flow of the curtain: cruise, build, surge, brake, drift with the beat profile.
-    vec2 fl = osFlight(u, 0.55 + 0.9 * g, 0.25 + 0.5 * g);
-    float run = mod(fl.x, 1024.0);
-    float flow = clamp(fl.y / 4.5, 0.0, 1.0);
+    float run = mod(tw * 0.13, 1024.0);
+    float flow = 0.5;
     vec3 h0 = wcHero(seedN, 0.0, ph, u);
     vec3 h1 = wcHero(seedN, 1.0, ph, u);
     vec3 hc0 = wcHeroC(P, seedN, 0.0);
@@ -333,9 +339,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     } else {
         // ---- mirror pool: rippled reflection of the cascade ----
         float pz = (uv.y - WC_FLOOR) / (1.0 - WC_FLOOR);
-        float rip = vnoise(vec2(uv.x * aspect * 7.0, 3.0 / (pz + 0.08) - tw * 1.3)) - 0.5;
-        float rip2 = vnoise(vec2(uv.x * aspect * 23.0 + 5.0, 6.0 / (pz + 0.08) - tw * 2.1)) - 0.5;
-        float wob = (rip + 0.5 * rip2) * (0.25 + pz) * (1.0 + 0.8 * u.bassImpact);
+        float rip = vnoise(vec2(uv.x * aspect * 7.0, 3.0 / (pz + 0.08) - tw * 0.12)) - 0.5;
+        float rip2 = vnoise(vec2(uv.x * aspect * 23.0 + 5.0, 6.0 / (pz + 0.08) - tw * 0.16)) - 0.5;
+        float wob = (rip + 0.5 * rip2) * (0.25 + pz) * 1.0;
         // rings spreading from where the torrents land
         float ring = 0.0;
         vec3 ringC = vec3(0.0);
@@ -346,20 +352,20 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec2 rp = vec2((uv.x - hh.x) * aspect, pz * 0.55);
             float rr = length(rp);
             float rad = 0.04 + 0.62 * sqrt(ts);
-            float wv = exp(-abs(rr - rad) * (70.0 - 30.0 * pz)) * hh.y * exp(-ts * 1.7);
+            float wv = exp(-abs(rr - rad) * (70.0 - 30.0 * pz)) * hh.y * exp(-ts * 1.7) * (1.0 - smoothstep(0.3, 1.1, ts));
             float rw = wv * (0.7 + 0.6 * sin((rr - rad) * 160.0));
             ring += rw;
             ringC += (j == 0 ? hc0 : hc1) * rw;
         }
-        wob += ring * 0.9;
-        vec2 q = vec2(uv.x + wob * 0.012, WC_FLOOR - (uv.y - WC_FLOOR) * 2.2 + wob * 0.03 * pz);
-        float fres = mix(0.85, 0.35, sqrt(pz));
+        wob += ring * 0.5;
+        vec2 q = vec2(uv.x + wob * 0.006, WC_FLOOR - (uv.y - WC_FLOOR) * 2.2 + wob * 0.015 * pz);
+        float fres = mix(0.5, 0.2, sqrt(pz));
         col = wcScene(q, g, life, nSheets - 2, -1.0, aspect, tw, run, flow, px * (1.0 + 4.0 * pz), P, B, u) * fres;
         // glossy pool body lit by the bass
         float pool = exp(-pz * 5.0);
-        float pm = vnoise(vec2(uv.x * aspect * 3.0, pz * 4.0 - tw * 0.4));
-        col += wcPal(P, fract(0.18 + (seedN - 3.0) * 0.137)) * pool * (0.02 + 0.10 * u.amplitude + 0.12 * u.bassImpact) * (0.4 + 0.8 * pm);
-        col += mix(ringC, wcPal(P, 0.95) * ring, 0.35 + 0.4 * pz) * 0.30 * (1.0 - 0.5 * pz);
+        float pm = vnoise(vec2(uv.x * aspect * 3.0, pz * 4.0 - tw * 0.2));
+        col += wcPal(P, fract(0.18 + tw * 0.004)) * pool * (0.05 + 0.06 * u.level) * (0.4 + 0.8 * pm);
+        col += mix(ringC, wcPal(P, 0.95) * ring, 0.35 + 0.4 * pz) * 0.08 * (1.0 - 0.5 * pz);
         col += wcPal(P, 0.6) * 0.004;
     }
 
@@ -376,15 +382,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float sz = 0.05 + 0.16 * smoothstep(0.0, 1.0, ts);
         float dy = (uv.y - WC_FLOOR + 0.035 + 0.07 * ts) / (sz * 0.9);
         float m = exp(-dx * dx / (sz * sz * 1.6) - dy * dy);
-        float bm = m * hh.y * smoothstep(-0.05, 0.06, ts) * exp(-max(ts, 0.0) * 2.0);
+        float bm = m * hh.y * smoothstep(-0.05, 0.4, ts) * exp(-max(ts, 0.0) * 1.2) * (1.0 - smoothstep(0.4, 1.1, ts));
         bloom += bm;
         bloomC += (j == 0 ? hc0 : hc1) * bm;
     }
     if (mistBand + bloom > 0.01) {
-        float mn = vnoise(vec2(uv.x * aspect * 9.0, uv.y * 16.0 + tw * 0.8));
-        float mn2 = vnoise(vec2(uv.x * aspect * 4.0 - tw * 0.2, uv.y * 7.0 + tw * 0.5));
-        col += wcPal(P, 0.45) * mistBand * (0.06 + 0.12 * mn) * (0.6 + 0.6 * u.amplitude);
-        col += mix(bloomC, vec3(bloom), 0.2) * (0.25 + 0.65 * mn2 * mn2) * 0.7;
+        float mn = vnoise(vec2(uv.x * aspect * 9.0, uv.y * 16.0 + tw * 0.2));
+        float mn2 = vnoise(vec2(uv.x * aspect * 4.0 - tw * 0.1, uv.y * 7.0 + tw * 0.25));
+        col += wcPal(P, 0.45) * mistBand * (0.06 + 0.12 * mn) * (0.8 + 0.2 * u.level);
+        col += mix(bloomC, vec3(bloom), 0.2) * (0.25 + 0.65 * mn2 * mn2) * 0.08;
     }
 
     // ---- splash crowns: droplets thrown up where each torrent lands ----
@@ -419,7 +425,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float r = 0.0018 + 0.0034 * fract(h.x * 7.3);
             float life01 = ts / tl;
             float e = (1.0 - life01 * life01) * gain;
-            col += peakWhite(heroC, 0.35 + 0.4 * hb) * (smoothstep(r, r * 0.3, dist) * 1.6
+            col += peakWhite(heroC, 0.35 + 0.4 * hb) * (smoothstep(r, r * 0.3, dist) * 0.5
                  + exp(-dist * 260.0) * 0.18) * e;
         }
     }
@@ -427,7 +433,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- onset spray: droplets flung off the newest detachment, with depth of field ----
     int nSpray = osSteps(10.0, 24.0, detail);
     float sprayFade = exp(-ph * 2.2) * (1.0 - smoothstep(0.7, 1.0, ph));
-    float sprayGain = (u.onset * 1.6 + u.flux * 0.5) * sprayAmt * sprayFade;
+    float sprayGain = (0.1 + 0.1 * u.level + 0.04 * u.onset) * sprayAmt * sprayFade;
     if (sprayGain > 0.002) {
         float sk = mod(seedN, 512.0);
         for (int i = 0; i < 24; ++i) {
@@ -466,7 +472,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float edge = exp(-abs(dist - r * 0.93) * 120.0) * 0.6;
         float win = sin(3.14159 * clamp(yb, 0.0, 1.0));
         col += wcPal(P, fract(0.5 + fi * 0.137)) * (disc * 0.5 + edge) * win
-             * 0.018 * (1.0 + 0.8 * u.treble);
+             * 0.018 * (1.0 + 0.2 * u.level);
     }
 
     // mist rising off the lip into the dark above, thicker while the falls run hard

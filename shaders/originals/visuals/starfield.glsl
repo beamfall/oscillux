@@ -2,13 +2,17 @@
 // Starfield.
 // A jump through hyperspace. Stars sit at random depths around the flight
 // axis in several shells and are drawn as motion-blurred streaks whose length
-// is the distance flown during the shutter, so they stretch into long warp
-// lines in a burst and fall back to points in a brake. Behind them a tunnel
-// of ionised gas streams past, lit from a bright exit point ahead. The speed
-// follows the shared 32-beat profile and the roll eases to a new side every
-// eight beats. Audio drives the light only: the spectrum sets each star's
-// brightness by angle, the beat sends a light wave out along the tunnel, bass
-// warms the gas and treble makes the star heads sparkle.
+// is a fixed stretch of depth, so near stars draw long warp lines and far
+// ones short dashes; the speed changes how fast they rush past, not how long
+// they are, so the lit area stays steady. Heads fade in over a few frames of
+// flight and the cores are thin, so racing stars never flash. Behind them a
+// tunnel of ionised gas streams past, lit from a bright exit point ahead. The
+// speed follows the shared 32-beat profile at a calm cruise with no surge, and
+// the roll eases to a new side every eight beats. Audio drives the light
+// only: the spectrum sets each star's brightness by angle, the beat sends a
+// light wave out along the tunnel, bass warms the gas and treble makes the
+// star heads sparkle. The palette is held at one mean luma, so the palette
+// tour recolours the tunnel without pumping its brightness.
 // param0 = Warp Speed ; param1 = Density ; param2 = Streak Length
 
 const float ST_TAU = 6.28318530718;
@@ -47,7 +51,7 @@ vec3 stStar(vec2 q, float cell, float n, float layer, float travel, float len,
     float rh = R / z;
     float lenE = max(len, shut);
     float rt = R / max(zr + lenE, 0.02);
-    // where the head was one frame ago: the last frame's flight is a box
+    // where the head was a shutter ago: the last frames' flight is a box
     // shutter, so the head end of the streak ramps out across it instead of
     // ending in a dot that leaps between frames when a near star races by
     float rb = R / max(zr + shut, 0.02);
@@ -59,21 +63,25 @@ vec3 stStar(vec2 q, float cell, float n, float layer, float travel, float len,
     float al = saturate((zr + lenE - zq) / lenE);
     float w = clamp(0.006 / z, px * 0.8, 0.008);
     float blur = rh - rb;
-    // box shutter: the head end ramps over the last frame's flight
+    // box shutter: the head end ramps over the last frames' flight
     float tip = saturate((zq - zr) / max(shut, 1e-3));
     // a dot smeared over a long blur spreads its light thinner
     float spread = w * 8.0 / (w * 8.0 + blur);
-    // thin hot core plus a soft halo, both fading toward the tail
+    // thin hot core plus a soft halo, both fading toward the tail; the core
+    // falls off steeply so a fast star lights a thin line, not a wide band
     float core = w * w / (d * d + w * w);
+    core *= core;
     float halo = exp(-d * 40.0);
     float fadeIn = smoothstep(ST_DEPTH - 3.0, ST_DEPTH * 0.5, z) * smoothstep(-3.0, 0.0, zr);
     // only this cell and its nearer neighbour are drawn, so the glow must end
     // within about half a cell of the star
     float reach = 0.6 * ST_TAU / n * sc;
     fadeIn *= 1.0 - smoothstep(0.35 * reach, reach, d);
-    float tw = 1.0 + 1.4 * u.treble * step(0.8, hash21(sd + 2.9));
+    float tw = 1.0 + 0.05 * u.level * step
+(0.8, hash21(sd + 2.9));
     float e = present * fadeIn * lvl * (al * al) * mix(1.0, tip, 0.85) * (core * 1.1 * tw + halo * 0.05)
-            * min(1.0 + 2.0 / z, 3.0) * mix(0.55, 1.0, spread);
+            * min(1.0 + 0.8 / z, 1.8) * mix(0.55, 1.0, spread);
+
     // the head runs white-hot; the tail shifts down the palette like dispersion
     float hue = hash21(sd + 4.4);
     vec3 head = palVisual(hue < 0.6 ? 0.8 + 0.06 * hue : 0.52 + 0.1 * hue, u);
@@ -87,17 +95,27 @@ vec3 stStar(vec2 q, float cell, float n, float layer, float travel, float len,
     return peakWhite(c3, (0.6 - 0.25 * warm) * smoothstep(0.85, 1.0, al) * spread) * e;
 }
 
+// One gain for the whole palette that holds its mean luma fixed, so the
+// palette tour's crossfades change the colours but never brighten or darken
+// the whole frame.
+float sfGain(VisualUniforms u) {
+    float l = 0.25 * (luma(palVisual(0.125, u)) + luma(palVisual(0.375, u))
+                    + luma(palVisual(0.625, u)) + luma(palVisual(0.875, u)));
+    return clamp(0.32 / max(l, 1e-3), 0.4, 3.0);
+}
+
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
     float px = 2.0 / max(u.resolution.y, 1.0);
 
-    float cruise = mix(3.0, 11.0, u.param0);
-    vec2 fl = osFlight(u, cruise, 1.2 * mix(0.5, 1.5, u.param0));
-    float travel = mod(fl.x, ST_WRAP);
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    // a steady cruise with no surge: fast bright streaks sweeping the frame
+    // in a burst would flash large areas
+    float cruise = mix(1.2, 4.4, u.param0);
+    float travel = mod(mod(u.time, 6000.0) * cruise * 0.32, ST_WRAP);
+    float rush = 0.0;
+    float lull = 0.0;
 
     // the exit point drifts slowly, as if the ship were steering
     vec2 vp = vec2(0.16 * sin(u.time * 0.11), 0.09 * sin(u.time * 0.083 + 1.3));
@@ -122,21 +140,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float lvlA = bandAtWrapped(u, a / ST_TAU + 0.5);
     // beat light wave: a bright band racing out from the exit toward us
     float waveZ = mix(18.0, 0.6, sqrt(saturate(u.beatPhase)));
-    float wave = exp(-abs(zg - waveZ) * 1.2) * (1.0 - saturate(u.beatPhase)) * (0.3 + 0.7 * u.beat);
+    float wave = exp(-abs(zg - waveZ) * 1.2) * (1.0 - saturate(u.beatPhase)) * 0.1;
     vec3 gasA = palVisual(0.2 + 0.1 * g, u);
     // the gas runs blue in a drift and heats toward magenta in a burst
     vec3 gasB = palVisual(0.74 + 0.06 * lvlA - 0.2 * smoothstep(0.2, 0.9, rush), u);
     vec3 gas = mix(gasA, gasB, smoothstep(0.3, 0.9, strand));
-    vec3 col = 0.45 * gas * g * gasFog * near * (0.35 + 0.35 * rush + 0.5 * u.bass + 0.8 * lvlA + 1.5 * wave);
+    float lvlS = mix(saturate(u.level), lvlA, 0.25);
+    vec3 col = 0.45 * gas * g * gasFog * near * (0.7 + 0.15 * u.level + 0.1 * lvlS + 0.4 * wave);
     // deep-space floor so the frame never goes flat black
     col += palVisual(0.12, u) * 0.03 * (0.5 + 0.5 * smoothstep(0.2, 1.4, r));
 
     // ---- star shells ----
     float density = mix(0.35, 0.9, u.param1);
-    float len = mix(0.4, 1.4, u.param2) * (0.25 + 0.9 * fl.y * fl.y);
-    float lvl = 0.35 + 1.6 * lvlA;
-    // distance flown in one frame, for the shutter (about two beats a second)
-    float perSec = cruise * 0.2 + (cruise * 0.4 + 1.2 * mix(0.5, 1.5, u.param0)) * fl.y * 2.07;
+    float len = mix(0.46, 1.61, u.param2);
+    float lvl = 0.75 + 0.3 * lvlS;
+    // distance flown in four frames, for the shutter (about two beats a
+    // second): the head fades in over it, so a racing star never pops
+    float perSec = 4.0 * cruise * 0.32;
+
     float shut = min(perSec * clamp(u.dt, 0.0, 1.0 / 30.0), 1.5);
     // warm complement of the field's blue: hue turned half way round
     vec3 bl = palVisual(0.8, u);
@@ -159,10 +180,12 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float glow = exp(-r * 12.0) * 1.2 + exp(-r * 3.5) * 0.12;
     vec2 fq = p - vp;
     float flare = exp(-abs(fq.y) * 90.0) * exp(-abs(fq.x) * 1.6) * 0.6;
-    float boost = 0.7 + 0.25 * u.bassImpact + 0.35 * rush;
+    float boost = 0.8 + 0.1 * u.level;
+
     col += (core * glow + palVisual(0.8, u) * flare) * boost;
 
     // gentle vignette keeps the eye on the exit
     col *= 1.0 - 0.35 * smoothstep(0.8, 2.0, length(p));
+    col *= sfGain(u);
     return col; // LINEAR HDR — post chain tonemaps
 }

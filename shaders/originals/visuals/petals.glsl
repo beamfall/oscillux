@@ -6,18 +6,28 @@
 // tissue and is filtered by its pigment. Thin rims and tips glow, the veins
 // read as darker, denser lines in the glow, the base of each petal carries a
 // deep blotch and dew drops on the near rings lens the glow and catch a
-// glint. The lamp drifts slowly behind the bloom, so the glow moves across the
-// petals. Within a ring each petal overlaps the one before it, like the
-// blades of an iris. The rings sit at different depths: the camera's slow
-// drift slides them against each other, and the far ring is out of focus;
-// every eight beats the shot glides to a new framing, the whole bloom or a
-// close study of one side. On every beat a
-// ring of light runs out from the heart and the petals lift and ripple as it
-// passes, their rims shivering with the treble; waves of loose petals tear off
-// and tumble past the camera on the beat-locked speed profile, sliding out of
-// focus and across the bloom with their own parallax. The spectrum stretches
-// each petal by angle.
+// glint. The lamp drifts very slowly behind the bloom, so the glow creeps
+// across the petals. Within a ring each petal overlaps the one before it, like
+// the blades of an iris. The rings sit at different depths: the camera's slow,
+// level drift (no roll) slides them gently against each other, the bloom turns
+// at a crawl and the far ring is out of focus; every sixteen beats the shot
+// glides slowly to a slightly different framing. On every beat a faint ring of light
+// runs out from the heart and the petals lift a touch as it passes, their
+// rims stirring gently with the treble; waves of loose petals tear off at a
+// slow steady pace and drift past at a distance, fading before they come
+// close, with their own parallax. The light follows the music's smoothed
+// level; the spectrum only barely stretches and tints each petal, so no
+// petal or the bloom as a whole pulses with the beat.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Petal Count ; param1 = Bloom ; param2 = Detail
+
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 ptPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 8, u); }
 
 const float PT_Z0 = 3.0;    // depth of the flower plane (screen units = world units there)
 const int PT_WAVES = 6;      // waves of flying petals alive at once
@@ -66,6 +76,23 @@ vec2 ptFlight(VisualUniforms u, float cruise, float surge) {
 // Push a colour away from its grey (the rose-gold stops are soft on their own).
 vec3 ptSat(vec3 c, float k) {
     return max(mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, k), vec3(0.0));
+}
+
+// Keep the bloom off pure saturated red after the post chain's tonemap: lift
+// green and blue together just enough that no deep rose reads as red.
+float ptTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float ptToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 ptOffRed(vec3 c) {
+    float r = ptTone(c.r), g = ptTone(c.g), b = ptTone(c.b);
+    float need = 0.27 * r - g - b;
+    if (need <= 0.0) return c;
+    c.g = ptToneInv(g + 0.5 * need);
+    c.b = ptToneInv(b + 0.5 * need);
+    return c;
 }
 
 // The light on a petal: sun is the lamp behind the bloom at this pixel, rimC
@@ -152,25 +179,27 @@ vec3 ptShade(vec4 pe, vec2 q, mat2 R, float face, vec3 base, vec3 mid, vec3 tip,
 vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 p0 = motionCentered(uv, u);
     p0.y = -p0.y;
-    // slow camera: an eased drift, push-in and roll on the beat-locked profile.
+    // slow camera: a steady drift, push-in and roll.
     // Each layer of the scene sees it at its own depth k (1 = the middle
     // ring): nearer layers slide and swell more, so the drift reveals depth.
-    vec2 flc = ptFlight(u, 0.20, 0.06);
+    vec2 flc = ptFlight(u, 0.0, 0.0);
+    flc.x += 0.06 * u.time;
     float camT = mod(flc.x, 600.0);
-    vec2 camOff = 0.10 * vec2(sin(camT * 0.13), 0.7 * sin(camT * 0.09 + 1.3));
-    float camZ = 0.10 * sin(camT * 0.07);
-    // every eight beats the shot is reframed, gliding over the span to a new
-    // pose: the whole bloom, or a close study of one side of it
-    float sb8 = (u.beatCount + saturate(u.beatPhase)) / 8.0;
+    vec2 camOff = 0.06 * vec2(sin(camT * 0.13), 0.7 * sin(camT * 0.09 + 1.3));
+    float camZ = 0.06 * sin(camT * 0.07);
+    // every ten seconds the shot is reframed, gliding slowly over the span
+    // to a new pose: the whole bloom, or a little closer on one side of it.
+    // It runs on the clock, so a pause or a skipped beat never jumps the frame.
+    float sb8 = u.time / 10.0;
     float sk = floor(sb8);
     float se = smoothstep(0.0, 1.0, sb8 - sk);
     float hk0 = hash11(mod(sk, 251.0) * 1.37 + 0.4);
     float hk1 = hash11(mod(sk + 1.0, 251.0) * 1.37 + 0.4);
-    vec3 pose0 = vec3(vec2(cos(sk * 2.39996), sin(sk * 3.1)) * 0.42 * step(0.3, hk0), 1.0 + 0.65 * hk0 * step(0.3, hk0));
-    vec3 pose1 = vec3(vec2(cos((sk + 1.0) * 2.39996), sin((sk + 1.0) * 3.1)) * 0.42 * step(0.3, hk1), 1.0 + 0.65 * hk1 * step(0.3, hk1));
+    vec3 pose0 = vec3(vec2(cos(sk * 2.39996), sin(sk * 3.1)) * 0.03 * step(0.3, hk0), 1.0 + 0.04 * hk0 * step(0.3, hk0));
+    vec3 pose1 = vec3(vec2(cos((sk + 1.0) * 2.39996), sin((sk + 1.0) * 3.1)) * 0.03 * step(0.3, hk1), 1.0 + 0.04 * hk1 * step(0.3, hk1));
     vec3 pose = mix(pose0, pose1, se);
     camOff += pose.xy;
-    p0 = rot2(osBank(u, 0.12)) * p0 / pose.z;
+    p0 = p0 / pose.z;
     float detail = osDetail(u);
     float t = mod(u.time, 600.0);
 
@@ -185,30 +214,28 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     // the palette at five fixed stops: deep, rose, coral, gold, and the cool
     // far end that rims the bloom
-    PtPal P = PtPal(palVisual(0.02, u), palVisual(0.24, u), palVisual(0.48, u),
-                    palVisual(0.72, u), palVisual(0.97, u));
+    PtPal P = PtPal(ptPalSteady(0.02, u), ptPalSteady(0.24, u), ptPalSteady(0.48, u),
+                    ptPalSteady(0.72, u), ptPalSteady(0.97, u));
     float bp = saturate(u.beatPhase);
     float kick = (1.0 - bp) * (1.0 - bp);
-    float bassI = saturate(u.bassImpact);
-    float build = saturate((flc.y - 1.0) / 3.0);     // 0 cruising .. 1 at a burst
     vec3 cool = ptSat(P.c4, 1.35);
     vec3 gold = ptSat(ptPal(P, 0.60 + drift), 1.3);
-    // beats alternate the accent between a warm gold and an icy cool light
-    float odd = mod(floor(u.beatCount), 2.0);
+    // the accent eases between a warm gold and an icy cool light, beat by beat
+    float odd = 0.5 - 0.5 * cos(3.14159265 * (u.beatCount + bp));
     vec3 accent = mix(gold * vec3(1.15, 1.0, 0.8), mix(cool, vec3(0.75, 0.9, 1.0), 0.35), odd);
     // a ring of light runs out from the heart through the rings on each beat
     float front = (0.10 + 1.35 * bp) * bloom;
-    float waveAmp = (1.0 - bp) * (0.45 + 0.55 * bassI);
+    float waveAmp = smoothstep(0.0, 0.25, bp) * (1.0 - bp) * (0.02 + 0.01 * u.level);
 
     // the lamp behind the bloom: warm white, its hot spot drifting slowly
-    vec2 sunPos = 0.5 * bloom * vec2(cos(t * 0.31), sin(t * 0.23 + 1.0));
+    vec2 sunPos = 0.5 * bloom * vec2(cos(t * 0.07), sin(t * 0.05 + 1.0));
     vec2 sd = p0 - sunPos;
     float spot = exp(-dot(sd, sd) * 1.4);
     PtLight Li;
-    Li.sun = mix(vec3(1.0, 0.86, 0.95), gold, 0.15) * (0.25 + 1.0 * spot) * (0.8 + 0.4 * u.level + 0.25 * bassI);
+    Li.sun = mix(vec3(1.0, 0.86, 0.95), gold, 0.15) * (0.22 + 0.85 * spot) * (0.95 + 0.04 * u.level);
     Li.rimC = cool;
-    Li.dew = vec2(0.0, t);
-    Li.glint = 0.6 + 2.0 * u.treble;
+    Li.dew = vec2(0.0, 0.06 * t);
+    Li.glint = 0.45 + 0.15 * u.level;
     Li.blot = 0.8;
     Li.thk = 1.0;
 
@@ -233,15 +260,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float disc = smoothstep(rad, rad - 0.05, dl) * (0.5 + 0.5 * smoothstep(rad - 0.07, rad - 0.01, dl));
         disc *= step(0.74, h.x);
         vec3 bc = h.y > 0.66 ? cool : h.y > 0.33 ? ptSat(ptPal(P, 0.22), 1.3) : gold;
-        col += bc * disc * (0.006 + 0.025 * u.level) / (1.0 + fl);
+        col += bc * disc * (0.010 + 0.010 * u.level) / (1.0 + fl);
     }
 
     // ---- the bloom: three rings of petals, back to front ----
-    // the bloom turns and the rings breathe open and shut on the flight
-    // profile, each ring out of step with the next
-    float spin = 0.12 * flc.x;
-    float breath = bloom * (1.0 + 0.05 * bassI + 0.03 * build);
-    float shiver = 0.012 + 0.03 * u.treble;
+    // the bloom turns slowly and the rings breathe open and shut, each ring
+    // out of step with the next; the music never jolts the bloom's size
+    float spin = 0.025 * flc.x;
+    float breath = bloom;
+    float shiver = 0.003 + 0.002 * u.level;
     for (int L = 0; L < 3; L++) {
         float fl = float(L);
         float kp = 0.82 + 0.18 * fl;
@@ -250,8 +277,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float al = atan2_(pl.y, pl.x + 1e-6);
         float n = nPet + fl;
         float sector = 6.2831853 / n;
-        float phi = spin * (1.0 - 0.35 * fl) + fl * sector * 0.5 + 0.2 * sin(camT * 0.3 + fl);
-        float lenL = breath * (1.18 - 0.34 * fl) * (1.0 + 0.045 * sin(camT * 0.9 - fl * 1.4));
+        float phi = spin * (1.0 - 0.35 * fl) + fl * sector * 0.5 + 0.06 * sin(camT * 0.3 + fl);
+        float lenL = breath * (1.18 - 0.34 * fl) * (1.0 + 0.02 * sin(camT * 0.9 - fl * 1.4));
         // focus on the middle ring: the far ring is soft and loses its veins
         float soft = L == 0 ? 0.034 : L == 1 ? 0.008 : 0.013;
         float dAmt = L == 0 ? 0.0 : detailAmt;
@@ -274,38 +301,38 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float hv3 = hash11(iw * 2.9 + fl * 3.1 + 7.0);
             float bf = fract(iw / n + 0.07 * fl) * 8.0;
             int bi = int(bf);
-            float lvl = mix(sb[bi], sb[bi + 1], bf - float(bi));
-            float len = lenL * (0.80 + 0.30 * lvl + 0.05 * sin(t * 0.3 + iw * 1.7))
+            float lvl = 0.6 * u.level + 0.15 * mix(sb[bi], sb[bi + 1], bf - float(bi));
+            float len = lenL * (0.88 + 0.02 * lvl + 0.02 * sin(t * 0.15 + iw * 1.7))
                       * (0.9 + 0.2 * hv3) * (1.0 + 0.06 * puff);
             // beyond the tip and its shadow the petal adds nothing
             if (rl > len * 1.3) continue;
             // each petal its own shape: broad or narrow, round or pointed,
             // some notched, with a ripple running along the rim
             vec4 shp = vec4(mix(0.85, 1.25, hv2) * (1.0 - 0.08 * fl), mix(0.6, 1.7, hv3),
-                            hv > 0.55 && hv3 < 0.45 ? 0.16 : 0.0, hv * 40.0 + t * 2.2 * (0.7 + 0.6 * hv2));
+                            hv > 0.55 && hv3 < 0.45 ? 0.16 : 0.0, hv * 40.0 + t * 0.1 * (0.7 + 0.6 * hv2));
             float ruf = (0.015 + 0.045 * hv3) * (1.0 + 1.5 * puff);
             mat2 R = rot2(ia);
             vec2 q = R * pl / len;
             // the tip curls to one side, lifts with the beat, shivers with treble
             q.y += (0.05 * sin(iw * 2.1 + fl) + 0.08 * puff * (hv2 - 0.5)
-                   + shiver * sin(t * 6.0 + iw * 1.3 + fl * 2.0)) * q.x * q.x;
+                   + shiver * sin(t * 0.4 + iw * 1.3 + fl * 2.0)) * q.x * q.x;
             vec4 pe = ptPetal(q, soft / len, shp, ruf);
             float wv = waveAmp * exp(-pow((rl - front) * 7.0, 2.0));
             // soft shadow cast on what lies behind, and the cool rim light
             // bleeding round the silhouette
             float outD = max(pe.w, 0.0) * len;
             col *= 1.0 - 0.75 * exp(-outD * 14.0) * (1.0 - pe.x) * smoothstep(0.0, 0.3, pe.z);
-            col += mix(cool, accent, wv) * exp(-outD * 30.0) * (1.0 - pe.x) * (0.025 + 0.5 * wv) * lit * (0.5 + 1.0 * lvl);
+            col += mix(cool, accent, wv) * exp(-outD * 30.0) * (1.0 - pe.x) * (0.025 + 0.08 * wv) * lit * (0.9 + 0.1 * lvl);
             if (pe.x > 0.001) {
                 // each petal its own shade, and louder ones warmer and brighter
-                float hp = hb + 0.1 * (hv - 0.5) + 0.06 * lvl;
+                float hp = hb + 0.1 * (hv - 0.5) + 0.02 * lvl;
                 vec3 cBase = ptSat(ptPal(P, hp), 1.35) * 0.8;
                 vec3 cMid = ptSat(ptPal(P, hp + 0.18), 1.35);
                 vec3 cTip = ptSat(ptPal(P, hp + 0.30 + 0.03 * fl), 1.35);
                 PtLight Lw = Li;
                 Lw.rimC = mix(cool, accent, wv);
                 vec3 pc = ptShade(pe, q, R, 1.0, cBase, cMid, cTip, Lw,
-                                  lit * (0.55 + 0.9 * lvl), dAmt, 1.2 * wv, hv + fl);
+                                  lit * (0.85 + 0.2 * lvl), dAmt, 0.2 * wv, hv + fl);
                 col = mix(col, ptSat(pc, 1.3), pe.x);
             }
         }
@@ -316,8 +343,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float ah = atan2_(ph.y, ph.x + 1e-6);
     vec3 coral = ptSat(P.c2, 1.3);
     float core = exp(-rh * rh / (0.010 * breath));
-    col += mix(gold, coral, 0.35) * core * (0.20 + 0.30 * u.level + 0.2 * bassI);
-    col += accent * exp(-rh * rh / (0.03 * breath)) * 0.12 * kick * bassI;
+    col += mix(gold, coral, 0.35) * core * (0.26 + 0.12 * u.level);
     float sa = ah / 6.2831853 * 21.0;
     float si = floor(sa);
     float hA = hash11(si + 3.7);
@@ -327,22 +353,21 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float ba = (si + 0.5) * 6.2831853 / 21.0;
     float db = length(ph - vec2(cos(ba), sin(ba)) * stamR);
     float rb = 0.011 * breath * (0.8 + 0.4 * hA);
-    float tw = 0.5 + 0.5 * sin(t * (2.0 + 2.0 * hA) + hA * 40.0);
+    float tw = 0.5 + 0.5 * sin(t * (0.6 + 0.6 * hA) + hA * 40.0);
     float bead = smoothstep(rb, rb * 0.35, db);
     col = mix(col, gold * 0.15, bead * 0.6);
     col += mix(gold, vec3(1.0, 0.95, 0.85), 0.4) * smoothstep(rb * 0.8, 0.0, length(ph - vec2(cos(ba), sin(ba)) * stamR + vec2(0.3, -0.35) * rb))
-         * (0.5 + 2.5 * u.treble * tw);
-    col += mix(gold, accent, 0.5) * exp(-db * db / (rb * rb * 2.5)) * (0.05 + 0.3 * u.treble * tw + 0.2 * kick);
+         * (0.5 + 0.4 * u.level * tw);
+    col += mix(gold, accent, 0.5) * exp(-db * db / (rb * rb * 2.5)) * (0.05 + 0.06 * u.level * tw + 0.03 * kick);
 
     // ---- loose petals tearing off and tumbling toward the camera ----
-    // the clock follows the beat-locked speed profile: bursts, brakes, drifts
-    vec2 fl2 = ptFlight(u, 0.8, 0.45);
-    float T = fl2.x;
+    // a slow steady clock: a new wave tears off every few seconds
+    float T = 0.04 * u.time;
     float nw = floor(T);
     int perWave = osSteps(6.0, 12.0, detail);
     float pw = float(perWave);
     float sector = 6.2831853 / pw;
-    float flare = 1.0 + 1.5 * saturate(u.onset) + 0.7 * saturate(u.flux);
+    float flare = 1.0;
     Li.dew.x = 0.0;
     Li.blot = 0.3;
     Li.thk = 0.6;
@@ -353,9 +378,9 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float wid = mod(wave, 997.0);
         float z = PT_Z0 - age * (PT_Z0 - 0.25) / float(PT_WAVES);
         float fadeIn = smoothstep(0.0, 0.5, age);
-        float fadeOut = smoothstep(0.25, 0.9, z);
+        float fadeOut = smoothstep(1.1, 2.0, z);
         float defocus = smoothstep(1.5, 0.45, z);   // near petals blur out
-        float glowW = (w == 0 ? flare : 1.0) * (0.75 + 0.5 * u.level);
+        float glowW = (w == 0 ? flare : 1.0) * (0.94 + 0.05 * u.level);
         float sc = PT_Z0 / z;
         // nearer petals slide further with the camera's drift
         float kp = min(1.0 + 0.3 * (sc - 1.0), 2.2);
@@ -370,8 +395,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 fMid = ptSat(ptPal(P, hw + 0.18), 1.35);
         vec3 fTip = ptSat(ptPal(P, hw + 0.34), 1.35);
         PtLight Lw = Li;
-        Lw.sun *= glowW;
-        Lw.rimC = w == 0 ? mix(cool, accent, 0.6 * kick) : cool;
+        Lw.sun *= glowW * 0.55;
+        Lw.rimC = cool;
         // each petal of a wave owns one angular sector, so only the pixel's
         // sector and its two neighbours can cover it
         float base = mod(wid * 2.39996, 6.2831853);
@@ -387,14 +412,14 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec2 dv = pw2 - c;
             if (dot(dv, dv) > sz * sz * 0.7) continue;
             // orientation: along the flight direction, tumbling and fluttering
-            float tumble = h.w * 6.28 + age * (1.6 + 1.4 * h.x) + 0.35 * sin(t * 4.0 + h.y * 20.0);
+            float tumble = h.w * 6.28 + age * (0.5 + 0.4 * h.x) + 0.08 * sin(t * 0.6 + h.y * 20.0);
             float ori = th + 1.2 * (h.z - 0.5) + age * 0.5 * (h.y - 0.5);
             mat2 R = rot2(ori);
             vec2 q = R * dv / sz;
             float flip = cos(tumble);
             q.y /= max(abs(flip), 0.18);
             q.x += 0.5;
-            vec4 shp = vec4(mix(0.8, 1.2, h.x), mix(0.6, 1.6, h.y), h.z > 0.6 && h.y < 0.4 ? 0.16 : 0.0, h.w * 30.0 + t * 3.0);
+            vec4 shp = vec4(mix(0.8, 1.2, h.x), mix(0.6, 1.6, h.y), h.z > 0.6 && h.y < 0.4 ? 0.16 : 0.0, h.w * 30.0 + t * 0.4);
             vec4 pe = ptPetal(q, 0.006 * z + defocus * 0.20, shp, 0.03 * (1.0 - defocus));
             float alpha = pe.x * fadeIn * fadeOut * (1.0 - 0.45 * defocus);
             // the petal's own shadow falls on the bloom behind it
@@ -402,11 +427,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col *= 1.0 - 0.4 * exp(-outD * 10.0) * (1.0 - pe.x) * fadeIn * fadeOut * (1.0 - defocus);
             if (alpha > 0.001) {
                 // a tumbling petal turns its cup through the key light, and the
-                // edge-on moment flashes the lamp through it
+                // edge-on moment lets a little more of the lamp through it
                 vec2 qs = vec2(q.x, q.y * sign(flip));
                 vec3 pc = ptShade(pe, qs, R, abs(flip), fBase, fMid, fTip, Lw,
                                   0.8 + 0.4 * h.y, defocus > 0.4 ? 0.0 : detailAmt * (1.0 - defocus),
-                                  0.5 * (1.0 - abs(flip)), h.z * 3.0);
+                                  0.15 * (1.0 - abs(flip)), h.z * 3.0);
                 pc = mix(pc, (fMid + fTip) * 0.10 * glowW, defocus * 0.5);   // soft bokeh body
                 col = mix(col, ptSat(pc, 1.3), alpha);
             }
@@ -416,5 +441,5 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // gentle vignette keeps the edges deep
     col *= 1.0 - 0.55 * smoothstep(0.9, 2.0, length(p0));
     col = ptSat(col, 1.15);
-    return col; // LINEAR HDR — post chain tonemaps
+    return ptOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

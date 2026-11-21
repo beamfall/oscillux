@@ -4,12 +4,23 @@
 // brightness raises real relief and its colours paint the land, tiled in
 // mirror so the map runs on forever; a lake fills the low ground and mirrors
 // the sky and a low sun. Luminous contour lines trace every level of the
-// relief like a living survey map, each level tuned to its own spectrum band,
-// and every beat rolls a survey pulse out across the land. Haze lifts the
-// distance into the glow of the horizon. The camera follows the shared
-// 32-beat speed profile and banks into its curves; audio drives the light
-// and the contours, never the camera.
+// relief like a living survey map, glowing gently with the smoothed level and
+// a little of each level's spectrum band, and every beat rolls a faint survey
+// pulse out across the land. Haze lifts the distance into the glow of the
+// horizon. The camera glides slowly and steadily and banks into its curves,
+// with no speed surges; audio drives soft light only, never the camera.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Speed ; param1 = Height ; param2 = Contours
+
+// The palette read: the visual's own palette (8) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 tpPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 8, u); }
+vec3 tpPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = tpPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 const float PT_L = 11.0;     // photo tile length in world units
 
@@ -114,21 +125,19 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec2 isz = IMGSIZE;
     float imgA = clamp(isz.x / max(isz.y, 1.0), 0.25, 4.0);
 
-    float speed = mix(1.2, 4.5, u.param0);
+    float speed = mix(0.3, 1.1, u.param0);
     float amp = mix(1.4, 3.6, u.param1);
     float levels = floor(mix(8.0, 22.0, u.param2) + 0.5);
 
-    // ---- camera: speed profile flight, eased bank, no audio ----
-    vec2 fl = osFlight(u, speed, 0.5 * speed);
-    float z = fl.x;
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    // the palette walks with the music and leaps ahead on builds
+    // ---- camera: a slow steady glide, eased bank, no audio ----
+    float z = speed * 0.5 * u.time;
+    // the palette walks slowly with the beat count
     float bc = u.beatCount + saturate(u.beatPhase);
-    float hueOff = mod(bc, 256.0) * (0.137 / 16.0) + 0.15 * rush;
-    vec3 pc0 = palVisual(0.02, u);
-    vec3 pc1 = palVisual(0.34, u);
-    vec3 pc2 = palVisual(0.62, u);
-    vec3 pc3 = palVisual(0.97, u);
+    float hueOff = mod(bc, 256.0) * (0.137 / 16.0);
+    vec3 pc0 = tpPalSteady(0.02, u);
+    vec3 pc1 = tpPalSteady(0.34, u);
+    vec3 pc2 = tpPalSteady(0.62, u);
+    vec3 pc3 = tpPalSteady(0.97, u);
     vec3 skyZ = PTPAL(hueOff + 0.02);
     vec3 skyL = PTPAL(hueOff + 0.98);
     vec3 skyH = PTPAL(hueOff + 0.70);
@@ -139,8 +148,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     vec3 ro = vec3(ptPath(z), alt, z);
     vec3 ta = vec3(ptPath(z + 6.0), alt - 1.3, z + 6.0);
     float curve = ptPath(z + 9.0) - 2.0 * ptPath(z + 4.5) + ptPath(z);
-    float roll = -0.06 * curve + osBank(u, 0.10);
-    vec3 rd = osCamera(ro, ta, roll, 1.35 - 0.15 * rush, p);
+    float roll = -0.06 * curve;
+    vec3 rd = osCamera(ro, ta, roll, 1.35, p);
     vec3 sun = normalize(vec3(0.25, 0.16, 1.0));
 
     // ---- heightfield march with a bisection refine ----
@@ -195,15 +204,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float isIdx = 1.0 - step(0.5, mod(ci, 5.0));
     float line = (aaLineCyclic(lev + 0.5, 0.022 + 0.02 * isIdx) + (0.30 + 0.25 * isIdx) * exp(-fd * 0.6)) * lineFade;
     // survey pulse: a ring rolls out from under the camera each beat
-    float ring = length(pos.xz - ro.xz) - (2.0 + 34.0 * u.beatPhase);
-    float pulse = exp(-ring * ring * 0.5) * (1.0 - u.beatPhase) * (0.4 + u.beat);
+    float ring = length(pos.xz - ro.xz) - (2.0 + 16.0 * u.beatPhase);
+    float pulse = exp(-ring * ring * 0.5) * (1.0 - u.beatPhase) * 0.15;
     // minor contours stay in one warm palette family; index contours and the
     // beat's survey pulse carry the complementary accent
     vec3 minorCol = PTPAL(fract(ci * 0.37) * 0.22 + 0.05 + hueOff);
-    vec3 lineCol = mix(minorCol * (0.22 + 2.2 * bnd), accent * (0.7 + 3.4 * bnd + 0.8 * rush), isIdx);
-    vec3 pulseCol = peakWhite(accent * 1.4, 0.25 * u.onset);
-    vec3 glowC = (lineCol + pulseCol * 3.2 * pulse) * line * (0.7 + 0.5 * u.level)
-               + pulseCol * pulse * 0.10;
+    vec3 lineCol = mix(minorCol * (0.45 + 0.3 * u.level + 0.12 * bnd), accent * (1.0 + 0.3 * u.level + 0.15 * bnd), isIdx);
+    vec3 pulseCol = accent * 1.4;
+    vec3 glowC = (lineCol + pulseCol * 1.2 * pulse) * line * (0.8 + 0.2 * u.level)
+               + pulseCol * pulse * 0.03;
 
     if (!hit && !onWater) {
         col = ptSky(rd, sun, skyZ, skyL, skyH, skyG);
@@ -243,7 +252,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     if (hit || onWater) col = mix(col, fogCol, fogAmt);
     // the horizon breathes with the bass
-    col += mix(PTPAL(0.4 + hueOff), PTPAL(0.08 + hueOff), 0.62 + 0.25 * u.bassImpact) * exp(-abs(rd.y + 0.02) * 30.0) * (0.04 + 0.12 * u.bass);
+    col += mix(PTPAL(0.4 + hueOff), PTPAL(0.08 + hueOff), 0.65) * exp(-abs(rd.y + 0.02) * 30.0) * (0.06 + 0.04 * u.level);
     col *= 0.45 + 0.55 * smoothstep(2.2, 0.6, length(p));
     return col; // LINEAR HDR — post chain tonemaps
 }

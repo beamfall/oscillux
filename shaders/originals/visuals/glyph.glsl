@@ -6,9 +6,13 @@
 // just behind the plane, so its warm light pours out through every gap in the
 // rings as volumetric shafts and pools on a brushed back plate, silhouetting
 // the sigil; the segments' inlays answer in a cool complementary glow. The
-// camera orbits slowly on the shared speed profile, so the turn cruises,
-// builds, surges and brakes; audio drives the light and the segment depth,
-// never the camera.
+// camera drifts in a slow orbit on the shared speed profile. Light follows
+// the smoothed level with a light touch of the upper spectrum in the segment
+// depth; no kick or build brightens the core, crown or shafts, so the sigil
+// glows steadily inside the flash budget. Audio never drives the camera.
+// The palette is read without its per-frame centroid nudge and held at one
+// mean luma, so the palette tour recolours the scene without brightening or
+// darkening the whole frame.
 // param0 = Rings ; param1 = Rotation ; param2 = Glyph Density
 
 const float GY_R0 = 0.52;    // first ring radius
@@ -22,13 +26,22 @@ const vec3 GY_LIGHT = vec3(0.0, 0.0, -0.55);
 // The palette read once at five stops, blended locally.
 struct GyPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
+// The palette stops are read without the per-frame centroid nudge: the raw
+// centroid jumps from hop to hop and would flicker every inlay at once.
 GyPal gyPalLoad(VisualUniforms u) {
     GyPal P;
-    P.c0 = palVisual(0.0, u);
-    P.c1 = palVisual(0.26, u);
-    P.c2 = palVisual(0.52, u);
-    P.c3 = palVisual(0.78, u);
-    P.c4 = palVisual(0.999, u);
+    float cn = u.palette.x >= 0.0 ? 0.0 : 0.08 * u.spectralCentroid;
+    P.c0 = palVisual(0.0 - cn, u);
+    P.c1 = palVisual(0.26 - cn, u);
+    P.c2 = palVisual(0.52 - cn, u);
+    P.c3 = palVisual(0.78 - cn, u);
+    P.c4 = palVisual(0.999 - cn, u);
+    // the palette tour's crossfades keep one overall brightness: the five
+    // stops are scaled together to a fixed mean luma, so a tour step changes
+    // the colours but never brightens or darkens the whole frame
+    float gl = 0.2 * (luma(P.c0) + luma(P.c1) + luma(P.c2) + luma(P.c3) + luma(P.c4));
+    float gk = clamp(0.32 / max(gl, 1e-3), 0.4, 3.0);
+    P.c0 *= gk; P.c1 *= gk; P.c2 *= gk; P.c3 *= gk; P.c4 *= gk;
     return P;
 }
 
@@ -55,12 +68,15 @@ float gyRingRot(float k, float spin) {
 }
 
 // Depth of dash j of ring k from the spectrum: the ring spans the spectrum
-// mirrored left/right, inner rings lean on the bass.
+// mirrored left/right, upper bins only (the kick-driven low bins would make
+// every dash jump at once).
 float gyDepth(float k, float j, float n, VisualUniforms u) {
     float f = abs(fract((j + 0.5) / n) * 2.0 - 1.0);
-    int bi = int(clamp(f * 34.0 + k * 4.0, 0.0, 63.0));
-    float b = band(u, bi);
-    return 0.03 + 0.75 * b * (0.6 + 0.4 * b);
+    int bi = int(clamp(30.0 + f * 27.0 + k, 0.0, 63.0));
+    float b = mix(saturate(u.level), band(u, bi), 0.5);
+
+    return 0.32 + 0.045 * saturate(u.level) + 0.015 * b;
+
 }
 
 // One dash: ring k, cell j (any integer, wrapped).
@@ -206,40 +222,44 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     float rings = floor(mix(4.0, 7.0, u.param0) + 0.5);
     float density = floor(mix(10.0, 26.0, u.param2) + 0.5);
-    vec2 fl = osFlight(u, 1.0, 0.5);
+    // a steady clock: the speed profile no longer surges the spin or orbit
+    vec2 fl = osFlight(u, 2.5, -1.0);
     float ph = mod(fl.x, 2400.0);
-    float spin = ph * mix(0.006, 0.05, u.param1);
+    float spin = ph * mix(0.002, 0.016, u.param1);
     vec4 sp = vec4(rings, spin, density, 0.0);
 
     // slow orbit; the speed profile sets how fast it turns
-    float orb = ph * 0.045;
+    float orb = ph * 0.02;
     float yaw = 0.62 * sin(orb) + 0.18 * sin(orb * 0.43 + 1.0);
     float pitch = 0.22 * sin(orb * 0.71 + 0.6);
     float dist = 3.5 - 0.4 * sin(orb * 0.37 + 2.0);
     vec3 ro = dist * vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
-    float roll = osBank(u, 0.08);
+    float roll = osBank(u, 0.015);
     vec3 rd = osCamera(ro, vec3(0.0, 0.0, 0.0), roll, 1.55, p);
 
     // light colours: a warm core against cool inlays and rims
-    // the song's build pushes every hue a little further round the palette;
-    // every eight beats the inlays ease to a new place in it
+    // the hues hold their place in the palette (no build shift); every eight
+    // beats the inlays ease a little to a new place in it
     GyPal P = gyPalLoad(u);
-    float build = saturate((fl.y - 1.0) / 3.0);
+    float build = 0.0;
+
     float b8 = (u.beatCount + saturate(u.beatPhase)) / 8.0;
     float k8 = floor(b8);
-    float inHue = 0.14 * mix(sin(k8 * 2.39996), sin((k8 + 1.0) * 2.39996), smoothstep(0.0, 1.0, b8 - k8));
-    vec3 warm = gyPal(P, 0.13 + 0.05 * u.spectralCentroid + 0.06 * build);
+    float inHue = 0.05 * mix(sin(k8 * 2.39996), sin((k8 + 1.0) * 2.39996), smoothstep(0.0, 1.0, b8 - k8));
+    vec3 warm = gyPal(P, 0.15 + 0.06 * build);
     vec3 ember = gyPal(P, 0.04);
-    vec3 cool = gyPal(P, 0.76 + 0.04 * u.spectralCentroid);
+    vec3 cool = gyPal(P, 0.78);
     vec3 deep = gyPal(P, 0.97);
     // the beat ring: a front that runs out through the rings on every beat
     float bw = saturate(u.beatPhase) * (rings + 1.5) - 0.5;
-    float bwAmp = (0.35 + 0.65 * u.bassImpact) * (1.0 - smoothstep(0.6, 1.0, saturate(u.beatPhase)));
-    vec3 coreCol = peakWhite(warm, 0.35 + 0.3 * u.onset);
-    float corePow = 0.8 + 1.4 * u.bassImpact + 0.5 * u.level;
-    // the light that fills the frame answers the kick more gently than the
-    // core itself, so a kick never jumps the whole frame's brightness
-    float fillPow = 1.0 + 0.45 * u.bassImpact + 0.5 * u.level;
+    float bwAmp = 0.06 * (1.0 - smoothstep(0.6, 1.0, saturate(u.beatPhase)));
+    vec3 coreCol = peakWhite(warm, 0.37);
+    float lv = saturate(u.level);
+    float corePow = 1.3 + 0.05 * lv;
+    float lensPow = 1.2 + 0.05 * lv;
+    // the light that fills the frame only breathes with the smoothed level
+    float fillPow = 1.25 + 0.04 * lv;
+
 
     // march only the slab that holds geometry, clipped by the bounding sphere
     vec2 bs = gySphere(ro, rd, 2.52);
@@ -284,7 +304,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             vec3 rf = reflect(rd, vec3(0.0, 0.0, 1.0));
             float g = saturate(dot(rf, normalize(toL)));
             col += warm * fillPow * pow(g, 18.0) * 0.5 * lathe;
-            col += cool * (tick + ring) * irr * 1.4 * (0.6 + 0.8 * u.level);
+            col += cool * (tick + ring) * irr * 1.4 * (0.85 + 0.15 * lv);
             col *= exp(-0.02 * tp);
         }
     } else {
@@ -323,14 +343,15 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float nd = gyDashes(l.w, sp.z);
             float jd = mod(floor((atan2_(pos.y, pos.x) - gyRingRot(l.w, sp.y)) * nd / 6.2831853), nd);
             float jh = hash21(vec2(jd, l.w));
-            float eh = 0.46 + 0.36 * l.w / max(sp.x - 1.0, 1.0) + 0.06 * jh + 0.6 * inHue + 0.04 * build;
+            float eh = 0.46 + 0.36 * l.w / max(sp.x - 1.0, 1.0) + 0.06 * jh + 0.3 * inHue;
+
             vec3 ec = gySat(gyPal(P, clamp(eh, 0.4, 0.86)), 1.3);
             // the beat front lights each ring as it passes and warms it to gold
             float wv = bwAmp * exp(-2.5 * (l.w - bw) * (l.w - bw));
-            ec = mix(ec, gySat(gyPal(P, 0.22 + 0.03 * l.w), 1.5), 0.85 * wv);
+            ec = mix(ec, gySat(gyPal(P, 0.22 + 0.03 * l.w), 1.5), 0.35 * wv);
             // the tallest segments run white hot
             vec3 eh2 = peakWhite(ec, smoothstep(0.7, 1.0, depth) * 0.45);
-            col += eh2 * face * ins * (0.1 + 3.0 * depth + 0.8 * u.onset * depth + 0.9 * wv);
+            col += eh2 * face * ins * (0.55 + 1.1 * depth + 0.05 * wv);
             // the sides: dark coloured film, the inlay's light spilling down
             // from the face and the core's warm light on the inner walls
             float side = 1.0 - face;
@@ -340,28 +361,28 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             col += vec3(0.9, 0.93, 1.0) * spec * 0.35 * face * lathe;
             float lz = max(gyDepth(l.w, jd, nd, u) - pos.z, 0.0);   // below the dash top
             float lip = side * smoothstep(0.035, 0.0, lz);
-            col += ec * lip * (0.08 + 0.7 * depth + 0.6 * wv);
+            col += ec * lip * (0.2 + 0.35 * depth + 0.08 * wv);
             col += ec * side * smoothstep(0.3, 0.0, lz) * (0.015 + 0.05 * depth);
             col += lcore * mix(0.55, 1.0, side);
-            col += warm * face * (1.0 - ins) * u.treble * u.onset * 0.25;
+            col += warm * face * (1.0 - ins) * lv * 0.015;
             // contact shadow at the base
             col *= mix(0.3, 1.0, saturate((pos.z + 0.07) / 0.25));
         } else if (m < 1.5) {
             // crown: engraved glowing channel along its face
             float groove = aaLine(pr - GY_ROUT + 0.02, 0.01) * step(0.15, pos.z);
-            col += gySat(gyPal(P, 0.72 + inHue * 0.5), 1.2) * groove * (1.0 + 4.0 * u.bassImpact);
+            col += gySat(gyPal(P, 0.72 + inHue * 0.5), 1.2) * groove * (1.6 + 0.1 * lv);
         } else if (m < 2.5) {
             // halo: a dark band with a thin emissive line that runs round it
             float a01 = atan2_(pos.y, pos.x) / 6.2831853 + 0.5;
-            float run = 0.5 + 0.5 * sin(a01 * 37.699112 - u.time * 0.8);
+            float run = 0.5 + 0.5 * sin(a01 * 37.699112 - u.time * 0.12);
             col *= 0.4;
             col += mix(cool, warm, run) * smoothstep(0.85, 1.0, nor.z)
-                 * (0.12 + (0.5 + 1.6 * u.level) * run * run);
+                 * (0.12 + (0.4 + 0.1 * lv) * run * run);
         } else {
             // core lens: hot centre, coloured iris rings
             float c = saturate(dot(nor, v));
-            float iris = 0.5 + 0.5 * sin(c * 26.0 - u.time * 1.5);
-            col = coreCol * corePow * (0.25 + 2.2 * pow(c, 8.0)) * (0.55 + 0.45 * iris)
+            float iris = 0.5 + 0.5 * sin(c * 26.0 - u.time * 0.2);
+            col = coreCol * lensPow * (0.25 + 2.2 * pow(c, 8.0)) * (0.55 + 0.45 * iris)
                 + ember * (0.3 + 1.2 * fres) * (1.0 - pow(c, 8.0));
         }
     }
@@ -409,14 +430,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float n2 = vnoise(dir * 27.0 + vec2(5.7, drift * 1.4));
         float sm = smoothstep(0.42, 1.0, n1 * 0.65 + n2 * 0.45);
         float smoke = 0.05 + 3.4 * sm;
-        // each beam takes its own hue between the palette's warm stops, and
-        // the hue drifts round with the build
+        // each beam takes its own hue between the palette's warm stops
         float bh = 0.03 + 0.42 * smoothstep(0.25, 0.8, vnoise(dir * 4.0 + vec2(1.3, ph * 0.004))) + 0.06 * build;
         vec3 bt = gySat(gyPal(P, bh), 1.35);
         float al = dot(acc, vec3(0.2126, 0.7152, 0.0722));
         acc = mix(acc, al * bt * 1.6, 0.7);
-        // each kick sends a bright front out along the beams
-        smoke *= 1.0 + 1.1 * u.bassImpact * exp(-3.0 * abs(r0 - 0.4 - 2.5 * saturate(u.beatPhase)));
         // thinner in front of the sigil, so its face stays crisp
         col += fillPow * smoke * acc * (thb - tha) / (dd * float(vs)) * (hit ? 0.07 : 0.13);
     }

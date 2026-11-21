@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Loom.
-// A glide over an endless loom at night. Fibre-bright warp threads stretch to a
-// fog-lit vanishing point and glow with the spectrum, bass in the middle,
-// treble at the selvedges. Ahead of the camera a glowing spindle shuttle
-// races across the cloth laying fresh weft that glows hot and cools into a
+// A slow glide over an endless loom at night. Fibre-bright warp threads stretch
+// to a fog-lit vanishing point and glow with the spectrum, bass in the middle,
+// treble at the selvedges. Ahead of the camera a softly glowing spindle
+// shuttle makes one unhurried pass across the cloth every four seconds at the
+// loom's own steady tempo, laying fresh weft that glows warm and cools into a
 // dark dyed twill as it passes beneath. Both sides are lined with tall loom
-// frames strung with heddle wires; each bay is a level meter for one band, so
-// the spectrum runs down the colonnade. Bass ripples travel away through the
-// satin sheen. The glide follows the shared 32-beat speed profile; audio
-// drives light, never the camera.
+// frames strung with heddle wires; each bay glows steadily and lifts only a
+// little with the music's level and its band. Ripples travel away through the
+// satin sheen. The glide is slow and level so the fine wires never strobe;
+// audio drives light gently, never the camera, and no large area brightens on
+// the kick. Reds stay just off saturated red.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Weave Density ; param1 = Flight Speed ; param2 = Ripple
+
+// The palette read: the visual's own palette (3) with no beat or spectral
+// nudge and no palette tour, so the host's vivid tour never swells the light;
+// a host's manifest palette still replaces it. The fog tint is rebuilt on it.
+vec3 lmPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 3, u); }
+vec3 lmPalSteadyFog(float t, VisualUniforms u) {
+    vec3 c = lmPalSteady(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
 
 const float LM_HALF = 9.0;    // half cloth width
 const float LM_CELL = 9.0;    // loom frame spacing along z
@@ -64,6 +77,40 @@ float lmSegDist(vec3 ro, vec3 rd, vec3 a0, vec3 ba, out float tr, out float hs) 
     return length(oa + rd * tr - ba * hs);
 }
 
+// Keeps every red just off saturated red once tonemapped: green (for warm
+// reds) or blue (for pink ones) rises to at least 0.3 of red, so no red area
+// can strobe, while the hue barely moves.
+float lmTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float lmToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 lmOffRed(vec3 c) {
+    float r = lmTone(c.r), g = lmTone(c.g), b = lmTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, lmToneInv(g + need));
+    else c.b = max(c.b, lmToneInv(b + need));
+    return c;
+}
+
+// Peak and rim tints without the shared roles' onset/flux whitening, which
+// would flash the vanishing-point glow and every post on the kick.
+// The library nudges every palette read with the beat phase and the spectral
+// centroid; that is undone here, so the whole frame never shifts colour with
+// the music's timbre or snaps back on each beat (manifest mode has no nudge).
+vec3 lmPal(float t, VisualUniforms u) {
+    return lmPalSteady(t, u);
+}
+
+vec3 lmFog(float t, VisualUniforms u) {
+    vec3 c = lmPal(t, u);
+    return mix(vec3(luma(c) * 0.62), c, 0.42);
+}
+vec3 lmPeak(float t, VisualUniforms u) { return lmPal(t + 0.028, u); }
+vec3 lmRim(float t, VisualUniforms u) { return mix(lmPal(t, u), lmPeak(t + 0.18, u), 0.5); }
+
 // Band shown by the frame bay starting at cell cz.
 float lmBayBand(VisualUniforms u, float cz) {
     return bandAt(u, fract(mod(cz, 12.0) / 12.0 + 0.04));
@@ -77,16 +124,16 @@ vec3 lmFrameGlow(vec3 pos, vec3 n, VisualUniforms u) {
     float onPost = step(abs(ax - LM_POSTX), 0.38) * step(abs(lz), 0.38) * step(pos.y, LM_H - 0.2);
     // thin edges up the post corners and a hot cap
     float corner = 1.0 - smoothstep(0.0, 0.035, max(abs(abs(ax - LM_POSTX) - 0.3), abs(abs(lz) - 0.3)));
-    vec3 col = onPost * corner * palRoleRim(0.62, u) * 1.6;
+    vec3 col = onPost * corner * lmRim(0.62, u) * 1.6;
     float cap = exp(-abs(pos.y - LM_H + 0.25) * 30.0) * onPost;
-    col += cap * palRolePeak(0.3, u) * (1.0 + 3.0 * u.bassImpact);
+    col += cap * lmPeak(0.3, u) * (1.0 + 0.1 * u.level);
     // rails: the top ones glow steadily, the cloth-edge ones carry dashes fixed
     // to the world so they stream past at the glide speed
     float railTop = step(LM_H - 0.2, pos.y) * (1.0 - onPost);
-    col += railTop * palRoleTrace(0.55, u) * 1.6;
+    col += railTop * lmPal(0.55, u) * 1.6;
     float railEdge = step(pos.y, 0.32) * step(abs(ax - LM_HALF - 0.5), 0.16);
     float dash = smoothstep(0.55, 0.8, abs(fract(pos.z * 0.2) - 0.5) * 2.0);
-    col += railEdge * palRoleTrace(0.2, u) * (0.25 + 4.0 * dash * (0.4 + u.mid));
+    col += railEdge * lmPal(0.2, u) * (0.25 + 1.6 * dash);
     return col;
 }
 
@@ -105,15 +152,15 @@ vec3 lmHeddles(vec3 ro, vec3 rd, float side, float tmax, VisualUniforms u, float
     float wire = 0.5 - 0.5 * cos(6.2831853 * wz);
     float fw = smoothstep(0.06, 0.3, fwidth(wz));
     wire = mix(pow(wire, 10.0), 0.176, fw);
-    float lvl = saturate(0.06 + 1.1 * lmBayBand(u, cz));
+    float lvl = saturate(0.45 + 0.1 * u.level + 0.02 * lmBayBand(u, cz));
     float h01 = q.y / LM_H;
     float lit = 1.0 - smoothstep(lvl - 0.03, lvl + 0.01, h01);
     float head = exp(-abs(h01 - lvl) * 60.0);
-    vec3 c = palVisual(0.12 + 0.6 * h01 + 0.05 * u.spectralCentroid, u);
+    vec3 c = lmPal(0.12 + 0.6 * h01 + 0.05 * 0.35, u);
     c = accentize(c, u.accent, 0.12);
     // the eyes of the heddles: a bright bead at mid height on every wire
     float eye = exp(-abs(h01 - 0.5) * 90.0) * wire * 1.5;
-    vec3 col = c * inBay * (wire * (0.04 + 2.2 * lit) + head * (0.6 + 2.5 * wire)) + palRoleRim(0.6, u) * eye * inBay * 0.4;
+    vec3 col = c * inBay * (wire * (0.15 + 1.1 * lit) + head * (0.3 + 0.9 * wire)) + lmRim(0.6, u) * eye * inBay * 0.4;
     return col * mask * exp(-max(t, 0.0) * 0.02);
 }
 
@@ -125,13 +172,13 @@ vec3 lmHaze(vec3 rd, VisualUniforms u, float withShafts) {
     float near = exp(-a * 60.0);
     float wide = exp(-a * 8.0);
     float band = exp(-abs(rd.y + 0.01) * 30.0);
-    vec3 glow = palRolePeak(0.34 + 0.06 * u.spectralCentroid, u);
-    vec3 col = palRoleFog(0.8, u) * (0.002 + 0.05 * wide * band);
-    col += glow * (1.5 * vp + 0.32 * near + 0.18 * wide * band) * (0.8 + 0.3 * u.level);
+    vec3 glow = lmPeak(0.34 + 0.06 * 0.35, u);
+    vec3 col = lmFog(0.8, u) * (0.002 + 0.05 * wide * band);
+    col += glow * (1.5 * vp + 0.32 * near + 0.18 * wide * band) * (0.95 + 0.05 * u.level);
     if (withShafts > 0.5 && rd.y > -0.01) {
         float ang = atan2_(rd.y + 0.02, rd.x);
         float shafts = vnoise(vec2(ang * 9.0, mod(u.time * 0.15, 400.0))) * vnoise(vec2(ang * 23.0 + 5.0, 1.0));
-        col += palRoleTrace(0.7, u) * shafts * near * 0.7;
+        col += lmPal(0.7, u) * shafts * near * 0.2;
     }
     return col;
 }
@@ -142,20 +189,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
 
     float density = mix(90.0, 200.0, u.param0);
-    float speed = mix(4.0, 15.0, u.param1);
+    float speed = mix(0.04, 0.1, u.param1);
     float rippleAmt = mix(0.2, 1.6, u.param2);
 
-    vec2 fl = osFlight(u, speed, 1.4 * mix(0.5, 1.5, u.param1));
-    float z = mod(fl.x, LM_WRAP);
-    float rush = saturate((fl.y - 1.0) / 3.5);
-    float lull = saturate(1.0 - fl.y);
+    float z = mod(140.0 + u.time * speed, LM_WRAP);
     float w = 6.2831853 / LM_WRAP;
     float sway = 2.2 * sin(z * w * 7.0) + 0.8 * sin(z * w * 17.0 + 1.0);
     float alt = 2.3 + 0.5 * sin(z * w * 9.0 + 2.0);
     vec3 ro = vec3(sway, alt, z);
     vec3 ta = vec3(0.5 * sway, 1.1, z + 14.0);
-    float roll = -0.025 * sway + osBank(u, 0.07);
-    vec3 rd = osCamera(ro, ta, roll, 1.15 - 0.16 * rush + 0.06 * lull, p);
+    float roll = -0.025 * sway;
+    vec3 rd = osCamera(ro, ta, roll, 1.15, p);
 
     // the cloth plane, computed in uniform control flow for fwidth
     float tp = rd.y < -1e-4 ? ro.y / -rd.y : 1e4;
@@ -166,22 +210,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float fs = smoothstep(0.06, 0.3, fwidth(s));
     float fr = smoothstep(0.12, 0.5, fwidth(r));
 
-    // shuttle: one pass across the cloth every two beats, easing at the edges
-    float sb = mod(u.beatCount, 64.0) + saturate(u.beatPhase);
-    float xS = LM_HALF * 0.94 * cos(1.5707963 * sb);
-    float dirS = -sin(1.5707963 * sb);
+    // shuttle: one unhurried pass across the cloth every four seconds, easing at
+    // the edges. It keeps the loom's own steady tempo (two picks a second): the
+    // beat counter can jump when the beat tracker re-locks, which would throw
+    // the shuttle and its light across the cloth in one frame.
+    float sb = mod(u.time * 2.0, 64.0);
+    float xS = LM_HALF * 0.94 * cos(0.39269908 * sb);
+    float dirS = -sin(0.39269908 * sb);
     float zS = z + LM_LEAD;
     vec3 Ls = vec3(xS, 0.35, zS);
-    float pulse = phasePulse(u, 0.0, 0.12);
     // the shuttle burns in the palette's far hue (amber in deepSea) so it stands apart
-    vec3 shCol = mix(palVisual(0.93, u), vec3(1.0), saturate(0.15 + u.onset * 0.18 + u.bassImpact * 0.1));
-    float shPow = 1.0 + 0.8 * u.bassImpact + 0.5 * pulse;
-    // each reversal at a selvedge (every two beats) beats up the pick: a flash
+    vec3 shCol = mix(lmPal(0.93, u), vec3(1.0), 0.2);
+    float shPow = 0.85;
+    // each reversal at a selvedge (every four seconds) beats up the pick: a soft glow
     // of light at that edge that dies away over the next beat
-    float rev = floor(sb * 0.5 + 0.5) * 2.0;
+    float rev = floor(sb * 0.125 + 0.5) * 8.0;
     float since = sb - rev;
-    float pick = since >= 0.0 ? exp(-since * 3.5) : 0.0;
-    vec3 Lf = vec3(LM_HALF * 0.94 * (mod(rev, 4.0) < 1.0 ? 1.0 : -1.0), 0.3, zS);
+    float pick = since >= 0.0 ? smoothstep(0.0, 0.3, since) * exp(-since * 2.0) : 0.0;
+    vec3 Lf = vec3(LM_HALF * 0.94 * (mod(rev, 16.0) < 1.0 ? 1.0 : -1.0), 0.3, zS);
 
     vec3 col;
     float tHit = tp;
@@ -193,7 +239,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tOut = (LM_POSTX + 0.35 - ro.x * sx) / rdx;
     if (rd.y > 1e-4) tOut = min(tOut, (LM_H + 0.25 - ro.y) / rd.y);
     tOut = min(min(tOut, tp), 140.0);
-    float t = tIn < tOut ? lmMarch(ro, rd, tIn, tOut, osSteps(24.0, 56.0, detail)) : -1.0;
+    float t = tIn < tOut ? lmMarch(ro, rd, tIn, tOut, 44) : -1.0;
     if (t > 0.0) {
         tHit = t;
         vec3 pos = ro + rd * t;
@@ -202,7 +248,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float ld = dot(l, l);
         float dif = saturate(dot(n, l * inversesqrt(max(ld, 1e-4))));
         col = lmFrameGlow(pos, n, u);
-        col += shCol * shPow * dif * 8.0 / (1.0 + ld);
+        col += shCol * shPow * dif * 0.9 / (1.0 + ld);
         col += lmHaze(reflect(rd, n), u, 0.0) * 0.3 * pow(1.0 - saturate(-dot(rd, n)), 3.0);
         col += vec3(0.004, 0.004, 0.007);
     } else if (tp < 1e3) {
@@ -225,18 +271,18 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         float fsr = max(fs, fr);
         float twill = mix(step(mod(sid + rid, 4.0), 1.5), 0.5, fsr);
 
-        vec3 warpCol = palVisual(0.05 + 0.55 * acr + 0.06 * u.spectralCentroid, u);
+        vec3 warpCol = lmPal(0.05 + 0.55 * acr + 0.06 * 0.35, u);
         warpCol = accentize(warpCol, u.accent, 0.12);
-        float warpE = 0.03 + 3.0 * bnd * bnd + 0.5 * u.onset * bnd;
+        float warpE = 0.7 + 0.12 * u.level + 0.04 * bnd;
 
         // weft: dark dyed stripes with a diamond motif, hot where freshly laid
         float grp = floor(mod(rid, 10500.0) / 14.0);
-        vec3 dye = palVisual(0.15 + 0.7 * hash11(grp * 1.37 + 0.5), u) * 0.012;
+        vec3 dye = lmPal(0.15 + 0.7 * hash11(grp * 1.37 + 0.5), u) * 0.012;
         float dm = abs(mod(s, 20.0) - 10.0) + abs(mod(r, 20.0) - 10.0);
         float motif = mix(1.0 - smoothstep(0.5, 1.0, abs(dm - 7.0)), 0.1, fsr);
-        dye += palRoleTrace(0.6 + 0.25 * hash11(grp * 3.1), u) * motif * (0.06 + 0.5 * u.mid);
+        dye += lmPal(0.6 + 0.25 * hash11(grp * 3.1), u) * motif * (0.12 + 0.04 * u.level);
         float fresh = exp(-max(behind, 0.0) / 0.9);
-        vec3 hot = palVisual(0.62 + 0.3 * fract(rid * 0.137), u) * (1.6 + 3.0 * u.bass);
+        vec3 hot = lmPal(0.62 + 0.3 * fract(rid * 0.137), u) * (1.5 + 0.12 * u.level);
         vec3 weftCol = mix(dye, hot, fresh) * (0.35 + 0.65 * weftP);
 
         // woven: the warp glows where it floats over the weft; bare: free fibres
@@ -248,24 +294,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         // the shuttle lights a pool on the cloth and trails a hot weft line
         vec3 l = Ls - hp;
         float ld = dot(l, l);
-        cloth += shCol * shPow * (0.03 + 0.2 * wovenM * weftP) * 2.2 / (1.0 + 3.0 * ld);
+        cloth += shCol * shPow * (0.03 + 0.2 * wovenM * weftP) * 1.0 / (1.0 + 3.0 * ld);
         float line = exp(-abs(hp.z - zS) * 16.0) * exp(-max((xS - hp.x) * dirS, 0.0) * 0.35)
                    * step(0.0, (xS - hp.x) * dirS + 0.2);
-        cloth += mix(shCol, vec3(1.0), 0.25) * line * 3.0;
-        cloth += shCol * exp(-abs(hp.z - zS) * 3.5) * exp(-abs(xS - hp.x) * 0.6) * 0.25 * shPow;
+        cloth += mix(shCol, vec3(1.0), 0.25) * line * 1.5;
+        cloth += shCol * exp(-abs(hp.z - zS) * 3.5) * exp(-abs(xS - hp.x) * 0.6) * 0.12 * shPow;
         vec3 lf = hp - Lf;
-        cloth += mix(shCol, vec3(1.0), 0.3) * pick * 2.2 / (1.0 + 2.5 * dot(lf, lf));
+        cloth += mix(shCol, vec3(1.0), 0.3) * pick * 0.25 / (1.0 + 2.5 * dot(lf, lf));
 
         // satin sheen of the vanishing-point glow, rippled by the bass
-        float ph = mod(u.time * 5.0, 6.2831853);
-        float rip = sin((hp.z - z) * 1.1 - ph) * u.bassImpact * rippleAmt * exp(-(hp.z - z) * 0.03);
+        float ph = mod(u.time * 0.8, 6.2831853);
+        float rip = sin((hp.z - z) * 1.1 - ph) * (0.12 + 0.04 * u.level) * rippleAmt * exp(-(hp.z - z) * 0.03);
         float graze = pow(1.0 - saturate(-rd.y), 6.0);
         vec3 sheenC = lmHaze(vec3(rd.x, -rd.y, rd.z), u, 0.0);
         cloth += sheenC * graze * (0.22 + 0.5 * max(rip, -0.4)) * (0.5 + 0.5 * wovenM * weftP);
 
         // beyond the selvedges: black lacquer floor mirroring the air and rails
         vec3 floorC = sheenC * graze * 0.9 + vec3(0.002, 0.002, 0.004);
-        floorC += palRoleTrace(0.2, u) * exp(-abs(ax - LM_HALF - 0.5) * 4.0) * 0.18;
+        floorC += lmPal(0.2, u) * exp(-abs(ax - LM_HALF - 0.5) * 4.0) * 0.18;
         col = mix(floorC, cloth, onCloth);
     } else {
         col = vec3(0.0);
@@ -305,16 +351,16 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float sacr = abs((floor(ss) + 0.5) / (density * 0.5) * 2.0 - 1.0);
     float sb2 = bandAt(u, sacr);
     float sheetM = step(0.0, ts) * step(ts, tHit) * step(zS, sp.z) * (1.0 - smoothstep(LM_HALF - 0.3, LM_HALF, abs(sp.x)));
-    vec3 sheetC = palVisual(0.05 + 0.55 * sacr + 0.06 * u.spectralCentroid + 0.5, u);
+    vec3 sheetC = lmPal(0.05 + 0.55 * sacr + 0.06 * 0.35 + 0.5, u);
     float fellGlow = exp(-(sp.z - zS) * 0.25);
-    col += sheetM * sheetC * sf * (0.01 + 1.8 * sb2 * sb2 + 0.3 * fellGlow) * (1.0 - 0.7 * sfw) * exp(-max(ts, 0.0) * 0.022);
+    col += sheetM * sheetC * sf * (0.28 + 0.08 * u.level + 0.02 * sb2 + 0.15 * fellGlow) * (1.0 - 0.7 * sfw) * exp(-max(ts, 0.0) * 0.022);
 
     // the shuttle's light scattering in the air along the ray
     vec3 wv = Ls - ro;
     float t0 = dot(wv, rd);
     float h = sqrt(max(dot(wv, wv) - t0 * t0, 1e-4));
     float scat = (atan((min(tHit, 400.0) - t0) / h) - atan(-t0 / h)) / h;
-    col += shCol * shPow * min(scat, 30.0) * 0.06 * exp(-h * 0.7);
+    col += shCol * shPow * min(scat, 30.0) * 0.008 * exp(-h * 0.7);
     // a thin anamorphic streak through the shuttle
     vec3 fw = normalize(ta - ro);
     vec3 rt = normalize(cross(fw, vec3(sin(roll), cos(roll), 0.0)));
@@ -346,7 +392,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float tw, hw;
     float wl = 1.5 + 6.0 * abs(dirS);
     float dw = lmSegDist(ro, rd, Ls - vec3((1.1 + wl) * dsg, 0.05, 0.0), vec3(wl * dsg, 0.05, 0.0), tw, hw);
-    col += mix(shCol, palVisual(0.5, u), 1.0 - hw) * exp(-dw * mix(30.0, 9.0, hw)) * hw * hw * step(tw, tHit) * 2.2 * shPow;
+    col += mix(shCol, lmPal(0.5, u), 1.0 - hw) * exp(-dw * mix(30.0, 9.0, hw)) * hw * hw * step(tw, tHit) * 1.4 * shPow;
 
-    return col; // LINEAR HDR — post chain tonemaps
+    return lmOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

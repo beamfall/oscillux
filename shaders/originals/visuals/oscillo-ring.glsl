@@ -3,24 +3,58 @@
 // A long-exposure light-painting session in an empty concrete hall with a
 // wet floor. A ring of LEDs swung on a cord paints an open lattice of cool
 // glowing rings in the air, one ring after another, so the figure is always
-// being drawn: the newest stroke is white hot at its head and older strokes
-// fade to a dim afterglow within the second. Each ring is a closed
-// oscilloscope trace whose radius wobbles with the spectrum on integer
-// harmonics. Every eight beats the painter changes the figure (a meridian
-// sphere, a torus, a gyroscope rosette, a stacked spectrum vase) and paints it
-// over the old one ring by ring. Two more painters swing pixel sticks round
-// the orb on wide tilted orbits, a full turn every two beats, so broad
-// twisting ribbons of gold, amber, red and rose light sweep across the frame
-// and fade behind their heads. Warm beats throw steel-wool sparks that arc
-// down and bounce off the floor; cool beats flare the fresh rings. The orb
-// and the moving stick heads are the only lights: they glow in the haze,
-// pool on the floor and catch the wet sheen of the columns, and the puddles
-// mirror it all while the camera circles slowly on the shared speed profile.
+// being drawn: the newest stroke glows softly brighter at its head and older
+// strokes fade gently to a soft afterglow. Each ring is a closed oscilloscope trace
+// whose shape barely breathes with the smoothed level and a trace of each band
+// and whose wobble drifts slowly, one whole figure every twelve beats. Every 24 beats the painter changes
+// the figure (a meridian sphere, a torus, a gyroscope rosette, a stacked
+// spectrum vase) and paints it over the old one ring by ring. Two more
+// painters swing pixel sticks round the orb on wide tilted orbits, a slow
+// full turn every thirty-two beats, so slowly twisting ribbons of gold, amber and
+// rose light sweep across the frame and fade softly behind their heads; the
+// LED shimmer on rings and ribbons is faint and slow. Every
+// fourth beat throws a burst of steel-wool sparks that arc down slowly
+// and bounce off the floor; each repaint only tilts the rings a little; beat accents on the rings and the orb glow
+// are small and swell softly rather than flashing. Calm under loud music:
+// the camera circles slowly at a steady pace with no beat surges, and reds
+// are kept just off saturated red. The orb and the moving stick heads are the
+// only lights: they glow in the haze, pool on the floor and catch the wet
+// sheen of the columns, and the puddles mirror it all.
 // Rings and orbits are found analytically in screen space (a first guess
 // refined by Gauss-Newton on the exact projection), so there is no ray march.
+// Its colours come from its own palette, unnudged by beat or centroid, so the host's vivid
+// palette tour never swells the light across the frame.
 // param0 = Orb Size ; param1 = Trace Swing ; param2 = Sparks
 
+// The palette read: the visual's own palette with no beat or spectral nudge.
+// The vivid tour swaps whole palettes of very different brightness every few
+// seconds, which swells the light across the frame, so this visual keeps its
+// own colours there (as the calm visuals do); a host's manifest palette still
+// replaces them.
+vec3 orPalSteady(float t, VisualUniforms u) { return osPalCalm(t, 2, u); }
+
 const float OR_TAU = 6.2831853;
+const float OR_CYC = 12.0;   // beats to paint one whole figure
+
+// The fitted filmic curve the post chain applies per channel, and its inverse.
+float orTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float orToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+
+// Keeps every red just off saturated red once tonemapped: green and blue
+// rise together until they make 0.27 of red, a slight desaturation that keeps
+// the hue, so no red area can strobe.
+vec3 orOffRed(vec3 c) {
+    float r = orTone(c.r), g = orTone(c.g), b = orTone(c.b);
+    float need = 0.27 * r - g - b;
+    if (need <= 0.0) return c;
+    c.g = orToneInv(g + 0.5 * need);
+    c.b = orToneInv(b + 0.5 * need);
+    return c;
+}
 
 struct OrPal { vec3 c0; vec3 c1; vec3 c2; vec3 c3; vec3 c4; };
 
@@ -58,10 +92,12 @@ vec3 orProj(OrCam c, vec3 X) {
 
 vec2 orCm(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
 
-// phases of ring k's four trace harmonics, as unit complex numbers
+// phases of ring k's four trace harmonics, as unit complex numbers; they
+// turn slowly so the painted lattice drifts rather than shimmers
 struct OrPh { vec4 q0; vec4 q1; };
 OrPh orPhase(float k, float t) {
-    vec4 a = vec4(t * 1.3 + k, -t * 1.7 + 2.0 * k, t * 2.3 + 0.5 * k, -t * 3.1 + 0.7 * k);
+    t *= 0.2;
+    vec4 a = vec4(t * 0.5 + k, -t * 0.65 + 2.0 * k, t * 0.85 + 0.5 * k, -t * 1.1 + 0.7 * k);
     OrPh h;
     h.q0 = vec4(cos(a.x), sin(a.x), cos(a.y), sin(a.y));
     h.q1 = vec4(cos(a.z), sin(a.z), cos(a.w), sin(a.w));
@@ -172,8 +208,8 @@ OrRing orForm(float f, float k, float n, vec3 O, float R, float lvl, float spin)
 // The painter's swing axis wanders, so every pass over the figure lays its
 // rings at a slightly new tilt and the lattice weaves as it is repainted.
 OrRing orTilt(OrRing r, vec3 O, float drawn) {
-    float ax = 0.32 * sin(drawn * 0.61);
-    float az = 0.24 * sin(drawn * 0.43 + 1.0);
+    float ax = 0.16 * sin(drawn * 0.3);
+    float az = 0.12 * sin(drawn * 0.2 + 1.0);
     float cx = cos(ax), sx = sin(ax), cz = cos(az), sz = sin(az);
     mat3 m = mat3(cz, sz, 0.0, -sz, cz, 0.0, 0.0, 0.0, 1.0) * mat3(1.0, 0.0, 0.0, 0.0, cx, sx, 0.0, -sx, cx);
     r.C = O + m * (r.C - O);
@@ -215,10 +251,10 @@ vec3 orOrb(vec2 p, vec2 stretch, float wAdd, float mirror, int iters, OrCam cam,
             // cycles since this version of the ring was painted
             float age = isHead ? (v == 0 ? 0.0 : (S.nR - 1.0) / S.nR) : fract((S.head - k - 1.0) / S.nR);
             // start time of that stroke, in beats
-            float drawn = isHead ? S.bc - fract(S.head) * 2.0 / S.nR - 2.0 * float(v)
-                                 : S.bc - 2.0 * age - 2.0 / S.nR;
-            float sect = floor(drawn / 8.0);
-            OrRing r = orForm(mod(sect, 4.0), k, S.nR, S.O, S.R, lvl, hash11(sect * 1.37 + 0.3) * OR_TAU + 0.12 * drawn);
+            float drawn = isHead ? S.bc - fract(S.head) * OR_CYC / S.nR - OR_CYC * float(v)
+                                 : S.bc - OR_CYC * age - OR_CYC / S.nR;
+            float sect = floor(drawn / 24.0);
+            OrRing r = orForm(mod(sect, 4.0), k, S.nR, S.O, S.R, lvl, hash11(sect * 1.37 + 0.3) * OR_TAU + 0.04 * drawn);
             r = orTilt(r, S.O, drawn);
             r.C.y *= mirror; r.A.y *= mirror; r.B.y *= mirror;
             vec3 rd3 = orRingDist(p, stretch, cam, r, ph, S.sw, S.wob, iters);
@@ -231,7 +267,7 @@ vec3 orOrb(vec2 p, vec2 stretch, float wAdd, float mirror, int iters, OrCam cam,
                 mask = v == 0 ? m : 1.0 - m;
                 comet = v == 0 ? exp(-(headS - sm) * 1.4) : 0.0;
             }
-            float bri = 0.12 + 0.88 * exp(-age * 3.6);
+            float bri = 0.25 + 0.4 * exp(-age * 1.5);
             float coc = abs(rd3.z - S.zc) * 0.008 + wAdd;
             float w = sqrt(S.pix * S.pix + coc * coc);
             float d = rd3.x;
@@ -239,13 +275,13 @@ vec3 orOrb(vec2 p, vec2 stretch, float wAdd, float mirror, int iters, OrCam cam,
             // windowed, so the culls never show as edges against the haze
             float hwin = saturate(1.0 - d / (0.05 + 3.0 * coc));
             float halo = hwin * hwin / (1.0 + d * d / (0.00025 + 4.0 * coc * coc));
-            float led = 0.7 + 0.3 * cos(sm * 36.0 + k * 2.1 + S.t * 3.0);
+            float led = 0.93 + 0.07 * cos(sm * 36.0 + k * 2.1 + S.t * 0.3);
             vec3 c = orCool(P, sm / OR_TAU + k * 0.23 + sect * 0.27 + S.t * 0.03);
             c = mix(c, P.c3, 0.4 * exp(-age * 2.0));   // fresh strokes lean to the cool end
             float cf = S.coolKick * exp(-age * 5.0);
-            c = mix(c, P.c3 + 0.3, cf * 0.45) * (1.0 + 0.9 * cf);
-            c = mix(c, vec3(1.0), comet * 0.6) * (1.0 + 1.6 * comet);
-            col += c * (bri * mask * led) * (1.7 * core + 0.10 * halo);
+            c = mix(c, P.c3 + 0.3, cf * 0.3) * (1.0 + 0.3 * cf);
+            c = mix(c, vec3(1.0), comet * 0.25) * (1.0 + 0.35 * comet);
+            col += c * (bri * mask * led) * (1.25 * core + 0.10 * halo);
         }
     }
     return col;
@@ -265,9 +301,9 @@ vec3 orSparks(vec2 p, vec2 o, float Rs, float yFloor, float bc, float beats, flo
     float w = pix * 0.9 + 0.0005;
     for (int bb = 0; bb < 4; bb++) {
         // two bursts, each with a fast and a slow layer of sparks
-        float b = floor(beats * 0.5) - float(bb / 2);
+        float b = floor(beats * 0.25) - float(bb / 2);
         float layer = float(bb - 2 * (bb / 2));
-        float age = bc - 2.0 * b;
+        float age = (bc - 4.0 * b) * 0.4;      // sparks fly slower than the beat
         if (age > 3.4) continue;
         float v = (0.8 + 0.35 * hash11(b * 5.3 + 1.0)) * (layer > 0.5 ? 0.55 : 1.0);
         float nL = layer > 0.5 ? floor(nS * 0.6) : nS;
@@ -301,7 +337,7 @@ vec3 orSparks(vec2 p, vec2 o, float Rs, float yFloor, float bc, float beats, flo
             float d = length(q - pt);
             float fade = exp(-(sa - tc) * 3.0) * sqrt(saturate(1.0 - tc / life));
             float glow = exp(-d * d / (w * w)) * 1.8 + 0.07 / (1.0 + d * d / 0.00015);
-            glow *= 0.65 + 0.35 * sin(tc * 47.0 + h2 * 40.0);
+            glow *= 0.85 + 0.15 * sin(tc * 47.0 + h2 * 40.0);
             col += mix(coolC, hotC, exp(-(sa - tc) * 2.2)) * glow * fade * (tb > ta ? 1.0 : 0.0);
             // bounce on the floor
             if (tf < life && sa > tf) {
@@ -317,8 +353,8 @@ vec3 orSparks(vec2 p, vec2 o, float Rs, float yFloor, float bc, float beats, flo
 // The orbit of pixel stick j: a big tilted ring round the orb whose tilt and
 // heading precess slowly, so each sweep lays its ribbon on a new path.
 OrRing orStickRing(OrSt S, float j) {
-    float ph = S.t * 0.11 + j * 2.4;
-    float al = 0.42 + 0.22 * sin(S.t * 0.07 + j * 1.7);
+    float ph = S.t * 0.02 + j * 2.4;
+    float al = 0.42 + 0.22 * sin(S.t * 0.015 + j * 1.7);
     vec3 nn = vec3(sin(al) * cos(ph), cos(al), sin(al) * sin(ph));
     vec3 a = normalize(cross(nn, vec3(0.0, 0.0, 1.0)));
     float Rr = S.R * (1.32 + 0.26 * j);
@@ -329,12 +365,12 @@ OrRing orStickRing(OrSt S, float j) {
     return r;
 }
 
-// angle of the stick head on orbit j: a full turn every two beats
-float orStickHead(OrSt S, float j) { return fract(S.bc * 0.5 + j * 0.37) * OR_TAU; }
+// angle of the stick head on orbit j: a slow full turn every thirty-two beats
+float orStickHead(OrSt S, float j) { return fract(S.bc / 32.0 + j * 0.37) * OR_TAU; }
 
 // The pixel stick: a second painter swings a bar of five LEDs round the orb,
-// so a broad twisting ribbon of warm light is drawn across the frame within
-// each second and fades behind its head. orStickAt refines one angle guess
+// so a broad twisting ribbon of warm light is drawn slowly across the frame
+// and fades gently behind its head. orStickAt refines one angle guess
 // by Gauss-Newton on the exact projection and shades the ribbon there.
 vec3 orStickAt(vec2 p, vec2 stretch, float wAdd, float mirror, OrCam cam, OrSt S, OrPal P, float j, OrRing r, OrPh h, float s) {
     vec4 sw = S.sw * 0.45;
@@ -360,9 +396,9 @@ vec3 orStickAt(vec2 p, vec2 stretch, float wAdd, float mirror, OrCam cam, OrSt S
     // the trail behind the head, one turn long
     float sm = mod(s, OR_TAU);
     float dth = mod(orStickHead(S, j) - sm, OR_TAU);
-    float trail = exp(-dth * 0.75) * smoothstep(0.0, 0.04, dth);
+    float trail = (0.45 + 0.55 * exp(-dth * 0.2)) * smoothstep(0.0, 0.6, dth) * smoothstep(OR_TAU, OR_TAU - 1.2, dth) ;
     // the stick turns in the hand, so the ribbon twists
-    float tw = abs(cos(sm * 2.0 + S.t * 0.8 + j * 1.3));
+    float tw = abs(cos(sm * 2.0 + S.t * 0.05 + j * 1.3));
     float hw = hwMax * (0.18 + 0.82 * tw);
     float coc = abs(e.z - S.zc) * 0.008 + wAdd;
     float aa = sqrt(S.pix * S.pix + coc * coc);
@@ -372,10 +408,10 @@ vec3 orStickAt(vec2 p, vec2 stretch, float wAdd, float mirror, OrCam cam, OrSt S
     float res = saturate(hw / (7.0 * aa) - 0.4);
     float leds = mix(0.55, 0.25 + 1.6 * exp(-lf * lf * 40.0), res);
     // pixel-stick pattern: the LEDs chase colour along the stroke
-    float chase = 0.7 + 0.3 * cos(sm * 22.0 - S.t * 2.0 + x * 2.0);
+    float chase = 0.93 + 0.07 * cos(sm * 22.0 - S.t * 0.3 + x * 2.0);
     vec3 c = orWarm(P, x * 0.2 + sm * 0.16 + j * 0.45 + S.t * 0.02);
     float hot = exp(-dth * 9.0);
-    c = mix(c, vec3(1.0, 0.92, 0.8), 0.6 * hot) * (1.0 + 2.5 * hot);
+    c = mix(c, vec3(1.0, 0.92, 0.8), 0.15 * hot) * (1.0 + 0.2 * hot);
     float fall = saturate(1.0 - dist / reach);
     float halo = 0.06 * fall * fall / (1.0 + dist * dist / (hw * hw * 2.0 + 0.0001));
     // the stick never passes through the floor
@@ -492,21 +528,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float t = mod(u.time, 600.0);
     float ign = fract(52.9829189 * fract(dot(uv * u.resolution, vec2(0.06711056, 0.00583715))));
 
-    OrPal P = OrPal(palVisual(0.0, u), palVisual(0.2, u), palVisual(0.4, u), palVisual(0.6, u), palVisual(0.8, u));
+    OrPal P = OrPal(orPalSteady(0.0, u), orPalSteady(0.2, u), orPalSteady(0.4, u), orPalSteady(0.6, u), orPalSteady(0.8, u));
 
     OrSt S;
-    for (int i = 0; i < 8; i++) S.sb[i] = bandAt(u, (float(i) + 0.5) / 8.0);
+    // the trace shapes follow the smoothed level and only a little of each
+    // band, so painted rings breathe with the music instead of twitching
+    float lv = saturate(u.level);
+    for (int i = 0; i < 8; i++) S.sb[i] = 0.24 + 0.12 * lv + 0.02 * bandAt(u, (float(i) + 0.5) / 8.0);
 
     // ---- camera: a slow circle round the orb, low over the floor ----
-    vec2 fl = osFlight(u, 0.3, 0.18);
+    vec2 fl = osFlight(u, 0.35, -0.14);
     float s = fl.x;
     float yaw = 0.6 * sin(s * 0.041) + 0.25 * sin(s * 0.017 + 1.0);
     float camR = 3.0 + 0.3 * sin(s * 0.057 + 0.7);
     vec3 ro = vec3(camR * sin(yaw), 0.48 + 0.12 * sin(s * 0.049 + 2.0), -camR * cos(yaw));
-    float R = mix(0.95, 1.35, u.param0) * (0.96 + 0.08 * u.amplitude);
+    float R = mix(0.95, 1.35, u.param0);
     vec3 O = vec3(0.0, 1.45, 0.0);
     vec3 ta = vec3(0.0, 0.95, 0.0);
-    float roll = osBank(u, 0.03);
+    float roll = osBank(u, 0.01);
     OrCam cam;
     cam.ro = ro;
     cam.fw = normalize(ta - ro);
@@ -519,23 +558,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // ---- beat clock and the painting state ----
     float bc = u.beatCount + saturate(u.beatPhase);
     float bph = saturate(u.beatPhase);
-    float kick = (1.0 - bph) * (1.0 - bph);
+    float kick = sin(3.14159265 * bph) * sin(3.14159265 * bph);
     float warmBeat = mod(floor(u.beatCount), 2.0) < 0.5 ? 1.0 : 0.0;
     S.n = osSteps(7.0, 12.0, detail);
     S.nR = float(S.n);
     S.bc = bc;
-    S.head = fract(bc / 2.0) * S.nR;      // one full figure every two beats
+    S.head = fract(bc / OR_CYC) * S.nR;   // one full figure every twelve beats
     S.R = R;
     S.O = O;
     S.t = t;
     float swing = mix(0.4, 1.7, u.param1);
-    S.sw = swing * vec4(S.sb[1] + 0.25, S.sb[3] + 0.15, S.sb[5] + 0.1, S.sb[7] + 0.4 * u.treble);
+    S.sw = swing * vec4(S.sb[1] + 0.25, S.sb[3] + 0.15, S.sb[5] + 0.1, S.sb[7] + 0.1 * lv) * 0.7;
     S.wob = dot(S.sw, vec4(0.10, 0.07, 0.045, 0.03));
     S.zc = orProj(cam, O).z;
     S.pix = 2.0 / u.resolution.y;
-    S.coolKick = (1.0 - warmBeat) * kick * (0.6 + 0.6 * u.bassImpact);
+    S.coolKick = (1.0 - warmBeat) * kick * (0.02 + 0.01 * u.level);
     int iters = detail > 0.5 ? 2 : 1;
-    float lift = saturate(u.level * 1.3);
+    float lift = 0.55 + 0.1 * saturate(u.level);
 
     // the two pixel-stick heads, warm moving lights
     vec3 hPos[2];
@@ -557,11 +596,11 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // the orb's own glow in the air, cool, with a warm surge on spark beats
     vec2 oc = orProj(cam, O).xy;
     vec3 coolAvg = (P.c0 + P.c2 + P.c3) / 3.0;
-    float sparkPow = mix(0.0, 1.4, u.param2) * (0.55 + 0.7 * u.bassImpact + 0.3 * u.onset);
+    float sparkPow = mix(0.0, 1.4, u.param2) * (0.18 + 0.06 * u.level);
     vec3 warmLit = mix(vec3(1.0, 0.45, 0.1), P.c4, 0.3);
     float wAge = bc - 2.0 * floor(u.beatCount * 0.5);
-    float warmGlow = exp(-wAge * 1.6) * sparkPow;
-    vec3 cLight = coolAvg * (2.2 + 1.5 * lift + 2.0 * S.coolKick) + warmLit * 3.0 * warmGlow;
+    float warmGlow = (0.2 + 0.08 * (0.5 - 0.5 * cos(3.14159265 * wAge))) * sparkPow;
+    vec3 cLight = coolAvg * (2.2 + 1.5 * lift + 1.0 * S.coolKick) + warmLit * 3.0 * warmGlow;
     vec4 colm = orColumns(ro, rd, O, cLight, hPos[0], hCol[0] * 2.0, hPos[1], hCol[1] * 2.0);
     float tFl = rd.y < -0.002 ? -ro.y / rd.y : 1e4;
     if (colm.x < tFl) col = colm.yzw * exp(-colm.x * 0.035);
@@ -605,23 +644,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     // the LED head itself, a hot point
     {
         float headK = floor(S.head);
-        float sect = floor((bc - fract(S.head) * 2.0 / S.nR) / 8.0);
-        OrRing hr = orForm(mod(sect, 4.0), headK, S.nR, O, R, S.sb[int(headK) - 8 * (int(headK) / 8)], hash11(sect * 1.37 + 0.3) * OR_TAU + 0.12 * (bc - fract(S.head) * 2.0 / S.nR));
-        hr = orTilt(hr, O, bc - fract(S.head) * 2.0 / S.nR);
+        float sect = floor((bc - fract(S.head) * OR_CYC / S.nR) / 24.0);
+        OrRing hr = orForm(mod(sect, 4.0), headK, S.nR, O, R, S.sb[int(headK) - 8 * (int(headK) / 8)], hash11(sect * 1.37 + 0.3) * OR_TAU + 0.04 * (bc - fract(S.head) * OR_CYC / S.nR));
+        hr = orTilt(hr, O, bc - fract(S.head) * OR_CYC / S.nR);
         vec3 hX;
         vec3 hdX;
         orEval(hr, fract(S.head) * OR_TAU, orPhase(headK, t), S.sw, hX, hdX);
         vec2 hp = orProj(cam, hX).xy;
         vec2 dv = p - hp;
         float dd = dot(dv, dv);
-        col += mix(orCool(P, headK * 0.23 + sect * 0.27), vec3(1.0), 0.6) * (exp(-dd / (S.pix * S.pix * 6.0)) * 2.5 + 0.0006 / (dd + 0.0004));
+        col += mix(orCool(P, headK * 0.23 + sect * 0.27), vec3(1.0), 0.6) * (exp(-dd / (S.pix * S.pix * 6.0)) * 1.4 + 0.0003 / (dd + 0.0004));
     }
     float Rs = cam.f * R / S.zc;
     float yFloor = orProj(cam, vec3(0.0)).y;
-    col += orSparks(p, oc, Rs * 0.92, yFloor, bc, u.beatCount, floor(mix(22.0, 44.0, detail)), S.pix, P, sparkPow);
+    col += orSparks(p, oc, Rs * 0.92, yFloor, bc, u.beatCount, floor(mix(14.0, 26.0, detail)), S.pix, P, sparkPow);
 
     // mild vignette, IGN dither against banding
     col *= 1.0 - 0.3 * dot(p * 0.5, p * 0.5);
     col += (ign - 0.5) * 0.004;
-    return max(col, vec3(0.0));
+    return orOffRed(max(col, vec3(0.0)));
 }

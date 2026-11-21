@@ -3,18 +3,39 @@
 // A flight down the inside of a braided sleeve: 24 satin cords, twelve
 // winding each way, weave over and under one another around the camera, and
 // light streams past through the gaps in the weave. Each cord carries a
-// luminous fibre whose light follows its band (bass, mid or treble). One
-// family is warm (red, gold, magenta), the other its cool complement (cyan,
-// ice blue, sea green), and the two trade the lead every four beats. Packets
-// of light run along the fibres, every beat sends a cyan hoop racing ahead
-// down the tunnel, the crossings glint, and the far weave sinks into black. The camera's speed follows the
-// shared 32-beat profile and it banks into the curves; audio drives the light,
-// never the camera.
+// luminous fibre that glows with the music's level and brightens a little
+// with its band (bass, mid or treble). One family is warm (red, gold,
+// magenta), the other its cool complement (cyan, ice blue, sea green), and
+// the two slowly trade the lead every four beats. Packets of light run along
+// the fibres, every beat sends a soft cyan hoop racing ahead down the tunnel,
+// a few crossings glint, and the far weave sinks into black. The camera glides
+// at a near-steady pace (the shared 32-beat profile barely moves it) and leans
+// only into the sleeve's own curves; audio drives the light, never the camera,
+// and beats never jump the light over large areas. Reds are kept just off
+// saturated red.
 // param0 = Twist ; param1 = Core Heat ; param2 = Sparks
 
 const float BD_TAU = 6.2831853;
 const float BD_SP = 0.5235988;    // 2 pi / 12 cords per family
 const float BD_R = 2.0;          // sleeve radius
+
+// Keeps every red just off saturated red once tonemapped: green (for warm
+// reds) or blue (for pink ones) rises to at least 0.3 of red, so no red area
+// can strobe, while the hue barely moves.
+float bdTone(float x) { return x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14); }
+float bdToneInv(float y) {
+    y = clamp(y, 0.0, 0.999);
+    float a = 2.51 - 2.43 * y, b = 0.03 - 0.59 * y;
+    return (-b + sqrt(b * b + 0.56 * a * y)) / (2.0 * a);
+}
+vec3 bdOffRed(vec3 c) {
+    float r = bdTone(c.r), g = bdTone(c.g), b = bdTone(c.b);
+    float need = 0.3 * r - g - b;
+    if (need <= 0.0) return c;
+    if (c.g > c.b) c.g = max(c.g, bdToneInv(g + need));
+    else c.b = max(c.b, bdToneInv(b + need));
+    return c;
+}
 
 vec2 bdPath(float z) {
     return vec2(1.7 * sin(z * 0.043) + 0.9 * sin(z * 0.021 + 1.0), 1.2 * sin(z * 0.031 + 2.0));
@@ -89,15 +110,15 @@ vec2 bdFlight(VisualUniforms u, float cruise, float surge) {
 }
 
 vec3 bdGroupColor(float g, VisualUniforms u, BdPalette P) {
-    if (g < 0.5) return mix(bdPal(P, 0.15), bdPal(P, 0.03 + 0.04 * u.beatPhase), 0.62 + 0.25 * u.bassImpact);
-    if (g < 1.5) return bdPal(P, 0.42 + 0.03 * u.beatPhase);
+    if (g < 0.5) return mix(bdPal(P, 0.15), bdPal(P, 0.05), 0.65 + 0.05 * u.bass);
+    if (g < 1.5) return bdPal(P, 0.435);
     return peakWhite(bdPal(P, 0.72 + 0.10 * u.spectralCentroid), u.treble * u.onset * 0.14);
 }
 
 float bdGroupLevel(float g, VisualUniforms u) {
-    if (g < 0.5) return saturate(bandRange(u, 0, 6) * 1.2 + 0.5 * u.bassImpact);
-    if (g < 1.5) return saturate(bandRange(u, 10, 28) * 1.3);
-    return saturate(bandRange(u, 30, 60) * 1.6 + 0.3 * u.onset);
+    if (g < 0.5) return saturate(0.6 * u.level + 0.35 * bandRange(u, 0, 6));
+    if (g < 1.5) return saturate(0.6 * u.level + 0.35 * bandRange(u, 10, 28));
+    return saturate(0.6 * u.level + 0.35 * bandRange(u, 30, 60) + 0.05 * u.onset);
 }
 
 vec3 visual(vec2 uv, VisualUniforms u) {
@@ -109,7 +130,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float heat = mix(0.6, 1.8, u.param1);
     float sparkAmt = mix(0.2, 1.6, u.param2);
 
-    vec2 fl = bdFlight(u, 2.6, 0.9);
+    vec2 fl = bdFlight(u, 0.7, -0.25);
     BdPalette P = bdPalLoad(u);
     float z = fl.x;
     float rush = saturate((fl.y - 1.0) / 3.5);
@@ -121,39 +142,39 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float lead = 0.5 + 0.5 * cos(bar * 0.7853982);
     float cyc = fract(bar / 32.0);
     // the hue walks over the 32-beat cycle and leans hot through the bursts
-    float hs = 0.09 * sin(cyc * BD_TAU) - 0.07 * rush;
+    float hs = 0.09 * sin(cyc * BD_TAU) - 0.02 * rush;
     // every bar a surge of charge runs up the sleeve from the far end toward
     // the camera, lighting each cord as it passes, harder on a burst
     float barPh = fract(bar / 4.0);
     float sRun = saturate(barPh * 1.6);
     float surgeZ = z - 1.0 + 30.0 * (1.0 - sRun * (2.0 - sRun));
-    float surgeAmp = smoothstep(0.0, 0.06, barPh) * (1.0 - smoothstep(0.5, 0.78, barPh)) * (0.6 + 0.9 * rush + 0.5 * u.amplitude);
+    float surgeAmp = smoothstep(0.0, 0.06, barPh) * (1.0 - smoothstep(0.5, 0.78, barPh)) * (0.5 + 0.2 * rush + 0.2 * u.level);
 
     vec3 ro = vec3(bdPath(z), z);
     vec3 ta = vec3(bdPath(z + 6.0), z + 6.0);
     float curve = bdPath(z + 9.0).x - 2.0 * bdPath(z + 4.5).x + bdPath(z).x;
-    float roll = -0.35 * curve + osBank(u, 0.22);
-    float fov = 0.9 - 0.12 * rush + 0.06 * lull;
+    float roll = -0.35 * curve;
+    float fov = 0.9 - 0.03 * rush + 0.02 * lull;
     vec3 rd = osCamera(ro, ta, roll, fov, p);
 
     vec3 cG0 = bdGroupColor(0.0, u, P), cG1 = bdGroupColor(1.0, u, P), cG2 = bdGroupColor(2.0, u, P);
     // the second family is the cool complement: cyan, ice blue and sea green
     vec3 cC0 = mix(P.c3, P.c4, 0.95);
     vec3 cC1 = cC0 * vec3(0.35, 0.75, 1.35), cC2 = cC0 * vec3(0.25, 1.1, 0.75);
-    float wA = 0.15 + 0.85 * lead, wB = 1.0 - 0.85 * lead;
+    float wA = 0.45 + 0.55 * lead, wB = 1.0 - 0.55 * lead;
     float l0 = bdGroupLevel(0.0, u), l1 = bdGroupLevel(1.0, u), l2 = bdGroupLevel(2.0, u);
 
     // the light at the end of the tunnel
     vec3 far = vec3(bdPath(z + 60.0), z + 60.0);
     vec3 farDir = normalize(far - ro);
     vec3 fogCol = bdPal(P, 0.8 + hs) * 0.004;
-    vec3 endCol = peakWhite(bdPal(P, 0.55 + hs + 0.08 * u.spectralCentroid), saturate(u.onset * 0.18 + u.bassImpact * 0.10));
+    vec3 endCol = peakWhite(bdPal(P, 0.55 + hs + 0.08 * u.spectralCentroid), saturate(u.onset * 0.04 + u.bass * 0.03));
 
     // beat ring racing ahead of the camera
     float bp = saturate(u.beatPhase);
     // it is born a few units ahead and fades in, so it never washes the whole view
     float ringZ = z + 5.0 + 22.0 * (1.0 - (1.0 - bp) * (1.0 - bp));
-    float ringAmp = smoothstep(0.0, 0.15, bp) * (1.0 - bp) * (0.35 + 0.65 * saturate(u.beat + u.bassImpact));
+    float ringAmp = smoothstep(0.0, 0.15, bp) * (1.0 - bp) * (0.3 + 0.1 * u.level);
     vec3 ringCol = mix(cC0, vec3(1.0), 0.2);
     vec3 surgeCol = peakWhite(mix(cC0, cG1, lead), 0.25);
 
@@ -176,7 +197,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 gc = g < 0.5 ? cG0 : (g < 1.5 ? cG1 : cG2);
         float ring = exp(-(pos.z - ringZ) * (pos.z - ringZ) * 0.6) * ringAmp;
         float w = exp(-max(m.x, 0.0) * 14.0 - t * 0.06);
-        if (m.y > 2.5) glowB += (0.1 + lvl) * w; else glow += gc * (0.1 + lvl) * w;
+        if (m.y > 2.5) glowB += (0.25 + 0.45 * lvl) * w; else glow += gc * (0.25 + 0.45 * lvl) * w;
         glowR += ring * w;
         if (m.x < 0.0015 * t) { hit = m; state = 1; break; }
         t += m.x * (t > 8.0 ? 0.9 : 0.8);
@@ -201,7 +222,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
         vec3 lc = bdPal(P, 0.55 + 0.45 * f + 0.06 * u.spectralCentroid + hs);
         // the outer light is never quite dark: a dim coloured haze with the
         // streaks running through it, so the gaps glow instead of punching holes
-        col = lc * (0.0025 + 0.004 * u.level + streak * (0.12 + 1.8 * lv * lv)) * heat;
+        col = lc * (0.0025 + 0.004 * u.level + streak * (0.2 + 0.3 * u.level + 0.3 * lv * lv)) * heat;
         // (the surge lights only the cords, never the open gaps)
         float ring = exp(-(pos.z - ringZ) * (pos.z - ringZ) * 0.4) * ringAmp;
         col += ringCol * ring * 0.25;
@@ -223,8 +244,8 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         // light packets running along each fibre
         // light packets running along each fibre: a sharp head and a tail
-        float pk = fract(along * 0.12 - mod(u.time, 600.0) * (0.3 + 0.3 * rush) + hash11(lane * 7.3 + 1.0));
-        float packet = (exp(-pk * 14.0) + 0.25 * exp(-pk * 4.0)) * (0.25 + 1.4 * u.flux + 0.8 * lvl);
+        float pk = fract(along * 0.12 - mod(u.time, 600.0) * (0.25 + 0.1 * rush) + hash11(lane * 7.3 + 1.0));
+        float packet = (exp(-pk * 14.0) + 0.25 * exp(-pk * 4.0)) * (0.35 + 0.15 * u.flux + 0.35 * lvl);
 
         float ring = exp(-(pos.z - ringZ) * (pos.z - ringZ) * 0.6) * ringAmp;
         float sg = exp(-(pos.z - surgeZ) * (pos.z - surgeZ) * 0.15) * surgeAmp;
@@ -246,23 +267,23 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
         col = vec3(0.004, 0.003, 0.006) * (0.5 + nv) * ao;
         col += gc * sheen * 0.12 * ao;
-        col += mix(vec3(1.0), gc, 0.65) * spec * 0.7 * ao;
-        col += lc * back * (0.08 + 1.0 * lv * lv) * heat;
-        float emit = fibre * (0.5 + 3.0 * lvl + 4.0 * packet) * wF * exp(-t * 0.05);
+        col += mix(vec3(1.0), gc, 0.65) * spec * 0.4 * ao;
+        col += lc * back * (0.14 + 0.08 * u.level + 0.1 * lv * lv) * heat;
+        float emit = fibre * (0.55 + 0.6 * lvl + 1.0 * packet) * wF * exp(-t * 0.05);
         // the colour of the packet heads is pushed white-hot, the tails stay coloured
-        col += mix(gc, peakWhite(gc, 0.6), saturate(packet * 0.6)) * emit * heat;
+        col += mix(gc, peakWhite(gc, 0.3), saturate(packet * 0.5)) * emit * heat;
         // the bar's surge lights the satin and the fibre as it runs past
-        col += surgeCol * sg * (0.05 * sheen + 2.2 * fibre) * ao * exp(-t * 0.05);
+        col += surgeCol * sg * (0.05 * sheen + 1.0 * fibre) * ao * exp(-t * 0.05);
         // the beat ring lights the whole cord as it passes
-        col += ringCol * ring * (1.2 + 4.0 * fibre) * (0.4 + 0.6 * nv);
+        col += ringCol * ring * (0.3 + 1.0 * fibre) * (0.4 + 0.6 * nv);
         // crossings glint on the beat
         float glint = pow(abs(cos(6.0 * hit.z)), 40.0) * nv;
-        float gate = (phasePulse(u, 0.0, 0.12) * (0.4 + 0.8 * u.beat) + 0.6 * u.onset) * sparkAmt;
-        float pick = step(0.6, hash21(vec2(floor(hit.z / BD_SP + 0.5) + 13.0 * lane, mod(floor(u.beatCount), 64.0))));
-        col += peakWhite(endCol, 0.5) * glint * gate * pick * 2.0;
+        float gate = (phasePulse(u, 0.0, 0.12) * (0.3 + 0.3 * u.beat) + 0.15 * u.onset) * sparkAmt;
+        float pick = step(0.85, hash21(vec2(floor(hit.z / BD_SP + 0.5) + 13.0 * lane, mod(floor(u.beatCount), 64.0))));
+        col += peakWhite(endCol, 0.5) * glint * gate * pick * 0.7;
 
         col = mix(col, bg, 1.0 - exp(-t * 0.11));
     }
     col += glow;
-    return col; // LINEAR HDR — post chain tonemaps
+    return bdOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }

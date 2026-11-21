@@ -9,13 +9,15 @@
 // across the surface, bending every reflection into bands of warm and cool.
 // Every eight beats the rig changes its pattern: a single drop, twin drops
 // whose rings interfere, or a line of drops walking across the frame. A small
-// strobe behind the splash fires on each beat, warm and cool in turn. The camera
+// strobe behind the splash swells and fades on each beat, warm and cool in
+// turn; it and the softbox are kept low enough that the rings bending their
+// reflections never flicker the frame. The camera
 // creeps forward on the shared 32-beat speed profile and banks gently; audio
 // drives the light only, never the camera.
 // param0 = Ring Width ; param1 = Expansion ; param2 = Persistence
 
 const float RP_AHEAD = 2.6;   // how far ahead of the camera each drop lands
-const float RP_RUNK = 0.30;   // world units per beat of travel at cruise
+const float RP_RUNK = 0.20;   // world units per beat of travel at cruise
 
 // Speed over the shared 32-beat profile, as osFlight, with the cycle's
 // running distance read from a table instead of summed per pixel.
@@ -98,20 +100,20 @@ vec3 rpEnv(vec3 d, RpLight L) {
         float br = length(bq);
         float disc = (1.0 - smoothstep(0.026, 0.031, br)) * (0.5 + 0.5 * smoothstep(0.01, 0.028, br));
         vec3 bc = mod(bj, 2.0) < 1.0 ? L.warm : L.cool;
-        col += mix(bc, vec3(1.0), 0.25) * disc * (0.08 + 1.6 * rpBand(L, bj));
+        col += mix(bc, vec3(1.0), 0.25) * disc * (0.3 + 0.35 * rpBand(L, bj));
     }
     // the overhead softbox: two panels with a seam
     vec2 sb = vec2(ax / 0.42, (e - 0.74) / 0.24);
     float box = 1.0 - smoothstep(0.9, 1.0, max(abs(sb.x), abs(sb.y)));
     box *= 0.45 + 0.55 * smoothstep(0.02, 0.06, abs(sb.x));
-    col += L.soft * box * 2.6;
+    col += L.soft * box * 0.85;
     // two kicker strips at the sides, one per gel
     float ks = exp(-(abs(ax) - 1.12) * (abs(ax) - 1.12) * 500.0)
              * smoothstep(-0.02, 0.06, e) * (1.0 - smoothstep(0.35, 0.6, e));
     col += (ax < 0.0 ? L.warm : L.cool) * ks * 1.6;
     // the beat strobe low behind the splash
     vec2 st = vec2(ax, e - 0.1);
-    col += L.acc * L.accA * (exp(-dot(st, st) * 140.0) * 2.5 + exp(-dot(st, st) * 20.0) * 0.06);
+    col += L.acc * L.accA * (exp(-dot(st, st) * 300.0) * 0.5 + exp(-dot(st, st) * 20.0) * 0.03);
     return col;
 }
 
@@ -296,22 +298,24 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     L.cool = rpVivid(rpPal(P, mix(0.48, 0.4, chorus)) * vec3(0.7, 0.9, 1.0), 1.3);
     L.soft = mix(vec3(1.0, 0.97, 0.92), L.warm, 0.1);
     L.acc = mod(n, 2.0) < 1.0 ? L.warm : L.cool;
-    L.accA = exp(-ph * 5.0) * (0.6 + 0.6 * saturate(u.bassImpact));
+    // the strobe swells in just after the beat and fades out by the next, never a hard flash
+    L.accA = smoothstep(0.0, 0.2, ph) * (1.0 - ph) * (1.0 - ph) * 0.35;
     L.gx = 0.48 + 0.12 * sin(tw * 0.11);
-    L.gel = 0.2 + 0.14 * u.level + 0.08 * u.mid;
-    L.b0 = vec3(bandAt(u, 0.04), bandAt(u, 0.16), bandAt(u, 0.3));
-    L.b1 = vec3(bandAt(u, 0.46), bandAt(u, 0.62), bandAt(u, 0.8));
+    L.gel = 0.22 + 0.12 * u.level;
+    vec3 lv3 = vec3(saturate(u.level));
+    L.b0 = mix(lv3, vec3(bandAt(u, 0.04), bandAt(u, 0.16), bandAt(u, 0.3)), 0.25);
+    L.b1 = mix(lv3, vec3(bandAt(u, 0.46), bandAt(u, 0.62), bandAt(u, 0.8)), 0.25);
 
     // ---- camera: creeps forward on the speed profile ----
     vec2 fl = rpFlight(u);
     float zc = fl.x * RP_RUNK;
     float rush = saturate((fl.y - 1.0) / 2.5);
     // a breakdown dims the gels to the lamps alone; a burst opens them up
-    L.gel *= mix(0.45, 1.35, smoothstep(0.5, 3.0, fl.y));
+    L.gel *= mix(0.85, 1.1, smoothstep(0.5, 3.0, fl.y));
     vec3 ro = vec3(rpPathX(zc) + 0.2 * sin(tw * 0.05), 0.42 + 0.06 * sin(tw * 0.07), zc);
     float zt = zc + RP_AHEAD;
     vec3 ta = vec3(rpPathX(zt) + 0.1 * sin(tw * 0.031), 0.2 + 0.05 * sin(tw * 0.043), zt);
-    float fov = 2.1 - 0.2 * rush;
+    float fov = 2.1 - 0.05 * rush;
     vec3 rd = osCamera(ro, ta, osBank(u, 0.04), fov, p);
     float pa = 2.0 / (u.resolution.y * fov);
 
@@ -338,7 +342,7 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float pfw = tS * pa / max(-rd.y, 0.04);
     vec2 grad = vec2(0.0);
     vec3 glow = vec3(0.0);
-    float kf = 52.0 + 14.0 * u.spectralCentroid;
+    float kf = 56.0;
     float aaR = exp(-kf * kf * pfw * pfw * 0.6);
     int nSlots = osSteps(4.0, 7.0, detail);
     for (int k = 0; k < 7; k++) {
@@ -363,16 +367,17 @@ vec3 visual(vec2 uv, VisualUniforms u) {
             float wb = s < 0.0 ? w * 2.4 : w;
             if (abs(s) < wb * 3.5) {
                 float env = exp(-s * s / (wb * wb));
-                float amp = 0.0085 * c.z * exp(-age * persist) / (1.0 + 1.5 * r) * smoothstep(0.0, 0.1, age);
+                float amp = 0.0065 * c.z * exp(-age * persist) / (1.0 + 1.5 * r) * smoothstep(0.0, 0.1, age);
                 float cs = cos(kf * s), sn = sin(kf * s);
                 float dh = amp * (-2.0 * s / (wb * wb) * cs * exp(-pfw * pfw / (wb * wb)) - kf * sn * aaR) * env;
                 grad += dh * dir;
             }
             // the strobe flash glows through the water at the impact
-            glow += L.acc * exp(-r * r * 30.0) * exp(-age * 6.0) * 0.5;
+            glow += L.acc * exp(-r * r * 30.0) * exp(-age * 6.0) * smoothstep(0.0, 0.15, age) * 0.2;
         }
     }
-    float swell = 0.0016 + 0.003 * u.mid;
+    float swell = 0.0016 + 0.0015 * u.level;
+
     int nSwell = osSteps(2.0, 3.0, detail);
     for (int i = 0; i < 3; i++) {
         if (i >= nSwell) break;
