@@ -24,7 +24,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createClock } from './limiter-model.mjs';
+import { createClock, startTexel } from './limiter-model.mjs';
 import { LIMITER_PASSES, limiterFunction, limiterGLSL300, limiterMSL } from './limiter.mjs';
 import { renderSignal } from './limiter-signals.mjs';
 import { windowOf } from './limiter-geometry.mjs';
@@ -60,9 +60,13 @@ if (problems.length) {
   for (const p of problems) console.log(`FAIL vectors: ${p}`);
   process.exit(1);
 }
-const clockFrames = n => {
-  const clock = createClock(3);
-  return Array.from({ length: n }, () => clock(DT));
+// A host that starts a new limiter mid-case (`reset`) starts a new clock with it.
+const clockFrames = (n, resetAt) => {
+  let clock = createClock(3);
+  return Array.from({ length: n }, (_, t) => {
+    if (t === resetAt) clock = createClock(3);
+    return clock(DT);
+  });
 };
 
 // Runs in the page. Builds the passes once and runs `cases` through them.
@@ -113,7 +117,8 @@ async function pageMain({ passes, cases, helpers, time }) {
     return { f, w: targets[0].w, h: targets[0].h, targets };
   };
 
-  function makeLimiter(W, H) {
+  // `seed`: the tracker texel the host clears to; `spent`: G written fully spent, as at a start.
+  function makeLimiter(W, H, seed = [0, 8192, 0, 0], spent = false) {
     const two = make => [make(), make()];
     const s = {
       frame: tex(W, H, false), rows: tex(64, H, 32), S: tex(64, 36, 32), C: tex(16, 9, 32), Wn: tex(16, 9, true),
@@ -125,15 +130,15 @@ async function pageMain({ passes, cases, helpers, time }) {
     s.fW = fbo([s.Wn]);
     s.fG = s.G.map(g => fbo([g]));
     s.fOut = [0, 1].map(i => fbo([s.out[i], s.track[i]]));
-    // The host clears the grant to zero and the tracker state to "no state yet".
+    // The host clears the grant (to zero, or fully spent) and the tracker state to the seed.
     for (const f of s.fG) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, f.f);
-      gl.clearBufferuiv(gl.COLOR, 0, new Uint32Array(4));
+      gl.clearBufferuiv(gl.COLOR, 0, new Uint32Array(spent ? [256, 65025, 65025, 0] : 4));
     }
     for (const f of s.fOut) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, f.f);
       gl.clearBufferfv(gl.COLOR, 0, new Float32Array(4));
-      gl.clearBufferuiv(gl.COLOR, 1, new Uint32Array([0, 8192, 0, 0]));
+      gl.clearBufferuiv(gl.COLOR, 1, new Uint32Array(seed));
     }
     return s;
   }
@@ -167,7 +172,7 @@ async function pageMain({ passes, cases, helpers, time }) {
 
   const results = [];
   for (const c of cases) {
-    const s = makeLimiter(c.width, c.height);
+    let s = makeLimiter(c.width, c.height);
     const px = new Uint8Array(c.width * c.height * 4);
     const out = new Uint8Array(c.width * c.height * 4);
     const sub = new Uint32Array(64 * 36 * 4), g = new Uint32Array(4), mask = new Uint8Array(64 * 36);
@@ -175,6 +180,7 @@ async function pageMain({ passes, cases, helpers, time }) {
     const frames = [];
     let last = '';
     for (let t = 0; t < c.frames; t++) {
+      if (t === c.resetAt) s = makeLimiter(c.width, c.height, c.seed, true);
       renderSignal(c.signal, t, c.width, c.height, px);
       step(s, px, blockOf(c, c.clock[t]));
       gl.bindFramebuffer(gl.FRAMEBUFFER, s.fS.f);
@@ -238,7 +244,10 @@ async function pageMain({ passes, cases, helpers, time }) {
 }
 
 const passes = LIMITER_PASSES.map(p => ({ name: p.name, textures: p.textures, glsl: limiterGLSL300(p) }));
-const cases = vectors.cases.map(c => ({ ...c, frameRecords: undefined, clock: clockFrames(c.frames) }));
+const cases = vectors.cases.map(c => ({
+  ...c, frameRecords: undefined, clock: clockFrames(c.frames, c.reset?.at),
+  resetAt: c.reset?.at, seed: c.reset ? startTexel(c.reset.seed) : undefined,
+}));
 let time = null;
 if (timeSize) {
   const [width, height] = timeSize.split('x').map(Number);
@@ -319,7 +328,7 @@ async function runMetal() {
     return { function: limiterFunction(p), metal: path, formats: p.outputs.map(([, t]) => t) };
   });
   const asCase = c => ({ name: c.name, width: c.width, height: c.height, frames: c.frames, cols: c.window.cols, rows: c.window.rows,
-    limit: c.window.limit, clock: c.clock.map(k => [k.tick, k.deltaMs, k.refill]) });
+    limit: c.window.limit, clock: c.clock.map(k => [k.tick, k.deltaMs, k.refill]), resetAt: c.resetAt, seed: c.seed });
   const config = { passes: metalPasses, cases: cases.map(asCase), timing: time ? asCase({ ...time, name: 'timing' }) : null };
   writeFileSync(join(out, 'config.json'), JSON.stringify(config));
   const child = spawn(join(out, 'check'), [join(out, 'config.json')], { stdio: ['pipe', 'pipe', 'inherit'] });

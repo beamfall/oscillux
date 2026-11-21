@@ -9,7 +9,7 @@
 // of the galaxy's core and the level lifts the airglow.
 // param0 = Stars (density) ; param1 = Turn (sky rotation) ; param2 = Glow (galaxy brightness)
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, 1.0 - uv.y);
     float breath = osCalmBreath(u);
@@ -54,3 +54,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = mix(col, night * 0.003, smoothstep(trees + 0.003, trees - 0.003, p.y));
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

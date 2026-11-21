@@ -437,7 +437,7 @@ vec3 prTrace(vec3 ro, vec3 rd, vec3 thr0, float dist0, float ior, int maxB, int 
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -534,3 +534,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     return prOffRed(max(col, vec3(0.0))); // LINEAR HDR; the post chain tonemaps
 
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

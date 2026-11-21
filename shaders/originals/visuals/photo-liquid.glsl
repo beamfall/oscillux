@@ -92,7 +92,7 @@ float pqFbm(vec2 p, int oct) {
     return v * 0.96875 / max(1.0 - 2.0 * a, 0.5);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = centered(uv, u.resolution);   // y grows downward
     float t = mod(u.time, 600.0);
@@ -245,3 +245,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.5 * smoothstep(0.8, 2.0, length(p));
     return pqOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

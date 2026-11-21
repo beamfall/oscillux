@@ -187,7 +187,7 @@ vec3 pglCaustic(vec2 fp, VisualUniforms u, float density, float hAmt, int nx, ve
     return acc * light;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -372,3 +372,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 0.45 + 0.55 * smoothstep(1.95, 0.55, length(p * vec2(0.8, 1.0)));
     return col;   // linear HDR; the host tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

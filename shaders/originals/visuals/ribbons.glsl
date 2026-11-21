@@ -71,7 +71,7 @@ vec2 rbRing(vec2 d, float rx, float ry) {
     return vec2(dist, smoothstep(-0.004, 0.004, d.x));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -268,3 +268,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += vec3(1.0, 0.9, 0.75) * exp(-ring.x / (px * 0.7)) * ringPulse * ring.y * 0.6;
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

@@ -21,8 +21,16 @@
 // The field window is fw x fh of the frame (default the WCAG reference: a third by a third);
 // setGeometry(field) changes it on a live display, and each transition is judged in the field
 // shown when it happened.
+// restart(seed) is the host's restart of the limiter (its first start, or the start after a Frame
+// change) with the tracker seed it wrote, 'black' (BLACK_TEXEL) or 'zero'. At a black restart each
+// pixel that has shown exact (0, 0, 0) for blackLongEnough on the presented timeline, up to the
+// restart's first frame, has both trackers reseeded to the black seed: red falling at 0, nothing
+// owed, no saturated state since. Every other pixel keeps its history, and a zero restart reseeds
+// nothing (the limiter's unknown red memory is conservative). Nothing expires during playback.
+// lastRestart reports the latest restart: { seed, reseeded, kept }, filled at its first frame
+// (openspec/changes/limiter-red-expire-black/).
 
-import { LUMA_DARK, LUMA_STEP, RED_STEP, lumaCode, redCode, redSat } from './limiter-model.mjs';
+import { LUMA_DARK, LUMA_STEP, RED_STEP, blackLongEnough, lumaCode, redCode, redSat } from './limiter-model.mjs';
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
 // The measures are the limiter's codes (limiter-model.mjs: lumaCode, redCode, redSat), and the
@@ -49,6 +57,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // Per pixel: whether the red tracker's latest step counted, and whether a saturated red state
   // was seen since it.
   const redCounted = new Uint8Array(N), anySat = new Uint8Array(N);
+  // Per pixel: the clock at the first frame of its current exact-black run, NaN when not black.
+  const blackSince = new Float64Array(N).fill(NaN);
+  let pending = null, lastRestart = null;
   const last = [new Float64Array(N).fill(-Infinity), new Float64Array(N).fill(-Infinity),
     new Float64Array(N).fill(-Infinity), new Float64Array(N).fill(-Infinity)]; // luma up, down, red up, down
   const integral = new Int32Array((W + 1) * (H + 1));
@@ -176,6 +187,17 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     for (let j = 0, i = 0; j < N; j++, i += 4) {
       const r = px[i], g = px[i + 1], b = px[i + 2];
       const v = lumaCode(r, g, b), rv = redCode(r, g, b), sat = redSat(r, g, b);
+      // A restart reads the black run as it stood before this frame: black on frames b..t-1 has
+      // been on screen from clock_b to clock_t. NaN compares false.
+      if (pending === 'black' && blackLongEnough(clock - blackSince[j])) {
+        ext[0][j] = ref[0][j] = 0; ext[1][j] = ref[1][j] = 0; dir[0][j] = dir[1][j] = -1;
+        redCounted[j] = 1; anySat[j] = 0;
+        lastRestart.reseeded++;
+      } else if (pending !== null) {
+        lastRestart.kept++;
+      }
+      if (r !== 0 || g !== 0 || b !== 0) blackSince[j] = NaN;
+      else if (Number.isNaN(blackSince[j])) blackSince[j] = clock;
       if (!live) {
         ext[0][j] = ref[0][j] = v; ext[1][j] = ref[1][j] = rv; dir[0][j] = dir[1][j] = -1;
         redCounted[j] = 1; anySat[j] = sat ? 1 : 0;
@@ -196,6 +218,7 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (count !== 0) { last[count > 0 ? 2 : 3][j] = clock; firing[j] |= 2; firedNow[1] = true; }
     }
     live = true;
+    pending = null;
     // Every test reads the counts as they stood before this frame's charges, so a large area in one
     // field cannot hide another field's narrower or combined area (Codex round 15).
     const now = [large([0]), large([1]), large([2]), large([3])];
@@ -237,5 +260,16 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
     for (const l of last) l.fill(-Infinity);
   }
 
-  return { push, maxPerWindow, setGeometry, transitions, get window() { return { fwPx, fhPx, limit }; } };
+  /** The host restarted the limiter before the next frame, writing `seed` ('black' or 'zero'). */
+  function restart(seed) {
+    if (seed !== 'black' && seed !== 'zero') throw new Error(`audit: unknown restart seed ${seed}`);
+    pending = seed;
+    lastRestart = { seed, reseeded: 0, kept: 0 };
+  }
+
+  return {
+    push, maxPerWindow, setGeometry, restart, transitions,
+    get lastRestart() { return lastRestart; },
+    get window() { return { fwPx, fhPx, limit }; },
+  };
 }

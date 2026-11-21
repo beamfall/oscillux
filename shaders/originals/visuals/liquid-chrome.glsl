@@ -298,7 +298,7 @@ vec3 lqEnv(vec3 r, float spin, vec3 c0, vec3 c1, vec3 c2, vec3 deep, float pump,
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 sp = centered(uv, u.resolution);
     sp.y = -sp.y;
     float t = u.beatCount + saturate(u.beatPhase);
@@ -381,3 +381,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += (ign - 0.5) * 0.0015;
     return max(col, 0.0); // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

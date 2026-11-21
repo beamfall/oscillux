@@ -81,7 +81,7 @@ vec3 psDeflect(vec3 q, float ring, vec3 amp, vec2 cy, vec2 cx) {
     return vec3(q.xy * (1.0 + 0.12 * q.z), q.z);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -376,3 +376,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = accentize(col, u.accent, 0.08);
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

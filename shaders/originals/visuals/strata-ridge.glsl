@@ -153,7 +153,7 @@ vec3 srScene(vec2 p, float camX, float tm, float drama, float glow, float detail
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -193,3 +193,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += vec3(0.014, 0.022, 0.065) * shore * (0.35 + 0.65 * drift) * glow;
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

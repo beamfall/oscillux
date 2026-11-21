@@ -18,7 +18,7 @@ float mtWave(vec2 p, float t) {
     return h;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     float y = 1.0 - uv.y;                        // 0 at the bottom, 1 at the top
     float x = (uv.x - 0.5) * aspect;
@@ -73,3 +73,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.25 * lyric;
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

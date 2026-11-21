@@ -2,7 +2,9 @@
 // Runs the frame flash limiter's generated Metal passes (tools/shader/limiter.mjs) for
 // limiter-check.mjs --metal. The config (argv[1]) is
 //   { passes: [{ function, metal, formats }], cases: [Case], timing: Case? }
-// with Case { name, width, height, frames, cols, rows, limit, clock: [[tick, deltaMs, refill]] }.
+// with Case { name, width, height, frames, cols, rows, limit, clock: [[tick, deltaMs, refill]],
+// resetAt?, seed? }: at frame resetAt the host starts a new limiter, its trackers cleared to the
+// seed texel ([x, y, z, w]) and G written fully spent (limiter-vectors.mjs `reset`).
 // Every case's frames arrive on stdin in order as raw RGBA8, top row first; the timing case sends
 // two frames that alternate. Per case it prints one JSON line
 //   { name, frames: [[holdMask ("0"/"1" per sub-block, row order), grant, deficit, outputDigest,
@@ -27,6 +29,8 @@ struct Case: Decodable {
     let rows: Float
     let limit: Float
     let clock: [[Float]]
+    let resetAt: Int?
+    let seed: [UInt16]?
 }
 
 struct Config: Decodable {
@@ -84,13 +88,13 @@ func texture(_ kind: String, _ w: Int, _ h: Int) -> MTLTexture {
     return t
 }
 
-/// Tracker state cleared to "no state yet" (0, UNTRACKED = 8192, 0, 0) per pixel, the reference
-/// model's start (shaders/limiter/common.glsl).
-func trackTexture(_ w: Int, _ h: Int) -> MTLTexture {
+/// Tracker state cleared to `seed` per pixel: by default "no state yet" (0, UNTRACKED = 8192, 0, 0),
+/// the reference model's start (shaders/limiter/common.glsl).
+func trackTexture(_ w: Int, _ h: Int, _ seed: [UInt16]) -> MTLTexture {
     let t = texture("uint", w, h)
     var px = [UInt16](repeating: 0, count: w * h * 4)
     for i in 0..<(w * h) {
-        px[4 * i + 1] = 8192
+        for k in 0..<4 { px[4 * i + k] = seed[k] }
     }
     t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: px, bytesPerRow: w * 8)
     return t
@@ -113,7 +117,7 @@ final class Limiter {
     let g: [MTLTexture], track: [MTLTexture], out: [MTLTexture]
     var cur = 0
 
-    init(_ w: Int, _ h: Int) {
+    init(_ w: Int, _ h: Int, seed: [UInt16] = [0, 8192, 0, 0], spent: Bool = false) {
         self.w = w
         self.h = h
         frame = texture("float", w, h)
@@ -122,7 +126,12 @@ final class Limiter {
         c = texture("uint32", 16, 9)
         win = texture("uint", 16, 9)
         g = [texture("uint", 1, 1), texture("uint", 1, 1)]
-        track = [trackTexture(w, h), trackTexture(w, h)]
+        if spent {
+            // G fully spent, as a host writes it at a start (shaders/limiter/README.md).
+            let words: [UInt16] = [256, 65025, 65025, 0]
+            for t in g { t.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0, withBytes: words, bytesPerRow: 8) }
+        }
+        track = [trackTexture(w, h, seed), trackTexture(w, h, seed)]
         out = [texture("float", w, h), texture("float", w, h)]
     }
 
@@ -178,13 +187,14 @@ func emit(_ object: Any) {
 }
 
 for c in cfg.cases {
-    let lim = Limiter(c.width, c.height)
+    var lim = Limiter(c.width, c.height)
     var frames: [[Any]] = []
     var sub = [UInt32](repeating: 0, count: 64 * 36 * 4)
     var track = [UInt16](repeating: 0, count: c.width * c.height * 4)
     var g = [UInt16](repeating: 0, count: 4)
     var out = [UInt8](repeating: 0, count: c.width * c.height * 4)
     for t in 0..<c.frames {
+        if t == c.resetAt { lim = Limiter(c.width, c.height, seed: c.seed ?? [0, 8192, 0, 0], spent: true) }
         lim.upload(readStdin(c.width * c.height * 4))
         let cb = queue.makeCommandBuffer()!
         let block = blockOf(c, t)

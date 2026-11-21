@@ -81,7 +81,7 @@ vec3 ltWarm(float h, vec3 a, vec3 b, vec3 c) {
     return mix(r, a, smoothstep(2.0, 3.0, x));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -343,3 +343,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return ltOffRed(max(col, vec3(0.0))); // LINEAR HDR
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

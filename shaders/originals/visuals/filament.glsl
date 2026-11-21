@@ -250,7 +250,7 @@ float flBox(vec3 P, vec3 r, int n, float at, vec2 lo, vec2 hi) {
     return m * (0.55 + 0.45 * (1.0 - e.x * e.x));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -520,3 +520,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = max(col * (1.0 + (ign - 0.5) * 0.05) + (ign - 0.5) * 0.0008, vec3(0.0));
     return col; // linear HDR; the host tone-maps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

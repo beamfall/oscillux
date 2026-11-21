@@ -92,7 +92,7 @@ float nbSpikes(vec2 d, float px, float len) {
     return s * 0.6 + 2.0 * exp(-r * r / (px * px * 2.0)) + 0.4 * exp(-r / (px * 6.0));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float px = 2.0 / max(u.resolution.y, 1.0);
@@ -246,3 +246,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

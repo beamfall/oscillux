@@ -105,7 +105,7 @@ vec3 drPool(vec2 f, float scroll, float ang, float w, float dsp, vec4 rip, vec3 
     return col * pool;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -280,3 +280,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     float vig = 1.0 - 0.55 * smoothstep(0.6, 1.9, length(p * vec2(0.8, 1.0)));
     return col * vig; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

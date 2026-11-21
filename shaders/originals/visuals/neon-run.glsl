@@ -248,7 +248,7 @@ vec3 nrGates(vec3 ro, vec3 rd, float tMax, float stretch, int count, VisualUnifo
     return acc;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
 
@@ -333,3 +333,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

@@ -13,7 +13,7 @@ float dhRidge(float x, float seed) {
     return fbm(vec2(x + seed * 17.3, seed * 3.1)) * 0.7 + 0.3 * vnoise(vec2(x * 3.0, seed));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     float x = (uv.x - 0.5) * aspect;
     float y = 1.0 - uv.y;
@@ -52,3 +52,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

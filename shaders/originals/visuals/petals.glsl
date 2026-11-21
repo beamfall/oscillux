@@ -176,7 +176,7 @@ vec3 ptShade(vec4 pe, vec2 q, mat2 R, float face, vec3 base, vec3 mid, vec3 tip,
     return c * lit;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p0 = motionCentered(uv, u);
     p0.y = -p0.y;
     // slow camera: a steady drift, push-in and roll.
@@ -443,3 +443,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = ptSat(col, 1.15);
     return ptOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

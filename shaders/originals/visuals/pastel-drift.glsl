@@ -8,7 +8,7 @@
 // light, and the level lifts the overall light.
 // param0 = Pools (blend softness) ; param1 = Wander (speed) ; param2 = Tone (brightness)
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
     float breath = osCalmBreath(u);
@@ -40,3 +40,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 0.97 + 0.06 * hash21(floor(uv * u.resolution));
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

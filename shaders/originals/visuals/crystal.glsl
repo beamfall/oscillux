@@ -382,7 +382,7 @@ vec3 crBeam(vec3 ro, vec3 rd, vec3 c, vec3 b, float s0, float L, float tMax, vec
     return colr * fade * (exp(-d2 * 9000.0) * 1.6 + exp(-d2 * 300.0) * 0.18 + exp(-d2 * 14.0) * 0.02);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -505,3 +505,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.3 * smoothstep(0.8, 1.9, length(p));
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

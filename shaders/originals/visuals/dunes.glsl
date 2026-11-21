@@ -100,7 +100,7 @@ vec3 dnSky(vec3 rd, vec3 sunDir, VisualUniforms u, float tm) {
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -243,3 +243,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += dnPalStill(0.6, u) * pow(saturate(dot(rd, sunDir)), 40.0) * (0.2 + 0.03 * u.level);
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

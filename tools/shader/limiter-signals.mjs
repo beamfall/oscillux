@@ -7,6 +7,8 @@
 //   { kind: 'solid', color }
 //   { kind: 'gradient' }                      static horizontal/vertical ramp
 //   { kind: 'steps', colors }                 the whole frame shows colors[t], the last from then on
+//   { kind: 'runs', runs: [[n, color], ...] } the whole frame shows each color for n frames in
+//                                             turn, the last from then on
 //   { kind: 'square', hz, on, off, bg?, bgStep?, rect?, until?, after? }
 //       rect (default the whole frame) shows `on` in the first half period and `off` in the second,
 //       at 60 frames a second; from frame `until` on it shows `after` ('on' or 'off'). bgStep
@@ -33,6 +35,10 @@ export function renderSignal(spec, t, W, H, out) {
     fill(0, 0, W, H, spec.color);
   } else if (spec.kind === 'steps') {
     fill(0, 0, W, H, spec.colors[Math.min(t, spec.colors.length - 1)]);
+  } else if (spec.kind === 'runs') {
+    let k = 0;
+    for (let n = spec.runs[0][0]; k < spec.runs.length - 1 && t >= n; n += spec.runs[k][0]) k++;
+    fill(0, 0, W, H, spec.runs[k][1]);
   } else if (spec.kind === 'gradient') {
     for (let y = 0; y < H; y++) {
       for (let x = 0, i = y * W * 4; x < W; x++, i += 4) {

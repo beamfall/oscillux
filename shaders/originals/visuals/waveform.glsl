@@ -259,7 +259,7 @@ vec3 wvSky(vec3 rd, vec3 ro, vec3 C, vec3 airCol, float air) {
     return sky + airCol * exp(-dot(dv, dv) * 0.006) * air;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -408,3 +408,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += (ign - 0.5) * 0.0018;
     return max(col, 0.0);
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

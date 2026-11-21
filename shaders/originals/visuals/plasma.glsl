@@ -83,7 +83,7 @@ vec2 plzFlight(VisualUniforms u, float cruise, float surge) {
     return vec2(u.time * cruise * 0.2 + beats * (cruise * 0.4 + surge), mix(v0, v1, ph));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     float scale = mix(0.62, 1.45, u.param0);
     float turb = mix(0.6, 1.4, u.param1);
@@ -248,3 +248,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

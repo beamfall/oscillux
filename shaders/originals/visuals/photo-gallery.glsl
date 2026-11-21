@@ -175,7 +175,7 @@ vec3 pgBokeh(vec2 p, float camX, VisualUniforms u, int layers, PgPal P) {
     return acc;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -287,3 +287,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 0.45 + 0.55 * smoothstep(1.9, 0.5, length(p * vec2(0.8, 1.0)));
     return col;   // linear HDR; the host tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

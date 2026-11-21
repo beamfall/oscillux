@@ -108,6 +108,7 @@ shader-test:
 	node tools/shader/test-passes.mjs
 	node tools/shader/test-governor.mjs
 	node tools/shader/test-palette-tour.mjs
+	node tools/shader/test-originals-red.mjs
 	node tools/shader/test-preset.mjs
 	node tools/shader/test-karaoke-zip.mjs
 	node tools/shader/test-android-gles.mjs

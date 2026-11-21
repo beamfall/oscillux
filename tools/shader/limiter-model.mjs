@@ -65,7 +65,7 @@
 // unknown. UNTRACKED marks a pixel with no state yet, which takes its first value without firing,
 // as a fall to it.
 //
-// createLimiter({ width, height, geometry, maxFlashHz }).step(rgba8, dt) returns
+// createLimiter({ width, height, geometry, maxFlashHz, start }).step(rgba8, dt) returns
 //   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, state (the four grant words), track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
 import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
@@ -85,6 +85,21 @@ export const LUMA_STEP = 3275, LUMA_DARK = 26215, RED_STEP = 15, NO_DARK = 256;
 export const LUMA_MAX = 32767, RED_MAX = 255, RED_MEM_HI = 32768, LUMA_UP = 4096, UNTRACKED = 8192,
   RED_MEM_LO = 32768, RED_UP = 4096;
 export const TOKEN = 65025;
+// A host that has presented exact (0, 0, 0) black for this long before a restart may start the
+// trackers at BLACK_TEXEL, and the auditor, told of that restart, reseeds every pixel black that
+// long (limiter-audit.mjs `restart`). It is longer than WCAG's one-second window, with 250 ms
+// spare. Nothing expires during playback (openspec/changes/limiter-red-expire-black/).
+export const RED_EXPIRE_MS = 1250;
+/** "Black, nothing owed": luma falling at 0, red at 0, red memory counted (RED_MEM_LO). */
+export const BLACK_TEXEL = [0, RED_MEM_LO, 0, 0];
+/** The one black threshold host and auditor share. The microsecond absorbs float accumulation
+ * (75 frames of 1000/60 ms sum to 1249.9999999999995 ms) and nothing else. */
+export const blackLongEnough = ms => ms >= RED_EXPIRE_MS - 1e-3;
+/** The host's test before seeding BLACK_TEXEL: `ms` is the exact black it credited one presented
+ * frame at a time, each interval capped at 100 ms, and `longestMs` the longest interval credited.
+ * Subtracting it covers a credit that leads the display by one frame: at 60 Hz the host needs 76
+ * intervals where the auditor needs 75. */
+export const hostBlackLongEnough = (ms, longestMs) => blackLongEnough(ms - longestMs);
 export const COVERAGE_MS = 1000 / 15;
 export const TICK_MS = COVERAGE_MS / 64;
 // The clock counts ticks modulo 240, 15 units of 16 ticks. A stamp is recent while the current
@@ -199,6 +214,13 @@ export function redStep(x, y, z, rv, sat, out) {
   const mhi = unknown ? 0 : !counted || seen ? 1 : 0, mlo = unknown ? 0 : seen ? 0 : 1;
   return (count & 3) | (mhi << 2) | (mlo << 3);
 }
+/** The tracker texel a limiter start clears every pixel to. */
+export function startTexel(start) {
+  if (start === 'untracked') return [0, UNTRACKED, 0, 0];
+  if (start === 'zero') return [0, 0, 0, 0];
+  if (start === 'black') return BLACK_TEXEL;
+  throw new Error(`limiter: unknown start ${start}`);
+}
 const redCount = r => ((r & 3) === 3 ? -1 : r & 3);
 
 /** Whether stamp s (4 bits) is recent at unit u. */
@@ -225,7 +247,11 @@ const nearStep = n => (n <= 16 ? n : 16 * (n - 15));
 /** Sub-block of pixel x in a frame of size n along an axis with `blocks` sub-blocks. */
 export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
 
-export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlashHz = 3 }) {
+/** start sets every pixel's tracker texel: 'untracked' (the default) no state yet, which the
+ * conformance vectors start from; 'zero' tracked black with the red memory unknown, a host's
+ * start when hostBlackLongEnough does not hold; 'black' BLACK_TEXEL, a host's start when it does
+ * (shaders/limiter/README.md, "Ping-pong and reset"). */
+export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlashHz = 3, start = 'untracked' }) {
   if (W < BLOCKS_X || H < BLOCKS_Y) throw new Error(`limiter: frame ${W}x${H} is under ${BLOCKS_X}x${BLOCKS_Y}`);
   // The passes' 32-bit counts and the float limit hold any frame up to 8192 x 8192
   // (shaders/limiter/README.md, "Frame size").
@@ -233,9 +259,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   const N = W * H;
   let win = windowOf(geometry, W, H);
   const clock = createClock(maxFlashHz);
-  // Packed tracker state per pixel (RGBA16UI), cleared to "no state yet".
+  // Packed tracker state per pixel (RGBA16UI), cleared to the start texel.
   const track = new Uint16Array(N * 4);
-  for (let p = 0; p < N; p++) track[4 * p + 1] = UNTRACKED;
+  const seed = startTexel(start);
+  for (let p = 0; p < N; p++) track.set(seed, 4 * p);
   const req = new Uint8Array(BLOCKS);
   const holdMask = new Uint8Array(BLOCKS);
   // Per cell: pixels changing in any channel and direction, now or recently.

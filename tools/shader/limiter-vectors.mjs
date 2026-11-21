@@ -5,6 +5,10 @@
 // starting with a run of not-held; "=" when unchanged from the previous frame), the four grant
 // state words as grant.glsl writes them, the FNV-1a digest of the output bytes, and
 // the FNV-1a digest of the packed tracker state (RGBA16UI per pixel, little-endian bytes).
+// A case with `reset: { at, seed }` starts a new limiter at frame `at`, as a host restarts one after
+// a Frame change: trackers cleared to the seed (limiter-model.mjs startTexel), the grant fully
+// spent, the clock restarted (shaders/limiter/README.md, "Ping-pong and reset"). An auditor reading
+// the case is told of it with restart(seed) (limiter-audit.mjs).
 //
 //   node tools/shader/limiter-vectors.mjs --write | --check
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -17,6 +21,7 @@ import { renderSignal } from './limiter-signals.mjs';
 export const VECTORS_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'conformance', 'limiter', 'frame', 'vectors.json');
 export const DT = 1 / 60;
 const W = [255, 255, 255], K = [0, 0, 0], G = [128, 128, 128], RED = [255, 0, 0];
+const ORANGE = [110, 64, 0], FAINT_RED = [5, 0, 0], NEAR_RED = [1, 0, 0], DIM_RED = [60, 0, 0], RED_90 = [90, 0, 0];
 
 export const CASES = [
   { name: 'steady-gradient', frames: 60, signal: { kind: 'gradient' } },
@@ -52,6 +57,20 @@ export const CASES = [
   { name: 'dim-fall-first-step', frames: 40, signal: { kind: 'steps', colors: [K, [240, 123, 247], [31, 167, 125]] } },
   { name: 'dim-rise-past-a-gap', frames: 40, signal: { kind: 'steps', colors: [K, [23, 189, 209], [12, 250, 58]] } },
   { name: 'dim-red-near-input', frames: 40, signal: { kind: 'steps', colors: [K, [154, 194, 79], [251, 130, 9]] } },
+  // limiter-red-expire-black (CORE-2869): a restart after orange falls to black. After 8 frames of
+  // black, short of 1250 ms, the host clears to zero and both the faint red at 309 and the full red
+  // at 310 count, so the spent grant holds them (Codex's repro). After 90 frames the host seeds
+  // "black, nothing owed" and only the full red counts; after exactly 75 frames (1250 ms, the
+  // auditor's threshold) likewise. A real red strobe after a black start is still held. Then the
+  // design round 3 repros after one black start: a saturated (60, 0, 0) under an orange rise, and a
+  // faint or near-black saturated red before it.
+  { name: 'reset-short-black', frames: 330, width: 64, height: 36, reset: { at: 209, seed: 'zero' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [109, K], [1, FAINT_RED], [1, RED]] } },
+  { name: 'reset-long-black', frames: 420, width: 64, height: 36, reset: { at: 290, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [190, K], [1, FAINT_RED], [1, RED]] } },
+  { name: 'reset-black-at-expiry', frames: 300, width: 64, height: 36, reset: { at: 275, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, ORANGE], [75, K], [1, FAINT_RED], [1, RED]] } },
+  { name: 'black-start-red-10hz', frames: 320, width: 64, height: 36, reset: { at: 80, seed: 'black' }, signal: { kind: 'runs', runs: [[80, K], ...Array.from({ length: 80 }, (_, i) => [3, i % 2 ? K : RED])] } },
+  { name: 'black-start-sat-orange', frames: 540, width: 64, height: 36, reset: { at: 76, seed: 'black' }, signal: { kind: 'runs', runs: [[176, K], [100, DIM_RED], [100, K], [100, ORANGE], [1, RED_90], [1, K]] } },
+  { name: 'black-start-faint-red', frames: 400, width: 64, height: 36, reset: { at: 100, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, FAINT_RED], [100, ORANGE], [1, DIM_RED]] } },
+  { name: 'black-start-near-black-red', frames: 400, width: 64, height: 36, reset: { at: 100, seed: 'black' }, signal: { kind: 'runs', runs: [[100, K], [100, NEAR_RED], [100, ORANGE], [1, DIM_RED]] } },
 ];
 
 export function fnv1a(bytes) {
@@ -86,11 +105,16 @@ export function trackDigest(track) {
 /** The frame records of one case: [hold, grant x, y, z, w, digest, track digest]. */
 export function modelFrames(c) {
   const width = c.width || 320, height = c.height || 180;
-  const lim = createLimiter({ width, height, geometry: c.geometry || 'wcag' });
+  const geometry = c.geometry || 'wcag';
+  let lim = createLimiter({ width, height, geometry });
   const px = new Uint8Array(width * height * 4);
   const frames = [];
   let last = '';
   for (let t = 0; t < c.frames; t++) {
+    if (t === c.reset?.at) {
+      lim = createLimiter({ width, height, geometry, start: c.reset.seed });
+      lim.setGeometry(geometry);
+    }
     renderSignal(c.signal, t, width, height, px);
     const r = lim.step(px, DT);
     const hold = runLengths(r.holdMask);

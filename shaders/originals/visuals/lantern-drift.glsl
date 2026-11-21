@@ -37,7 +37,7 @@ vec3 ldLayer(vec2 p, float layer, float rise, float density, float aspect, float
     return c * flick * depthDim * (0.85 + 0.30 * breath);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, 1.0 - uv.y);
     float breath = osCalmBreath(u);
@@ -70,3 +70,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = mix(col, sky0 * 0.02, smoothstep(near + 0.004, near - 0.004, y));
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

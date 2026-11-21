@@ -130,7 +130,7 @@ vec3 sgOffRed(vec3 c) {
     return m > 0.0 ? c + vec3(0.0, 0.55, 0.45) * m : c;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 pc = centered(uv, u.resolution);
     pc.y = -pc.y;
     float detail = osDetail(u);
@@ -258,3 +258,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += acc;
     return sgOffRed(max(col, vec3(0.0)));
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

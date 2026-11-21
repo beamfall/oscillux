@@ -155,7 +155,7 @@ float loGain(VisualUniforms u) {
     return clamp(0.22 / max(l, 1e-3), 0.4, 1.5);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -267,3 +267,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= loGain(u);
     return col; // LINEAR HDR
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

@@ -9,7 +9,7 @@
 // sun's glow and the rims of the clouds, and the level lifts the haze.
 // param0 = Heaps (cloud scale) ; param1 = Drift (cloud speed) ; param2 = Sun (position)
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     float x = (uv.x - 0.5) * aspect;
     float y = 1.0 - uv.y;
@@ -47,3 +47,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

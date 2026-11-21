@@ -470,7 +470,7 @@ vec3 ciShade(vec3 pos, vec3 n, vec3 rd, vec2 src, CiK k, float bright, float fpw
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -533,3 +533,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += ciPillars(ro, rd, t, k, pixk, osSteps(5.0, 12.0, detail)) * bright;
     return ciOffRed(max(col, vec3(0.0))); // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

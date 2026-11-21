@@ -521,7 +521,7 @@ vec3 orBokeh(vec3 rd, float yScale, OrPal P, float t, float lift) {
     return c * disc * row * (0.025 + 0.07 * h) * (0.8 + 0.5 * lift);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -664,3 +664,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += (ign - 0.5) * 0.004;
     return orOffRed(max(col, vec3(0.0)));
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

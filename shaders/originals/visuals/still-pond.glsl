@@ -10,7 +10,7 @@
 // each bar's downbeat.
 // param0 = Pads (count) ; param1 = Rings (strength) ; param2 = Sky (reflection)
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
     float sens = 0.5 + 0.5 * u.sensitivity;
@@ -79,3 +79,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.5 * smoothstep(0.35, 0.75, length(p / vec2(aspect, 1.0)) * 1.2);
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

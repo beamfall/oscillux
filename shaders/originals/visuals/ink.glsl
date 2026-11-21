@@ -97,7 +97,7 @@ vec2 inkVortex(vec2 d, float s, float core) {
     return s * vec2(-d.y, d.x) / (dot(d, d) + core * core);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 asp = vec2(aspect, 1.0);
     float detail = osDetail(u);
@@ -229,3 +229,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = max(col * light, water * (0.55 + 0.25 * light));
     return col + inkMotes(uv, asp, t, moteA, moteB); // LINEAR HDR fluid state
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

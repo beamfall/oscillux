@@ -311,7 +311,7 @@ vec3 wcScene(vec2 uv, float g, float life, int nSheets, float detail, float aspe
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float g = mix(0.22, 0.62, u.param0);
     float life = mix(0.55, 0.30, u.param1); // decay rate (lower = longer life)
     float sprayAmt = mix(0.3, 1.4, u.param2);
@@ -489,3 +489,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return col; // LINEAR HDR
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

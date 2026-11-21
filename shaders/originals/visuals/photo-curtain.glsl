@@ -84,7 +84,7 @@ vec3 pcPhoto(vec2 c, VisualUniforms u, float aspect) {
     return ph * ph * (0.7 + 0.6 * ph);   // stored values to linear light, with a little extra contrast
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = motionCentered(uv, u);
     p.y = -p.y;
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
@@ -247,3 +247,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 0.3 + 0.7 * smoothstep(1.95, 0.55, length(p * vec2(0.85, 1.0)));
     return pcOffRed(max(col, vec3(0.0)));   // linear HDR; the host tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

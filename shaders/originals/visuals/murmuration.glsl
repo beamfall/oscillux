@@ -262,7 +262,7 @@ float muReeds(vec2 p, float t, float px, float windAmt) {
     return cover;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float px = 2.0 / max(u.resolution.y, 1.0);
@@ -320,3 +320,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
 
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

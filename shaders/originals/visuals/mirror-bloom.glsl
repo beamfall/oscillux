@@ -158,7 +158,7 @@ vec3 mbEnv(vec3 r, vec3 v, MbRig L, float edge) {
     return c;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -341,3 +341,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += (ign - 0.5) * 0.003;
     return max(col, vec3(0.0));
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

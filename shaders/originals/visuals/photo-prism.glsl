@@ -147,7 +147,7 @@ float ppWedge(vec3 o, vec3 d, float a, float r0, out vec3 nl) {
     return tn;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = centered(uv, u.resolution);
@@ -380,3 +380,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 0.30 + 0.70 * smoothstep(2.3, 0.5, length(p));
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

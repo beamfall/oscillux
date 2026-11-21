@@ -141,7 +141,7 @@ float rcWallT(vec3 ro, vec3 rd) {
     return (-bw + sqrt(max(bw * bw - aw * cw, 0.0))) / aw;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -472,3 +472,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col = accentize(col, u.accent, 0.10);
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

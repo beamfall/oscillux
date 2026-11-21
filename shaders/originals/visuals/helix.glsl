@@ -251,7 +251,7 @@ vec3 hxDraw(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, vec4 look, vec2 o, float
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -364,3 +364,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

@@ -123,7 +123,7 @@ vec3 cmLayer(vec2 q, float layer, float travel, float vel, VisualUniforms u,
     return col * mix(1.0, 0.75, dz);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -236,3 +236,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += headLight * gasLit * 0.14;
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

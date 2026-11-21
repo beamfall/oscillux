@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { createAuditor } from './limiter-audit.mjs';
 import { GEOMETRY } from './limiter-geometry.mjs';
 import { renderSignal } from './limiter-signals.mjs';
+import { CASES as VECTOR_CASES } from './limiter-vectors.mjs';
 
 const at = process.argv.indexOf('--model');
 const modelPath = at > 0 ? resolve(process.argv[at + 1]) : new URL('./limiter-model.mjs', import.meta.url);
@@ -1211,6 +1212,169 @@ test('a zero-interval frame does not refire the last frame\'s area (Codex round 
 test('a bright fall that goes on below 0.8 fires (Codex round 19)', () => {
   const { input } = scene(64, 36, 4, t => { const g = [255, 240, 229, 229][t]; return [g, g, g]; });
   assert.equal(input.transitions[1].length, 1, 'the fall');
+});
+
+// limiter-red-expire-black (CORE-2869): owed red changes expire only at a host restart after
+// 1250 ms of exact black. The host seeds "black, nothing owed" when hostBlackLongEnough holds and
+// zero otherwise, and tells the auditor which seed it wrote; nothing expires during playback. The
+// cases are the conformance vectors' (limiter-vectors.mjs); `seed`, `runs` and `at` override them.
+// One input and one output auditor watch across the restart, as a viewer does; `restart: false`
+// keeps them from being told, the never-restarted auditor of the design's section 6.
+function runReset(name, { seed, runs, at, restart = true } = {}) {
+  const c = VECTOR_CASES.find(k => k.name === name);
+  const signal = runs ? { kind: 'runs', runs } : c.signal;
+  const reset = { at: at ?? c.reset.at, seed: seed ?? c.reset.seed };
+  const { width: w, height: h } = c;
+  let lim = model.createLimiter({ width: w, height: h });
+  const input = createAuditor({ width: w, height: h }), output = createAuditor({ width: w, height: h });
+  const px = new Uint8Array(w * h * 4), held = [];
+  for (let t = 0; t < c.frames; t++) {
+    if (t === reset.at) {
+      lim = model.createLimiter({ width: w, height: h, start: reset.seed });
+      lim.setGeometry('wcag');
+      if (restart) { input.restart(reset.seed); output.restart(reset.seed); }
+    }
+    renderSignal(signal, t, w, h, px);
+    const r = lim.step(px, DT);
+    held.push(r.held);
+    input.push(px, DT);
+    output.push(r.out, DT);
+  }
+  return { input, output, held, n: w * h };
+}
+const redCount = a => a.transitions[2].length + a.transitions[3].length + a.transitions[5].length;
+const ORANGE = [110, 64, 0], FAINT_RED = [5, 0, 0], NEAR_RED = [1, 0, 0], RED = [255, 0, 0];
+/** An auditor alone over full frames of `runs` ([n, colour] pairs), told of a restart at `at`. */
+function auditRuns(runs, { at, seed = 'black', restart = true, w = 64, h = 36 } = {}) {
+  const a = createAuditor({ width: w, height: h });
+  const px = new Uint8Array(w * h * 4), signal = { kind: 'runs', runs };
+  const frames = runs.reduce((n, [k]) => n + k, 0);
+  for (let t = 0; t < frames; t++) {
+    if (restart && t === at) a.restart(seed);
+    renderSignal(signal, t, w, h, px);
+    a.push(px, DT);
+  }
+  return a;
+}
+
+test('the start texels and the shared black thresholds (CORE-2869)', () => {
+  assert.deepEqual(model.startTexel('untracked'), [0, 8192, 0, 0]);
+  assert.deepEqual(model.startTexel('zero'), [0, 0, 0, 0]);
+  assert.deepEqual(model.startTexel('black'), [0, 32768, 0, 0]);
+  assert.deepEqual(model.BLACK_TEXEL, [0, 32768, 0, 0]);
+  assert.equal(model.RED_EXPIRE_MS, 1250);
+  assert.throws(() => model.startTexel('grey'));
+  // The auditor's clock: 75 intervals of 1000/60 ms accumulated from 1234 ms are 1250 ms.
+  const from = 1234, clock = k => { let c = from; for (let i = 0; i < k; i++) c += 1000 / 60; return c; };
+  assert.equal(model.blackLongEnough(clock(75) - from), true, '75 intervals');
+  assert.equal(model.blackLongEnough(clock(74) - from), false, '74 intervals');
+  // The host's credit gives up one frame: 76 intervals, not 75.
+  const credit = k => { let c = 0; for (let i = 0; i < k; i++) c += Math.min(1000 / 60, 100); return c; };
+  assert.equal(model.hostBlackLongEnough(credit(75), 1000 / 60), false, '75 credited intervals');
+  assert.equal(model.hostBlackLongEnough(credit(76), 1000 / 60), true, '76 credited intervals');
+  assert.throws(() => createAuditor({ width: 8, height: 8 }).restart('grey'));
+});
+
+test('a restart after a short black starts at zero and holds the red after it (CORE-2869, Codex repro)', () => {
+  const { input, output, held, n } = runReset('reset-short-black');
+  assert.ok(held[310] > 0, 'the full red at 310 was admitted');
+  assert.ok(output.maxPerWindow('red') <= 1, `red ${output.maxPerWindow('red')} per 1 s`);
+  assert.equal(input.maxPerWindow('red'), 2, 'the input makes two red transitions a second');
+  assert.deepEqual(output.lastRestart, { seed: 'zero', reseeded: 0, kept: n });
+});
+
+test('a black restart after 90 frames of black admits one red at once (CORE-2869)', () => {
+  const { output, held, n } = runReset('reset-long-black');
+  assert.equal(held.filter(x => x > 0).length, 0, 'held frames');
+  assert.equal(redCount(output), 1, 'red transitions');
+  assert.deepEqual(output.lastRestart, { seed: 'black', reseeded: n, kept: 0 });
+  // Started at zero the faint red counts and the full red after it is held: the trickle.
+  assert.ok(runReset('reset-long-black', { seed: 'zero' }).held[391] > 0, 'a zero start admitted the full red');
+  // The never-restarted auditor charges the pair that straddles the black hold (section 6).
+  assert.equal(redCount(runReset('reset-long-black', { restart: false }).output), 2, 'never restarted');
+});
+
+test('a black restart reseeds at 75 frames of black and not at 74 (CORE-2869)', () => {
+  const at75 = runReset('reset-black-at-expiry');
+  assert.deepEqual(at75.input.lastRestart, { seed: 'black', reseeded: at75.n, kept: 0 });
+  assert.equal(redCount(at75.input), 1, 'red transitions in the input after 75 frames');
+  assert.ok(at75.output.maxPerWindow('red') <= 1, `red ${at75.output.maxPerWindow('red')} per 1 s`);
+  // Black 200..273, 1233 ms. A host keeping the contract starts at zero, and the red is held.
+  const short = [[100, BLACK], [100, ORANGE], [74, BLACK], [1, FAINT_RED], [1, RED]];
+  const zero = runReset('reset-black-at-expiry', { runs: short, at: 274, seed: 'zero' });
+  assert.equal(zero.input.maxPerWindow('red'), 2, 'red a second in the input a frame short');
+  assert.ok(zero.output.maxPerWindow('red') <= 1, `red ${zero.output.maxPerWindow('red')} per 1 s at zero`);
+  assert.ok(zero.held[275] > 0, 'the full red at 275 was admitted at zero');
+  // A host that seeds black a frame short breaks the contract: the auditor keeps every pixel's
+  // history and reports it, and still counts the fall at (5, 0, 0). G, written fully spent at
+  // every start, holds the full red after it.
+  const broken = runReset('reset-black-at-expiry', { runs: short, at: 274, seed: 'black' });
+  assert.deepEqual(broken.input.lastRestart, { seed: 'black', reseeded: 0, kept: broken.n });
+  assert.equal(broken.input.maxPerWindow('red'), 2, 'the auditor charges the input of the broken host');
+  assert.ok(broken.held[275] > 0, 'the spent grant held the full red');
+  assert.ok(broken.output.maxPerWindow('red') <= 1, `red ${broken.output.maxPerWindow('red')} per 1 s, broken host`);
+});
+
+test('the restart report follows the latest restart, of either seed (CORE-2869)', () => {
+  const a = createAuditor({ width: 1, height: 1 });
+  const black = new Uint8Array(4);
+  for (let t = 0; t < 90; t++) a.push(black, DT);
+  a.restart('black');
+  assert.deepEqual(a.lastRestart, { seed: 'black', reseeded: 0, kept: 0 }, 'before its first frame');
+  a.push(black, DT);
+  assert.deepEqual(a.lastRestart, { seed: 'black', reseeded: 1, kept: 0 });
+  for (let t = 0; t < 120; t++) a.push(black, DT);
+  a.restart('zero');
+  a.push(black, DT);
+  assert.deepEqual(a.lastRestart, { seed: 'zero', reseeded: 0, kept: 1 });
+  // A zero restart after 2 s of black reseeds nothing: the orange fall still counts at (5, 0, 0).
+  const z = auditRuns([[1, BLACK], [100, ORANGE], [120, BLACK], [1, FAINT_RED]], { at: 221, seed: 'zero' });
+  assert.equal(z.transitions[3].length, 1, 'the fall counted at (5, 0, 0)');
+});
+
+test('nothing expires during playback (CORE-2869)', () => {
+  const a = auditRuns([[1, BLACK], [100, ORANGE], [120, BLACK], [1, FAINT_RED]], { restart: false });
+  assert.equal(a.transitions[3].length, 1, 'the fall counted at (5, 0, 0) after 2 s of black');
+});
+
+test('(1, 0, 0) and (5, 0, 0) end a black run (CORE-2869)', () => {
+  for (const c of [NEAR_RED, FAINT_RED]) {
+    const a = auditRuns([[100, BLACK], [1, c], [74, BLACK], [1, BLACK]], { at: 175 });
+    assert.deepEqual(a.lastRestart, { seed: 'black', reseeded: 0, kept: 64 * 36 }, `after ${c}`);
+    const b = auditRuns([[100, BLACK], [1, c], [75, BLACK], [1, BLACK]], { at: 176 });
+    assert.equal(b.lastRestart.reseeded, 64 * 36, `75 frames after ${c}`);
+  }
+});
+
+test('a red strobe after a black start is still limited (CORE-2869)', () => {
+  const { output, held } = runReset('black-start-red-10hz');
+  assert.ok(held.some(x => x > 0), 'nothing was held');
+  assert.ok(output.maxPerWindow('red') <= 1, `red ${output.maxPerWindow('red')} per 1 s`);
+});
+
+// Design round 3 P1 #1 and #2 after one black start, with no later restart: a saturated (60, 0, 0)
+// under an orange rise, and a faint or near-black saturated red before one. Everything before the
+// restart is black, so the auditor told of it decides as one that is not.
+for (const name of ['black-start-sat-orange', 'black-start-faint-red', 'black-start-near-black-red']) {
+  test(`${name}: at most 1 red transition a second after a black start (CORE-2869)`, () => {
+    const told = runReset(name), not = runReset(name, { restart: false });
+    assert.ok(told.output.maxPerWindow('red') <= 1, `red ${told.output.maxPerWindow('red')} per 1 s`);
+    assert.deepEqual(told.output.lastRestart, { seed: 'black', reseeded: told.n, kept: 0 });
+    assert.deepEqual(told.input.transitions, not.input.transitions, 'the input audited with and without the restart');
+    assert.deepEqual(told.output.transitions, not.output.transitions, 'the output audited with and without the restart');
+  });
+}
+
+// Section 6: the reseed drops only (step, saturated-state) pairs that straddle the hold.
+test('the Codex design round 1 and 2 sequences drop only a straddling pair (CORE-2869)', () => {
+  // Round 1: the uncounted orange fall before the hold, its witness (5, 0, 0) after it.
+  const r1 = [[1, BLACK], [1, ORANGE], [75, BLACK], [100, BLACK], [1, FAINT_RED], [1, [128, 0, 0]]];
+  assert.equal(auditRuns(r1, { at: 77 }).maxPerWindow('red'), 1, 'round 1, restarted');
+  assert.equal(auditRuns(r1, { restart: false }).maxPerWindow('red'), 2, 'round 1, never restarted');
+  // Round 2: the witness (5, 0, 0) before the hold, the orange rise after it.
+  const r2 = [[1, BLACK], [1, FAINT_RED], [75, BLACK], [1, BLACK], [1, ORANGE]];
+  assert.equal(redCount(auditRuns(r2, { at: 77 })), 0, 'round 2, restarted');
+  assert.equal(redCount(auditRuns(r2, { restart: false })), 1, 'round 2, never restarted');
 });
 
 // --luma-digest: one FNV-1a digest per luminance-only signal over every output byte and hold

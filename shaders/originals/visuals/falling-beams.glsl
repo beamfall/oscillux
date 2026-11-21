@@ -8,7 +8,7 @@
 // progress onto it. Audio, when there is any, only breathes the light.
 // param0 = Fill (shafts lit, warmth) ; param1 = Tilt (lean) ; param2 = Dust (motes)
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y); // y runs down from the top
     float t = u.time;
@@ -71,3 +71,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += mix(cool, warm, fill) * exp(-p.y * 5.0) * (0.02 + 0.05 * fill) * saturate(beams + 0.3);
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

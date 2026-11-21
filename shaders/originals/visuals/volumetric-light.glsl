@@ -318,7 +318,7 @@ vec3 vlShade(vec3 ro, vec3 rd, float tHit, bool isPillar, vec2 pn, vec4 tPl, flo
     return col;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -487,3 +487,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     return vlOffRed(max(col, vec3(0.0)));
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

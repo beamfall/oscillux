@@ -112,7 +112,7 @@ vec3 plSpectrum(float w) {
     return max(vec3(1.0 - abs(w - 0.12) * 2.6, 1.0 - abs(w - 0.5) * 2.6, 1.0 - abs(w - 0.88) * 2.6), vec3(0.0));
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
     float aspect = u.resolution.x / max(u.resolution.y, 1.0);
     vec2 p = centered(uv, u.resolution);          // y grows downward
@@ -362,3 +362,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     }
     return col; // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

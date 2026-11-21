@@ -179,7 +179,7 @@ vec3 lnsDisc(vec2 b, float fr, float tt, float seed, vec3 hot, vec3 warm, float 
     return c * prof * gap * streak * dop * dop * dop;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     float detail = osDetail(u);
     int oct = detail > 0.5 ? 5 : 3;
@@ -362,3 +362,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.25 * smoothstep(0.9, 2.1, length(p));
     return col; // LINEAR HDR
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

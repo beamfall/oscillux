@@ -327,7 +327,7 @@ float dfSpots(vec2 sp, VisualUniforms u) {
     return s * smoothstep(DF_BALL_R * 1.4, DF_BALL_R * 3.0, r);
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 sp = centered(uv, u.resolution);
     sp.y = -sp.y;
     float t = u.beatCount + saturate(u.beatPhase);
@@ -507,3 +507,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col += (ign - 0.5) * 0.0015;
     return max(col, 0.0); // LINEAR HDR — post chain tonemaps
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

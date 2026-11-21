@@ -101,7 +101,7 @@ vec4 cyPose(float s) {
 // replaces them.
 vec3 cyPal(float t, VisualUniforms u) { return osPalCalm(t, 31, u); }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float t = mod(u.time, 600.0);
@@ -318,3 +318,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col.g += max(0.5 * col.r - col.g - col.b, 0.0);
     return col;
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

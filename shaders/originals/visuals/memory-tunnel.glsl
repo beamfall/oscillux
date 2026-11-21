@@ -195,7 +195,7 @@ vec3 mtCeil(vec3 pos, vec4 lk, MtPal P, VisualUniforms u) {
     return c;
 }
 
-vec3 visual(vec2 uv, VisualUniforms u) {
+vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
     float detail = osDetail(u);
@@ -293,3 +293,6 @@ vec3 visual(vec2 uv, VisualUniforms u) {
     col *= 1.0 - 0.3 * smoothstep(0.9, 2.0, length(p));
     return col; // LINEAR HDR
 }
+
+// Reds stay off saturated red through the vivid present (common.glsl).
+vec3 visual(vec2 uv, VisualUniforms u) { return osOffRed(osBody(uv, u)); }

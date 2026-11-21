@@ -343,10 +343,11 @@ for every change. Nothing is carried from the old frame to the new one.
 2. **Black.** Free the frame and present black, without running the limiter, for longer than the
    coverage interval counted from the first black frame presented (the Beamfall web host:
    0.1 s of credited time). Every tracker stamp from before has then left the coverage interval. A view with no
-   whole texel to show stays black.
+   whole texel to show stays black. A host that starts at "black, nothing owed" (below) presents
+   this black until `hostBlackLongEnough` holds.
 3. **Start.** Start a frame at the size, scale and view asked for then, as at the first start:
-   output black, trackers zero, `G` written fully spent. Content returns from black through the
-   grant as the budget refills.
+   output black, trackers at zero or at "black, nothing owed", `G` written fully spent. Content
+   returns from black through the grant as the budget refills.
 
 A further change during the fade or the black only changes what step 3 starts at. It does not
 reallocate, write `G` again or restart either clock, so a view dragged to a new size costs one
@@ -381,6 +382,30 @@ drop to a divisor of the scale, a held view over a cut texel. Each needed its ow
 left a seam for the next (Codex rounds 16 to 25), so they are gone. The change itself is the
 user's (a zoom or a move to another display); the browser rescales the last frame before any
 host can react, which the limiter does not control.
+
+### Restart seeds and the black hold
+
+A start (the first, or step 3 of a change) is a restart, and only a restart lets owed red changes
+expire (CORE-2869). Before it the host presents exact (0, 0, 0) black without running the limiter
+and credits it one presented frame at a time, each interval capped at 100 ms. When
+`hostBlackLongEnough(ms, longestMs)` holds (`limiter-model.mjs`: `blackLongEnough(ms - longestMs)`,
+where `blackLongEnough(ms)` is `ms >= RED_EXPIRE_MS - 0.001`, `RED_EXPIRE_MS` = 1250 and `longestMs`
+the longest credited interval), it writes every tracker texel as "black, nothing owed",
+`BLACK_TEXEL` (x 0, y 32768, z 0, w 0: luma falling at 0, red at 0, red memory 01). Otherwise it
+writes zero, red memory unknown, as before. At 60 Hz that is 76 credited intervals: a credit may
+lead the display by one frame, and 75 displayed frames are 1250 ms. `G` is written fully spent
+either way, so even a host that seeds black too soon has its first red rationed. During playback
+nothing expires, in the limiter or the pixel auditor. Only exact black counts: (1, 0, 0) and
+(5, 0, 0) are saturated-red bytes and end the black.
+
+Where a pixel auditor (`limiter-audit.mjs`) reads the output, the host calls `restart(seed)` with
+the seed it wrote. At a black restart the auditor reseeds, before the restart's first frame, both
+trackers of every pixel whose bytes have been exact black for `blackLongEnough` time on its own
+clock, and every other pixel keeps its history; a zero restart reseeds nothing. `lastRestart`
+reports `{ seed, reseeded, kept }` for the latest restart, so a host that seeds black too soon
+shows up as kept pixels. The reseed drops only a (step, saturated-state) pair that straddles the
+hold; the safety argument against the red-flash rule of WCAG 2.0 and of WCAG 2.1 as published in
+June 2018 is in the OpenSpec change limiter-red-expire-black, design.md section 6.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
 costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).
