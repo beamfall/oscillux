@@ -7,10 +7,10 @@
 //
 // Bindings: SlideshowBlock is buffer 0 (WebGL2: uniform block binding 0), 176 bytes std140:
 //   pass0  = (p, style, aspect, motion)
-//   pass1  = (amplitude, beatPhase, beatsPerSlide, 0)
+//   pass1  = (amplitude, beatPhase, 0, 0)
 //   size   = (width, height, 0, 0) of the target
 //   slideA = (k, layout, direction, aspect0)   outgoing slide
-//   extraA = (aspect1, 0, 0, 0)
+//   extraA = (aspect1, beats, 0, 0)
 //   rectA0 = (x0, y0, x1, y1) salient rect of the primary photo, photo uv
 //   rectA1 = salient rect of the secondary photo (pair)
 //   slideB, extraB, rectB0, rectB1             incoming slide, same layout
@@ -108,6 +108,7 @@ SlideInputs oscSlideUnpack(vec4 slide, vec4 extra, vec4 r0, vec4 r1) {
     sl.direction = slide.z;
     sl.aspect0 = slide.w;
     sl.aspect1 = extra.x;
+    sl.beats = extra.y;
     sl.rect0 = r0;
     sl.rect1 = r1;
     return sl;
@@ -121,7 +122,6 @@ void main() {
     s.motion = su.pass0.w;
     s.amplitude = su.pass1.x;
     s.beatPhase = su.pass1.y;
-    s.beatsPerSlide = su.pass1.z;
     s.size = su.size.xy;
     s.a = oscSlideUnpack(su.slideA, su.extraA, su.rectA0, su.rectA1);
     s.b = oscSlideUnpack(su.slideB, su.extraB, su.rectB0, su.rectB1);
@@ -198,20 +198,20 @@ function index(list, v, what) {
 
 const UNKNOWN_RECT = Object.freeze([0, 0, 0, 0]);
 
-function slideWords({ k = 0, layout = 'cover', direction = 0, aspect0 = 1, aspect1 = aspect0, rect0 = UNKNOWN_RECT, rect1 = UNKNOWN_RECT } = {}) {
-  return [k, index(SLIDESHOW_LAYOUTS, layout, 'layout'), direction, aspect0, aspect1, 0, 0, 0, ...rect0, ...rect1];
+function slideWords({ k = 0, layout = 'cover', direction = 0, aspect0 = 1, aspect1 = aspect0, beats = 1, rect0 = UNKNOWN_RECT, rect1 = UNKNOWN_RECT } = {}) {
+  return [k, index(SLIDESHOW_LAYOUTS, layout, 'layout'), direction, aspect0, aspect1, beats, 0, 0, ...rect0, ...rect1];
 }
 
 /**
  * The 176-byte SlideshowBlock for one draw. `a` and `b` are the outgoing and incoming slides:
- * { k, layout, direction, aspect0, aspect1, rect0, rect1 } (rects [x0, y0, x1, y1] in photo uv,
- * [0, 0, 0, 0] when unknown). Audio coupling is off unless amplitude > 0; beatsPerSlide is the
- * tempo in beats per second times the slide interval in seconds.
+ * { k, layout, direction, aspect0, aspect1, beats, rect0, rect1 } (rects [x0, y0, x1, y1] in photo
+ * uv, [0, 0, 0, 0] when unknown). Audio coupling is off unless amplitude > 0; a slide's beats is
+ * the tempo in beats per second times its whole time on screen in seconds (entry to end of exit).
  */
-export function slideshowBlock({ p = 0, style = 'dissolve', aspect, motion = 1, amplitude = 0, beatPhase = 0, beatsPerSlide = 1, width, height, a, b }) {
+export function slideshowBlock({ p = 0, style = 'dissolve', aspect, motion = 1, amplitude = 0, beatPhase = 0, width, height, a, b }) {
   return new Float32Array([
     p, index(SLIDESHOW_STYLES, style, 'style'), aspect, motion,
-    amplitude, beatPhase, beatsPerSlide, 0,
+    amplitude, beatPhase, 0, 0,
     width, height, 0, 0,
     ...slideWords(a), ...slideWords(b ?? a),
   ]);

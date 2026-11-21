@@ -53,6 +53,7 @@ struct SlideInputs {
     float direction; // < 0.5 zooms in toward the salient rect; >= 0.5 zooms out from it
     float aspect0;   // primary photo width / height
     float aspect1;   // secondary photo width / height (pair only)
+    float beats;     // beats in this slide's whole time on screen, at least 1 (tempo coupling only)
     vec4 rect0;      // primary salient rect (x0, y0, x1, y1) in photo uv; zero area = unknown
     vec4 rect1;      // secondary salient rect (pair only)
 };
@@ -63,8 +64,7 @@ struct SlideshowInputs {
     float aspect;    // frame width / height
     float motion;    // [0, 1] Ken Burns depth; 0 holds every photo still
     float amplitude; // [0, 1] tempo coupling; 0 (the default) ignores the audio inputs entirely
-    float beatPhase;     // [0, 1) position in the current beat
-    float beatsPerSlide; // beats in the slide's time on screen (tempo x interval), at least 1
+    float beatPhase; // [0, 1) position in the current beat
     vec2 size;       // target size in pixels
     SlideInputs a;   // outgoing slide (photos 0 and 1)
     SlideInputs b;   // incoming slide (photos 2 and 3)
@@ -76,14 +76,14 @@ float oscSlideSmooth(float e0, float e1, float x) {
 }
 
 // Path position: k, with the pace of the move swinging with the beat when tempo coupling is on.
-// k advances at 1 / T while the beat phase advances at beatsPerSlide / T, so with
+// k advances at 1 / T while the beat phase advances at beats / T, so with
 // c = 0.9 amplitude / (2 pi b + pi) the derivative of the offset c sin(2 pi beatPhase) sin(pi k)
 // stays under 0.9 / T: the move speeds up and slows down on the beat but never reverses, and it
 // still starts and ends where it would without audio.
-float oscSlidePath(float k, SlideshowInputs s) {
+float oscSlidePath(float k, float beats, SlideshowInputs s) {
     float e = clamp(k, 0.0, 1.0);
     if (s.amplitude > 0.0) {
-        float c = OSC_SLIDE_PACE * clamp(s.amplitude, 0.0, 1.0) / (2.0 * OSC_SLIDE_PI * max(s.beatsPerSlide, 1.0) + OSC_SLIDE_PI);
+        float c = OSC_SLIDE_PACE * clamp(s.amplitude, 0.0, 1.0) / (2.0 * OSC_SLIDE_PI * max(beats, 1.0) + OSC_SLIDE_PI);
         e += c * sin(2.0 * OSC_SLIDE_PI * s.beatPhase) * sin(OSC_SLIDE_PI * e);
     }
     return e;
@@ -168,7 +168,7 @@ vec3 oscSlideFill(int i, vec2 q, float regionAspect, float photoAspect, vec4 rec
 
 // One slide at uv: photo `first` (and first + 1 for a pair) through its layout.
 vec3 oscSlideLayer(vec2 uv, SlideInputs sl, int first, SlideshowInputs s) {
-    float e = oscSlidePath(sl.k, s);
+    float e = oscSlidePath(sl.k, sl.beats, s);
     if (sl.fit == OSC_SLIDE_PAIR) {
         float hw = 0.5 - 0.5 * OSC_SLIDE_GUTTER;
         float ra = s.aspect * hw;
