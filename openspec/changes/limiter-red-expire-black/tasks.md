@@ -5,14 +5,16 @@
 
 - [x] 1.1 proposal, design (auditor and host pseudocode, `osOffRed` floor and byte checker,
       exclusions, NaN, WCAG 2.3.1 argument with the metric named) and spec deltas
-- [ ] 1.2 Codex design review: no P1 or P2 within two delta rounds
+- [ ] 1.2 Codex design review: no P1 or P2 (two delta rounds, and a third approved 2026-11-21
+      for the round 2 findings)
 
 ## 2. Model and auditor
 
-- [ ] 2.1 `limiter-model.mjs`: `RED_EXPIRE_MS`, `blackLongEnough`, `BLACK_TEXEL`,
-      `start: 'untracked' | 'zero' | 'black'`
+- [ ] 2.1 `limiter-model.mjs`: `RED_EXPIRE_MS`, `blackLongEnough`, `hostBlackLongEnough`,
+      `BLACK_TEXEL`, `start: 'untracked' | 'zero' | 'black'`
 - [ ] 2.2 `limiter-audit.mjs`: per-pixel exact-black run; `restart(seed)`: a black seed reseeds
-      pixels with `blackLongEnough` black at the next frame, a zero seed nothing; `lastRestart`;
+      pixels with `blackLongEnough` black at the next frame, a zero seed nothing; `lastRestart`
+      replaced at every restart;
       nothing expires during playback
 - [ ] 2.3 `shaders/limiter/README.md`: the restart, the seeds and the black hold
 

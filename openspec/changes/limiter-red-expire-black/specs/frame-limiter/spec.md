@@ -13,7 +13,8 @@ and red trackers of every pixel that has presented exact (0, 0, 0) for at least 
 
 The black time SHALL run on the presented timeline from the first frame of the pixel's black run
 to the restart, compared by the shared `blackLongEnough` threshold. Every pixel not reseeded SHALL
-keep its history, and the auditor SHALL report how many were reseeded and how many were not. Any
+keep its history. For every restart, of either seed, the auditor SHALL report how many pixels
+were reseeded and how many kept their history, replacing the report of the restart before. Any
 other byte triple, (1, 0, 0) included, SHALL end a black run.
 
 #### Scenario: A saturated state after an uncounted step
@@ -28,6 +29,10 @@ other byte triple, (1, 0, 0) included, SHALL end a black run.
 #### Scenario: A zero restart
 - **WHEN** the same pixel shows black for 2 s, and the host restarts at zero
 - **THEN** the auditor reseeds nothing and counts the fall at (5, 0, 0)
+
+#### Scenario: The report follows the latest restart
+- **WHEN** a one-pixel frame has a black restart that reseeds its pixel, and later a zero restart
+- **THEN** after the zero restart's first frame the auditor reports 0 reseeded and 1 kept
 
 #### Scenario: A restart one frame short of 1250 ms
 - **WHEN** the same pixel shows black for 74 frames at 60 Hz before a "black, nothing owed" restart
@@ -101,7 +106,7 @@ quarter of the field's pixels.
 
 #### Scenario: Saturated red after a black start
 
-- **WHEN** the limiter starts at "black, nothing owed" after 75 frames of black, and a full frame
+- **WHEN** the limiter starts at "black, nothing owed" after 76 frames of black, and a full frame
   then shows 100 frames each of black, (60, 0, 0), black and (110, 64, 0), then (90, 0, 0) for one
   frame, then black
 - **THEN** the pixel auditor, told of the restart, counts at most 1 large-area red transition in
@@ -124,8 +129,8 @@ quarter of the field's pixels.
 
 A host SHALL start the output black and the tracker state tracked black. It SHALL use the texel
 "black, nothing owed" (x 0, y 32768, z 0, w 0: luma falling at 0, red at 0, red memory counted
-with no saturated state since) only when `blackLongEnough` holds for the exact (0, 0, 0) black
-presented before the start, and zero (red memory unknown) otherwise. It SHALL tell the pixel
+with no saturated state since) only when `hostBlackLongEnough` holds for the exact (0, 0, 0)
+black presented before the start, and zero (red memory unknown) otherwise. It SHALL tell the pixel
 auditor, where one reads its output, which seed it wrote. It SHALL NOT clear the grant state `G`
 or the trackers of a frame on screen, including when the viewing geometry changes.
 
@@ -162,12 +167,14 @@ first start.
 After the fade, the host SHALL free the frame and present black, without running the limiter, for
 longer than the coverage interval counted from the first black frame presented, and for as long
 as the view shows no whole texel. The black SHALL be exact (0, 0, 0). A host that starts the
-trackers at "black, nothing owed" SHALL present that black for at least `RED_EXPIRE_MS` (1250 ms)
+trackers at "black, nothing owed" SHALL present that black until `hostBlackLongEnough` holds,
 before the first start as before every later one.
 
 The host SHALL credit the black one presented frame at a time, each frame interval capped at
-100 ms, from the first black frame, and SHALL compare the total with `blackLongEnough`
-(`ms >= RED_EXPIRE_MS - 0.001`), the threshold the pixel auditor uses.
+100 ms, from the first black frame. `hostBlackLongEnough(ms, longestMs)` SHALL be
+`blackLongEnough(ms - longestMs)`, where `longestMs` is the longest single interval credited in
+that black and `blackLongEnough` (`ms >= RED_EXPIRE_MS - 0.001`) is the threshold the pixel
+auditor uses. The subtraction covers a credit that leads the display by one frame.
 
 #### Scenario: Black after the fade
 
@@ -178,5 +185,10 @@ The host SHALL credit the black one presented frame at a time, each frame interv
 #### Scenario: Black before a black start
 
 - **WHEN** a host that starts the trackers at "black, nothing owed" mounts, or a fade ends
-- **THEN** it presents exact black for at least 1250 ms from the first black frame presented, then
-  starts
+- **THEN** it presents exact black for at least 1250 ms plus its longest credited frame interval
+  from the first black frame presented, then starts
+
+#### Scenario: Black one frame short of the host threshold
+- **WHEN** a host has credited 75 frame intervals of 1000/60 ms of exact black
+- **THEN** `hostBlackLongEnough` is false, and the host either presents one more black frame or
+  starts at zero
