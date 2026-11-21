@@ -10,6 +10,42 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-11-21
+
+### Changed
+
+- The release legs (`msl`, `glsl300`, `android-gles`) ship the rebuilt originals (CORE-2760,
+  openspec/changes/release-legs-originals/). Until 0.2.11 they were built from the imported
+  catalog alone, so clients shipped the old shaders while the lab showed the fixed visuals. Each
+  catalog visual an original overrides now takes the original's body, wrapper, palette, params
+  and post, and keeps the catalog's name, blurb, tier and place in the catalogue order. Every
+  visual stays inside the flash limiter budget under loud audio.
+- Owed red changes expire at a limiter restart after 1.25 s of exact black (CORE-2869,
+  openspec/changes/limiter-red-expire-black/). A host restarts the limiter at its first start
+  and after every frame change, presenting exact black (0, 0, 0) without running the limiter
+  until it does. When that black has been on screen for at least `RED_EXPIRE_MS` (1250 ms, one
+  frame of margin counted), the host starts the trackers at "black, nothing owed"
+  (`BLACK_TEXEL`); otherwise at zero, as before. `G` is written fully spent at every start.
+  During playback nothing expires. This ends the post-start red trickle, where a dark red glow
+  after a start asked the grant for red transitions the viewer never saw and the web player held
+  those pixels frame after frame. The auditor restarts with the host (`restart(seed)`). The
+  safety argument is stated for the red-flash definition of WCAG 2.0 and of WCAG 2.1 as
+  published in June 2018; the chromaticity reading of later WCAG 2.1 editions and WCAG 2.2 is
+  CORE-2935.
+- Every original finishes through `osOffRed` (`shaders/originals/common.glsl`), which makes a
+  colour exactly grey below a near-black floor and keeps reds just off saturated red, so no
+  saturated-red byte triple such as (1, 0, 0) is presented near black (CORE-2869).
+- Aurora, Ink, Interference, Laser Tunnel, Photo Curtain, Photo Liquid, Plasma, Ribbons,
+  Seismograph, Vault and Wave Cascade are calmer under the restart hold: their palettes no
+  longer shift with the beat or the timbre, and under the vivid palette tour most change hue but
+  keep their brightness. From a black start the 61 release visuals hold at most 0.4% of pixels
+  a frame in the web player (CORE-2869).
+- Dunes and Lumen Field keep the source flash budget before the limiter under loud audio
+  (`make visual-flash-check`, CORE-2760). Dunes' near wind ripples are fainter, since the camera
+  sweeps over them fast enough that deep ripples flickered the near sand at about 20 transitions
+  a second. Lumen Field's beat ring still whitens the orbs but no longer swells them, since near
+  bokeh discs growing on every beat made 8 large-area transitions a second.
+
 ## [0.2.11] - 2026-11-20
 
 ### Added
