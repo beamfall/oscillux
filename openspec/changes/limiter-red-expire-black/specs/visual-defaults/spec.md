@@ -19,7 +19,8 @@ limiter carries the safety claim.
 #### Scenario: Colours with enough green and blue
 
 - **WHEN** an original's body returns a finite colour with every channel in [0, 16], max channel
-  at least 0.05, and green plus blue at least 0.55 of red
+  at least 0.05, and green plus blue at least 0.55 of red, each side rounded to float32 as the
+  shader computes it, such as (0.05, 0.014, 0.014) or (0.75, 0.4125, 2^-26)
 - **THEN** the visual writes it unchanged, bit for bit
 
 #### Scenario: A NaN channel

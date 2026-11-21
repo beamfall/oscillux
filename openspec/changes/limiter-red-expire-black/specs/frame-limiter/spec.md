@@ -185,8 +185,9 @@ auditor uses. The subtraction covers a credit that leads the display by one fram
 #### Scenario: Black before a black start
 
 - **WHEN** a host that starts the trackers at "black, nothing owed" mounts, or a fade ends
-- **THEN** it presents exact black for at least 1250 ms plus its longest credited frame interval
-  from the first black frame presented, then starts
+- **THEN** it credits exact black until `hostBlackLongEnough` holds, 76 intervals of 1000/60 ms at
+  60 Hz, then starts, and the black displayed before the start, which the credit may lead by one
+  frame, is at least 1250 ms, 75 frames at 60 Hz, so the auditor reseeds every pixel
 
 #### Scenario: Black one frame short of the host threshold
 - **WHEN** a host has credited 75 frame intervals of 1000/60 ms of exact black

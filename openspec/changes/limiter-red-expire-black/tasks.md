@@ -5,8 +5,9 @@
 
 - [x] 1.1 proposal, design (auditor and host pseudocode, `osOffRed` floor and byte checker,
       exclusions, NaN, WCAG 2.3.1 argument with the metric named) and spec deltas
-- [ ] 1.2 Codex design review: no P1 or P2 (two delta rounds, and a third approved 2026-11-21
-      for the round 2 findings)
+- [x] 1.2 Codex design review: no P1 or P2 (two delta rounds, and a third approved 2026-11-21
+      for the round 2 findings; round 3 resolved all of them and raised two P2s in the revised
+      text, the host scenario's displayed time and the share rule's float32 gate, both fixed)
 
 ## 2. Model and auditor
 

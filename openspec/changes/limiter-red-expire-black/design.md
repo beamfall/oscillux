@@ -119,8 +119,8 @@ const float OS_RED_FULL = 0.05;     // M2: red's excess over it is whole from he
 vec3 osOffRed(vec3 c) {
     c = mix(c, vec3(0.0), notEqual(c, c));      // NaN -> 0: a boolean select, exact (section 5)
     c = clamp(c, vec3(0.0), vec3(16.0));
-    float need = 0.55 * c.r - c.g - c.b;
-    if (need > 0.0) c += vec3(0.0, 0.5 * need, 0.5 * need);
+    float s = c.g + c.b, t = 0.55 * c.r;        // the gate compares the summed partners
+    if (s < t) c += vec3(0.0, 0.5 * (t - s), 0.5 * (t - s));  // with the product (round 3 P2)
     float m = max(c.r, max(c.g, c.b));
     if (m < OS_GREY_BELOW) return vec3(luma(c));  // three identical channels
     float p = max(c.g, c.b);
@@ -136,6 +136,13 @@ Below MF only red's excess over the larger partner is removed: a colour with red
 such as (0, 0.006, 0) or (0.004, 0.007, 0), passes unchanged. From M2 on red is not recomputed, so
 a colour that already meets the share is returned bit for bit: (0.05, 0.014, 0.014) stays
 (0.05, 0.014, 0.014) in float32, where `p + 1 * (r - p)` moved red by one ULP (round 2 P3).
+The share rule is gated on the comparison of the rounded sum `g + b` with the rounded product
+`0.55 * r`, not on the sign of a difference: `(0.55 * r - g) - b` is 2^-26 for
+(0.75, f32(0.4125), 2^-26), where the two rounded values are equal, and raised blue by half
+(round 3 P2). A colour whose float32 `g + b` is at least its float32 `0.55 * r` is therefore
+never changed by the rule, and a compiler contracting `t - s` into a fused multiply-add can only
+alter the amount added to a colour that is short of the share, not fire the rule on one that has
+it.
 
 Claim: for every finite input on every target, and for NaN and infinite inputs on a target whose
 arithmetic honours IEEE special values (section 5), no pixel presented from `osOffRed`'s output on
@@ -190,6 +197,9 @@ Evidence:
     and 0.5 with 16 grain slices, 100,000 in [0.04, 0.08] at grain 0.1 and 0.25 and 100,000 in
     [0.005, 0.05] at grain 0.25; 0 failures. The change only removes a
     one-ULP move of red where the presented share is under 0.77, far from the 0.8 boundary.
+  - Rerun again with the gated share rule (round 3): the same four sets, the random set over
+    grain 0 drawn with the bound stated explicitly (MLO 1e-4, MHI 16; the round 2 rerun had
+    left MHI at the sweep's default of 1); 0 failures.
 - **Margins.** Each neighbour below fails with the other two parameters at the chosen values:
   - M0 = 0.004 fails at grain 0.25 up to m = 0.0046 with (1, 0, 0), from green-dominant colours
     such as (0.0016, 0.0042, 0) that `suppressGreenCast` tints toward red. M0 = 0.003 fails at
@@ -370,5 +380,6 @@ a red transition, and a step it charges later than the never-restarted auditor i
   - (1, 0, 0) and (5, 0, 0) break the run;
   - the round 18 and 19 tests, unchanged.
 - `test-originals-red.mjs`: the conservative byte checker at CI density with the round 1 repro
-  as its positive control, the NaN and infinity cases, (0.05, 0.014, 0.014) returned bit for bit
+  as its positive control, the NaN and infinity cases, (0.05, 0.014, 0.014) and
+  (0.75, f32(0.4125), 2^-26) returned bit for bit
   in float32, and the GLSL form and wiring.
