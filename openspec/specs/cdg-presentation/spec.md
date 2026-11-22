@@ -73,6 +73,17 @@ down and right, under the graphics. The output SHALL be opaque RGBA8.
 - **WHEN** `present` runs after `Presenter::new`, including after a backwards seek
 - **THEN** it does not allocate
 
+### Requirement: Sharp edges
+
+The coverage threshold SHALL sit close to a straight edge's blurred level and its ramp SHALL be
+under one frame pixel wide, so edges are crisp without fattening strokes.
+
+#### Scenario: Crisp letter edges
+
+- **WHEN** a glyph edge is drawn at a magnified frame size
+- **THEN** its coverage goes from none to full in less than one frame pixel, close to the
+  position of the unblurred edge
+
 ### Requirement: Render command
 
 `oscillux-cdg-render` SHALL read a CD+G stream on stdin and write raw RGBA8 frames of the given
@@ -106,3 +117,31 @@ stop 300 ms after the first frame that shows the stream's last pack.
 
 - **WHEN** frames are written more than 300 ms after the first frame showing the last pack
 - **THEN** they are identical, and any background change in that pack has finished easing
+
+### Requirement: Legible graphics colours
+
+Unless it is outlined (below), the presenter SHALL draw each graphics colour that touches the
+backdrop and has less than a 3.5:1 contrast ratio against the backdrop's luminance range (from its
+darkest to its brightest possible point; 1:1 inside it) mixed toward white or black, by the fewest
+sixteenths (white first) that reach 3.5:1, or by the best mix when none does, in integer arithmetic
+(`conformance/cdg-present/README.md`, Colours).
+
+#### Scenario: Low-contrast lyrics
+
+- **WHEN** blue lyrics are drawn straight onto a red background
+- **THEN** they are drawn in a lighter blue with at least 3.5:1 contrast to the backdrop
+
+### Requirement: Outlined colours keep theirs
+
+A graphics colour outlined by a contrasting colour that is itself legible on the backdrop SHALL
+keep its disc colour until the background index or palette changes.
+
+#### Scenario: Outlined lyrics
+
+- **WHEN** a dark fill is outlined in white on a dark background
+- **THEN** the fill keeps its disc colour
+
+#### Scenario: Outline goes away
+
+- **WHEN** the palette changes so the outline no longer contrasts with the fill
+- **THEN** the fill is fixed exactly as a new presenter would fix it

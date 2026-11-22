@@ -15,5 +15,5 @@
 
 ## 3. Close
 
-- [ ] 3.1 `make gate`
-- [ ] 3.2 Release, then archive this change
+- [x] 3.1 `make gate`
+- [x] 3.2 Release, then archive this change
