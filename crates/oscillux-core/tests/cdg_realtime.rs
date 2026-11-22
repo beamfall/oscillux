@@ -2,6 +2,7 @@
 //! Invariant 4 for the CD+G decoder: after `Decoder::new`, advancing per frame, seeking anywhere
 //! (forward, backward, through checkpoints), reading the state and writing RGBA never allocate.
 
+use oscillux_core::cdg::present::Presenter;
 use oscillux_core::cdg::{Decoder, Key, Region, PACK_SIZE, WINDOW_RGBA_BYTES};
 use std::{
     alloc::{GlobalAlloc, Layout, System},
@@ -91,6 +92,26 @@ fn advancing_seeking_and_reading_do_not_allocate() {
         }
         let _ = d.advance_to_time(f64::NAN);
         let _ = d.window_rgba(Key::None, &mut rgba[4..]);
+        checksum
+    });
+    assert_eq!(allocs, 0, "allocations after create");
+    assert!(checksum > 0);
+}
+
+#[test]
+fn presenting_does_not_allocate() {
+    let stream = include_bytes!("../../../conformance/cdg/karaoke-blue.cdg");
+    let mut d = Decoder::new(stream);
+    let mut p = Presenter::new(320, 180).unwrap();
+    let packs = (stream.len() / PACK_SIZE) as u64;
+    let (checksum, allocs) = armed(|| {
+        let mut checksum = 0u64;
+        for frame in 0..120u64 {
+            d.advance_to(frame * packs / 100);
+            checksum += p.present(&d, frame as i64 * 33)[1000] as u64;
+        }
+        d.advance_to(10);
+        checksum += p.present(&d, 5)[0] as u64;
         checksum
     });
     assert_eq!(allocs, 0, "allocations after create");

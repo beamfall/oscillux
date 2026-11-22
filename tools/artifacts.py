@@ -203,7 +203,12 @@ def wasm(stage, dist):
     write_json(package / "package.json", {"name": "@oscillux/core", "version": crate_version(), "type": "module", "main": "oscillux.js", "types": "oscillux.d.ts", "license": SPDX, "sideEffects": False})
     npm_tar(package, dist / "oscillux-wasm.tgz")
     data = (package / "oscillux_bg.wasm").read_bytes()
-    return wasm_size(data)
+    size = wasm_size(data)
+    # The CD+G renderer is a WASI command that servers run (conformance/cdg-present/README.md).
+    render = build("wasm32-wasip1", "oscillux-cdg-render") / "oscillux-cdg-render.wasm"
+    shutil.copyfile(render, dist / "oscillux-cdg-render.wasm")
+    size["cdgRenderBytes"] = render.stat().st_size
+    return size
 
 
 def wasm_size(data):

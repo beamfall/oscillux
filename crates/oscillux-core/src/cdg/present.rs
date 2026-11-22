@@ -3,18 +3,21 @@
 //!
 //! [`Presenter`] turns the decoder state into an opaque RGBA8 frame of any size:
 //!
-//! - The background colour index comes from the window's edge ring ([`background_index`]).
-//! - The stage fills the frame in that colour as a vertical gradient, lighter at the top and
-//!   darker at the bottom, with ordered dither. When the colour changes the stage eases to the
-//!   new colour over [`EASE_MS`] of media time; the first frame and a backwards seek snap.
+//! - The background colour index comes from the window's edge ring ([`background_index`]). Every
+//!   index covering a quarter of the ring belongs to the backdrop too ([`backdrop_indices`]), so
+//!   painted backgrounds of several shades are not drawn as graphics.
+//! - The stage colour eases to the background colour over [`EASE_MS`] of media time; the first
+//!   frame and a backwards seek snap. The backdrop fills the frame from it: a deep base, a light
+//!   glow and a hue-shifted glow drifting slowly with media time, and a vignette, with ordered
+//!   dither.
 //! - The 288 x 192 window is doubled with Scale2x (EPX) on the colour indices, then drawn as
 //!   smooth vector-like shapes into a centred 3:2 rectangle of the frame height (or width, for
 //!   frames narrower than 3:2). Each colour present is a layer, ordered by its distance from the
 //!   background colour; a layer's coverage mask (that colour or any farther one) is box blurred
 //!   and cut at [`EDGE_THRESHOLD`] with a ramp about one frame pixel wide, which rounds corners
-//!   and turns pixel stair-steps into anti-aliased lines. Background-index pixels are
-//!   transparent, so the stage shows through and there is no border or pillarbox.
-//! - A box-blurred mask of the other pixels is drawn under the graphics as a translucent black
+//!   and turns pixel stair-steps into anti-aliased lines. Backdrop-index pixels are
+//!   transparent, so the backdrop shows through and there is no border or pillarbox.
+//! - A box-blurred mask of the ink pixels is drawn under the graphics as a translucent black
 //!   shadow, offset one window pixel down and right.
 //!
 //! All buffers are allocated in [`Presenter::new`]; [`Presenter::present`] never allocates,
@@ -422,7 +425,7 @@ impl Presenter {
             let floor = rank[self.layer_index[layer] as usize];
             let mask = &mut self.layers[layer * X2_SIZE..(layer + 1) * X2_SIZE];
             for (m, &index) in mask.iter_mut().zip(self.x2.iter()) {
-                *m = if rank[index as usize] >= floor {
+                *m = if !backdrop[index as usize] && rank[index as usize] >= floor {
                     255
                 } else {
                     0
@@ -595,7 +598,7 @@ impl Presenter {
 fn drift(millis: i64, period: i64) -> i64 {
     let t = millis.rem_euclid(period);
     let tri = (2 * t * 65536 / period - 65536).abs();
-    (((tri * tri) >> 16) * (3 * 65536 - 2 * tri)) >> 32
+    (((tri * tri) >> 16) * (3 * 65536 - 2 * tri)) >> 16
 }
 
 /// The stage behind the graphics: a dark base in the background colour, a light glow of that
@@ -634,7 +637,6 @@ impl Backdrop {
         }
     }
 
-    /// The stage colour of every pixel of row `y`.
     /// Row `y`, sampled every [`BACKDROP_STEP`] pixels and at the last pixel, linearly
     /// interpolated between samples (rounding half up).
     fn row(&self, y: i64, out: &mut [[u32; 3]]) {

@@ -22,7 +22,7 @@ PORTABLE = ('core2_early', 'core2_boundaries', 'core2_vectors', 'dsp_streaming',
             'dsp_conformance', 'dsp_beat', 'dsp_agc', 'limiter_vectors', 'limiter_safety',
             'limiter_properties', 'limiter_regions', 'core2_ffi', 'limiter_ffi', 'realtime_paths',
             'ffi_robustness', 'dsp_descriptors', 'reaction_vectors', 'beatgrid_vectors',
-            'beatgrid_ffi', 'cdg_vectors', 'cdg_realtime', 'cdg_ffi',
+            'beatgrid_ffi', 'cdg_vectors', 'cdg_present', 'cdg_realtime', 'cdg_ffi',
             'window_governor_vectors', 'window_governor_ffi')
 
 

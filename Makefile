@@ -408,6 +408,13 @@ cdg-vectors-check:
 	python3 -I tools/cdg-vectors.py --check
 gate: cdg-vectors-check
 
+# The presentation oracle (conformance/cdg-present/README.md) regenerates the presenter's frame
+# digests the same way.
+.PHONY: cdg-present-vectors-check
+cdg-present-vectors-check:
+	python3 -I tools/cdg-present-vectors.py --check
+gate: cdg-present-vectors-check
+
 # CD+G lyric composite (shaders/cdg/): compiles it for WebGL2 and Metal and measures the 4.5:1
 # lyric contrast over every bundled visual headlessly. Needs the shader-render toolchain; not
 # part of gate.
