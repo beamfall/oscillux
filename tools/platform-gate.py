@@ -170,7 +170,7 @@ def artifacts(env, reuse):
         if hashlib.sha256(path.read_bytes()).hexdigest() != entry['sha256']:
             raise GateFailure(f'{entry["file"]} does not match its manifest checksum')
         files[entry['file']] = path
-    for name in ('oscillux-xcframework.zip', 'oscillux.aar', 'oscillux-wasm.tgz'):
+    for name in ('oscillux-xcframework.zip', 'oscillux.aar', 'oscillux-wasm.tgz', 'oscillux-cdg-render.wasm'):
         if name not in files:
             raise GateFailure(f'manifest lists no {name}')
     return files, head

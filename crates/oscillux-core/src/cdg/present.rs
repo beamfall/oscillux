@@ -105,8 +105,16 @@ struct Tap {
 /// `[start, start + span)` onto `size` source cells; `shift` (16.16) moves the source sample.
 /// Positions clamp to the source. `edge` ramps from 0 outside the rectangle to 256 over
 /// `feather` cells inside each end (256 throughout when `feather` is 0).
-fn taps(out: &mut [Tap], start: usize, span: usize, size: usize, shift: i64, feather: usize) {
-    let max = ((size - 1) as i64) << 16;
+/// Positions clamp to `last`, the highest index the source can be read at.
+fn taps(
+    out: &mut [Tap],
+    (start, span): (usize, usize),
+    size: usize,
+    last: usize,
+    shift: i64,
+    feather: usize,
+) {
+    let max = (last as i64) << 16;
     for (x, tap) in out.iter_mut().enumerate() {
         let d = x as i64 - start as i64;
         let pos = ((2 * d + 1) * size as i64 * 65536).div_euclid(2 * span as i64) - 32768 + shift;
@@ -114,7 +122,7 @@ fn taps(out: &mut [Tap], start: usize, span: usize, size: usize, shift: i64, fea
         let i0 = (pos >> 16) as u32;
         *tap = Tap {
             i0,
-            i1: (i0 + 1).min(size as u32 - 1),
+            i1: (i0 + 1).min(last as u32),
             f: ((pos & 0xFFFF) >> 8) as u32,
             edge: if d < 0 || d as usize >= span {
                 0
@@ -292,31 +300,28 @@ impl Presenter {
         // Feather the rectangle over one tile, so a painted window edge fades into the stage.
         taps(
             &mut presenter.cols,
-            rx,
-            rw,
+            (rx, rw),
             X2_WIDTH,
+            X2_WIDTH - 1,
             0,
             rw * TILE_WIDTH / WINDOW_WIDTH,
         );
         taps(
             &mut presenter.rows,
-            ry,
-            rh,
+            (ry, rh),
             X2_HEIGHT,
+            X2_HEIGHT - 1,
             0,
             rh * TILE_HEIGHT / WINDOW_HEIGHT,
         );
-        // The shadow samples the padded mask, so cells outside the rectangle read its zero ring.
-        taps(&mut presenter.shadow_cols, rx, rw, WINDOW_WIDTH, shift, 0);
-        taps(&mut presenter.shadow_rows, ry, rh, WINDOW_HEIGHT, shift, 0);
-        // Outside the rectangle the shadow reads the mask's zero corner instead of a clamped
-        // window edge.
-        for (taps, size) in [
-            (&mut presenter.shadow_cols, MASK_WIDTH),
-            (&mut presenter.shadow_rows, MASK_HEIGHT),
-        ] {
+        // The shadow samples the padded mask out to its far edge, so the shadow of ink at the
+        // window's right or bottom edge is not clamped onto the window.
+        let (cols, rows) = (&mut presenter.shadow_cols, &mut presenter.shadow_rows);
+        taps(cols, (rx, rw), WINDOW_WIDTH, MASK_WIDTH - 1, shift, 0);
+        taps(rows, (ry, rh), WINDOW_HEIGHT, MASK_HEIGHT - 1, shift, 0);
+        // Outside the rectangle the shadow reads the mask's zero corner.
+        for taps in [cols, rows] {
             for tap in taps.iter_mut() {
-                tap.i1 = (tap.i0 + 1).min(size as u32 - 1);
                 if tap.edge == 0 {
                     *tap = Tap::default();
                 }
@@ -401,7 +406,7 @@ impl Presenter {
             }
         }
         self.last_ms = Some(millis);
-        let t = (millis - self.ease_start).clamp(0, EASE_MS);
+        let t = millis.saturating_sub(self.ease_start).clamp(0, EASE_MS);
         for c in 0..3 {
             self.stage[c] = self.from[c] + (self.to[c] - self.from[c]) * t / EASE_MS;
         }
@@ -459,7 +464,7 @@ impl Presenter {
     fn build_mask(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
         let mut ink = [false; 16];
         for (i, flag) in ink.iter_mut().enumerate() {
-            *flag = !backdrop[i] && (rank[i] >> 4) as i32 >= INK_DISTANCE;
+            *flag = !backdrop[i] && ((rank[i] as i32 - 1) >> 4) >= INK_DISTANCE;
         }
         self.mask.fill(0);
         for y in 0..WINDOW_HEIGHT {
@@ -622,7 +627,9 @@ impl Backdrop {
         let glow = |colour, n: usize, x: [i64; 2], y: [i64; 2], radius: i64, strength| {
             let [px, py] = GLOW_PERIODS_MS[n];
             let cx = width * (x[0] + (x[1] - x[0]) * drift(millis, px) / 65536) / 100;
-            let cy = height * (y[0] + (y[1] - y[0]) * drift(millis + px / 3, py) / 65536) / 100;
+            let cy = height
+                * (y[0] + (y[1] - y[0]) * drift(millis.rem_euclid(py) + px / 3, py) / 65536)
+                / 100;
             let r = (long * radius / 100).max(1);
             (colour, cx, cy, (1i64 << 32) / (r * r), strength)
         };

@@ -75,7 +75,7 @@ class WasiRecipeTests(unittest.TestCase):
             'dsp_conformance', 'dsp_beat', 'dsp_agc', 'limiter_vectors', 'limiter_safety',
             'limiter_properties', 'limiter_regions', 'core2_ffi', 'limiter_ffi', 'realtime_paths',
             'ffi_robustness', 'dsp_descriptors', 'reaction_vectors', 'beatgrid_vectors',
-            'beatgrid_ffi', 'cdg_vectors', 'cdg_realtime', 'cdg_ffi',
+            'beatgrid_ffi', 'cdg_vectors', 'cdg_realtime', 'cdg_ffi', 'cdg_present',
             'window_governor_vectors', 'window_governor_ffi',
         })
         self.assertEqual(execute.call_args.args[2], {'selected': 'environment'})

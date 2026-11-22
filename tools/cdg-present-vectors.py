@@ -205,7 +205,7 @@ class Scene:
         # Backdrop pixels never count toward a layer (README, Layers).
         self.drank = [[0 if v in self.backdrop else rank[v] for v in row] for row in self.doubled]
         self.values = {}
-        ink = [i not in self.backdrop and rank[i] >> 4 >= 12 for i in range(16)]
+        ink = [i not in self.backdrop and (rank[i] - 1) >> 4 >= 12 for i in range(16)]
         m = [[0] * 296 for _ in range(200)]
         any_ink = False
         for y in range(WIN_H):
@@ -256,11 +256,11 @@ def geometry(w, h):
     return rw, rh, 0, (h - rh) // 2
 
 
-def tap(t, s, n, size, k, f):
+def tap(t, s, n, size, k, f, last):
     d = t - s
-    pos = clamp(((2 * d + 1) * size * 65536) // (2 * n) - 32768 + k, 0, (size - 1) * 65536)
+    pos = clamp(((2 * d + 1) * size * 65536) // (2 * n) - 32768 + k, 0, last * 65536)
     i0 = pos >> 16
-    i1 = min(i0 + 1, size - 1)
+    i1 = min(i0 + 1, last)
     frac = (pos & 0xFFFF) >> 8
     if d < 0 or d >= n:
         edge = 0
@@ -273,14 +273,13 @@ def tap(t, s, n, size, k, f):
 
 
 def graphics_taps(cells, s, n, size, f):
-    return [tap(t, s, n, size, 0, f) for t in range(cells)]
+    return [tap(t, s, n, size, 0, f, size - 1) for t in range(cells)]
 
 
 def shadow_taps(cells, s, n, size, last):
     out = []
     for t in range(cells):
-        i0, _, frac, edge = tap(t, s, n, size, 4 * 65536 - 65536, 0)
-        i1 = min(i0 + 1, last)
+        i0, i1, frac, edge = tap(t, s, n, size, 4 * 65536 - 65536, 0, last)
         if edge == 0:
             i0 = i1 = frac = 0
         out.append((i0, i1, frac))

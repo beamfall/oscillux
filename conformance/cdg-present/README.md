@@ -57,9 +57,9 @@ each column: `m'[y] = (h[y-1] + h[y] + h[y+1] + 4) // 9`, with coordinates clamp
 
 ## Shadow mask
 
-Ink is any index that is not a backdrop index and has `rank >> 4 >= 12`. Take a 296 x 200 mask of
-zeros. Set the window pixel `(x, y)` to 255 at `(x + 4, y + 4)` when that pixel is ink. Then blur
-twice. Each pass:
+Ink is any index that is not a backdrop index and has `(rank - 1) >> 4 >= 12` (`d >= 12`). Take a
+296 x 200 mask of zeros. Set the window pixel `(x, y)` to 255 at `(x + 4, y + 4)` when that pixel
+is ink. Then blur twice. Each pass:
 - Rows: `h[x] = m[x-1] + m[x] + m[x+1]` for `1 <= x <= 294`, and 0 at `x = 0` and `x = 295`.
 - Columns: `m[y] = (h[y-1] + h[y] + h[y+1] + 4) // 9` for `1 <= y <= 198`, and 0 at `y = 0` and
   `y = 199`.
@@ -75,21 +75,21 @@ Otherwise:
 - `rx = 0`, `ry = (H - rh) // 2`.
 
 A tap for frame cell `t` on an axis with rectangle start `s`, span `n` (`rw` or `rh`), source size
-`S`, shift `k` and feather `f`:
+`S`, last readable index `M`, shift `k` and feather `f`:
 - `d = t - s`.
-- `pos = clamp(((2d + 1) * S * 65536) // (2n) - 32768 + k, 0, (S - 1) * 65536)`.
-- `i0 = pos >> 16`, `i1 = min(i0 + 1, S - 1)`, `frac = (pos & 0xFFFF) >> 8`.
+- `pos = clamp(((2d + 1) * S * 65536) // (2n) - 32768 + k, 0, M * 65536)`.
+- `i0 = pos >> 16`, `i1 = min(i0 + 1, M)`, `frac = (pos & 0xFFFF) >> 8`.
 - `edge`:
   - 0 when `d < 0` or `d >= n`.
   - Otherwise 256 when `f == 0`.
   - Otherwise `min((2e + 1) * 128 // f, 256)`, where `e = min(d, n - 1 - d)`.
 
 There are two sets of taps:
-- **Graphics:** `S` is 576 across and 384 down, `k = 0`. The feather is `rw * 6 // 288` across
-  and `rh * 12 // 192` down.
-- **Shadow:** `S` is 288 across and 192 down, `k = 4 * 65536 - 65536`, feather 0. Then
-  `i1 = min(i0 + 1, 295)` across and `min(i0 + 1, 199)` down. A shadow tap whose `edge` is 0
-  becomes `i0 = i1 = 0`, `frac = 0`, so cells outside the rectangle read the mask's zero corner.
+- **Graphics:** `S` is 576 across and 384 down, `M = S - 1`, `k = 0`. The feather is
+  `rw * 6 // 288` across and `rh * 12 // 192` down.
+- **Shadow:** `S` is 288 across and 192 down, `M` is 295 across and 199 down (the padded
+  mask), `k = 4 * 65536 - 65536`, feather 0. A shadow tap whose `edge` is 0 becomes
+  `i0 = i1 = 0`, `frac = 0`, so cells outside the rectangle read the mask's zero corner.
 
 Bilinear: `top = v[y0][x0] * (256 - fx) + v[y0][x1] * fx`, likewise `bottom` on row `y1`. The
 result is `top * (256 - fy) + bottom * fy`.
@@ -124,7 +124,7 @@ There are two glows, each `(colour, x range, y range, radius, strength, Px, Py)`
 
 For a glow, with `L = max(W, H)`:
 - `cx = W * (x0 + (x1 - x0) * drift(millis, Px) / 65536) / 100`.
-- `cy = H * (y0 + (y1 - y0) * drift(millis + Px / 3, Py) / 65536) / 100`.
+- `cy = H * (y0 + (y1 - y0) * drift((millis mod Py) + Px / 3, Py) / 65536) / 100`.
 - `r = max(L * radius / 100, 1)` and `inv = 2^32 / (r * r)`.
 
 The backdrop at `(x, y)`, with `hw = W / 2`, `hh = H / 2` and `corner = max(hw^2 + hh^2, 1)`:

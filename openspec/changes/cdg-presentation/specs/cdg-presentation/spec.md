@@ -72,10 +72,11 @@ down and right, under the graphics. The output SHALL be opaque RGBA8.
 ### Requirement: Render command
 
 `oscillux-cdg-render` SHALL read a CD+G stream on stdin and write raw RGBA8 frames of the given
-width and height to stdout, frame `n` showing source time `start + n / fps * tempo`. With `--frames N` it SHALL write exactly N frames and
-exit 0; otherwise it SHALL keep writing frames, holding the last picture after the stream ends,
-until a write fails, then exit 0. Invalid
-arguments SHALL exit non-zero with a message on stderr and write no frames.
+width and height to stdout. Frame `n` shows source time `start + n / fps * tempo`, rounded to the
+microsecond. Media time stops 300 ms after the stream's last pack, so the picture holds after the
+stream ends. With `--frames N` it SHALL write exactly N frames and exit 0, and exit non-zero if a
+write fails first. Otherwise it SHALL keep writing frames until a write fails, then exit 0.
+Invalid arguments SHALL exit non-zero with a message on stderr and write no frames.
 
 #### Scenario: Frame size
 
