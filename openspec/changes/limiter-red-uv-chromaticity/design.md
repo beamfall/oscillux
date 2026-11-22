@@ -287,6 +287,20 @@ count:
    A visual over it is calmed in its shader and only that visual is probed again. Calmed visuals
    are listed in `tasks.md`.
 
+**Result (2026-11-21).** Four visuals were over 0.5% and were calmed; the largest of the 61 is
+now 0.31% (photo-curtain).
+
+- **Vault** held on no beat. Its eight-beat crossfade from a bright pattern to a dim one
+  darkened the upper half of the screen faster than the reveal had brightened it: a smooth
+  large-area fall that the luma rule counts. The crossfade now runs evenly over the slot, the
+  bright patterns are dimmer and the projector colours sit near one luminance (0.99% to 0.00%).
+- **Palette position.** Held fractions move with where the palette tour is during the probe
+  window (z = time / 6 plus the manifest palette, mod 16), so runs differ by a few tenths. On
+  one run, v0.2.12 and the candidate held the same or less on the candidate (ink 1.39% both,
+  constellation 0.35% to 0.18%, filament 0.39% to 0.21%).
+- **Wrap fix.** Seven visuals wrapped the tour index mod 32 against the 16-entry table, so the
+  blend out of palette 15 read past its end. They now wrap at `OS_PAL_COUNT`.
+
 ## 11. Not done
 
 - **Two metrics in one granted frame.** Read under a single metric, a granted frame can hold up
@@ -381,6 +395,8 @@ Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13
   memory gains the unknown state redStep has. A regression test fails on the old auditor. A fuzz
   of 200 zero-started full-frame runs (1 to 4 colour runs, saturation-edge reds among them) finds
   no frame where the limiter fires a channel the auditor does not record; on the same runs the old
-  auditor missed red falls and the luma rise from black of a bright first output. P3s: the 16-bit store wording (a zero seed survives) and the probe value
-  (it passes the marker check, not a written state).
-- **Status.** The design review is closed; the legs and the host follow under code review.
+  auditor missed red falls and the luma rise from black of a bright first output. P3s: the
+  16-bit store wording (a zero seed survives) and the probe value (it passes the marker check,
+  not a written state).
+- **Code review delta round 2 (Codex).** PASS, no findings.
+- **Status.** The design and code reviews are closed.

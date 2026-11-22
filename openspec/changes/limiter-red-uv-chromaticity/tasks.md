@@ -38,13 +38,17 @@
 
 ## 4. Visuals
 
-- [ ] 4.1 `limiter-red-audit.mjs --release --audio loud`
-- [ ] 4.2 Probe the 61 release visuals once in the web player on the candidate legs
-- [ ] 4.3 Calm any visual over 0.5% of pixels held a frame, and probe only those again
+- [ ] 4.1 `limiter-red-audit.mjs --release --audio loud`, run by the gate's `--max-luma 6` step
+- [x] 4.2 Probe the 61 release visuals once in the web player on the candidate legs: over 0.5
+      were vault 0.99, ink 1.26, event-horizon 0.73 and filament 0.51
+- [x] 4.3 Calm any visual over 0.5% of pixels held a frame, and probe only those again: vault
+      0.00, ink 0.05, event-horizon 0.02, filament 0.19; the largest of the 61 is now 0.31
+      (photo-curtain). The palette tour wraps at `OS_PAL_COUNT` in dunes, kaleidoscope,
+      mirror-bloom, nebula, photo-lens, spectral-city and vault (section 10)
 
 ## 5. Verification and release
 
-- [ ] 5.1 Codex code review: no P1 or P2 left, in at most two delta rounds
+- [x] 5.1 Codex code review: no P1 or P2 left, in at most two delta rounds
 - [ ] 5.2 `make gate` on the exact head
 - [ ] 5.3 Release v0.2.13, archive this change and record the evidence
 - [ ] 5.4 Core repin to v0.2.13 with the RGBA32UI renderer change
