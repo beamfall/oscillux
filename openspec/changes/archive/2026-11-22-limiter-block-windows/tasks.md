@@ -11,4 +11,4 @@
 
 - [x] 2.1 Run `make limiter-check`, `make limiter-hold-check` and `make visual-flash-check`
 - [x] 2.2 Audit the 84 originals under loud audio
-- [ ] 2.3 Run `openspec archive limiter-block-windows` after landing
+- [x] 2.3 Run `openspec archive limiter-block-windows` after landing

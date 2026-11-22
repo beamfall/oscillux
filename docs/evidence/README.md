@@ -12,6 +12,7 @@ leg file against this repository's history without downloading the zip.
 
 | Release | Licence | Source commit |
 |---|---|---|
+| v0.2.18 | AGPL-3.0-only | `21e0cb1` |
 | v0.2.17 | AGPL-3.0-only | `9a37d98` |
 | v0.2.16 | AGPL-3.0-only | `46b9df6` |
 | v0.2.15 | AGPL-3.0-only | `646b841` |

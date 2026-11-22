@@ -141,8 +141,9 @@ allow.
 The frame limiter SHALL keep, for every pixel, the pixel auditor's luma and red transition
 trackers on the same codes and thresholds, step them on its output, and count toward the
 area limit every pixel that fires now or fired within the coverage interval. A direction SHALL be
-over when a window of whole cells that contains the field wherever it is placed holds more than a
-quarter of the field's pixels.
+over when a window of whole sub-blocks that contains the field wherever it is placed holds more
+than a quarter of the field's pixels, or, when the host passes no sub-block window, a window of
+whole cells that does.
 
 #### Scenario: A change that builds up over frames
 
@@ -211,6 +212,13 @@ quarter of the field's pixels.
 - **WHEN** red pixels fall in one area, the next frame raises an adjacent area and a far area, and
   the frame after that is unchanged
 - **THEN** the pixel auditor records no transition on the unchanged frame
+
+#### Scenario: Motion over less than a quarter of the field
+
+- **WHEN** at 480 x 270, with the host passing a sub-block window, the pixels that fire now or
+  fired within the coverage interval cover at most 20 % of the field's pixels in every window of
+  whole sub-blocks that contains the field, each pixel firing at most twice a second
+- **THEN** no direction is over and no pixel is held
 
 ### Requirement: Flash measure
 
