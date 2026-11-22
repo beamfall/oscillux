@@ -17,6 +17,7 @@
 //! allocation happens there; advancing, seeking and reading never allocate, lock or do I/O.
 //! Everything is integer arithmetic, so every target decodes the same bytes.
 
+pub mod present;
 mod state;
 
 use alloc::vec::Vec;

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[package]
+name = "oscillux-cdg-render"
+description = "Renders a CD+G stream to raw RGBA frames (WASI command)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+oscillux-core = { path = "../oscillux-core" }

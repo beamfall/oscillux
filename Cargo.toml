@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 [workspace]
 resolver = "2"
-members = ["crates/oscillux-core", "crates/oscillux-ffi", "packaging/wasm"]
+members = ["crates/oscillux-core", "crates/oscillux-ffi", "crates/oscillux-cdg-render", "packaging/wasm"]
 
 [workspace.package]
 version = "0.2.13"
