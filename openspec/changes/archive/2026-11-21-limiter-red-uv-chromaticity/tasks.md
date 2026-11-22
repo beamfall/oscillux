@@ -50,6 +50,7 @@
 ## 5. Verification and release
 
 - [x] 5.1 Codex code review: no P1 or P2 left, in at most two delta rounds
-- [ ] 5.2 `make gate` on the exact head
-- [ ] 5.3 Release v0.2.13, archive this change and record the evidence
-- [ ] 5.4 Core repin to v0.2.13 with the RGBA32UI renderer change
+- [x] 5.2 `make gate` on the exact head (`9e3516c`)
+- [x] 5.3 Release v0.2.13, archive this change and record the evidence
+- [x] 5.4 Core repin to v0.2.13 with the RGBA32UI renderer change (core branch
+      `web-oscillux-v0.2.12` at `6f744291c`)
