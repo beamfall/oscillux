@@ -186,6 +186,81 @@ def blur_shadow(m):
     return out
 
 
+# ---------------------------------------------------------------- colours
+
+TARGET = 35 * 1024 // 10
+
+
+def luminance(rgb):
+    r, g, b = rgb
+    return (54 * r * r + 183 * g * g + 19 * b * b) >> 8
+
+
+def contrast(a, b):
+    hi, lo = max(a, b), min(a, b)
+    return (hi + 3251) * 1024 // (lo + 3251)
+
+
+def backdrop_range(stage):
+    """Luminance of the backdrop's darkest and brightest points for an 8.8 stage colour."""
+    base = [v * 230 // 1024 + 1536 for v in stage]
+    light = [lighten(v, 180) for v in stage]
+    warm = [lighten((stage[c] + stage[(c + 2) % 3]) // 2, 80) for c in range(3)]
+    lit = list(base)
+    for colour, strength in ((light, 36000), (warm, 30000)):
+        lit = [lit[c] + (((colour[c] - lit[c]) * strength) >> 16) for c in range(3)]
+    dark = [((v * 35536) >> 16) >> 8 for v in base]
+    return luminance(dark), luminance([min(v, 65280) >> 8 for v in lit])
+
+
+def legible(rgb, dark, bright):
+    def worst(c):
+        l = luminance(c)
+        return min(contrast(l, dark), contrast(l, bright))
+    best = (worst(rgb), rgb)
+    if best[0] >= TARGET:
+        return rgb
+    for k in range(1, 17):
+        for c in (tuple(v + (255 - v) * k // 16 for v in rgb),
+                  tuple(v * (16 - k) // 16 for v in rgb)):
+            w = worst(c)
+            if w >= TARGET:
+                return c
+            if w > best[0]:
+                best = (w, c)
+    return best[1]
+
+
+def boundaries(win, colours, backdrop):
+    """Window boundary length of each graphics index with the backdrop, and of each ordered
+    pair of graphics indices that contrast with each other (README, Colours)."""
+    lum = [luminance(tuple(l * 17 for l in levels(c))) for c in colours]
+    back, held = [0] * 16, {}
+
+    def pair(a, b):
+        if a == b:
+            return
+        ba, bb = a in backdrop, b in backdrop
+        if ba and bb:
+            return
+        if bb:
+            back[a] += 1
+        elif ba:
+            back[b] += 1
+        elif contrast(lum[a], lum[b]) >= TARGET:
+            held[(a, b)] = held.get((a, b), 0) + 1
+            held[(b, a)] = held.get((b, a), 0) + 1
+
+    for y in range(WIN_H):
+        row = win[y]
+        for x in range(WIN_W):
+            if x + 1 < WIN_W:
+                pair(row[x], row[x + 1])
+            if y + 1 < WIN_H:
+                pair(row[x], win[y + 1][x])
+    return back, held
+
+
 class Scene:
     """Everything that depends only on the decoder's window, colours and preset."""
 
@@ -200,8 +275,9 @@ class Scene:
         for row in self.doubled:
             present.update(row)
         layers = sorted((i for i in present if i not in self.backdrop), key=lambda i: rank[i])
+        self.layers = layers
         self.layer_ranks = [rank[i] for i in layers]
-        self.layer_colours = [tuple(l * 17 for l in levels(colours[i])) + (255,) for i in layers]
+        self.back_len, self.held = boundaries(win, colours, self.backdrop)
         # Backdrop pixels never count toward a layer (README, Layers).
         self.drank = [[0 if v in self.backdrop else rank[v] for v in row] for row in self.doubled]
         self.values = {}
@@ -354,7 +430,26 @@ class Presenter:
         self.gy = graphics_taps(h, ry, rh, DH, rh * 12 // 192)
         self.sx = shadow_taps(w, rx, rw, WIN_W, 295)
         self.sy = shadow_taps(h, ry, rh, WIN_H, 199)
-        self.ramp = max(rw * 256 // 300, 256)
+        self.ramp = max(rw * 256 // 150, 256)
+        self.protected = set()
+        self.built = None
+
+    def colours(self, sc):
+        """README, Colours: the drawn 8-bit RGB of every index."""
+        key = (sc.bg, tuple(sc.colours))
+        if self.built is not None and self.built != key:
+            self.protected = set()
+        self.built = key
+        rgb = [tuple(l * 17 for l in levels(c)) for c in sc.colours]
+        lum = [luminance(c) for c in rgb]
+        dark, bright = backdrop_range(tuple((l * 17) << 8 for l in levels(sc.colours[sc.bg])))
+        ok = [min(contrast(l, dark), contrast(l, bright)) >= TARGET for l in lum]
+        for (i, j), n in sc.held.items():
+            if ok[j] and n * 3 >= sc.back_len[i]:
+                self.protected.add(i)
+        return [legible(rgb[i], dark, bright)
+                if sc.back_len[i] > 0 and not ok[i] and i not in self.protected else rgb[i]
+                for i in range(16)]
 
     def ease(self, target, millis):
         if self.first or millis < self.last:
@@ -374,8 +469,9 @@ class Presenter:
         w, h = self.w, self.h
         back = backdrop_rows(w, h, self.stage, millis)
         shadow, gx, gy, sx, sy = sc.shadow, self.gx, self.gy, self.sx, self.sy
-        lcol, nlayers, ramp, values = sc.layer_colours, len(sc.layer_ranks), self.ramp, \
-            sc.layer_values
+        drawn = self.colours(sc)
+        lcol = [drawn[i] + (255,) for i in sc.layers]
+        nlayers, ramp, values = len(sc.layer_ranks), self.ramp, sc.layer_values
         out = bytearray(w * h * 4)
         o = 0
         for y in range(h):
@@ -402,7 +498,7 @@ class Presenter:
                         top = a * (256 - fx) + b * fx
                         bot = c * (256 - fx) + d * fx
                         v = (top * (256 - fy) + bot * fy) >> 8
-                        cov = clamp((((v - 100 * 256) * ramp) >> 16) + 128, 0, 255)
+                        cov = clamp((((v - 112 * 256) * ramp) >> 16) + 128, 0, 255)
                         if cov > 0:
                             p = lcol[li]
                             g = [div255(p[ch] * cov + g[ch] * (255 - cov)) for ch in range(4)]

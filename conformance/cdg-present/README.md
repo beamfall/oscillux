@@ -55,6 +55,37 @@ not a backdrop index and its rank is at least `rank(i)`, else 0. Each mask is bo
 First, each row: `h[x] = m[x-1] + m[x] + m[x+1]`, with coordinates clamped to the row. Then
 each column: `m'[y] = (h[y-1] + h[y] + h[y+1] + 4) // 9`, with coordinates clamped to the column.
 
+## Colours
+
+Each index `i` has an 8-bit colour `rgb(i) = (level * 17, ...)` of `colour[i]`, and
+- `lum(c) = (54 * r^2 + 183 * g^2 + 19 * b^2) >> 8` for an 8-bit colour `c = (r, g, b)`.
+- `contrast(a, b) = (max(a, b) + 3251) * 1024 // (min(a, b) + 3251)` for two `lum` values.
+- `TARGET = 3584` (a contrast ratio of 3.5).
+
+With `stage` the 8.8 background colour `(level * 17) << 8` of `colour[background]` (not the
+eased stage) and `base`, `light`, `warm` and `lighten` as in Backdrop:
+- `lit = base`, then for `(colour, strength)` in `(light, 36000)` and `(warm, 30000)`, each
+  channel `lit += ((colour - lit) * strength) >> 16`.
+- `dark = lum(base[c] * 35536 >> 16 >> 8, ...)` and `bright = lum(min(lit[c], 65280) >> 8, ...)`.
+- `worst(c) = min(contrast(lum(c), dark), contrast(lum(c), bright))`; `i` is *stage-legible* when
+  `worst(rgb(i)) >= TARGET`.
+
+Over the 288 x 192 window, each pair of different indices that are right or down neighbours is
+one boundary. A boundary between a backdrop index and a graphics index `a` (not a backdrop index)
+adds 1 to `back[a]`. A boundary between graphics indices `a` and `b` with
+`contrast(lum(rgb(a)), lum(rgb(b))) >= TARGET` adds 1 to `held[a][b]` and to `held[b][a]`.
+
+The presenter keeps a set of *protected* indices. It is emptied when the background index or any
+of the 16 colours differs from the previous `present` call's, and is empty for a new presenter.
+Each call then adds every `i` with some stage-legible `j` where `held[i][j] > 0` and
+`held[i][j] * 3 >= back[i]`.
+
+The drawn colour of `i` is `rgb(i)`, except when `back[i] > 0`, `i` is not stage-legible and not
+protected. Then it is `fix(rgb(i))`: for `k = 1..16` in order, try the white mix
+`v + (255 - v) * k // 16` then the black mix `v * (16 - k) // 16` per channel, and take the first
+with `worst >= TARGET`. If none reaches it, take the candidate with the highest `worst`, starting
+from `rgb(i)` and replacing it only on a strictly higher value.
+
 ## Shadow mask
 
 Ink is any index that is not a backdrop index and has `(rank - 1) >> 4 >= 12` (`d >= 12`). Take a
@@ -148,10 +179,10 @@ For frame pixel `(x, y)`:
    for each layer in order:
    - `v = bilinear(layer mask, graphics taps) >> 8`.
    - If all four mask taps are 0, stop. Later layers are empty there too.
-   - `cov = clamp((((v - 100 * 256) * ramp) >> 16) + 128, 0, 255)`, with
-     `ramp = max(rw * 256 // 300, 256)` and an arithmetic shift.
+   - `cov = clamp((((v - 112 * 256) * ramp) >> 16) + 128, 0, 255)`, with
+     `ramp = max(rw * 256 // 150, 256)` and an arithmetic shift.
    - If `cov > 0`, then for each channel `g = div255(p * cov + g * (255 - cov))`. Here `p` is the
-     layer colour `(level * 17, ..., 255)`. All four channels, alpha included, use this.
+     layer's drawn colour (Colours) with alpha 255. All four channels, alpha included, use this.
 
    Then each channel becomes `g = (g * edge + 32768) >> 16`.
 3. **Output.** For R, G and B:

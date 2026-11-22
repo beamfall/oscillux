@@ -196,3 +196,58 @@ fn sha256(data: &[u8]) -> String {
     }
     h.iter().map(|x| format!("{x:08x}")).collect()
 }
+
+/// One TV-graphics pack: `instruction` and 16 data bytes.
+fn pack(instruction: u8, data: [u8; 16]) -> [u8; 24] {
+    let mut p = [0u8; 24];
+    p[0] = 0x09;
+    p[1] = instruction;
+    p[4..20].copy_from_slice(&data);
+    p
+}
+
+/// Load Colour Table (low) with `colours` (12-bit `0xRGB`) as indices 0..=7.
+fn load_colours(colours: [u16; 8]) -> [u8; 24] {
+    let mut data = [0u8; 16];
+    for (i, c) in colours.iter().enumerate() {
+        let (r, g, b) = ((c >> 8) & 15, (c >> 4) & 15, c & 15);
+        data[2 * i] = ((r << 2) | (g >> 2)) as u8;
+        data[2 * i + 1] = (((g & 3) << 4) | b) as u8;
+    }
+    pack(30, data)
+}
+
+#[test]
+fn outline_protection_resets_when_the_palette_changes() {
+    // Dark blue (index 1) on a black stage, outlined in white (index 2) on three sides: the
+    // outline protects the blue from the contrast fix. Then the outline turns near black and
+    // no longer contrasts, so the blue must be fixed exactly as a fresh presenter fixes it.
+    let mut tile = [0u8; 16];
+    tile[0] = 2;
+    tile[1] = 1;
+    tile[2] = 8;
+    tile[3] = 25;
+    for row in &mut tile[5..15] {
+        *row = 0b01_1111;
+    }
+    let mut stream = Vec::new();
+    stream.extend(load_colours([0x000, 0x004, 0xfff, 0, 0, 0, 0, 0]));
+    stream.extend(pack(1, [0; 16]));
+    stream.extend(pack(6, tile));
+    stream.extend(load_colours([0x000, 0x004, 0x002, 0, 0, 0, 0, 0]));
+    let mut decoder = Decoder::new(&stream);
+
+    let raw_blue = |frame: &[u8]| frame.chunks_exact(4).any(|px| px == [0, 0, 68, 255]);
+    let mut outlined = Presenter::new(160, 90).unwrap();
+    decoder.advance_to(3);
+    assert!(
+        raw_blue(outlined.present(&decoder, 0)),
+        "outlined blue keeps its colour"
+    );
+
+    decoder.advance_to(4);
+    let after = outlined.present(&decoder, 100).to_vec();
+    assert!(!raw_blue(&after), "unoutlined blue is lightened");
+    let mut fresh = Presenter::new(160, 90).unwrap();
+    assert_eq!(after, fresh.present(&decoder, 100));
+}

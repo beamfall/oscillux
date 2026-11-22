@@ -14,9 +14,12 @@
 //!   smooth vector-like shapes into a centred 3:2 rectangle of the frame height (or width, for
 //!   frames narrower than 3:2). Each colour present is a layer, ordered by its distance from the
 //!   background colour; a layer's coverage mask (that colour or any farther one) is box blurred
-//!   and cut at [`EDGE_THRESHOLD`] with a ramp about one frame pixel wide, which rounds corners
-//!   and turns pixel stair-steps into anti-aliased lines. Backdrop-index pixels are
-//!   transparent, so the backdrop shows through and there is no border or pillarbox.
+//!   and cut at [`EDGE_THRESHOLD`] with a ramp a little over half a frame pixel wide, which
+//!   rounds corners and turns pixel stair-steps into crisp anti-aliased lines. Backdrop-index
+//!   pixels are transparent, so the backdrop shows through and there is no border or pillarbox.
+//! - A graphics colour that touches the backdrop and has less than [`MIN_CONTRAST_X10`] / 10
+//!   contrast against its darkest or brightest point is mixed toward white or black until it
+//!   does, unless it is outlined by a colour that is legible there.
 //! - A box-blurred mask of the ink pixels is drawn under the graphics as a translucent black
 //!   shadow, offset one window pixel down and right.
 //!
@@ -43,9 +46,12 @@ pub const INK_DISTANCE: i32 = 12;
 pub const BASE_LEVEL: i64 = 230;
 /// Drift periods of the two glows' centres (x, y), in media milliseconds.
 pub const GLOW_PERIODS_MS: [[i64; 2]; 2] = [[23_000, 31_000], [27_000, 37_000]];
-/// Level (of 255) of a blurred layer mask where its edge is drawn. Below the 127.5 of a straight
-/// edge, so a lone window pixel (113 after the blur) still draws.
-pub const EDGE_THRESHOLD: i64 = 100;
+/// Level (of 255) of a blurred layer mask where its edge is drawn. Just below the 113 a lone
+/// window pixel reaches after the blur, so it still draws, and close to the 127.5 of a straight
+/// edge, so strokes do not fatten and letter counters stay open.
+pub const EDGE_THRESHOLD: i64 = 112;
+/// Least contrast ratio, times 10, a graphics colour keeps against the whole backdrop.
+pub const MIN_CONTRAST_X10: i64 = 35;
 
 const X2_WIDTH: usize = WINDOW_WIDTH * 2;
 const X2_HEIGHT: usize = WINDOW_HEIGHT * 2;
@@ -231,6 +237,9 @@ pub struct Presenter {
     layer_count: usize,
     /// Edge ramp steepness: coverage gained per mask level, 8.8 fixed point.
     ramp: i64,
+    /// Indices seen beside graphics that contrast with both them and the backdrop, under the
+    /// current background and palette; their colours are never adjusted for contrast.
+    protected: [bool; 16],
     mask: Vec<u8>,
     blur: Vec<u16>,
     cols: Vec<Tap>,
@@ -278,8 +287,9 @@ impl Presenter {
             layer_index: [0; MAX_LAYERS],
             layer_count: 0,
             // A blurred straight edge climbs 85 levels per mask pixel and a mask pixel spans
-            // `rw / 576` frame pixels; ramp the full 255 over about 1.25 frame pixels.
-            ramp: (rw as i64 * 256 / 300).max(256),
+            // `rw / 576` frame pixels; ramp the full 255 over about 0.6 frame pixels.
+            ramp: (rw as i64 * 256 / 150).max(256),
+            protected: [false; 16],
             mask: vec![0; MASK_WIDTH * MASK_HEIGHT],
             blur: vec![0; MASK_WIDTH * MASK_HEIGHT],
             cols: vec![Tap::default(); width],
@@ -379,7 +389,14 @@ impl Presenter {
             );
             self.build_layers(&backdrop, &rank);
             self.build_mask(&backdrop, &rank);
-            self.compose(background, &palette);
+            if self
+                .built
+                .is_some_and(|(b, p)| (b, p) != (background, palette))
+            {
+                self.protected = [false; 16];
+            }
+            let colours = self.colours(background, &palette, &backdrop);
+            self.compose(background, &colours);
             self.built = Some((background, palette));
         }
         let inputs = (background, palette, self.stage, millis);
@@ -498,19 +515,82 @@ impl Presenter {
         }
     }
 
+    /// The drawn colour of each index: its palette colour, or for a colour that touches the
+    /// backdrop with less than [`MIN_CONTRAST_X10`] against the backdrop's darkest or brightest
+    /// point, that colour mixed toward white or black by the fewest sixteenths that reach it.
+    /// Outlined colours keep theirs: an index is protected once its window boundary with some
+    /// graphics index that both contrasts with it and is legible on the backdrop is at least a
+    /// third of its boundary with the backdrop. Protection lasts until the background or palette
+    /// changes, so a colour does not flip while its outline draws in.
+    fn colours(
+        &mut self,
+        background: u8,
+        palette: &[u16; 16],
+        backdrop: &[bool; 16],
+    ) -> [[i64; 3]; 16] {
+        let rgb = palette.map(|entry| colour_8_8(entry).map(|v| v >> 8));
+        let lum = rgb.map(luminance);
+        let target = MIN_CONTRAST_X10 * 1024 / 10;
+        let (dark, bright) = backdrop_range(colour_8_8(palette[background as usize]));
+        let legible_on_stage =
+            lum.map(|l| contrast_x1024(l, dark).min(contrast_x1024(l, bright)) >= target);
+        // Window boundary lengths: of each index with the backdrop, and of each pair of
+        // contrasting graphics indices.
+        let mut back = [0u32; 16];
+        let mut held = [[0u32; 16]; 16];
+        let mut pair = |a: u8, b: u8| {
+            if a == b {
+                return;
+            }
+            let (a, b) = (a as usize, b as usize);
+            match (backdrop[a], backdrop[b]) {
+                (true, true) => {}
+                (false, true) => back[a] += 1,
+                (true, false) => back[b] += 1,
+                (false, false) => {
+                    if contrast_x1024(lum[a], lum[b]) >= target {
+                        held[a][b] += 1;
+                        held[b][a] += 1;
+                    }
+                }
+            }
+        };
+        for y in 0..WINDOW_HEIGHT {
+            let row = &self.window[y * WINDOW_WIDTH..(y + 1) * WINDOW_WIDTH];
+            for x in 0..WINDOW_WIDTH {
+                if x + 1 < WINDOW_WIDTH {
+                    pair(row[x], row[x + 1]);
+                }
+                if y + 1 < WINDOW_HEIGHT {
+                    pair(row[x], self.window[(y + 1) * WINDOW_WIDTH + x]);
+                }
+            }
+        }
+        for i in 0..16 {
+            for j in 0..16 {
+                if legible_on_stage[j] && held[i][j] > 0 && held[i][j] * 3 >= back[i] {
+                    self.protected[i] = true;
+                }
+            }
+        }
+        let mut out = rgb;
+        for i in 0..16 {
+            let graphics = i as u8 != background && !backdrop[i];
+            if graphics && back[i] > 0 && !legible_on_stage[i] && !self.protected[i] {
+                out[i] = legible(rgb[i], dark, bright);
+            }
+        }
+        out
+    }
+
     /// Composes the graphics layers and the shadow into `overlay`.
-    fn compose(&mut self, background: u8, palette: &[u16; 16]) {
+    fn compose(&mut self, background: u8, colours: &[[i64; 3]; 16]) {
         // Premultiplied colour of each index; the background index is transparent.
         let mut lut = [[0u32; 4]; 16];
         for (i, entry) in lut.iter_mut().enumerate() {
             if i as u8 != background {
-                let rgb = palette[i] as u32;
-                *entry = [
-                    ((rgb >> 8) & 0xF) * 17,
-                    ((rgb >> 4) & 0xF) * 17,
-                    (rgb & 0xF) * 17,
-                    255,
-                ];
+                let [r, g, b] = colours[i].map(|v| v as u32);
+                *entry = [r, g, b, 255];
             }
         }
         let width = self.width;
@@ -608,6 +688,65 @@ impl Presenter {
             }
         }
     }
+}
+
+/// Relative luminance of an 8-bit colour, 0..=65025: the Rec. 709 weights (54, 183, 19 of 256)
+/// over each channel squared, a gamma-2 stand-in for the sRGB transfer curve.
+fn luminance([r, g, b]: [i64; 3]) -> i64 {
+    (54 * r * r + 183 * g * g + 19 * b * b) >> 8
+}
+
+/// Contrast ratio of two luminances times 1024, with the WCAG flare of 0.05 (3251 of 65025).
+fn contrast_x1024(a: i64, b: i64) -> i64 {
+    let (hi, lo) = if a >= b { (a, b) } else { (b, a) };
+    (hi + 3251) * 1024 / (lo + 3251)
+}
+
+/// Luminances of the backdrop's darkest point (the base in a vignette corner) and brightest
+/// (the base under both glows at full strength) for a stage colour in 8.8 fixed point.
+fn backdrop_range(stage: [i64; 3]) -> (i64, i64) {
+    let lighten = |v: i64, k: i64| v + (65280 - v) * k / 1024;
+    let base = stage.map(|v| v * BASE_LEVEL / 1024 + (6 << 8));
+    let warm = [0, 1, 2].map(|c| lighten((stage[c] + stage[(c + 2) % 3]) / 2, 80));
+    let light = stage.map(|v| lighten(v, 180));
+    let mut lit = base;
+    for (colour, strength) in [(light, 36_000), (warm, 30_000)] {
+        for c in 0..3 {
+            lit[c] += ((colour[c] - lit[c]) * strength) >> 16;
+        }
+    }
+    let dark = base.map(|v| ((v * (65536 - 30_000)) >> 16) >> 8);
+    (luminance(dark), luminance(lit.map(|v| v.min(65280) >> 8)))
+}
+
+/// `rgb` mixed toward white or black by the fewest sixteenths (white first) whose worse contrast
+/// against `dark` and `bright` reaches [`MIN_CONTRAST_X10`]; when none does, the mix (fewest
+/// sixteenths, white first, unmixed before both) with the best worse contrast.
+fn legible(rgb: [i64; 3], dark: i64, bright: i64) -> [i64; 3] {
+    let worst = |c: [i64; 3]| {
+        let l = luminance(c);
+        contrast_x1024(l, dark).min(contrast_x1024(l, bright))
+    };
+    let target = MIN_CONTRAST_X10 * 1024 / 10;
+    let mut best = (worst(rgb), rgb);
+    if best.0 >= target {
+        return rgb;
+    }
+    for k in 1..=16 {
+        for c in [
+            rgb.map(|v| v + (255 - v) * k / 16),
+            rgb.map(|v| v * (16 - k) / 16),
+        ] {
+            let w = worst(c);
+            if w >= target {
+                return c;
+            }
+            if w > best.0 {
+                best = (w, c);
+            }
+        }
+    }
+    best.1
 }
 
 /// `0..=65536` and back over `period` ms, eased at both ends (smoothstep of a triangle wave).
