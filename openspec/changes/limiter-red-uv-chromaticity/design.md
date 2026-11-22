@@ -175,10 +175,12 @@ and a union is the bitwise field maximum.
   empty, marker set. `UNTRACKED` is exactly (0, 8192, 0, 0).
 - **Validity (P1-3).** Every texel the legs write sets the marker. A texel is valid when its marker
   is set or it is all zero. Any other texel (a host that stored 16 bits, clamped or truncated)
-  fires every direction at a changed colour, so the limiter holds it; `UNTRACKED` is matched
+  fires every direction at a changed colour and counts toward the area limit (the format check
+  keeps such a store off screen); `UNTRACKED` is matched
   exactly, so a clamped 65535 never reads as untracked.
 - **Format check.** At start a host clears a texel of each tracker attachment to a value with bit
-  31 set in every word, reads each back, and presents black if any word differs (P3, section 13). WebGL `RGBA32UI`, Metal
+  31 set in every word, reads each back, and presents black if any word differs (P3, section 13),
+  all before it writes the seed over the probed texel. WebGL `RGBA32UI`, Metal
   `.rgba32Uint`, GLES `GL_RGBA32UI`; seeds and clears are 32-bit. Memory is 16 bytes a pixel per
   copy: two copies are 265 MB at 3840 x 2160, up from 133 MB.
 - **Rows pass.** The rows pass evaluates `fires()`, which now reads the previous output, so a host
@@ -361,4 +363,11 @@ Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13
   seed went uncounted (an auditor gap, not a flash); the auditor now steps its first frame from
   the zero seed as the limiter does, with a test. P3s: the clip interval above, the float
   reference's inclusive saturation test, and the 60 Hz regression named as the stored vector.
+- **Code review round 1 (Codex).** No P1. P2: the auditor's zero-seeded first frame stepped the
+  boxes but dropped the direction, so a first frame of (0, 0, 1) went uncounted where the limiter
+  fell; the auditor now counts it, with a test. P3s: the invalid-texel wording (it fires and
+  counts toward the area limit; the format check keeps it off screen), exact `UNTRACKED`, and the
+  probe before the seed. The CORE-2869 restart-report test now expects the red transition at
+  (5, 0, 0) after a zero restart as a rise: the zero seed's unknown boxes fire it (the merged
+  direction), as the limiter does from the zero texel.
 - **Status.** The design review is closed; the legs and the host follow under code review.

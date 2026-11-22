@@ -1352,9 +1352,12 @@ test('the restart report follows the latest restart, of either seed (CORE-2869)'
   a.restart('zero');
   a.push(black, DT);
   assert.deepEqual(a.lastRestart, { seed: 'zero', reseeded: 0, kept: 1 });
-  // A zero restart after 2 s of black reseeds nothing: the orange fall still counts at (5, 0, 0).
+  // A zero restart after 2 s of black reseeds nothing: a red transition still counts at (5, 0, 0).
+  // The zero seed's unknown chromaticity boxes make it a rise (the merged direction), as the limiter
+  // fires from the zero texel (CORE-2935).
   const z = auditRuns([[1, BLACK], [100, ORANGE], [120, BLACK], [1, FAINT_RED]], { at: 221, seed: 'zero' });
-  assert.equal(z.transitions[3].length, 1, 'the fall counted at (5, 0, 0)');
+  assert.deepEqual([z.transitions[2], z.transitions[3]], [[221], []], 'the red transition counted at (5, 0, 0)');
+  assert.equal(model.texelFires(0, 0, 0, 0, ...FAINT_RED, 0, 0, 0), 4, 'the limiter rises there from the zero texel');
 });
 
 test('nothing expires during playback (CORE-2869)', () => {
@@ -1607,6 +1610,18 @@ test(`u'v': a zero restart before the first frame seeds the auditor's boxes unkn
   }
   assert.equal(fell, w * h, 'the limiter fell on every pixel at (0, 0, 1)');
   assert.deepEqual(a.transitions[3], [124], 'the auditor counts the fall on frame 124');
+});
+
+test(`u'v': a zero restart before a non-black first frame counts the limiter's fall there`, () => {
+  const w = 64, h = 36, lim = model.createLimiter({ width: w, height: h, start: 'zero' });
+  const a = createAuditor({ width: w, height: h }), px = new Uint8Array(w * h * 4);
+  for (let j = 0; j < w * h; j++) px.set([0, 0, 1, 255], 4 * j);
+  // The limiter asks for a red fall at every pixel from the zero texel; an output that showed this
+  // frame must count that fall in the auditor too.
+  assert.equal(lim.step(px, DT).stats.requests[3], w * h, 'the limiter asks to fall on every pixel');
+  a.restart('zero');
+  a.push(px, DT);
+  assert.deepEqual(a.transitions[3], [0], 'the auditor counts the fall on frame 0');
 });
 
 test(`u'v': the 32-bit marker and the RGBA16UI clamp (P1-3)`, () => {

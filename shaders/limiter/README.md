@@ -223,8 +223,9 @@ Every pixel carries the pixel auditor's trackers in one RGBA32UI texel (`common.
   the empty box is zero: `x` the saturated box's u minimum | the far box's << 9, `y` the u maxima
   likewise, `z` the v minima (far << 8) | the marker (bit 31), `w` the v maxima (far << 8) | the far
   box uncertain (bit 31). Every texel a pass writes sets the marker. A texel that is neither marked
-  nor all zero was stored at less than 32 bits; it fires every direction on a changed colour, so
-  the limiter holds it.
+  nor all zero was stored at less than 32 bits; it fires every direction on a changed colour and
+  counts toward the area limit like any firing pixel (a smaller changed area still passes), so the
+  host's format check, not the texel, keeps a 16-bit store off screen.
 
 Each tracker has a direction (the way it last fired), an extreme since then (the peak after a
 rise, the trough after a fall) and a reference, stored as its distance from the extreme, which
@@ -306,16 +307,19 @@ through the grant like any other change. After a lost context is restored the vi
 before the loss, so the host starts as after the fade of a change to the frame (below): black
 presented without the limiter for longer than the coverage interval, then everything tracked
 black and `G` written fully spent. The zero texel is a tracker falling at 0 with every luma
-change counted and the red memory unknown. (A texel with bit
-13 of `y` set means no state yet: a pixel with no state takes its first value without firing, as
-if it fell to it. The reference model and the conformance vectors start from it; a host does not,
+change counted and the red memory unknown. (`UNTRACKED`, exactly (0, 8192, 0, 0) in all four
+words, means no state yet: a pixel with no state takes its first value without firing, as if it
+fell to it. Any other texel with bit 13 of `y` set is not `UNTRACKED`; without the marker it fires
+every direction. The reference model and the conformance vectors start from it; a host does not,
 because it would pass its first frame, or the first frame after a reset, with no budget charged,
 CORE-2516.)
 
 The tracker textures are RGBA32UI (`rgba32Uint`, `GL_RGBA32UI`) and every seed and clear is
-32-bit. At start a host clears a texel of each tracker copy to a value with bit 31 set in every
-word, reads each back and presents black if any word differs: a 16-bit store would otherwise hold
-every changed pixel.
+32-bit. At start, before it seeds, a host clears a texel of each tracker copy to a value with bit 31 set
+in every word, reads each back and presents black if any word differs: a 16-bit store would
+otherwise fire every direction at every changed pixel. It then writes the production seed over
+the probed texel; a probe value left in place is a valid texel with full boxes and fires where
+`BLACK_TEXEL` would not.
 
 `G` and the tracker state of a frame on screen are never cleared. When only the window changes
 (the viewing geometry: the same frame at the same display scale, all of it still in view), the
