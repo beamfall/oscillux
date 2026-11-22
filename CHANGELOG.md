@@ -10,6 +10,19 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.17] - 2026-11-22
+
+### Changed
+
+- The CD+G presenter draws sharper and more legible graphics (CORE-3242,
+  openspec/changes/cdg-legible/). The edge ramp after the smoothing blur is a little over half a
+  frame pixel wide (was a full pixel) at a threshold of 112, so letters stay crisp without
+  fattening. A graphics colour that touches the backdrop and falls under a 3.5:1 contrast ratio
+  against the backdrop's luminance range is mixed toward white or black, fewest sixteenths first,
+  unless a stage-legible contrasting colour outlines it; that protection lasts until the
+  background index or palette changes. `conformance/cdg-present/` is regenerated and specifies
+  the rules (README, Colours). The C interface is unchanged.
+
 ## [0.2.16] - 2026-11-22
 
 ### Changed
