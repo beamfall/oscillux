@@ -29,6 +29,11 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   marker, then fires every direction at a changed colour and counts toward the area limit like
   any firing pixel (a zero seed survives and is tracked black); the format check is what keeps a
   16-bit store off screen.
+- Vault, Ink, Event Horizon and Filament are calmer, so the limiter holds under 0.5% of their
+  pixels a frame in the web player under loud audio. Vault's pattern crossfade runs evenly over
+  its eight beats and its projector colours keep one brightness. Seven visuals' palette tour
+  wrapped past the end of the 16-palette table out of the last palette; it now wraps at
+  `OS_PAL_COUNT`.
 
 ## [0.2.12] - 2026-11-21
 

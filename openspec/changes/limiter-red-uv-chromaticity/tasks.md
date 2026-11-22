@@ -38,7 +38,8 @@
 
 ## 4. Visuals
 
-- [ ] 4.1 `limiter-red-audit.mjs --release --audio loud`, run by the gate's `--max-luma 6` step
+- [x] 4.1 `limiter-red-audit.mjs --release --audio loud --max-luma 6` on the ten changed visuals:
+      no red or luma transition over the limits, in or out (the whole set runs past ten minutes)
 - [x] 4.2 Probe the 61 release visuals once in the web player on the candidate legs: over 0.5
       were vault 0.99, ink 1.26, event-horizon 0.73 and filament 0.51
 - [x] 4.3 Calm any visual over 0.5% of pixels held a frame, and probe only those again: vault
