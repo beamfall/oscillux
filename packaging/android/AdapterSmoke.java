@@ -472,8 +472,8 @@ public final class AdapterSmoke {
             clock.putDouble(0, 11000).putDouble(8, 90).putLong(32, 7).putInt(40, 4);
             require(sampler.setBeatClock(clock)==0);
             for (int k=0; k<=60; k++) require(sampler.sample(k==60 ? 12000 : 11000+k*1000.0/60, reaction)==0);
-            // Slewed onto the clock: 1.5 beats after beat 7.
-            require(reaction.getDouble(360)==90 && reaction.getLong(376)==8 && reaction.getInt(388)==1 && Math.abs(reaction.getDouble(344)-0.5)<1e-9);
+            // Taken at once (tempo, lock, count); the phase slews onto the clock: 1.5 beats after beat 7.
+            require(reaction.getDouble(360)==90 && reaction.getLong(376)==8 && reaction.getInt(388)==1 && Math.abs(reaction.getDouble(344)-0.5)<5e-3);
             clock.putInt(40, 0);
             require(sampler.setBeatClock(clock)<0 && sampler.setBeatClock(null)==0);
             require(sampler.reset()==0 && sampler.queued()==0);

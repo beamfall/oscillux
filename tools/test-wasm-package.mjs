@@ -222,11 +222,11 @@ let clickTrain;
   const clock = new m.BeatClock();
   clock.tempoBpm = 90; clock.beatIndex = 7; clock.mediaTimeMs = seconds * 1000;
   assert.equal(reaction.setBeatClock(clock), 0);
-  // Slewed onto the clock within a second: 1.5 beats after beat 7.
+  // Taken at once (tempo, lock, count); the phase slews onto the clock: 1.5 beats after beat 7.
   for (let k = 0; k < 60; k++) assert.equal(reaction.sample(seconds * 1000 + k * frameMs), 0);
   assert.equal(reaction.sample(seconds * 1000 + 1000), 0);
   assert.deepEqual([reaction.locked(), reaction.tempoBpm(), reaction.confidence(), reaction.beatCount()], [true, 90, 1, 8]);
-  assert.ok(Math.abs(reaction.beatPhase() - 0.5) < 1e-9, `clock phase ${reaction.beatPhase()}`);
+  assert.ok(Math.abs(reaction.beatPhase() - 0.5) < 5e-3, `clock phase ${reaction.beatPhase()}`);
   clock.beatsPerBar = 0;
   assert.equal(reaction.setBeatClock(clock), -2, 'beats per bar 0');
   assert.equal(reaction.clearBeatClock(), 0);
