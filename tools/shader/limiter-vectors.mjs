@@ -106,6 +106,16 @@ export const CASES = [
   { name: 'red-zero-mixed', frames: 260, width: 64, height: 36, reset: { at: 128, seed: 'zero' }, signal: { kind: 'bands', period: 1000, bg: K, bands: [
     { rect: [0, 0, 0.5, 1], keys: [[0, K], [100, ORANGE], [120, K], [128, NEAR_RED]] },
     { rect: [0.5, 0, 1, 1], keys: [[0, K], [100, [0, 0, 60]], [120, K], [128, NEAR_RED]] }] } },
+  // Codex design round 2 (widened memory): two adjacent 8 x 5 patches, each under the window's
+  // limit, whose falls at frame 6 and rises at frame 16 come after a fire that may not have been a
+  // transition (the left patch's (12, 12, 24), the right's (18, 0, 3)) left a spent code in the box
+  // beside a live one (P1-A, section 13); and a zero restart after an orange and magenta history,
+  // then a saturated and a non-saturated red 0.183 apart alternating (P1-B).
+  { name: 'red-uncertain-box', frames: 120, width: 64, height: 36, signal: { kind: 'bands', period: 15, bg: K, bands: [
+    { rect: [0.3125, 0.25, 0.4375, 0.3888888888888889], keys: [[0, [51, 18, 0]], [1, [12, 12, 24]], [2, [60, 6, 21]], [3, [36, 6, 42]], [7, [0, 0, 60]]] },
+    { rect: [0.4375, 0.25, 0.5625, 0.3888888888888889], keys: [[0, [45, 15, 3]], [2, [60, 6, 18]], [5, [48, 9, 57]], [6, [18, 0, 3]], [7, [33, 60, 57]], [8, [45, 15, 3]]] }] } },
+  { name: 'red-zero-retained', frames: 400, width: 64, height: 36, reset: { at: 10, seed: 'zero' }, signal: { kind: 'runs', runs: [[1, K], [1, [42, 12, 36]], [98, K], [90, [57, 42, 12]], [90, [48, 0, 3]], [31, [57, 21, 3]],
+    ...Array.from({ length: 30 }, (_, i) => [3, i % 2 ? [48, 0, 3] : [27, 0, 21]])] } },
 ];
 
 export function fnv1a(bytes) {

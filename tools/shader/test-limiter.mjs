@@ -1507,6 +1507,79 @@ test(`u'v': black keeps the chromaticity memory`, () => {
   assert.deepEqual([a.transitions[2], a.transitions[3]], [[], [1, 91]]);
 });
 
+// An independent float reference for Codex design round 2 (design.md, section 13): per pixel, the
+// exact saturated and non-saturated colours since the last fire in each direction; a colour fires
+// up (+1) when saturated and over 0.2 in IEC 61966-2-1 u'v' from a stored non-saturated colour,
+// down (-1) the other way, and a fire clears the colours it crossed from.
+const uvLin = k => { const c = k / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+function uvFloat(rgb) {
+  const [r, g, b] = rgb.map(uvLin), X = 0.4124 * r + 0.3576 * g + 0.1805 * b, Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const D = X + 15 * Y + 3 * (0.0193 * r + 0.1192 * g + 0.9505 * b);
+  return [4 * X / D, 9 * Y / D];
+}
+function exactUv() {
+  const sat = [], far = [];
+  let prev = '0,0,0';
+  return rgb => {
+    const key = rgb.join(), was = prev;
+    prev = key;
+    if (key === was || key === '0,0,0') return 0;
+    const [r, g, b] = rgb.map(uvLin), s = r / (r + g + b) >= 0.8, p = uvFloat(rgb), from = s ? far : sat;
+    const fire = from.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) > 0.2);
+    if (fire) from.length = 0;
+    (s ? sat : far).push(p);
+    return fire ? (s ? 1 : -1) : 0;
+  };
+}
+/** The most frames in any `perSecond` frames at which both patches' exact references fire the same
+ * way within `within` frames of each other: their union is over the field's limit. */
+function bothPatches(fires, within, perSecond) {
+  const both = fires[0].filter(([t, f]) => fires[1].some(([u, g]) => g === f && Math.abs(u - t) < within)).map(([t]) => t);
+  return Math.max(0, ...both.map(t => both.filter(u => u >= t && u < t + perSecond).length));
+}
+
+// Codex design round 2 P1-A: two adjacent 8 x 5 patches at 240 Hz whose earlier fires may not have
+// been transitions; a clearing fire from a spent code dropped a live one, and both patches flashed
+// four times in 0.967 s with nothing held. The fix keeps the box, clipped and uncertain.
+test(`u'v': two patches after uncertain fires show at most one exact red flash a second (P1-A)`, () => {
+  const w = 64, h = 36, dt = 1 / 240, lim = model.createLimiter({ width: w, height: h, start: 'black' });
+  const output = createAuditor({ width: w, height: h });
+  const keys = [[[0, [51, 18, 0]], [1, [12, 12, 24]], [2, [60, 6, 21]], [3, [36, 6, 42]], [31, [0, 0, 60]]],
+    [[2, [60, 6, 18]], [29, [48, 9, 57]], [30, [18, 0, 3]], [31, [33, 60, 57]], [32, [45, 15, 3]]]];
+  const cur = [BLACK, BLACK], refs = [exactUv(), exactUv()], fires = [[], []];
+  const px = new Uint8Array(w * h * 4);
+  for (let t = 0; t < 290; t++) {
+    keys.forEach((k, i) => { for (const [o, c] of k) if (o === t % 58) cur[i] = c; });
+    for (let y = 9; y < 14; y++) for (let x = 20; x < 36; x++) px.set([...cur[x < 28 ? 0 : 1], 255], 4 * (w * y + x));
+    const r = lim.step(px, dt);
+    output.push(r.out, dt);
+    for (let i = 0; i < 2; i++) {
+      const q = 4 * (9 * w + 20 + 8 * i), f = refs[i](Array.from(r.out.slice(q, q + 3)));
+      if (f) fires[i].push([t, f]);
+    }
+  }
+  assert.ok(bothPatches(fires, 16, 240) <= 2, `both patches cross together ${bothPatches(fires, 16, 240)} times in 1 s`);
+  assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+});
+
+test(`u'v': red-uncertain-box, P1-A at 60 Hz, shows at most one exact red flash a second`, () => {
+  const { frames, output, w } = runCase('red-uncertain-box', { keep: true });
+  const refs = [exactUv(), exactUv()], fires = [[], []];
+  frames.forEach(({ out }, t) => [20, 28].forEach((x, i) => {
+    const q = 4 * (9 * w + x), f = refs[i](Array.from(out.slice(q, q + 3)));
+    if (f) fires[i].push([t, f]);
+  }));
+  assert.ok(bothPatches(fires, 4, 60) <= 2, `both patches cross together ${bothPatches(fires, 4, 60)} times in 1 s`);
+  assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+});
+
+// Codex design round 2 P1-B: a zero restart that kept the auditor's boxes let them fire where the
+// limiter's unknown boxes did not (20 auditor red transitions a second); now both start unknown.
+test(`u'v': a zero restart after an orange and magenta history counts as the limiter does (P1-B)`, () => {
+  const { output } = runCase('red-zero-retained');
+  assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+});
+
 test(`u'v': the 32-bit marker and the RGBA16UI clamp (P1-3)`, () => {
   const [x, y, z, w] = model.BLACK_TEXEL;
   assert.ok(model.texelValid(x, y, z, w) && model.texelValid(0, 0, 0, 0));

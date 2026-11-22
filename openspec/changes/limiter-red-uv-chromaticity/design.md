@@ -115,8 +115,8 @@ The step on a shown colour c, after the previous output p:
 |---|---|---|
 | black | nothing | boxes unchanged |
 | non-black, c == p | nothing | c joins the boxes |
-| saturated, c != p | up if FB is unknown, or non-empty and possibly over | if FB is definitely over: FB := known, empty; c joins SB |
-| other, c != p | down if SB is known and possibly over, or unknown and c far | if SB is definitely over, or unknown and c very far: SB := known, empty; c joins FB if far |
+| saturated, c != p | up if FB is unknown, or non-empty and possibly over | on an up: FB := known, empty if FB is certain and definitely over, else clipped (section 13); c joins SB |
+| other, c != p | down if SB is known and possibly over, or unknown and c far | on a down: SB := known, empty if c is very far or SB is certain and definitely over, else clipped (section 13); c joins FB if far |
 
 c joins SB when saturated and FB when far. A union is the cellwise bounding box.
 
@@ -164,8 +164,8 @@ existing texel, and z gains two bits, so every existing masked read is unchanged
 |---|---|---|
 | x | luma extreme, `RED_MEM_HI` | SB u min (9 bits), FB u min (7 bits) |
 | y | luma distance, `LUMA_UP`, `UNTRACKED`, `RED_MEM_LO` | SB u max (9), FB u max (7) |
-| z | red extreme and distance, `RED_UP`, SB known (bit 13), FB known (bit 14) | SB v min (8), FB v min (7), marker (bit 31) |
-| w | stamps | SB v max (8), FB v max (7) |
+| z | red extreme and distance, `RED_UP`, SB known (bit 13), FB known (bit 14), SB uncertain (bit 15) | SB v min (8), FB v min (7), marker (bit 31) |
+| w | stamps | SB v max (8), FB v max (7), FB uncertain (bit 31) |
 
 A min is stored as N - cell and a max as cell + 1 (N = 511, 255 or 127), so the empty box is zero
 and a union is the bitwise field maximum.
@@ -177,8 +177,8 @@ and a union is the bitwise field maximum.
   is set or it is all zero. Any other texel (a host that stored 16 bits, clamped or truncated)
   fires every direction at a changed colour, so the limiter holds it; `UNTRACKED` is matched
   exactly, so a clamped 65535 never reads as untracked.
-- **Format check.** At start a host clears one tracker texel to a value with bit 31 set in every
-  word, reads it back, and presents black if any word differs. WebGL `RGBA32UI`, Metal
+- **Format check.** At start a host clears a texel of each tracker attachment to a value with bit
+  31 set in every word, reads each back, and presents black if any word differs (P3, section 13). WebGL `RGBA32UI`, Metal
   `.rgba32Uint`, GLES `GL_RGBA32UI`; seeds and clears are 32-bit. Memory is 16 bytes a pixel per
   copy: two copies are 265 MB at 3840 x 2160, up from 133 MB.
 - **Rows pass.** The rows pass evaluates `fires()`, which now reads the previous output, so a host
@@ -196,8 +196,9 @@ each frame with the previous input frame:
 
 - at its first frame (`!live`) each pixel takes its colour as the limiter does at `UNTRACKED`;
 - a black reseed makes both boxes known and empty, as `BLACK_TEXEL` does;
-- a zero restart keeps its boxes. Where the limiter is unknown and the auditor is not, the limiter
-  fires on a superset (section 4), so the limiter's area includes every pixel the auditor counts.
+- a zero restart makes both boxes unknown, as the zero seed does, so the auditor and the limiter
+  step the same chromaticity state from it (P1-B, section 13). Unknown boxes are a superset of any
+  history, so this never hides a transition the auditor kept.
 
 Its red direction per pixel and frame is the u'v' one when that fires, else the 320 rule's. It
 records at most one large-area red transition a frame (up when both directions are over the
@@ -319,3 +320,39 @@ Round 1, widened memory with a last-saturated reference (HOLD):
   frame-8 assertions (section 9).
 - **P2-3, a 0.094 saturated/far alternation held 54 of 120 frames:** the up test now needs a far
   state possibly more than 0.2 away, not any far state; never held (section 9).
+
+Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13.
+
+## 13. Codex design round 2 and the certain bit
+
+- **P1-A, a clearing fire from a spent code.** A box's edge strip proves a stored code only while
+  every code the box was built from is still a reference. After a fire that cleared nothing, the
+  box keeps codes the fire already discharged beside live ones; a later definite step from a spent
+  code cleared the live ones too, and two adjacent 8 x 5 patches at 240 Hz then flashed four times
+  in 0.967 s with nothing held. Verified against an independent float reference (exact colours,
+  cleared at each fire): 80 pixels crossed together at frames 31 to 263, over the field's limit
+  of 63.
+- **The certain bit.** Each box carries an *uncertain* bit (SB: z bit 15; FB: w bit 31), zero
+  meaning certain, so the seeds are unchanged. A fire clears its box (known, empty, certain) only
+  when the box is certain and definitely over, or, for SB, when c is very far. Otherwise it clips
+  the box to the cells that overlap [p - R, p + R] on each axis, R = 3285 codes (R squared = TH),
+  and the box is uncertain if any cell remains. A code more than R from c on either axis is more
+  than 0.2 away, so it was a reference the fire discharged; the codes kept may be discharged too,
+  which only over-counts. An unknown box stays unknown at a fire that does not clear it.
+- **P1-B, a zero restart that kept the auditor's boxes.** After a zero restart the limiter's
+  unknown boxes and the auditor's kept boxes cleared at different fires, and the auditor counted
+  20 red transitions a second that the limiter never fired (the alternating pair is 0.183 apart,
+  so this was a limit violation of the auditor, not a flash). The auditor now makes both boxes
+  unknown at a zero restart (section 7).
+- **P3, the format check reads one attachment.** A host writes and reads back an unsigned 32-bit
+  value on each tracker attachment of the ping-pong pair before seeding (section 6).
+- **P3, `UNTRACKED` against the marker.** The exact `UNTRACKED` texel takes precedence over the
+  validity rule: it takes its first colour without firing.
+- **Cost.** The clip keeps codes a definite step could discharge, so a box that has gone uncertain
+  fires possible-only steps until a clip empties it. A 20 000-seed single-pixel fuzz against the
+  float reference misses nothing on either rule; possible-only fires rise from 114 594 to
+  145 514. The two P1-A patches are held for most of the cycle.
+- **Vectors.** `red-uncertain-box` (the P1-A patches at 60 Hz), `red-zero-retained` (P1-B), and a
+  240 Hz P1-A test with the float reference in `test-limiter.mjs`.
+- **Status.** Round 2 was the last design round the review allows. These fixes are unreviewed:
+  the legs, the host changes and the release wait for a further review round.

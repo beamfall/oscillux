@@ -8,7 +8,7 @@
 // cell ranges. Runs in `make limiter-check`, about a minute.
 //   node tools/shader/limiter-uv-check.mjs
 import {
-  LIN24_LUT, UV_D, UV_FN, UV_FU0, UV_FV0, UV_SNU, UV_SNV, UV_SU0, UV_SV0, UV_T, UV_TF, UV_TH, UV_TVF,
+  LIN24_LUT, UV_D, UV_FN, UV_FU0, UV_FV0, UV_R, UV_SNU, UV_SNV, UV_SU0, UV_SV0, UV_T, UV_TF, UV_TH, UV_TVF,
   UV_VERTS, UV_X, UV_Y, uvCode, uvFar, uvSat, uvVeryFar,
 } from './limiter-model.mjs';
 
@@ -81,6 +81,8 @@ const TF = Math.floor(((sT - E - EV - 1 / Q) * Q) ** 2);
 const L = Math.max(...[[0, 1], [0, 2], [1, 2]].map(([i, j]) => Math.hypot(UV_VERTS[i][0] - UV_VERTS[j][0], UV_VERTS[i][1] - UV_VERTS[j][1]) / Q));
 const TVF = Math.ceil(((Math.sqrt((sTH + E + 1 / Q) ** 2 + (L / 2) ** 2) + EV) * Q) ** 2);
 check(T === UV_T && TH === UV_TH && TF === UV_TF && TVF === UV_TVF, `thresholds ${JSON.stringify({ T, TH, TF, TVF })}`);
+// The clip half-width (section 13): a code more than UV_R from p on either axis is more than TH away.
+check(UV_R * UV_R === UV_TH, `UV_R ${UV_R}`);
 // The hull of the saturated codes and the SB cell range.
 const seen = new Set(), pts = [];
 for (let r = 0; r < 256; r++) for (let g = 0; g < 256; g++) for (let b = 0; b < 256; b++) {

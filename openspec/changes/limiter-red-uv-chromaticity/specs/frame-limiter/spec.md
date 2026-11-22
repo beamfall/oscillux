@@ -114,11 +114,12 @@ least 0.8, and never below 0.8 - 1e-12. A possible step SHALL be a squared code 
 
 ### Requirement: Red chromaticity transitions
 
-Every pixel SHALL keep a box of the saturated codes it showed since its last definite red fall and
-a box of the far codes since its last definite rise. At a changed colour it SHALL count down when
-the saturated box may hold a code more than a possible step away, and at a changed saturated colour
-up when the far box may. A box SHALL clear only at a definite step. Black SHALL change nothing. A
-pixel firing a direction by this rule SHALL count that direction only.
+Every pixel SHALL keep a box of the saturated codes shown since its last definite red fall and a
+box of the far codes since its last definite rise. A changed colour SHALL count down when the
+saturated box may hold a code over a possible step away, and a changed saturated colour up when the
+far box may. A fire SHALL clear a box only if definite from codes it still owes, else keep the
+codes within a possible step. Black SHALL change nothing. A pixel SHALL count only the direction
+this rule fires.
 
 #### Scenario: Black keeps the boxes
 
@@ -150,6 +151,12 @@ pixel firing a direction by this rule SHALL count that direction only.
 - **THEN** the pixel auditor counts at least 9 red transitions a second in the input and at most 1
   in the output
 
+#### Scenario: Two patches after fires that crossed nothing
+
+- **WHEN** two adjacent 8 x 5 patches at 240 Hz repeat a 58-frame cycle in which each fires once
+  without a transition, then rises to saturated red and falls more than 0.2 away together
+- **THEN** both patches together make at most one red flash a second, by a float u'v' reference
+
 #### Scenario: A saturated and near-saturated alternation
 
 - **WHEN** a pixel alternates between two colours 0.094 apart in u'v', one saturated and one far
@@ -166,8 +173,8 @@ pixel firing a direction by this rule SHALL count that direction only.
 A pixel's first value with no state SHALL set known boxes and count nothing. "Black, nothing owed"
 SHALL leave both boxes known and empty, and zero both unknown. An unknown saturated box SHALL count
 down at every changed far colour, and an unknown far box up at every changed saturated colour,
-until a definite step makes it known. The auditor SHALL keep its boxes at a zero restart and count
-at most one large-area red transition a frame.
+until a definite step makes it known. The auditor SHALL make both boxes unknown at a zero restart
+and count at most one large-area red transition a frame.
 
 #### Scenario: A blue after a black start
 
@@ -188,12 +195,19 @@ at most one large-area red transition a frame.
   zero, and the frame shows (1, 0, 0)
 - **THEN** the pixel auditor counts at most 1 red transition a second in the output
 
+#### Scenario: An alternation after a zero restart
+
+- **WHEN** a pixel shows (42, 12, 36), black, a zero restart, (57, 42, 12), (48, 0, 3),
+  (57, 21, 3), then (27, 0, 21) and (48, 0, 3) alternating every 3 frames at 60 Hz
+- **THEN** the pixel auditor counts at most 1 red transition a second in the output
+
 ### Requirement: Tracker texel format
 
 A host SHALL allocate both tracker textures RGBA32UI, seed and clear them with 32-bit values, check
-at start that a cleared texel with bit 31 set in every word reads back unchanged and present black
-if not, and bind `uHist` to the rows pass. Every texel a leg writes SHALL set bit 31 of z. A texel
-without it that is not all zero SHALL count every direction at a changed colour.
+at start that a texel of each, cleared with bit 31 set in every word, reads back unchanged and
+present black if not, and bind `uHist` to the rows pass. Every texel a leg writes SHALL set bit 31
+of z. A texel without it that is neither all zero nor exactly `UNTRACKED` SHALL count every
+direction at a changed colour.
 
 #### Scenario: A host keeps its trackers across frames
 

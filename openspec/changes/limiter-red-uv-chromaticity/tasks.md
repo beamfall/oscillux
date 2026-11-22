@@ -8,7 +8,10 @@
 - [x] 1.3 Last-saturated reference and Codex round 1: HOLD on P1-1, P1-2, P1-3
 - [x] 1.4 Rewrite the proposal, the design (codes, thresholds, saturated and far boxes, merged
       direction, RGBA32UI texel and host contract, auditor, vectors) and the spec delta
-- [ ] 1.5 Codex design round 2 (the last): no P1 or P2 left
+- [x] 1.5 Codex design round 2 (the last): HOLD on P1-A (verified flash) and P1-B (auditor)
+- [x] 1.6 Fix in the model and auditor: the uncertain bits, the clip, unknown boxes at an auditor
+      zero restart; design section 13; vectors `red-uncertain-box`, `red-zero-retained`
+- [ ] 1.7 A further design round on section 13, which needs the coordinator's approval
 
 ## 2. Model, auditor and legs
 
@@ -18,7 +21,7 @@
 - [ ] 2.3 `shaders/limiter/common.glsl`, `output.glsl`, `rows.glsl`; `LIN24_LUT` in the generated
       `luma-lut.glsl`; RGBA32UI tracker textures in `limiter.mjs`, `limiter-check.mjs` and
       `limiter-metal.swift`
-- [ ] 2.4 `tools/shader/limiter-uv-check.mjs` in `make limiter-check`
+- [ ] 2.4 `tools/shader/limiter-uv-check.mjs` in `make limiter-check` (`UV_R` added)
 - [ ] 2.5 `shaders/limiter/README.md`, `conformance/limiter/frame/README.md` and `CHANGELOG.md`
 
 ## 3. Conformance

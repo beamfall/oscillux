@@ -93,7 +93,7 @@ A host that does not know its device class uses `wcag`.
   one full token; a paired grant leaves two), `gz` the red token deficit and `gw` the luma credit.
   Every word is compared, so a leg that drops the red remainder or deficit fails (Codex round 17).
 - `digest`: FNV-1a 32 of the output RGBA8 bytes.
-- `track`: FNV-1a 32 of the tracker state after the frame, RGBA16UI per pixel as little-endian
+- `track`: FNV-1a 32 of the tracker state after the frame, RGBA32UI per pixel as little-endian
   bytes (`shaders/limiter/README.md`).
 
 ## Cases

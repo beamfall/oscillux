@@ -87,6 +87,9 @@ export const LUMA_MAX = 32767, RED_MAX = 255, RED_MEM_HI = 32768, LUMA_UP = 4096
   RED_MEM_LO = 32768, RED_UP = 4096;
 // z bits 13 and 14: the saturated and far boxes are known (uvStep); z bit 31: written at 32 bits.
 export const UV_SBK = 8192, UV_FBK = 16384, UV_MARKER = 0x80000000;
+// z bit 15 and w bit 31: the saturated and far boxes are uncertain (uvStep, design.md section 13);
+// UV_SBU is a z low-half bit, UV_FBU a w high-half bit. UV_ZBITS are the box bits of z's low half.
+export const UV_SBU = 32768, UV_FBU = 32768, UV_ZBITS = UV_SBK | UV_FBK | UV_SBU;
 export const TOKEN = 65025;
 // A host that has presented exact (0, 0, 0) black for this long before a restart may start the
 // trackers at BLACK_TEXEL, and the auditor, told of that restart, reseeds every pixel black that
@@ -143,6 +146,9 @@ export const UV_VERTS = [[7386, 8567], [5044, 8852], [6396, 7255]];
 // saturated code may be more than a step away) and very far (every saturated code is definitely
 // more than 0.2 away). limiter-uv-check.mjs derives and verifies them over every 8-bit colour.
 export const UV_T = 10683798, UV_TH = 10791225, UV_TF = 10634475, UV_TVF = 12233465;
+// The definite step's distance in codes (UV_TH is its square): codes further apart on either axis
+// are more than 0.2 apart.
+export const UV_R = 3285;
 // The boxes (uvStep): SB holds saturated codes in 8-code cells from (UV_SU0, UV_SV0), 9 bits of u
 // cell and 8 of v; FB far codes in 64-code cells from (UV_FU0, UV_FV0), 7 bits each. A min is
 // stored as N - cell and a max as cell + 1, so the empty box is 0 and a union is the max.
@@ -275,37 +281,68 @@ function uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, k) {
   return over(ulo, ulo + k - 1, vlo, vhi) || over(uhi - k + 1, uhi, vlo, vhi) ||
     over(ulo, uhi, vlo, vlo + k - 1) || over(ulo, uhi, vhi - k + 1, vhi);
 }
+/** Clips one axis of a box to the codes within R of p: cells [lo, hi] from base, `shift` the cell
+ * width's log2; returns hi < lo when nothing is left. */
+function uvClipAxis(lo, hi, p, base, shift, out, k) {
+  const a = p - UV_R - base, b = p + UV_R - base;
+  out[k] = Math.max(lo, Math.max(a, 0) >> shift);
+  out[k + 1] = b < 0 ? -1 : Math.min(hi, b >> shift);
+}
+const clip = [0, 0, 0, 0];
 /** The chromaticity step for colour (r, g, b) after the previous output (pr, pg, pb), on the
- * texel's high halves (xh, yh, zh, wh) and known bits kb (z & (UV_SBK | UV_FBK)): writes the new
- * halves (zh with UV_MARKER) to out[0..3] and known bits to out[4], and returns 1 up, -1 down, 0
- * none. SB is the box of the saturated codes shown since the last definite down, FB of the far
- * codes since the last definite up; each is known (its bit set: it holds every such code) or
- * unknown (a zero seed: earlier ones were lost). Only a colour other than the previous output
- * fires. A saturated colour fires up when FB is unknown or has a point more than a step from it;
- * another non-black colour fires down when SB is known and has such a point, or is unknown and
- * the colour far. A definite fire (a strip of the box, or with SB unknown a very-far colour, more
- * than 0.2 away) empties the box and makes it known; a fire that may not be over 0.2 keeps it.
- * Then the colour joins SB if saturated and FB if far. Black changes nothing (design.md, section
- * 4). */
+ * texel's high halves (xh, yh, zh, wh) and z's box bits kb (z & UV_ZBITS): writes the new halves
+ * (zh with UV_MARKER, wh with UV_FBU) to out[0..3] and z's box bits to out[4], and returns 1 up,
+ * -1 down, 0 none. SB is the box of the saturated codes shown since the last red fall, FB of the
+ * far codes since the last red rise; each is known (its bit set: it holds every such code) or
+ * unknown (a zero seed: earlier ones were lost), and certain (every code it was built from is
+ * still a reference) or uncertain (UV_SBU, UV_FBU: a fire that may not have been a transition
+ * kept codes that may be spent). Only a colour other than the previous output fires. A saturated
+ * colour fires up when FB is unknown or has a point more than a step from it; another non-black
+ * colour fires down when SB is known and has such a point, or is unknown and the colour far. A
+ * fire empties the box and makes it known and certain when it is surely a transition from every
+ * code the box may hold: the box is certain and one of its edge strips is more than 0.2 away, or,
+ * for SB, the colour is very far. Any other fire keeps only the box's cells within a definite step
+ * of the colour, the codes it may not have spent, and makes the box uncertain unless that is
+ * nothing. Then the colour joins SB if saturated and FB if far. Black changes nothing (design.md,
+ * sections 4 and 13). */
 export function uvStep(xh, yh, zh, wh, kb, r, g, b, pr, pg, pb, out) {
   let su0 = xh & 511, su1 = yh & 511, sv0 = zh & 255, sv1 = wh & 255;
   let fu0 = xh >>> 9, fu1 = yh >>> 9, fv0 = (zh >>> 8) & 127, fv1 = (wh >>> 8) & 127;
   let sbk = (kb & UV_SBK) !== 0, fbk = (kb & UV_FBK) !== 0, dir = 0;
+  let sbu = (kb & UV_SBU) !== 0, fbu = (wh & UV_FBU) !== 0;
   if ((r | g | b) !== 0) {
     const c = uvCode(r, g, b), u = c >> 14, v = c & 16383, sat = uvSat(r, g, b);
     if (r !== pr || g !== pg || b !== pb) {
       if (sat) {
         const ulo = UV_FU0 + 64 * (UV_FN - fu0), uhi = UV_FU0 + 64 * fu1 - 1;
         const vlo = UV_FV0 + 64 * (UV_FN - fv0), vhi = UV_FV0 + 64 * fv1 - 1;
-        const def = fu1 > 0 && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 64);
-        if (def || !fbk || (fu1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi))) dir = 1;
-        if (def) { fu0 = fu1 = fv0 = fv1 = 0; fbk = true; }
+        if (!fbk || (fu1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi))) {
+          dir = 1;
+          if (fu1 > 0 && !fbu && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 64)) {
+            fu0 = fu1 = fv0 = fv1 = 0; fbk = true;
+          } else if (fu1 > 0) {
+            uvClipAxis(UV_FN - fu0, fu1 - 1, u, UV_FU0, 6, clip, 0);
+            uvClipAxis(UV_FN - fv0, fv1 - 1, v, UV_FV0, 6, clip, 2);
+            if (clip[1] < clip[0] || clip[3] < clip[2]) fu0 = fu1 = fv0 = fv1 = 0;
+            else { fu0 = UV_FN - clip[0]; fu1 = clip[1] + 1; fv0 = UV_FN - clip[2]; fv1 = clip[3] + 1; }
+          }
+          fbu = fu1 > 0;
+        }
       } else {
         const ulo = UV_SU0 + 8 * (UV_SNU - su0), uhi = UV_SU0 + 8 * su1 - 1;
         const vlo = UV_SV0 + 8 * (UV_SNV - sv0), vhi = UV_SV0 + 8 * sv1 - 1;
-        const def = (su1 > 0 && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 8)) || (!sbk && uvVeryFar(c));
-        if (def || (sbk ? su1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi) : uvFar(c))) dir = -1;
-        if (def) { su0 = su1 = sv0 = sv1 = 0; sbk = true; }
+        if (sbk ? su1 > 0 && uvBoxFar(u, v, ulo, uhi, vlo, vhi) : uvFar(c)) {
+          dir = -1;
+          if (uvVeryFar(c) || (su1 > 0 && !sbu && uvBoxDefinite(u, v, ulo, uhi, vlo, vhi, 8))) {
+            su0 = su1 = sv0 = sv1 = 0; sbk = true;
+          } else if (su1 > 0) {
+            uvClipAxis(UV_SNU - su0, su1 - 1, u, UV_SU0, 3, clip, 0);
+            uvClipAxis(UV_SNV - sv0, sv1 - 1, v, UV_SV0, 3, clip, 2);
+            if (clip[1] < clip[0] || clip[3] < clip[2]) su0 = su1 = sv0 = sv1 = 0;
+            else { su0 = UV_SNU - clip[0]; su1 = clip[1] + 1; sv0 = UV_SNV - clip[2]; sv1 = clip[3] + 1; }
+          }
+          sbu = su1 > 0;
+        }
       }
     }
     if (sat) {
@@ -319,8 +356,9 @@ export function uvStep(xh, yh, zh, wh, kb, r, g, b, pr, pg, pb, out) {
       fv0 = Math.max(fv0, UV_FN - iv); fv1 = Math.max(fv1, iv + 1);
     }
   }
-  out[0] = su0 | (fu0 << 9); out[1] = su1 | (fu1 << 9); out[2] = sv0 | (fv0 << 8) | 32768; out[3] = sv1 | (fv1 << 8);
-  out[4] = (sbk ? UV_SBK : 0) | (fbk ? UV_FBK : 0);
+  out[0] = su0 | (fu0 << 9); out[1] = su1 | (fu1 << 9); out[2] = sv0 | (fv0 << 8) | 32768;
+  out[3] = sv1 | (fv1 << 8) | (fbu ? UV_FBU : 0);
+  out[4] = (sbk ? UV_SBK : 0) | (fbk ? UV_FBK : 0) | (sbu ? UV_SBU : 0);
   return dir;
 }
 /** A pixel's first chromaticity state from colour (r, g, b): both boxes known, holding the colour
@@ -349,7 +387,7 @@ export function texelFires(x, y, z, w, r, g, b, pr, pg, pb) {
   if (untracked(x, y, z, w)) return 0;
   if (!texelValid(x, y, z, w)) return r !== pr || g !== pg || b !== pb ? 15 : 0;
   const fl = lumaStep(x, y, lumaCode(r, g, b), ftmp);
-  const fu = uvStep(x >>> 16, y >>> 16, z >>> 16, w >>> 16, z & (UV_SBK | UV_FBK), r, g, b, pr, pg, pb, fuv);
+  const fu = uvStep(x >>> 16, y >>> 16, z >>> 16, w >>> 16, z & UV_ZBITS, r, g, b, pr, pg, pb, fuv);
   const fr = fu || redCount(redStep(x, y, z, redCode(r, g, b), redSat(r, g, b), ftmp));
   return (fl > 0 ? 1 : 0) | (fl < 0 ? 2 : 0) | (fr > 0 ? 4 : 0) | (fr < 0 ? 8 : 0);
 }
@@ -625,7 +663,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         // A texel not written at 32 bits steps as the zero texel.
         if (!texelValid(x0, y0, z0, w0)) x0 = y0 = z0 = w0 = 0;
         const st = w0 & 65535;
-        const fu = uvStep(x0 >>> 16, y0 >>> 16, z0 >>> 16, w0 >>> 16, z0 & (UV_SBK | UV_FBK), r, g, b,
+        const fu = uvStep(x0 >>> 16, y0 >>> 16, z0 >>> 16, w0 >>> 16, z0 & UV_ZBITS, r, g, b,
           history[i], history[i + 1], history[i + 2], uv);
         const r3 = redStep(x0, y0, z0, rv, sat, tmp);
         const fr = fu || redCount(r3);

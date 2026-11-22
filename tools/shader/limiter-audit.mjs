@@ -28,7 +28,8 @@
 // pixel that has shown exact (0, 0, 0) for blackLongEnough on the presented timeline, up to the
 // restart's first frame, has both trackers reseeded to the black seed: red falling at 0, nothing
 // owed, no saturated state since. Every other pixel keeps its history, and a zero restart reseeds
-// nothing (the limiter's unknown red memory is conservative). Nothing expires during playback.
+// nothing (the limiter's unknown red memory is conservative) except that it makes every pixel's
+// chromaticity boxes unknown, as the zero seed does. Nothing expires during playback.
 // lastRestart reports the latest restart: { seed, reseeded, kept }, filled at its first frame
 // (openspec/changes/limiter-red-expire-black/). A black reseed also empties both chromaticity
 // boxes and makes them known, as BLACK_TEXEL does.
@@ -208,6 +209,9 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
         lastRestart.reseeded++;
       } else if (pending !== null) {
         lastRestart.kept++;
+        // A zero restart leaves the limiter's boxes unknown; the auditor's become unknown too, a
+        // superset of the codes it kept, so both step the same state (design.md, section 13).
+        if (pending === 'zero') { for (let k = 0; k < 4; k++) uvh[k][j] = 0; uvk[j] = 0; }
       }
       if (r !== 0 || g !== 0 || b !== 0) blackSince[j] = NaN;
       else if (Number.isNaN(blackSince[j])) blackSince[j] = clock;
