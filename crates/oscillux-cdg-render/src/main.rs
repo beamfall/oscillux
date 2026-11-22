@@ -118,8 +118,8 @@ fn main() -> ExitCode {
     }
 }
 
-/// `floor(seconds * per_second)`, nudged by a millionth of a unit so a frame time that is exactly
-/// on a pack or millisecond boundary, but lands a rounding error below it, still reaches it.
+/// `floor(seconds * per_second + 1e-6)`: a time less than a millionth of a unit below a pack or
+/// millisecond boundary counts as on it, so floating-point rounding never shows a pack late.
 fn floor_units(seconds: f64, per_second: u32) -> i64 {
     (seconds * per_second as f64 + 1e-6).floor() as i64
 }
