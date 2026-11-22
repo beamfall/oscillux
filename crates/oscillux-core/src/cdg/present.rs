@@ -24,7 +24,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use super::{
-    Decoder, Region, EDGE_PIXELS, SCREEN_WIDTH, TILE_HEIGHT, TILE_WIDTH, WINDOW_HEIGHT, WINDOW_WIDTH,
+    Decoder, Region, EDGE_PIXELS, SCREEN_WIDTH, TILE_HEIGHT, TILE_WIDTH, WINDOW_HEIGHT,
+    WINDOW_WIDTH,
 };
 
 /// Largest accepted frame width or height.
@@ -35,10 +36,10 @@ pub const EASE_MS: i64 = 300;
 pub const SHADOW_ALPHA: u32 = 166;
 /// Squared colour distance (4-bit levels) from the background at which a colour casts a shadow.
 pub const INK_DISTANCE: i32 = 12;
-/// How far the gradient lightens the top row toward white, out of 1024.
-pub const TOP_LIGHTEN: i32 = 102;
-/// How far the gradient darkens the bottom row toward black, out of 1024.
-pub const BOTTOM_DARKEN: i32 = 205;
+/// Brightness of the backdrop's base relative to the background colour, out of 1024.
+pub const BASE_LEVEL: i64 = 230;
+/// Drift periods of the two glows' centres (x, y), in media milliseconds.
+pub const GLOW_PERIODS_MS: [[i64; 2]; 2] = [[23_000, 31_000], [27_000, 37_000]];
 /// Level (of 255) of a blurred layer mask where its edge is drawn. Below the 127.5 of a straight
 /// edge, so a lone window pixel (113 after the blur) still draws.
 pub const EDGE_THRESHOLD: i64 = 100;
@@ -54,6 +55,8 @@ const MASK_WIDTH: usize = WINDOW_WIDTH + 2 * PAD;
 const MASK_HEIGHT: usize = WINDOW_HEIGHT + 2 * PAD;
 /// Shadow offset, one window pixel in 16.16 fixed point.
 const SHADOW_OFFSET: i64 = 1 << 16;
+/// Backdrop sample spacing in frame pixels; the glows and vignette are interpolated between.
+const BACKDROP_STEP: usize = 8;
 const BAYER: [[u32; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
 /// The background colour index of the current window: the Memory Preset colour when it covers at
@@ -72,6 +75,17 @@ pub fn background_index(decoder: &Decoder) -> u8 {
         }
     }
     best as u8
+}
+
+/// The indices that belong to the backdrop: the background index and every index covering at
+/// least a quarter of the edge ring, so a painted background of several shades is not drawn as
+/// graphics and casts no shadow.
+pub fn backdrop_indices(decoder: &Decoder) -> [bool; 16] {
+    let mut counts = [0u32; 16];
+    decoder.index_counts(Region::Edge, &mut counts);
+    let mut set = counts.map(|count| count as usize * 4 >= EDGE_PIXELS);
+    set[background_index(decoder) as usize] = true;
+    set
 }
 
 /// One axis sample: the two source cells, the weight (0..=255, of 256) of the second, and the
@@ -101,11 +115,11 @@ fn taps(out: &mut [Tap], start: usize, span: usize, size: usize, shift: i64, fea
             f: ((pos & 0xFFFF) >> 8) as u32,
             edge: if d < 0 || d as usize >= span {
                 0
-            } else if feather == 0 {
-                256
             } else {
                 let e = (d as usize).min(span - 1 - d as usize);
-                ((2 * e + 1) * 128 / feather).min(256) as u32
+                ((2 * e + 1) * 128)
+                    .checked_div(feather)
+                    .map_or(256, |v| v.min(256)) as u32
             },
         };
     }
@@ -135,10 +149,26 @@ fn scale2x(src: &[u8], w: usize, h: usize, rank: &[u16; 16], dst: &mut [u8]) {
             let ur = src[up * w + right];
             let dl = src[down * w + left];
             let dr = src[down * w + right];
-            dst[at] = if c == a && c != d && a != b && take(a, ul) { a } else { p };
-            dst[at + 1] = if a == b && a != c && b != d && take(b, ur) { b } else { p };
-            dst[at + dw] = if d == c && d != b && c != a && take(c, dl) { c } else { p };
-            dst[at + dw + 1] = if b == d && b != a && d != c && take(d, dr) { d } else { p };
+            dst[at] = if c == a && c != d && a != b && take(a, ul) {
+                a
+            } else {
+                p
+            };
+            dst[at + 1] = if a == b && a != c && b != d && take(b, ur) {
+                b
+            } else {
+                p
+            };
+            dst[at + dw] = if d == c && d != b && c != a && take(c, dl) {
+                c
+            } else {
+                p
+            };
+            dst[at + dw + 1] = if b == d && b != a && d != c && take(d, dr) {
+                d
+            } else {
+                p
+            };
         }
     }
 }
@@ -195,12 +225,15 @@ pub struct Presenter {
     rows: Vec<Tap>,
     shadow_cols: Vec<Tap>,
     shadow_rows: Vec<Tap>,
-    stage_rows: Vec<[u32; 3]>,
+    stage_row: Vec<[u32; 3]>,
+    /// Per frame pixel, the graphics over the shadow, rebuilt only when the window, background
+    /// or palette changes: premultiplied R, G and B, `255 - alpha`, and the shadow's `keep`.
+    overlay: Vec<[u8; 5]>,
     frame: Vec<u8>,
     /// The background and palette the shadow mask was built for; `None` before the first frame.
     built: Option<(u8, [u16; 16])>,
     /// The inputs of the frame in `frame`: background, palette, stage colour.
-    drawn: Option<(u8, [u16; 16], [i64; 3])>,
+    drawn: Option<(u8, [u16; 16], [i64; 3], i64)>,
     last_ms: Option<i64>,
     from: [i64; 3],
     to: [i64; 3],
@@ -241,7 +274,8 @@ impl Presenter {
             rows: vec![Tap::default(); height],
             shadow_cols: vec![Tap::default(); width],
             shadow_rows: vec![Tap::default(); height],
-            stage_rows: vec![[0; 3]; height],
+            stage_row: vec![[0; 3]; width],
+            overlay: vec![[0, 0, 0, 255, 255]; width * height],
             frame: vec![255; width * height * 4],
             built: None,
             drawn: None,
@@ -253,16 +287,37 @@ impl Presenter {
         };
         let shift = ((PAD as i64) << 16) - SHADOW_OFFSET;
         // Feather the rectangle over one tile, so a painted window edge fades into the stage.
-        taps(&mut presenter.cols, rx, rw, X2_WIDTH, 0, rw * TILE_WIDTH / WINDOW_WIDTH);
-        taps(&mut presenter.rows, ry, rh, X2_HEIGHT, 0, rh * TILE_HEIGHT / WINDOW_HEIGHT);
+        taps(
+            &mut presenter.cols,
+            rx,
+            rw,
+            X2_WIDTH,
+            0,
+            rw * TILE_WIDTH / WINDOW_WIDTH,
+        );
+        taps(
+            &mut presenter.rows,
+            ry,
+            rh,
+            X2_HEIGHT,
+            0,
+            rh * TILE_HEIGHT / WINDOW_HEIGHT,
+        );
         // The shadow samples the padded mask, so cells outside the rectangle read its zero ring.
         taps(&mut presenter.shadow_cols, rx, rw, WINDOW_WIDTH, shift, 0);
         taps(&mut presenter.shadow_rows, ry, rh, WINDOW_HEIGHT, shift, 0);
-        for tap in presenter.shadow_cols.iter_mut() {
-            tap.i1 = (tap.i0 + 1).min(MASK_WIDTH as u32 - 1);
-        }
-        for tap in presenter.shadow_rows.iter_mut() {
-            tap.i1 = (tap.i0 + 1).min(MASK_HEIGHT as u32 - 1);
+        // Outside the rectangle the shadow reads the mask's zero corner instead of a clamped
+        // window edge.
+        for (taps, size) in [
+            (&mut presenter.shadow_cols, MASK_WIDTH),
+            (&mut presenter.shadow_rows, MASK_HEIGHT),
+        ] {
+            for tap in taps.iter_mut() {
+                tap.i1 = (tap.i0 + 1).min(size as u32 - 1);
+                if tap.edge == 0 {
+                    *tap = Tap::default();
+                }
+            }
         }
         Some(presenter)
     }
@@ -304,17 +359,25 @@ impl Presenter {
         }
         let rebuilt = window_changed || self.built != Some((background, palette));
         if rebuilt {
+            let backdrop = backdrop_indices(decoder);
             let rank = ranks(background, &palette);
-            scale2x(&self.window, WINDOW_WIDTH, WINDOW_HEIGHT, &rank, &mut self.x2);
-            self.build_layers(background, &rank);
-            self.build_mask(background, &rank);
+            scale2x(
+                &self.window,
+                WINDOW_WIDTH,
+                WINDOW_HEIGHT,
+                &rank,
+                &mut self.x2,
+            );
+            self.build_layers(&backdrop, &rank);
+            self.build_mask(&backdrop, &rank);
+            self.compose(background, &palette);
             self.built = Some((background, palette));
         }
-        let inputs = (background, palette, self.stage);
+        let inputs = (background, palette, self.stage, millis);
         if !rebuilt && self.drawn == Some(inputs) {
             return &self.frame;
         }
-        self.draw(background, &palette);
+        self.draw(millis);
         self.drawn = Some(inputs);
         &self.frame
     }
@@ -344,12 +407,11 @@ impl Presenter {
     /// One layer per non-background index present in the doubled window, lowest rank first. A
     /// layer's mask is 255 where the pixel ranks at or above the layer's index, box blurred once
     /// (radius 1, separable, edges clamped).
-    fn build_layers(&mut self, background: u8, rank: &[u16; 16]) {
+    fn build_layers(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
         let mut present = [false; 16];
         for &index in self.x2.iter() {
-            present[index as usize] = true;
+            present[index as usize] = !backdrop[index as usize];
         }
-        present[background as usize] = false;
         self.layer_count = 0;
         for (i, _) in present.iter().enumerate().filter(|(_, &p)| p) {
             self.layer_index[self.layer_count] = i as u8;
@@ -360,7 +422,11 @@ impl Presenter {
             let floor = rank[self.layer_index[layer] as usize];
             let mask = &mut self.layers[layer * X2_SIZE..(layer + 1) * X2_SIZE];
             for (m, &index) in mask.iter_mut().zip(self.x2.iter()) {
-                *m = if rank[index as usize] >= floor { 255 } else { 0 };
+                *m = if rank[index as usize] >= floor {
+                    255
+                } else {
+                    0
+                };
             }
             for y in 0..X2_HEIGHT {
                 let row = &mask[y * X2_WIDTH..(y + 1) * X2_WIDTH];
@@ -385,12 +451,12 @@ impl Presenter {
     }
 
     /// Marks ink pixels 255 in the padded mask and box blurs it twice (radius 1, separable).
-    /// Ink is any index whose colour is at least [`INK_DISTANCE`] (squared, in 4-bit levels)
-    /// from the background colour, so painted shades of the background cast no shadow.
-    fn build_mask(&mut self, background: u8, rank: &[u16; 16]) {
+    /// Ink is any index outside the backdrop whose colour is at least [`INK_DISTANCE`]
+    /// (squared, in 4-bit levels) from the background colour.
+    fn build_mask(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
         let mut ink = [false; 16];
         for (i, flag) in ink.iter_mut().enumerate() {
-            *flag = i as u8 != background && (rank[i] >> 4) as i32 >= INK_DISTANCE;
+            *flag = !backdrop[i] && (rank[i] >> 4) as i32 >= INK_DISTANCE;
         }
         self.mask.fill(0);
         for y in 0..WINDOW_HEIGHT {
@@ -423,42 +489,33 @@ impl Presenter {
         }
     }
 
-    fn draw(&mut self, background: u8, palette: &[u16; 16]) {
+    /// Composes the graphics layers and the shadow into `overlay`.
+    fn compose(&mut self, background: u8, palette: &[u16; 16]) {
         // Premultiplied colour of each index; the background index is transparent.
         let mut lut = [[0u32; 4]; 16];
         for (i, entry) in lut.iter_mut().enumerate() {
             if i as u8 != background {
                 let rgb = palette[i] as u32;
-                *entry = [((rgb >> 8) & 0xF) * 17, ((rgb >> 4) & 0xF) * 17, (rgb & 0xF) * 17, 255];
-            }
-        }
-        let span = (self.height.max(2) - 1) as i64;
-        for (y, row) in self.stage_rows.iter_mut().enumerate() {
-            let k = TOP_LIGHTEN as i64 - (TOP_LIGHTEN + BOTTOM_DARKEN) as i64 * y as i64 / span;
-            for c in 0..3 {
-                let v = self.stage[c];
-                let shaded = if k >= 0 {
-                    v + (65280 - v) * k / 1024
-                } else {
-                    v * (1024 + k) / 1024
-                };
-                row[c] = shaded.clamp(0, 65280) as u32;
+                *entry = [
+                    ((rgb >> 8) & 0xF) * 17,
+                    ((rgb >> 4) & 0xF) * 17,
+                    (rgb & 0xF) * 17,
+                    255,
+                ];
             }
         }
         let width = self.width;
-        for (y, line) in self.frame.chunks_exact_mut(width * 4).enumerate() {
+        for (y, line) in self.overlay.chunks_exact_mut(width).enumerate() {
             let ry = self.rows[y];
             let sy = self.shadow_rows[y];
-            let stage = self.stage_rows[y];
-            let bayer = &BAYER[y & 3];
             let row0 = ry.i0 as usize * X2_WIDTH;
             let row1 = ry.i1 as usize * X2_WIDTH;
             let m0 = &self.mask[sy.i0 as usize * MASK_WIDTH..][..MASK_WIDTH];
             let m1 = &self.mask[sy.i1 as usize * MASK_WIDTH..][..MASK_WIDTH];
-            for (x, px) in line.chunks_exact_mut(4).enumerate() {
-                let threshold = bayer[x & 3] * 16 + 8;
+            for (x, px) in line.iter_mut().enumerate() {
                 let sx = self.shadow_cols[x];
-                let top = m0[sx.i0 as usize] as u32 * (256 - sx.f) + m0[sx.i1 as usize] as u32 * sx.f;
+                let top =
+                    m0[sx.i0 as usize] as u32 * (256 - sx.f) + m0[sx.i1 as usize] as u32 * sx.f;
                 let bottom =
                     m1[sx.i0 as usize] as u32 * (256 - sx.f) + m1[sx.i1 as usize] as u32 * sx.f;
                 let m = (top * (256 - sy.f) + bottom * sy.f) >> 16;
@@ -481,7 +538,9 @@ impl Presenter {
                             break;
                         }
                         // Mask level in 8.8 fixed point.
-                        let v = (m00 as u32 * w00 + m01 as u32 * w01 + m10 as u32 * w10
+                        let v = (m00 as u32 * w00
+                            + m01 as u32 * w01
+                            + m10 as u32 * w10
                             + m11 as u32 * w11)
                             >> 8;
                         let cov = (((v as i64 - EDGE_THRESHOLD * 256) * self.ramp) >> 16) + 128;
@@ -498,13 +557,118 @@ impl Presenter {
                         *ch = (*ch * edge + 32768) >> 16;
                     }
                 }
+                *px = [
+                    g[0] as u8,
+                    g[1] as u8,
+                    g[2] as u8,
+                    (255 - g[3]) as u8,
+                    keep as u8,
+                ];
+            }
+        }
+    }
+
+    /// Draws the backdrop at `millis` under the overlay into `frame`.
+    fn draw(&mut self, millis: i64) {
+        let backdrop = Backdrop::new(self.stage, self.width as i64, self.height as i64, millis);
+        let width = self.width;
+        let rows = self.frame.chunks_exact_mut(width * 4);
+        for (y, (line, over)) in rows.zip(self.overlay.chunks_exact(width)).enumerate() {
+            backdrop.row(y as i64, &mut self.stage_row);
+            let bayer = &BAYER[y & 3];
+            for (x, (px, o)) in line.chunks_exact_mut(4).zip(over).enumerate() {
+                let threshold = bayer[x & 3] * 16 + 8;
+                let stage = self.stage_row[x];
+                let (keep, clear) = (o[4] as u32, o[3] as u32);
                 for c in 0..3 {
                     let s = ((stage[c] + threshold) >> 8).min(255);
                     let shade = div255(s * keep);
-                    px[c] = (g[c] + div255(shade * (255 - g[3]))).min(255) as u8;
+                    px[c] = (o[c] as u32 + div255(shade * clear)).min(255) as u8;
                 }
                 px[3] = 255;
             }
         }
+    }
+}
+
+/// `0..=65536` and back over `period` ms, eased at both ends (smoothstep of a triangle wave).
+fn drift(millis: i64, period: i64) -> i64 {
+    let t = millis.rem_euclid(period);
+    let tri = (2 * t * 65536 / period - 65536).abs();
+    (((tri * tri) >> 16) * (3 * 65536 - 2 * tri)) >> 32
+}
+
+/// The stage behind the graphics: a dark base in the background colour, a light glow of that
+/// colour and a glow of its hue-shifted neighbour drifting slowly, and a vignette. Colours are
+/// 8.8 fixed point.
+struct Backdrop {
+    width: i64,
+    height: i64,
+    base: [i64; 3],
+    glows: [([i64; 3], i64, i64, i64, i64); 2],
+}
+
+impl Backdrop {
+    fn new(stage: [i64; 3], width: i64, height: i64, millis: i64) -> Self {
+        let lighten = |v: i64, k: i64| v + (65280 - v) * k / 1024;
+        let base = stage.map(|v| v * BASE_LEVEL / 1024 + (6 << 8));
+        let warm = [0, 1, 2].map(|c| lighten((stage[c] + stage[(c + 2) % 3]) / 2, 80));
+        let light = stage.map(|v| lighten(v, 180));
+        let long = width.max(height);
+        // (colour, centre x, centre y, 2^32 / radius^2, strength of 65536).
+        let glow = |colour, n: usize, x: [i64; 2], y: [i64; 2], radius: i64, strength| {
+            let [px, py] = GLOW_PERIODS_MS[n];
+            let cx = width * (x[0] + (x[1] - x[0]) * drift(millis, px) / 65536) / 100;
+            let cy = height * (y[0] + (y[1] - y[0]) * drift(millis + px / 3, py) / 65536) / 100;
+            let r = (long * radius / 100).max(1);
+            (colour, cx, cy, (1i64 << 32) / (r * r), strength)
+        };
+        Backdrop {
+            width,
+            height,
+            base,
+            glows: [
+                glow(light, 0, [18, 34], [20, 40], 75, 36_000),
+                glow(warm, 1, [66, 84], [60, 82], 65, 30_000),
+            ],
+        }
+    }
+
+    /// The stage colour of every pixel of row `y`.
+    /// Row `y`, sampled every [`BACKDROP_STEP`] pixels and at the last pixel, linearly
+    /// interpolated between samples (rounding half up).
+    fn row(&self, y: i64, out: &mut [[u32; 3]]) {
+        let last = out.len() - 1;
+        let mut x0 = 0;
+        out[0] = self.sample(0, y);
+        while x0 < last {
+            let x1 = (x0 + BACKDROP_STEP).min(last);
+            out[x1] = self.sample(x1 as i64, y);
+            let (a, b) = (out[x0], out[x1]);
+            let span = (x1 - x0) as u32;
+            for (k, px) in out[x0 + 1..x1].iter_mut().enumerate() {
+                let t = k as u32 + 1;
+                for ch in 0..3 {
+                    px[ch] = (a[ch] * (span - t) + b[ch] * t + span / 2) / span;
+                }
+            }
+            x0 = x1;
+        }
+    }
+
+    fn sample(&self, x: i64, y: i64) -> [u32; 3] {
+        let (hw, hh) = (self.width / 2, self.height / 2);
+        let corner = (hw * hw + hh * hh).max(1);
+        let mut c = self.base;
+        for &(colour, cx, cy, inv, strength) in &self.glows {
+            let d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+            let q = 65536 - ((d2 * inv) >> 16).min(65536);
+            let a = (((q * q) >> 16) * strength) >> 16;
+            for ch in 0..3 {
+                c[ch] += ((colour[ch] - c[ch]) * a) >> 16;
+            }
+        }
+        let v = 65536 - 30_000 * ((x - hw) * (x - hw) + (y - hh) * (y - hh)) / corner;
+        c.map(|ch| ((ch * v) >> 16).clamp(0, 65280) as u32)
     }
 }
