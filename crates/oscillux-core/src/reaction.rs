@@ -262,8 +262,8 @@ pub struct Reaction {
     pub tempo_bpm: f64,
     /// Tracker confidence of the latest hop, 1 with a host clock, 0 without a reference.
     pub confidence: f64,
-    /// Beats counted at output wraps; a newly set host clock re-anchors it to the clock's beat
-    /// index at the next sample.
+    /// Beats counted at output wraps; a newly set host clock moves it by whole beats to within
+    /// one of the clock's beat index at the next sample.
     pub beat_count: i64,
     /// Index of the current beat within the bar; 0 is the downbeat.
     pub beat_in_bar: u32,
@@ -525,8 +525,8 @@ impl ReactionSampler {
     }
 
     /// Drives the beat outputs from `clock` instead of the tracker; `None` returns to the
-    /// tracker. The next sample takes a new clock's tempo and beat count; its phase is followed
-    /// by slewing, as a tracker update is.
+    /// tracker. The next sample takes a new clock's tempo and moves the output by whole beats to
+    /// within half a beat of it; its phase is followed by slewing, as a tracker update is.
     pub fn set_beat_clock(&mut self, clock: Option<&BeatClock>) -> Result<(), ReactionError> {
         if let Some(c) = clock {
             let ok = [c.media_time_ms, c.tempo_bpm, c.beat_phase, c.bar_phase]

@@ -31,8 +31,9 @@ SHALL be taken exactly unless that moves the phase backwards.
 ### Requirement: Beat count follows wraps and a newly set host clock
 
 `beat_count` SHALL count output wraps, so it never goes down between resyncs. A newly set host
-beat clock SHALL be taken at the next sample: its tempo becomes the output rate, and the count
-moves by whole beats to the clock's beat index, while the phase still slews.
+beat clock SHALL be taken at the next sample: its tempo becomes the output rate, and the output
+position moves by whole beats to within half a beat of the clock's, while the phase still slews.
+The count then reaches the clock's beat index at the output's own wrap.
 
 #### Scenario: Replacement clock at another tempo
 

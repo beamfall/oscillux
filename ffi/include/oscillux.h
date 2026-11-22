@@ -1291,7 +1291,7 @@ typedef struct OscilluxReaction {
     double bar_phase;      /* output bar phase, [0, 1); 0 at the downbeat */
     double tempo_bpm;      /* tempo of the reference clock; 0 without one */
     double confidence;     /* tracker confidence; 1 with a host clock; 0 without a reference */
-    int64_t beat_count;    /* beats counted at output wraps; a newly set host clock re-anchors it */
+    int64_t beat_count;    /* beats counted at output wraps; a new host clock shifts it by whole beats */
     uint32_t beat_in_bar;  /* index of the current beat within the bar; 0 is the downbeat */
     uint32_t locked;       /* 1 while a reference drives the beat outputs, else 0 (all zero) */
 } OscilluxReaction;

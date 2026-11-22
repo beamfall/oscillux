@@ -23,8 +23,9 @@ up to 300%. Every visual driven by `beat_phase` or `beat_count` lurches with it.
 - A residual phase error under 1e-9 beats is taken exactly, and never backwards, so rounding
   never moves a steady clock's wrap by a frame.
 - `beat_count` counts output wraps in both modes, so it never goes down between resyncs. A newly
-  set host clock is authoritative: the next sample takes its tempo and moves the count to its
-  beat index by whole beats, while the phase still slews. No host sets a beat clock today.
+  set host clock is authoritative: the next sample takes its tempo and moves the output by whole
+  beats to within half a beat of it, while the phase still slews, so the count reaches the
+  clock's beat index at the output's own wrap. No host sets a beat clock today.
 - The beat pulse's rise and decay use the output phase speed, rate times one plus the correction.
 - Resync behaviour (first sample, reset, a seek back or a jump over 500 ms) is unchanged.
 - `tools/reaction-vectors.py` mirrors the change, `conformance/reaction/vectors.json` is
