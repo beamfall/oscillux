@@ -114,12 +114,11 @@ least 0.8, and never below 0.8 - 1e-12. A possible step SHALL be a squared code 
 
 ### Requirement: Red chromaticity transitions
 
-Every pixel SHALL keep a box of the saturated codes shown since its last definite red fall and a
-box of the far codes since its last definite rise. A changed colour SHALL count down when the
-saturated box may hold a code over a possible step away, and a changed saturated colour up when the
-far box may. A fire SHALL clear a box only if definite from codes it still owes, else keep the
-codes within a possible step. Black SHALL change nothing. A pixel SHALL count only the direction
-this rule fires.
+Every pixel SHALL keep a box of the saturated codes since its last definite red fall and one of the
+far codes since its last definite rise. A changed colour SHALL count down when the saturated box may
+hold a code over a possible step away, and a changed saturated one up when the far box may. A fire
+SHALL clear a box only if definite from codes it owes, else clip it to cells within 3285 codes of
+the colour per axis. Black SHALL change nothing. A fire SHALL set the pixel's red direction.
 
 #### Scenario: Black keeps the boxes
 

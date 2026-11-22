@@ -8,7 +8,8 @@
 // count across channels and directions: pixels rising, falling, changing luminance and changing
 // red at once flash together, and per-channel counts let two adjacent patches each stay under the
 // limit while their union is over it (Codex rounds 12, 13).
-// Inputs uFrame (RGBA8), uTrack (RGBA16UI, the tracker state after the previous frame); output
+// Inputs uFrame (RGBA8), uTrack (RGBA32UI, the tracker state after the previous frame), uHist (the
+// previous output, RGBA8: the chromaticity step fires only on a changed colour); output
 // oR (RGBA32UI) = (count, directions firing now | recent directions << 4, 0, 0).
 
 void main() {
@@ -23,7 +24,7 @@ void main() {
     for (int x = x0; x < x1; x++) {
         ivec2 q = ivec2(x, p.y);
         uvec4 t = LIM_U(uTrack, q);
-        uint now = limiterFires(t, limiterBytes(LIM_F(uFrame, q).rgb));
+        uint now = limiterFires(t, limiterBytes(LIM_F(uFrame, q).rgb), limiterBytes(LIM_F(uHist, q).rgb));
         bits |= now;
         uint recent = 0u;
         for (int d = 0; d < 4; d++) recent |= limiterRecent((t.w >> uint(4 * d)) & 15u, unit, deltaMs) ? 1u << uint(d) : 0u;

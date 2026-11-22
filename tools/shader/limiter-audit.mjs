@@ -218,7 +218,11 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       if (!live) {
         ext[0][j] = ref[0][j] = v; ext[1][j] = ref[1][j] = rv; dir[0][j] = dir[1][j] = -1;
         redCounted[j] = 1; anySat[j] = sat ? 1 : 0;
-        uvFirst(r, g, b, uv); setUv(j);
+        // A zero restart before the first frame is the seed: the limiter steps its first output from
+        // the zero texel after a black history, so the auditor does too (Codex design round 3).
+        if (pending === 'zero') uvStep(0, 0, 0, 0, 0, r, g, b, 0, 0, 0, uv);
+        else uvFirst(r, g, b, uv);
+        setUv(j);
         prev[3 * j] = r; prev[3 * j + 1] = g; prev[3 * j + 2] = b;
         continue;
       }

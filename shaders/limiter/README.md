@@ -106,7 +106,8 @@ per-direction counts in 16 bits; the counts are 32-bit now.)
 |---|---|---|
 | frame, history, output | RGBA8 | `rgba8Unorm` |
 | row, sub-block and cell counts | RGBA32UI | `rgba32Uint` |
-| tracker state, window flags, grant | RGBA16UI | `rgba16Uint` |
+| tracker state | RGBA32UI | `rgba32Uint` |
+| window flags, grant | RGBA16UI | `rgba16Uint` |
 
 ## Passes
 
@@ -115,7 +116,7 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 
 | # | Pass | Size | Textures | Outputs |
 |---|---|---|---|---|
-| 1 | `rows` | 64 x frame height | `uFrame`, `uTrack` (previous) | `oR` = (count, directions firing now \| recent directions << 4, 0, 0): per sub-block column and pixel row, the pixels whose tracker fires now or fired within the coverage interval, in any channel and direction |
+| 1 | `rows` | 64 x frame height | `uFrame`, `uTrack` (previous), `uHist` (previous output) | `oR` = (count, directions firing now \| recent directions << 4, 0, 0): per sub-block column and pixel row, the pixels whose tracker fires now or fired within the coverage interval, in any channel and direction |
 | 2 | `reduce` | 64 x 36 | `uRows` | `oS`, the same layout summed over the sub-block; a sub-block requests each direction one of its pixels fires in now |
 | 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, 0, 0): the cell's pixel count, directions firing now and recent directions << 4 |
 | 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): 1 when the window with its origin at this cell counts more than the limit |
@@ -189,9 +190,21 @@ so a pixel that left saturated red through an uncounted step still pays for the 
 rounding and red required saturation on both states, Codex rounds 11 to 13; until round 13 an
 unsaturated reversal left the red tracker unmoved, which hid the transition after it.)
 
+Since v0.2.13 red also counts by the u'v' rule of WCAG 2.1 and 2.2 (CORE-2935,
+openspec/changes/limiter-red-uv-chromaticity/): one state saturated red and the two more than 0.2
+apart in the CIE 1976 u'v' diagram. u'v' is measured in integer codes from 24-bit linear channels
+(`LIN24_LUT` in `luma-lut.glsl`). Each pixel keeps a box of the saturated codes since its last
+definite red fall and one of the far codes since its last definite rise. A changed colour fires red
+down when the saturated box may hold a code a possible step away, and red up when it is saturated
+and the far box may. A fire clears a box only when the box is definitely a step away from it; else
+it clips the box to the cells within 3285 codes of the colour on each axis and marks it uncertain.
+Black has no chromaticity and changes neither box. The red direction a pixel fires is the u'v'
+direction when that fires, else the 320 rule's.
+
 ## Per-pixel trackers
 
-Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.glsl`):
+Every pixel carries the pixel auditor's trackers in one RGBA32UI texel (`common.glsl`). The low
+16 bits of each word hold the luma and red trackers:
 
 - `x`: the luma tracker's extreme (15-bit); bit 15 is the high bit of the red memory.
 - `y`: the luma tracker's distance (12-bit); bit 12 set when it last fired rising, bit 13 when the
@@ -202,9 +215,16 @@ Every pixel carries the pixel auditor's trackers in one RGBA16UI texel (`common.
   counts at once and, unless its new state is saturated, counts again at the first saturated state;
   a saturated state with no step counts the tracker's direction. So a reset never hides a red
   change, whatever the pixel showed before it (Codex rounds 18 and 19).
-- `z`: the red tracker's extreme | distance << 8 (4-bit) | rising << 12.
+- `z`: the red tracker's extreme | distance << 8 (4-bit) | rising << 12; bits 13 and 14 the
+  saturated and far u'v' boxes known, bit 15 the saturated box uncertain.
 - `w`: four 4-bit recency stamps (luma up, luma down << 4, red up << 8, red down << 12); 0 is
   none, else the event's unit `(tick >> 4) + 1`.
+- The high 16 bits hold the u'v' boxes, a minimum stored as N - cell and a maximum as cell + 1, so
+  the empty box is zero: `x` the saturated box's u minimum | the far box's << 9, `y` the u maxima
+  likewise, `z` the v minima (far << 8) | the marker (bit 31), `w` the v maxima (far << 8) | the far
+  box uncertain (bit 31). Every texel a pass writes sets the marker. A texel that is neither marked
+  nor all zero was stored at less than 32 bits; it fires every direction on a changed colour, so
+  the limiter holds it.
 
 Each tracker has a direction (the way it last fired), an extreme since then (the peak after a
 rise, the trough after a fall) and a reference, stored as its distance from the extreme, which
@@ -291,6 +311,11 @@ change counted and the red memory unknown. (A texel with bit
 if it fell to it. The reference model and the conformance vectors start from it; a host does not,
 because it would pass its first frame, or the first frame after a reset, with no budget charged,
 CORE-2516.)
+
+The tracker textures are RGBA32UI (`rgba32Uint`, `GL_RGBA32UI`) and every seed and clear is
+32-bit. At start a host clears a texel of each tracker copy to a value with bit 31 set in every
+word, reads each back and presents black if any word differs: a 16-bit store would otherwise hold
+every changed pixel.
 
 `G` and the tracker state of a frame on screen are never cleared. When only the window changes
 (the viewing geometry: the same frame at the same display scale, all of it still in view), the
@@ -392,7 +417,8 @@ and credits it one presented frame at a time, each interval capped at 100 ms. Wh
 `hostBlackLongEnough(ms, longestMs)` holds (`limiter-model.mjs`: `blackLongEnough(ms - longestMs)`,
 where `blackLongEnough(ms)` is `ms >= RED_EXPIRE_MS - 0.001`, `RED_EXPIRE_MS` = 1250 and `longestMs`
 the longest credited interval), it writes every tracker texel as "black, nothing owed",
-`BLACK_TEXEL` (x 0, y 32768, z 0, w 0: luma falling at 0, red at 0, red memory 01). Otherwise it
+`BLACK_TEXEL` (x 0, y 32768, z 2147508224, w 0: luma falling at 0, red at 0, red memory 01,
+both u'v' boxes known and empty, the marker set). Otherwise it
 writes zero, red memory unknown, as before. At 60 Hz that is 76 credited intervals: a credit may
 lead the display by one frame, and 75 displayed frames are 1250 ms. `G` is written fully spent
 either way, so even a host that seeds black too soon has its first red rationed. During playback
@@ -409,7 +435,7 @@ hold; the safety argument against the red-flash rule of WCAG 2.0 and of WCAG 2.1
 June 2018 is in the OpenSpec change limiter-red-expire-black, design.md section 6.
 
 None of the passes allocate. A host creates the textures once per frame size. The tracker state
-costs 8 bytes a pixel per copy: 133 MB at 4K for the two copies (66 MB each).
+costs 16 bytes a pixel per copy: 265 MB at 4K for the two copies (133 MB each).
 
 ## Cost
 

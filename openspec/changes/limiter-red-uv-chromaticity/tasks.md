@@ -11,18 +11,19 @@
 - [x] 1.5 Codex design round 2 (the last): HOLD on P1-A (verified flash) and P1-B (auditor)
 - [x] 1.6 Fix in the model and auditor: the uncertain bits, the clip, unknown boxes at an auditor
       zero restart; design section 13; vectors `red-uncertain-box`, `red-zero-retained`
-- [ ] 1.7 A further design round on section 13, which needs the coordinator's approval
+- [x] 1.7 Codex design round 3 on section 13 (coordinator approval): no P1; the P2 (auditor
+      zero restart before the first frame) and the P3s fixed
 
 ## 2. Model, auditor and legs
 
 - [x] 2.1 `limiter-model.mjs`: `LIN24`, `uvCode`, `s24`, the far tests and thresholds, the box
       step, the marker and validity, the merged direction, a `Uint32Array` tracker, `BLACK_TEXEL`
 - [x] 2.2 `limiter-audit.mjs`: the boxes per pixel, one red event a frame
-- [ ] 2.3 `shaders/limiter/common.glsl`, `output.glsl`, `rows.glsl`; `LIN24_LUT` in the generated
+- [x] 2.3 `shaders/limiter/common.glsl`, `output.glsl`, `rows.glsl`; `LIN24_LUT` in the generated
       `luma-lut.glsl`; RGBA32UI tracker textures in `limiter.mjs`, `limiter-check.mjs` and
       `limiter-metal.swift`
-- [ ] 2.4 `tools/shader/limiter-uv-check.mjs` in `make limiter-check` (`UV_R` added)
-- [ ] 2.5 `shaders/limiter/README.md`, `conformance/limiter/frame/README.md` and `CHANGELOG.md`
+- [x] 2.4 `tools/shader/limiter-uv-check.mjs` in `make limiter-check` (`UV_R` added)
+- [x] 2.5 `shaders/limiter/README.md`, `conformance/limiter/frame/README.md` and `CHANGELOG.md`
 
 ## 3. Conformance
 
@@ -33,7 +34,7 @@
 - [x] 3.3 Diff the new model's frames against the committed vectors and list each change
 - [x] 3.4 `test-limiter.mjs`: the new cases' input and output counts, per-patch holds and
       crossing frames, the starts, black keeps the boxes, the marker
-- [ ] 3.5 `limiter-check.mjs` on the GLSL leg and `--metal`
+- [x] 3.5 `limiter-check.mjs` on the GLSL leg and `--metal`
 
 ## 4. Visuals
 

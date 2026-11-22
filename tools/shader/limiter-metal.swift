@@ -30,7 +30,7 @@ struct Case: Decodable {
     let limit: Float
     let clock: [[Float]]
     let resetAt: Int?
-    let seed: [UInt16]?
+    let seed: [UInt32]?
 }
 
 struct Config: Decodable {
@@ -90,13 +90,13 @@ func texture(_ kind: String, _ w: Int, _ h: Int) -> MTLTexture {
 
 /// Tracker state cleared to `seed` per pixel: by default "no state yet" (0, UNTRACKED = 8192, 0, 0),
 /// the reference model's start (shaders/limiter/common.glsl).
-func trackTexture(_ w: Int, _ h: Int, _ seed: [UInt16]) -> MTLTexture {
-    let t = texture("uint", w, h)
-    var px = [UInt16](repeating: 0, count: w * h * 4)
+func trackTexture(_ w: Int, _ h: Int, _ seed: [UInt32]) -> MTLTexture {
+    let t = texture("uint32", w, h)
+    var px = [UInt32](repeating: 0, count: w * h * 4)
     for i in 0..<(w * h) {
         for k in 0..<4 { px[4 * i + k] = seed[k] }
     }
-    t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: px, bytesPerRow: w * 8)
+    t.replace(region: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0, withBytes: px, bytesPerRow: w * 16)
     return t
 }
 
@@ -117,7 +117,7 @@ final class Limiter {
     let g: [MTLTexture], track: [MTLTexture], out: [MTLTexture]
     var cur = 0
 
-    init(_ w: Int, _ h: Int, seed: [UInt16] = [0, 8192, 0, 0], spent: Bool = false) {
+    init(_ w: Int, _ h: Int, seed: [UInt32] = [0, 8192, 0, 0], spent: Bool = false) {
         self.w = w
         self.h = h
         frame = texture("float", w, h)
@@ -143,7 +143,7 @@ final class Limiter {
     func passes() -> [(Int, [MTLTexture], [MTLTexture])] {
         let a = cur, b = cur ^ 1
         return [
-            (0, [rows], [frame, track[a]]),
+            (0, [rows], [frame, track[a], out[a]]),
             (1, [s], [rows]),
             (2, [c], [s]),
             (3, [win], [c]),
@@ -190,7 +190,7 @@ for c in cfg.cases {
     var lim = Limiter(c.width, c.height)
     var frames: [[Any]] = []
     var sub = [UInt32](repeating: 0, count: 64 * 36 * 4)
-    var track = [UInt16](repeating: 0, count: c.width * c.height * 4)
+    var track = [UInt32](repeating: 0, count: c.width * c.height * 4)
     var g = [UInt16](repeating: 0, count: 4)
     var out = [UInt8](repeating: 0, count: c.width * c.height * 4)
     for t in 0..<c.frames {
@@ -204,7 +204,7 @@ for c in cfg.cases {
         cb.commit()
         cb.waitUntilCompleted()
         lim.s.getBytes(&sub, bytesPerRow: 64 * 16, from: MTLRegionMake2D(0, 0, 64, 36), mipmapLevel: 0)
-        lim.track[b].getBytes(&track, bytesPerRow: c.width * 8, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
+        lim.track[b].getBytes(&track, bytesPerRow: c.width * 16, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
         lim.g[b].getBytes(&g, bytesPerRow: 8, from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
         lim.out[b].getBytes(&out, bytesPerRow: c.width * 4, from: MTLRegionMake2D(0, 0, c.width, c.height), mipmapLevel: 0)
         // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.

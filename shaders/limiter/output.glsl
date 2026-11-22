@@ -11,7 +11,9 @@
 // pixel auditor's state, and stamps outside the coverage interval clear. Inputs uFrame (RGBA8),
 // uHist (the previous output, RGBA8), uTrack (the tracker state after the previous frame), uG
 // (this frame's grant); outputs oColor (RGBA8, alpha 1), next frame's uHist, and oTrack
-// (RGBA16UI), next frame's uTrack.
+// (RGBA32UI, every texel with the marker, z bit 31), next frame's uTrack. A texel no pass wrote at
+// 32 bits steps as the zero texel; the red direction is the chromaticity step's when it fires, else
+// the 320 rule's.
 
 void main() {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -19,22 +21,30 @@ void main() {
     uvec4 t = LIM_U(uTrack, p);
     vec3 color = LIM_F(uFrame, p).rgb;
     ivec3 c = limiterBytes(color);
-    uint now = limiterFires(t, c);
+    ivec3 h = limiterBytes(LIM_F(uHist, p).rgb);
+    uint now = limiterFires(t, c, h);
     if ((now & ~grant & 15u) != 0u) {
-        c = limiterDim(t, now & grant, c, limiterBytes(LIM_F(uHist, p).rgb));
+        c = limiterDim(t, now & grant, c, h);
         color = vec3(c) / 255.0;
     }
     oColor = vec4(color, 1.0);
     int v = limiterLuma(c);
     int rv = limiterRed(c);
     bool sat = limiterSat(c);
+    uvec4 hv;
+    uint kb;
     if (limiterUntracked(t)) {
-        oTrack = uvec4(uint(v) | (sat ? RED_MEM_HI : 0u), sat ? 0u : RED_MEM_LO, uint(rv), 0u);
+        // The first value: both boxes known, holding it where it is saturated or far.
+        limiterUvStep(uvec4(0u, 0u, UV_SBK | UV_FBK, 0u), c, c, hv, kb);
+        oTrack = uvec4(uint(v) | (sat ? RED_MEM_HI : 0u), sat ? 0u : RED_MEM_LO, uint(rv) | kb, 0u) | (hv << 16u);
         return;
     }
+    if (!limiterValid(t)) t = uvec4(0u);
+    int fu = limiterUvStep(t, c, h, hv, kb);
     ivec4 fl = limiterLumaStep(t, v);
     ivec4 fr = limiterRedStep(t, rv, sat);
-    uint fired = (fl.w > 0 ? 1u : 0u) | (fl.w < 0 ? 2u : 0u) | (fr.y > 0 ? 4u : 0u) | (fr.y < 0 ? 8u : 0u);
+    int red = fu != 0 ? fu : fr.y;
+    uint fired = (fl.w > 0 ? 1u : 0u) | (fl.w < 0 ? 2u : 0u) | (red > 0 ? 4u : 0u) | (red < 0 ? 8u : 0u);
     int unit = int(lu.limiter1.x) >> 4;
     float deltaMs = lu.limiter1.y;
     uint stamps = 0u;
@@ -43,5 +53,6 @@ void main() {
         uint keep = ((fired >> uint(d)) & 1u) != 0u ? uint(unit + 1) : limiterRecent(s, unit, deltaMs) ? s : 0u;
         stamps |= keep << uint(4 * d);
     }
-    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? RED_MEM_HI : 0u), uint(fl.y) | (fl.z != 0 ? LUMA_UP : 0u) | (fr.w != 0 ? RED_MEM_LO : 0u), uint(fr.x), stamps);
+    oTrack = uvec4(uint(fl.x) | (fr.z != 0 ? RED_MEM_HI : 0u), uint(fl.y) | (fl.z != 0 ? LUMA_UP : 0u) | (fr.w != 0 ? RED_MEM_LO : 0u),
+        uint(fr.x) | kb, stamps) | (hv << 16u);
 }

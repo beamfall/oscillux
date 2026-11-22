@@ -122,7 +122,7 @@ async function pageMain({ passes, cases, helpers, time }) {
     const two = make => [make(), make()];
     const s = {
       frame: tex(W, H, false), rows: tex(64, H, 32), S: tex(64, 36, 32), C: tex(16, 9, 32), Wn: tex(16, 9, true),
-      G: two(() => tex(1, 1, true)), track: two(() => tex(W, H, true)), out: two(() => tex(W, H, false)), cur: 0,
+      G: two(() => tex(1, 1, true)), track: two(() => tex(W, H, 32)), out: two(() => tex(W, H, false)), cur: 0,
     };
     s.fRows = fbo([s.rows]);
     s.fS = fbo([s.S]);
@@ -153,7 +153,7 @@ async function pageMain({ passes, cases, helpers, time }) {
   function drawFrame(s) {
     const a = s.cur, b = a ^ 1;
     const [rows, reduce, cells, windows, grant, output] = programs;
-    draw(rows, s.fRows, [s.frame, s.track[a]]);
+    draw(rows, s.fRows, [s.frame, s.track[a], s.out[a]]);
     draw(reduce, s.fS, [s.rows]);
     draw(cells, s.fC, [s.S]);
     draw(windows, s.fW, [s.C]);
@@ -176,7 +176,7 @@ async function pageMain({ passes, cases, helpers, time }) {
     const px = new Uint8Array(c.width * c.height * 4);
     const out = new Uint8Array(c.width * c.height * 4);
     const sub = new Uint32Array(64 * 36 * 4), g = new Uint32Array(4), mask = new Uint8Array(64 * 36);
-    const track32 = new Uint32Array(c.width * c.height * 4), track = new Uint16Array(track32.length);
+    const track = new Uint32Array(c.width * c.height * 4);
     const frames = [];
     let last = '';
     for (let t = 0; t < c.frames; t++) {
@@ -191,9 +191,8 @@ async function pageMain({ passes, cases, helpers, time }) {
       gl.readBuffer(gl.COLOR_ATTACHMENT0);
       gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
       gl.readBuffer(gl.COLOR_ATTACHMENT1);
-      gl.readPixels(0, 0, c.width, c.height, gl.RGBA_INTEGER, gl.UNSIGNED_INT, track32);
+      gl.readPixels(0, 0, c.width, c.height, gl.RGBA_INTEGER, gl.UNSIGNED_INT, track);
       gl.readBuffer(gl.COLOR_ATTACHMENT0);
-      track.set(track32);
       // A sub-block holds where one of its pixels does: it requests a direction the grant did not admit.
       for (let k = 0; k < mask.length; k++) mask[k] = sub[4 * k + 1] & ~g[0] & 15 ? 1 : 0;
       const hold = runLengths(mask);

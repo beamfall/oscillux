@@ -10,6 +10,23 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-11-21
+
+### Changed
+
+- The flash limiter counts red transitions by the u'v' rule of WCAG 2.1 and 2.2 as well as the
+  320 rule (CORE-2935, openspec/changes/limiter-red-uv-chromaticity/): one state saturated red
+  and the two states more than 0.2 apart in the CIE 1976 u'v' diagram. Each pixel keeps a box of
+  the saturated chromaticities since its last red fall and one of the far chromaticities since
+  its last red rise, so a red flash reached through intermediate colours on different frames
+  counts. Black changes neither box.
+- **Host change.** The tracker textures (`uTrack`, `oTrack`) are RGBA32UI (WebGL `RGBA32UI`,
+  Metal `.rgba32Uint`, GLES `GL_RGBA32UI`), 16 bytes a pixel per copy, and every seed and clear
+  is 32-bit. `BLACK_TEXEL` is (0, 32768, 2147508224, 0); zero and `UNTRACKED` (0, 8192, 0, 0) keep
+  their meaning. A host checks at start that each tracker copy keeps bit 31 of every word and
+  presents black if not. The `rows` pass reads the previous output: bind `uHist` (texture 2) to
+  it as to the `output` pass. A texel stored at less than 32 bits is held, never passed.
+
 ## [0.2.12] - 2026-11-21
 
 ### Changed

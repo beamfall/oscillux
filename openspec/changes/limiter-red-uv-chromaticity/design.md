@@ -335,8 +335,10 @@ Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13
 - **The certain bit.** Each box carries an *uncertain* bit (SB: z bit 15; FB: w bit 31), zero
   meaning certain, so the seeds are unchanged. A fire clears its box (known, empty, certain) only
   when the box is certain and definitely over, or, for SB, when c is very far. Otherwise it clips
-  the box to the cells that overlap [p - R, p + R] on each axis, R = 3285 codes (R squared = TH),
-  and the box is uncertain if any cell remains. A code more than R from c on either axis is more
+  the box to the cells that overlap the closed interval [c - R, c + R] on each axis, c the current
+  colour's code and R = 3285 codes (R squared = TH; 3285 / 16384 - 2E > 0.2), and the box is
+  uncertain if any cell remains. While a box is certain, unions keep a live witness in each edge
+  strip. A code more than R from c on either axis is more
   than 0.2 away, so it was a reference the fire discharged; the codes kept may be discharged too,
   which only over-counts. An unknown box stays unknown at a fire that does not clear it.
 - **P1-B, a zero restart that kept the auditor's boxes.** After a zero restart the limiter's
@@ -354,5 +356,9 @@ Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13
   145 514. The two P1-A patches are held for most of the cycle.
 - **Vectors.** `red-uncertain-box` (the P1-A patches at 60 Hz), `red-zero-retained` (P1-B), and a
   240 Hz P1-A test with the float reference in `test-limiter.mjs`.
-- **Status.** Round 2 was the last design round the review allows. These fixes are unreviewed:
-  the legs, the host changes and the release wait for a further review round.
+- **Round 3 (Codex, delta to this section).** No P1. P2: a zero restart before the auditor's
+  first frame was overwritten by that frame's known boxes, so a limiter red fall from its unknown
+  seed went uncounted (an auditor gap, not a flash); the auditor now steps its first frame from
+  the zero seed as the limiter does, with a test. P3s: the clip interval above, the float
+  reference's inclusive saturation test, and the 60 Hz regression named as the stored vector.
+- **Status.** The design review is closed; the legs and the host follow under code review.

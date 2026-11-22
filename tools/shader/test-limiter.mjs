@@ -1524,13 +1524,21 @@ function exactUv() {
     const key = rgb.join(), was = prev;
     prev = key;
     if (key === was || key === '0,0,0') return 0;
-    const [r, g, b] = rgb.map(uvLin), s = r / (r + g + b) >= 0.8, p = uvFloat(rgb), from = s ? far : sat;
+    const [r, g, b] = rgb.map(uvLin), s = r >= 4 * (g + b), p = uvFloat(rgb), from = s ? far : sat;
     const fire = from.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) > 0.2);
     if (fire) from.length = 0;
     (s ? sat : far).push(p);
     return fire ? (s ? 1 : -1) : 0;
   };
 }
+// The reference's saturation test is inclusive: (4, 1, 0) has linear r = 4g exactly, which a ratio
+// rounds below 0.8 (Codex design round 3), and agrees with the model's uvSat on every colour.
+test(`u'v': the float reference counts the inclusive saturation boundary`, () => {
+  const ref = exactUv();
+  assert.deepEqual([ref([0, 0, 1]), ref([4, 1, 0])], [0, 1]);
+  assert.ok(model.uvSat(4, 1, 0));
+});
+
 /** The most frames in any `perSecond` frames at which both patches' exact references fire the same
  * way within `within` frames of each other: their union is over the field's limit. */
 function bothPatches(fires, within, perSecond) {
@@ -1562,6 +1570,9 @@ test(`u'v': two patches after uncertain fires show at most one exact red flash a
   assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
 });
 
+// The stored red-uncertain-box vector is the 60 Hz regression check for P1-A: the round 2 model
+// differs from it at frame 1 in the trackers and frame 7 in the output (Codex design round 3). This
+// test bounds the exact flashes of the output the model now makes.
 test(`u'v': red-uncertain-box, P1-A at 60 Hz, shows at most one exact red flash a second`, () => {
   const { frames, output, w } = runCase('red-uncertain-box', { keep: true });
   const refs = [exactUv(), exactUv()], fires = [[], []];
@@ -1578,6 +1589,24 @@ test(`u'v': red-uncertain-box, P1-A at 60 Hz, shows at most one exact red flash 
 test(`u'v': a zero restart after an orange and magenta history counts as the limiter does (P1-B)`, () => {
   const { output } = runCase('red-zero-retained');
   assert.ok(redIn(output) <= 1, `the output shows ${redIn(output)} red per 1 s`);
+});
+
+// Codex design round 3 P2: a zero restart before the auditor's first frame was overwritten by the
+// first frame's known boxes, so the limiter's red fall from its unknown seed went uncounted.
+test(`u'v': a zero restart before the first frame seeds the auditor's boxes unknown`, () => {
+  const w = 64, h = 36, lim = model.createLimiter({ width: w, height: h, start: 'zero' });
+  const a = createAuditor({ width: w, height: h }), px = new Uint8Array(w * h * 4);
+  a.restart('zero');
+  let fell = 0;
+  for (let t = 0; t < 125; t++) {
+    const c = t < 124 ? BLACK : [0, 0, 1];
+    for (let j = 0; j < w * h; j++) px.set([...c, 255], 4 * j);
+    const r = lim.step(px, DT);
+    fell += r.stats.fired[3];
+    a.push(r.out, DT);
+  }
+  assert.equal(fell, w * h, 'the limiter fell on every pixel at (0, 0, 1)');
+  assert.deepEqual(a.transitions[3], [124], 'the auditor counts the fall on frame 124');
 });
 
 test(`u'v': the 32-bit marker and the RGBA16UI clamp (P1-3)`, () => {
