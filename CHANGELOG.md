@@ -10,6 +10,20 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.14] - 2026-11-21
+
+### Added
+
+- A CD+G presentation pass, `cdg::present` (CORE-3150, openspec/changes/cdg-presentation/,
+  specified by `conformance/cdg-present/`). It finds the background and backdrop colours from the
+  edge ring, doubles the window with an ink-priority Scale2x, draws each colour layer with smooth
+  round-cornered coverage and no seams, casts a soft blurred shadow under the ink, and paints a
+  slowly drifting two-glow backdrop tinted by the eased background colour. The C interface is
+  unchanged.
+- The `oscillux-cdg-render.wasm` release asset: a WASI command that reads a `.cdg` stream on stdin
+  and writes presented RGBA frames to stdout (`--width --height --fps --start --tempo
+  --frames`). Hosts that compose CD+G into video, such as the Beamfall server, run it in-process.
+
 ## [0.2.13] - 2026-11-21
 
 ### Changed
