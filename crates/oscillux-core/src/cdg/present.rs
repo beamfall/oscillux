@@ -532,8 +532,7 @@ impl Presenter {
         let lum = rgb.map(luminance);
         let target = MIN_CONTRAST_X10 * 1024 / 10;
         let (dark, bright) = backdrop_range(colour_8_8(palette[background as usize]));
-        let legible_on_stage =
-            lum.map(|l| contrast_x1024(l, dark).min(contrast_x1024(l, bright)) >= target);
+        let legible_on_stage = lum.map(|l| worst_x1024(l, dark, bright) >= target);
         // Window boundary lengths: of each index with the backdrop, and of each pair of
         // contrasting graphics indices.
         let mut back = [0u32; 16];
@@ -702,31 +701,53 @@ fn contrast_x1024(a: i64, b: i64) -> i64 {
     (hi + 3251) * 1024 / (lo + 3251)
 }
 
-/// Luminances of the backdrop's darkest point (the base in a vignette corner) and brightest
-/// (the base under both glows at full strength) for a stage colour in 8.8 fixed point.
+/// Luminances bounding every backdrop point for a stage colour in 8.8 fixed point. Each backdrop
+/// channel is multilinear in the two glow weights (0 up to their strengths) and the vignette
+/// factor, so its extremes lie at the corners of that box; luminance grows with every channel, so
+/// the per-channel minimum and maximum over the eight corners bound it from below and above.
 fn backdrop_range(stage: [i64; 3]) -> (i64, i64) {
     let lighten = |v: i64, k: i64| v + (65280 - v) * k / 1024;
     let base = stage.map(|v| v * BASE_LEVEL / 1024 + (6 << 8));
     let warm = [0, 1, 2].map(|c| lighten((stage[c] + stage[(c + 2) % 3]) / 2, 80));
     let light = stage.map(|v| lighten(v, 180));
-    let mut lit = base;
-    for (colour, strength) in [(light, 36_000), (warm, 30_000)] {
-        for c in 0..3 {
-            lit[c] += ((colour[c] - lit[c]) * strength) >> 16;
+    let (mut lo, mut hi) = ([i64::MAX; 3], [0i64; 3]);
+    for corner in 0..8 {
+        let mut c = base;
+        for (bit, (colour, strength)) in [(light, 36_000), (warm, 30_000)].into_iter().enumerate() {
+            let a = if corner >> bit & 1 == 1 { strength } else { 0 };
+            for ch in 0..3 {
+                c[ch] += ((colour[ch] - c[ch]) * a) >> 16;
+            }
+        }
+        let v = if corner & 4 == 4 {
+            65536 - 30_000
+        } else {
+            65536
+        };
+        for ch in 0..3 {
+            let px = ((c[ch] * v) >> 16).clamp(0, 65280) >> 8;
+            lo[ch] = lo[ch].min(px);
+            hi[ch] = hi[ch].max(px);
         }
     }
-    let dark = base.map(|v| ((v * (65536 - 30_000)) >> 16) >> 8);
-    (luminance(dark), luminance(lit.map(|v| v.min(65280) >> 8)))
+    (luminance(lo), luminance(hi))
 }
 
-/// `rgb` mixed toward white or black by the fewest sixteenths (white first) whose worse contrast
-/// against `dark` and `bright` reaches [`MIN_CONTRAST_X10`]; when none does, the mix (fewest
+/// The lowest contrast of luminance `l` against the backdrop: 1:1 (1024) inside `dark..=bright`,
+/// where some backdrop point may match it, else against the nearer end.
+fn worst_x1024(l: i64, dark: i64, bright: i64) -> i64 {
+    if (dark..=bright).contains(&l) {
+        1024
+    } else {
+        contrast_x1024(l, dark).min(contrast_x1024(l, bright))
+    }
+}
+
+/// `rgb` mixed toward white or black by the fewest sixteenths (white first) whose [`worst_x1024`]
+/// contrast reaches [`MIN_CONTRAST_X10`]; when none does, the mix (fewest
 /// sixteenths, white first, unmixed before both) with the best worse contrast.
 fn legible(rgb: [i64; 3], dark: i64, bright: i64) -> [i64; 3] {
-    let worst = |c: [i64; 3]| {
-        let l = luminance(c);
-        contrast_x1024(l, dark).min(contrast_x1024(l, bright))
-    };
+    let worst = |c: [i64; 3]| worst_x1024(luminance(c), dark, bright);
     let target = MIN_CONTRAST_X10 * 1024 / 10;
     let mut best = (worst(rgb), rgb);
     if best.0 >= target {

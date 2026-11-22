@@ -64,11 +64,15 @@ Each index `i` has an 8-bit colour `rgb(i) = (level * 17, ...)` of `colour[i]`, 
 
 With `stage` the 8.8 background colour `(level * 17) << 8` of `colour[background]` (not the
 eased stage) and `base`, `light`, `warm` and `lighten` as in Backdrop:
-- `lit = base`, then for `(colour, strength)` in `(light, 36000)` and `(warm, 30000)`, each
-  channel `lit += ((colour - lit) * strength) >> 16`.
-- `dark = lum(base[c] * 35536 >> 16 >> 8, ...)` and `bright = lum(min(lit[c], 65280) >> 8, ...)`.
-- `worst(c) = min(contrast(lum(c), dark), contrast(lum(c), bright))`; `i` is *stage-legible* when
-  `worst(rgb(i)) >= TARGET`.
+- For each of the 8 corners `(wl, ww, v)` with `wl` in `{0, 36000}`, `ww` in `{0, 30000}` and
+  `v` in `{65536, 35536}`: `p = base`, then for `(colour, w)` in `(light, wl)` and `(warm, ww)`,
+  each channel `p += ((colour - p) * w) >> 16`; then each channel
+  `min(max((p * v) >> 16, 0), 65280) >> 8`.
+- `dark = lum(lo)` and `bright = lum(hi)`, with `lo` and `hi` the per-channel minimum and maximum
+  of those 8 colours.
+- `worst(l) = 1024` when `dark <= l <= bright`, else
+  `min(contrast(l, dark), contrast(l, bright))`; `i` is *stage-legible* when
+  `worst(lum(rgb(i))) >= TARGET`.
 
 Over the 288 x 192 window, each pair of different indices that are right or down neighbours is
 one boundary. A boundary between a backdrop index and a graphics index `a` (not a backdrop index)
@@ -83,7 +87,7 @@ Each call then adds every `i` with some stage-legible `j` where `held[i][j] > 0`
 The drawn colour of `i` is `rgb(i)`, except when `back[i] > 0`, `i` is not stage-legible and not
 protected. Then it is `fix(rgb(i))`: for `k = 1..16` in order, try the white mix
 `v + (255 - v) * k // 16` then the black mix `v * (16 - k) // 16` per channel, and take the first
-with `worst >= TARGET`. If none reaches it, take the candidate with the highest `worst`, starting
+with `worst(lum(c)) >= TARGET`. If none reaches it, take the candidate with the highest `worst`, starting
 from `rgb(i)` and replacing it only on a strictly higher value.
 
 ## Shadow mask

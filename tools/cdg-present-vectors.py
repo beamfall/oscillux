@@ -202,28 +202,39 @@ def contrast(a, b):
 
 
 def backdrop_range(stage):
-    """Luminance of the backdrop's darkest and brightest points for an 8.8 stage colour."""
+    """Luminances bounding the backdrop for an 8.8 stage colour: per-channel extremes over the
+    corners of the (light weight, warm weight, vignette) box."""
     base = [v * 230 // 1024 + 1536 for v in stage]
     light = [lighten(v, 180) for v in stage]
     warm = [lighten((stage[c] + stage[(c + 2) % 3]) // 2, 80) for c in range(3)]
-    lit = list(base)
-    for colour, strength in ((light, 36000), (warm, 30000)):
-        lit = [lit[c] + (((colour[c] - lit[c]) * strength) >> 16) for c in range(3)]
-    dark = [((v * 35536) >> 16) >> 8 for v in base]
-    return luminance(dark), luminance([min(v, 65280) >> 8 for v in lit])
+    lo, hi = [None] * 3, [0] * 3
+    for corner in range(8):
+        c = list(base)
+        for bit, (colour, strength) in enumerate(((light, 36000), (warm, 30000))):
+            a = strength if corner >> bit & 1 else 0
+            c = [c[ch] + (((colour[ch] - c[ch]) * a) >> 16) for ch in range(3)]
+        v = 35536 if corner & 4 else 65536
+        for ch in range(3):
+            px = min(max((c[ch] * v) >> 16, 0), 65280) >> 8
+            lo[ch] = px if lo[ch] is None else min(lo[ch], px)
+            hi[ch] = max(hi[ch], px)
+    return luminance(lo), luminance(hi)
+
+
+def worst(l, dark, bright):
+    if dark <= l <= bright:
+        return 1024
+    return min(contrast(l, dark), contrast(l, bright))
 
 
 def legible(rgb, dark, bright):
-    def worst(c):
-        l = luminance(c)
-        return min(contrast(l, dark), contrast(l, bright))
-    best = (worst(rgb), rgb)
+    best = (worst(luminance(rgb), dark, bright), rgb)
     if best[0] >= TARGET:
         return rgb
     for k in range(1, 17):
         for c in (tuple(v + (255 - v) * k // 16 for v in rgb),
                   tuple(v * (16 - k) // 16 for v in rgb)):
-            w = worst(c)
+            w = worst(luminance(c), dark, bright)
             if w >= TARGET:
                 return c
             if w > best[0]:
@@ -443,7 +454,7 @@ class Presenter:
         rgb = [tuple(l * 17 for l in levels(c)) for c in sc.colours]
         lum = [luminance(c) for c in rgb]
         dark, bright = backdrop_range(tuple((l * 17) << 8 for l in levels(sc.colours[sc.bg])))
-        ok = [min(contrast(l, dark), contrast(l, bright)) >= TARGET for l in lum]
+        ok = [worst(l, dark, bright) >= TARGET for l in lum]
         for (i, j), n in sc.held.items():
             if ok[j] and n * 3 >= sc.back_len[i]:
                 self.protected.add(i)
