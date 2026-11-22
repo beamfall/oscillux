@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.18] - 2026-11-22
+
 ### Changed
 
 - The frame limiter's over test runs on windows of whole 64 x 36 sub-blocks (CORE-3238,
