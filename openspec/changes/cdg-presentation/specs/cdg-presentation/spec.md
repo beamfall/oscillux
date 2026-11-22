@@ -88,8 +88,9 @@ Invalid arguments SHALL exit non-zero with a message on stderr and write no fram
 
 ### Requirement: Render clock
 
-Frame `n` of `oscillux-cdg-render` SHALL show source time `start + n / fps * tempo`, rounded to
-the microsecond, and media time SHALL stop 300 ms after the stream's last pack.
+Frame `n` of `oscillux-cdg-render` SHALL show source time `start + n / fps * tempo`, with a time
+that is a rounding error below a pack or millisecond boundary counted as on it. Media time SHALL
+stop 300 ms after the first frame that shows the stream's last pack.
 
 #### Scenario: Pack on a frame boundary
 
@@ -98,5 +99,5 @@ the microsecond, and media time SHALL stop 300 ms after the stream's last pack.
 
 #### Scenario: Hold after the stream ends
 
-- **WHEN** frames are written more than 300 ms after the last pack
-- **THEN** they are identical
+- **WHEN** frames are written more than 300 ms after the first frame showing the last pack
+- **THEN** they are identical, and any background change in that pack has finished easing

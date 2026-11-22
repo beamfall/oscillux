@@ -5,9 +5,9 @@
 //! oscillux-cdg-render --width W --height H [--fps 30] [--start 0] [--tempo 1] [--frames N]
 //! ```
 //!
-//! Frame `n` shows source time `start + n / fps * tempo` seconds, rounded to the microsecond and
-//! drawn by `oscillux_core::cdg::present::Presenter`. Time stops [`EASE_MS`] after the last pack,
-//! so the picture holds once the stream ends. With `--frames N` it writes N frames and exits 1 if
+//! Frame `n` shows source time `start + n / fps * tempo` seconds, drawn by
+//! `oscillux_core::cdg::present::Presenter`. Time stops [`EASE_MS`] after the first frame that
+//! shows the stream's last pack, so the picture holds once the stream ends. With `--frames N` it writes N frames and exits 1 if
 //! a write fails first; without it, it writes until a write fails (the reader closed the pipe),
 //! then exits 0.
 //! Built for `wasm32-wasip1` so a host can run it in a WebAssembly runtime with no file access.
@@ -86,17 +86,26 @@ fn main() -> ExitCode {
     let mut decoder = Decoder::new(&stream);
     drop(stream);
     let mut presenter = Presenter::new(o.width, o.height).expect("dimensions checked");
-    // Integer microseconds, so a pack due on a frame boundary is never a rounding error late.
-    let start_us = (o.start * 1e6).round() as i64;
-    let end_us = (decoder.pack_count() * 1_000_000).div_ceil(PACKS_PER_SECOND as u64) as i64
-        + EASE_MS * 1000;
     let mut out = io::stdout().lock();
+    // Once the last pack is on screen, time runs on for the stage easing, then stops.
+    let mut hold: Option<i64> = None;
     let mut n: u64 = 0;
     while o.frames.is_none_or(|limit| n < limit) {
-        let offset = (n as f64 * o.tempo / o.fps * 1e6).round() as i64;
-        let us = start_us.saturating_add(offset).min(end_us);
-        decoder.advance_to(packs_at(us));
-        let written = out.write_all(presenter.present(&decoder, us.div_euclid(1000)));
+        let seconds = o.start + n as f64 * o.tempo / o.fps;
+        let mut millis = floor_units(seconds, 1000);
+        if let Some(stop) = hold {
+            millis = millis.min(stop);
+        } else {
+            decoder.advance_to(
+                floor_units(seconds, PACKS_PER_SECOND)
+                    .saturating_add(1)
+                    .max(0) as u64,
+            );
+            if decoder.applied() == decoder.pack_count() {
+                hold = Some(millis.saturating_add(EASE_MS));
+            }
+        }
+        let written = out.write_all(presenter.present(&decoder, millis));
         if written.is_err() {
             // Unbounded: the reader closed the pipe, so it has every frame it wants.
             return failure(o.frames.is_some(), "writing stdout");
@@ -109,14 +118,10 @@ fn main() -> ExitCode {
     }
 }
 
-/// The decoder position for media time `us`: pack `floor(us * 300 / 1e6)` and every pack before
-/// it, or none before time 0.
-fn packs_at(us: i64) -> u64 {
-    if us < 0 {
-        0
-    } else {
-        (us as u64 * PACKS_PER_SECOND as u64 / 1_000_000) + 1
-    }
+/// `floor(seconds * per_second)`, nudged by a millionth of a unit so a frame time that is exactly
+/// on a pack or millisecond boundary, but lands a rounding error below it, still reaches it.
+fn floor_units(seconds: f64, per_second: u32) -> i64 {
+    (seconds * per_second as f64 + 1e-6).floor() as i64
 }
 
 fn failure(bounded: bool, what: &str) -> ExitCode {
