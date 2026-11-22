@@ -25,10 +25,12 @@
 //!   the target, or hold the latest hop when the next one has not been pushed.
 //! - The beat phase follows a reference clock, from the tracker output of the latest hop or a
 //!   host-supplied [`BeatClock`], extrapolated from its tempo to the target. The output phase
-//!   only moves forward: it slews towards the reference at 0.5 to 2 times the nominal rate, so
-//!   it steps only at the wrap. It snaps to the reference on the first sample, after
-//!   [`ReactionSampler::reset`] and when the target moves back or more than
-//!   [`RESYNC_MS`] forward.
+//!   only moves forward, and its rate never steps: the rate slews towards the reference tempo
+//!   over [`RATE_SLEW_MS`], and the phase error is closed by a correction of at most
+//!   [`PHASE_CORRECTION`] of that rate, itself slewed over [`CORRECTION_SLEW_MS`], so a
+//!   wavering tracker tempo bends the output's speed rather than racing and stalling it. It
+//!   snaps to the reference on the first sample, after [`ReactionSampler::reset`] and when the
+//!   target moves back or more than [`RESYNC_MS`] forward.
 //! - The beat pulse peaks at the output wrap, the beat's photon time: a Gaussian rise of width
 //!   `pulse_rise` before it and an exponential decay of `pulse_decay` after it.
 //!
@@ -48,8 +50,18 @@ use crate::mapping::{
 /// A forward move of the target larger than this, in milliseconds, resynchronises the beat
 /// phase instead of slewing it (a seek or a stall).
 pub const RESYNC_MS: f64 = 500.0;
-/// Time constant, in milliseconds, of the output phase's slew towards the reference.
-pub const PHASE_SLEW_MS: f64 = 50.0;
+/// Time, in milliseconds, over which the phase correction aims to close the phase error.
+pub const PHASE_SLEW_MS: f64 = 500.0;
+/// Time constant, in milliseconds, of the output rate's slew towards the reference tempo.
+pub const RATE_SLEW_MS: f64 = 1000.0;
+/// Largest fraction by which the phase correction may speed up or slow down the output rate.
+pub const PHASE_CORRECTION: f64 = 0.15;
+/// Time constant, in milliseconds, of the phase correction's slew towards its target, so the
+/// output rate never steps.
+pub const CORRECTION_SLEW_MS: f64 = 250.0;
+/// Phase error, in beats, below which the output takes the reference phase exactly, so rounding
+/// never moves a steady clock's wrap by a frame.
+pub const PHASE_SNAP: f64 = 1e-9;
 /// Mapped onset a hop must reach, from below on the previous hop, to count as a phase-lock
 /// onset.
 pub const LOCK_ONSET: f64 = 0.5;
@@ -359,6 +371,10 @@ struct Follower {
     last_t: f64,
     /// Unwrapped output beat position; its floor counts the wraps.
     beats: f64,
+    /// Output rate in beats per millisecond, slewed towards the reference tempo.
+    rate: f64,
+    /// Fraction added to the rate to close the phase error, slewed towards its target.
+    correction: f64,
     /// Bar index of the current beat.
     in_bar: u32,
     /// Whether the latest wrap fired the pulse, and whether it was a downbeat.
@@ -728,6 +744,8 @@ impl ReactionSampler {
             Follower {
                 last_t: t,
                 beats,
+                rate: r.per_ms(),
+                correction: 0.0,
                 in_bar: bar_index(r.bar_at(t), frac(beats)),
                 pulsed: false,
                 pulsed_down: false,
@@ -737,16 +755,24 @@ impl ReactionSampler {
                 return;
             };
             let dt = t - f.last_t;
-            let nominal = dt * r.per_ms();
-            let err = wrap(r.beats_at(t) - (f.beats + nominal));
-            let gain = 1.0 - libm::exp(-dt / PHASE_SLEW_MS);
+            f.rate += (r.per_ms() - f.rate) * (1.0 - libm::exp(-dt / RATE_SLEW_MS));
+            let err = wrap(r.beats_at(t) - (f.beats + dt * f.rate));
+            let target = err / (PHASE_SLEW_MS * f.rate);
             // Explicit bounds rather than `f64::clamp`, whose bound-check panic
-            // links float formatting into the wasm build; `nominal` is never negative.
-            let advance = nominal + gain * err;
-            let advance = if advance < 0.5 * nominal {
-                0.5 * nominal
-            } else if advance > 2.0 * nominal {
-                2.0 * nominal
+            // links float formatting into the wasm build.
+            #[allow(clippy::manual_clamp)]
+            let target = if target < -PHASE_CORRECTION {
+                -PHASE_CORRECTION
+            } else if target > PHASE_CORRECTION {
+                PHASE_CORRECTION
+            } else {
+                target
+            };
+            f.correction += (target - f.correction) * (1.0 - libm::exp(-dt / CORRECTION_SLEW_MS));
+            let advance = dt * f.rate * (1.0 + f.correction);
+            let residual = wrap(r.beats_at(t) - (f.beats + advance));
+            let advance = if libm::fabs(residual) < PHASE_SNAP {
+                advance + residual
             } else {
                 advance
             };
@@ -766,7 +792,7 @@ impl ReactionSampler {
         self.follower = Some(f);
 
         let phase = frac(f.beats);
-        let per_ms = r.per_ms();
+        let per_ms = f.rate;
         let after = phase / per_ms;
         let before = (1.0 - phase) / per_ms;
         let decay = libm::exp(-after / self.config.pulse_decay_ms);

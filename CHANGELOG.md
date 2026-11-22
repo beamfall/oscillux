@@ -10,6 +10,16 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- `ReactionSampler`'s beat follower no longer races and stalls when the reference tempo wavers
+  (CORE-3215, openspec/changes/smooth-beat-follower/). Its output rate slews towards the
+  reference tempo, and the phase error is closed by a slewed correction of at most 15% of that
+  rate, replacing the 50 ms slew clamped to 0.5 to 2 times the nominal rate. The output beat
+  phase's frame-to-frame rate no longer steps (from up to 300% on a low-confidence track to about
+  3%). The beat pulse's rise and decay use the output rate. `conformance/reaction/vectors.json`
+  is regenerated.
+
 ## [0.2.15] - 2026-11-22
 
 ### Added

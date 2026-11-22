@@ -77,13 +77,14 @@ Otherwise the tracker reference with the lock offset added to `beats` and `bar_b
 The follower resyncs when there is none, the flag is set, `t < last_t` or `t - last_t > 500`; the
 flag is then cleared. Resync: `beats = beats_at(t)` in absolute mode, else
 `floor(previous follower beats, or 0) + frac(beats_at(t))`; `in_bar = bar_index(bar_at(t),
-frac(beats))`; not pulsed. Otherwise with `dt = t - last_t`, `nominal = dt * p`,
-`err = wrap(beats_at(t) - (beats + nominal))`, `g = 1 - exp(-dt / 50)`:
-`beats += clamp(nominal + g * err, nominal / 2, 2 * nominal)` (`0.5 * nominal` exactly); when
-`floor(beats)` increased, `in_bar = bar_index(bar_at(t), frac(beats))`, `pulsed = active`,
+frac(beats))`; `rate = p`, `corr = 0`; not pulsed. Otherwise with `dt = t - last_t`:
+`rate += (p - rate) * (1 - exp(-dt / 1000))`, `err = wrap(beats_at(t) - (beats + dt * rate))`,
+`corr += (clamp(err / (500 * rate), -0.15, 0.15) - corr) * (1 - exp(-dt / 250))`,
+`adv = dt * rate * (1 + corr)`, `res = wrap(beats_at(t) - (beats + adv))`, plus `res` when
+`|res| < 1e-9`; `beats += adv`; when `floor(beats)` increased, `in_bar = bar_index(bar_at(t), frac(beats))`, `pulsed = active`,
 `pulsed_down = active and in_bar == 0`. Either way `last_t = t` and `in_bar` is reduced mod `B`.
-Outputs with `ph = frac(beats)`: `decay = exp(-(ph / p) / pulse_decay)`,
-`rise = exp(-(((1 - ph) / p) / pulse_rise)^2)`; `beat = max(pulsed ? decay : 0, active ? rise : 0)`,
+Outputs with `ph = frac(beats)`: `decay = exp(-(ph / rate) / pulse_decay)`,
+`rise = exp(-(((1 - ph) / rate) / pulse_rise)^2)`; `beat = max(pulsed ? decay : 0, active ? rise : 0)`,
 `downbeat` the same with `pulsed_down` and `active and (in_bar + 1) mod B == 0`;
 `beat_phase = ph`, `bar_phase = (in_bar + ph) / B`, tempo, confidence, `beat_in_bar = in_bar`,
 `beat_count = floor(beats_at(t) - ph + 0.5)` in absolute mode else `floor(beats)`, `locked` 1.

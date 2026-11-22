@@ -104,7 +104,7 @@ class Model:
         self.lock_offset = 0.0
         self.tracker = None
         self.clock = None
-        self.follower = None     # [last_t, beats, in_bar, pulsed, pulsed_down]
+        self.follower = None     # [last_t, beats, in_bar, pulsed, pulsed_down, rate, correction]
         self.resync = True
 
     def releases(self):
@@ -255,13 +255,17 @@ class Model:
         if resync:
             target = r.beats_at(t)
             beats = target if absolute else (math.floor(f[1]) if f else 0) + frac(target)
-            f = [t, beats, bar_index(r.bar_at(t), frac(beats)), False, False]
+            f = [t, beats, bar_index(r.bar_at(t), frac(beats)), False, False, r.per_ms(), 0.0]
         else:
             dt = t - f[0]
-            nominal = dt * r.per_ms()
-            err = wrap(r.beats_at(t) - (f[1] + nominal))
-            gain = 1.0 - math.exp(-dt / 50.0)
-            advance = min(max(nominal + gain * err, 0.5 * nominal), 2.0 * nominal)
+            f[5] += (r.per_ms() - f[5]) * (1.0 - math.exp(-dt / 1000.0))
+            err = wrap(r.beats_at(t) - (f[1] + dt * f[5]))
+            target = min(max(err / (500.0 * f[5]), -0.15), 0.15)
+            f[6] += (target - f[6]) * (1.0 - math.exp(-dt / 250.0))
+            advance = dt * f[5] * (1.0 + f[6])
+            residual = wrap(r.beats_at(t) - (f[1] + advance))
+            if abs(residual) < 1e-9:
+                advance += residual
             before = math.floor(f[1])
             f[1] += advance
             if math.floor(f[1]) > before:
@@ -272,7 +276,7 @@ class Model:
         f[2] %= bpb
         self.follower = f
         phase = frac(f[1])
-        per_ms = r.per_ms()
+        per_ms = f[5]
         decay = math.exp(-(phase / per_ms) / self.c["pulse_decay_ms"])
         x = ((1.0 - phase) / per_ms) / self.c["pulse_rise_ms"]
         rise = math.exp(-(x * x))
@@ -435,7 +439,7 @@ def host_clock():
              "bar_phase": 0.75, "beat_index": -3, "beats_per_bar": 6, "reserved": 0})
     t0 += 40 * 1000 / 60
     m = drive(s, 6, 1000 / 60, t0, m, 2900.0, fn)
-    # 0.35 beats ahead: the output speeds up to at most twice the nominal rate.
+    # 0.35 beats ahead: the output speeds up by at most PHASE_CORRECTION of its rate.
     s.clock({"media_time_ms": 1500.0, "tempo_bpm": 128.0, "beat_phase": 0.85,
              "bar_phase": 0.808333, "beat_index": -3, "beats_per_bar": 6, "reserved": 0})
     t0 += 6 * 1000 / 60
