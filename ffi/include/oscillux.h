@@ -1240,8 +1240,10 @@ OSCILLUX_API int32_t oscillux_packer_pack(const OscilluxPacker *handle,
  * released, so no hop between two samples is lost. Continuous values and the spectrum are
  * interpolated between the hops around the target. The beat phase follows the tracker output of
  * the latest hop, or a host clock (oscillux_reaction_set_beat_clock), extrapolated to the target;
- * it moves forward at 0.5 to 2 times the nominal rate and steps only at the wrap, where the beat
- * pulse peaks. It resynchronises on the first sample, after reset, and when the target moves
+ * it only moves forward, its rate bends towards the tracker's tempo and never steps (a newly set
+ * host clock's tempo and beat count are taken at once), and it closes a phase error by running at
+ * most 15% fast or slow. It steps only at the wrap, where the
+ * beat pulse peaks. It resynchronises on the first sample, after reset, and when the target moves
  * back or more than 500 ms forward. Creation allocates; no other call allocates, locks or does
  * I/O. Invalid input and a full queue return OSCILLUX_ERR_INVALID_ARGUMENT and change nothing;
  * oscillux_reaction_queued tells a full queue (capacity hops) apart.
@@ -1289,7 +1291,7 @@ typedef struct OscilluxReaction {
     double bar_phase;      /* output bar phase, [0, 1); 0 at the downbeat */
     double tempo_bpm;      /* tempo of the reference clock; 0 without one */
     double confidence;     /* tracker confidence; 1 with a host clock; 0 without a reference */
-    int64_t beat_count;    /* beats counted at output wraps; with a host clock, its beat index */
+    int64_t beat_count;    /* beats counted at output wraps; a newly set host clock re-anchors it */
     uint32_t beat_in_bar;  /* index of the current beat within the bar; 0 is the downbeat */
     uint32_t locked;       /* 1 while a reference drives the beat outputs, else 0 (all zero) */
 } OscilluxReaction;

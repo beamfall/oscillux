@@ -106,6 +106,7 @@ class Model:
         self.clock = None
         self.follower = None     # [last_t, beats, in_bar, pulsed, pulsed_down, rate, correction]
         self.resync = True
+        self.reanchor = False
 
     def releases(self):
         return (self.c["onset_release_ms"], self.c["bass_impact_release_ms"],
@@ -135,6 +136,7 @@ class Model:
             if not ok:
                 return "invalid"
         self.clock = clock
+        self.reanchor = clock is not None
         return "ok"
 
     @staticmethod
@@ -252,22 +254,27 @@ class Model:
         f = self.follower
         resync = f is None or self.resync or t < f[0] or t - f[0] > 500.0
         self.resync = False
+        reanchor, self.reanchor = self.reanchor, False
         if resync:
             target = r.beats_at(t)
             beats = target if absolute else (math.floor(f[1]) if f else 0) + frac(target)
             f = [t, beats, bar_index(r.bar_at(t), frac(beats)), False, False, r.per_ms(), 0.0]
         else:
             dt = t - f[0]
+            reference = r.beats_at(t)
+            if reanchor and absolute:
+                f[5] = r.per_ms()
+                f[1] += math.floor(reference - (f[1] + dt * f[5]) + 0.5)
             f[5] += (r.per_ms() - f[5]) * (1.0 - math.exp(-dt / 1000.0))
-            err = wrap(r.beats_at(t) - (f[1] + dt * f[5]))
-            target = min(max(err / (500.0 * f[5]), -0.15), 0.15)
+            err = wrap(reference - (f[1] + dt * f[5]))
+            target = min(max(err / (500.0 * f[5]), -0.15), 0.15) if f[5] > 0 else 0.0
             f[6] += (target - f[6]) * (1.0 - math.exp(-dt / 250.0))
-            advance = dt * f[5] * (1.0 + f[6])
-            residual = wrap(r.beats_at(t) - (f[1] + advance))
-            if abs(residual) < 1e-9:
-                advance += residual
+            nxt = f[1] + dt * f[5] * (1.0 + f[6])
+            snapped = reference + math.floor(nxt - reference + 0.5)
+            if abs(nxt - snapped) < 1e-9 and snapped >= f[1]:
+                nxt = snapped
             before = math.floor(f[1])
-            f[1] += advance
+            f[1] = nxt
             if math.floor(f[1]) > before:
                 f[2] = bar_index(r.bar_at(t), frac(f[1]))
                 f[3] = r.active
@@ -276,7 +283,7 @@ class Model:
         f[2] %= bpb
         self.follower = f
         phase = frac(f[1])
-        per_ms = f[5]
+        per_ms = f[5] * (1.0 + f[6])
         decay = math.exp(-(phase / per_ms) / self.c["pulse_decay_ms"])
         x = ((1.0 - phase) / per_ms) / self.c["pulse_rise_ms"]
         rise = math.exp(-(x * x))
@@ -287,8 +294,7 @@ class Model:
         out["bar_phase"] = (f[2] + phase) / bpb
         out["tempo_bpm"] = r.tempo
         out["confidence"] = r.confidence
-        out["beat_count"] = (math.floor(r.beats_at(t) - phase + 0.5) if absolute
-                             else math.floor(f[1]))
+        out["beat_count"] = math.floor(f[1])
         out["beat_in_bar"] = f[2]
         out["locked"] = 1
 

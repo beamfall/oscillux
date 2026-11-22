@@ -6,10 +6,10 @@
 ### Requirement: Beat follower rate never steps
 
 Between resyncs, the reaction sampler's output beat phase SHALL advance at a rate that slews
-towards the reference tempo, with the phase error closed by a slewed correction of at most 15% of
+towards the tracker's tempo, with the phase error closed by a slewed correction of at most 15% of
 that rate. A change of reference tempo or phase SHALL then bend the output's speed over several
 frames and never step it from one frame to the next. A residual phase error under 1e-9 beats
-SHALL be taken exactly.
+SHALL be taken exactly unless that moves the phase backwards.
 
 #### Scenario: Tracker tempo flips
 
@@ -27,3 +27,15 @@ SHALL be taken exactly.
 - **WHEN** a host replaces the beat clock with one half a beat away
 - **THEN** the output phase does not jump; it converges over the following frames at no more
   than 15% above or below its rate
+
+### Requirement: Beat count follows wraps and a newly set host clock
+
+`beat_count` SHALL count output wraps, so it never goes down between resyncs. A newly set host
+beat clock SHALL be taken at the next sample: its tempo becomes the output rate, and the count
+moves by whole beats to the clock's beat index, while the phase still slews.
+
+#### Scenario: Replacement clock at another tempo
+
+- **WHEN** a host replaces a 120 BPM clock with a 60 BPM clock of the same origin after 2 s
+- **THEN** the next sample reports the new clock's beat 2, and the count then only goes up by
+  one at each wrap, reaching 10 at 10 s

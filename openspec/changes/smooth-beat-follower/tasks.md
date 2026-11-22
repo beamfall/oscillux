@@ -5,7 +5,8 @@
 
 - [x] 1.1 Slewed output rate and bounded, slewed phase correction in
   `crates/oscillux-core/src/reaction.rs`
-- [x] 1.2 Sub-nanobeat residual snap, so a steady clock's wraps stay exact
+- [x] 1.2 Sub-nanobeat residual snap, so a steady clock's wraps stay exact, never backwards
+- [x] 1.3 `beat_count` counts wraps; a newly set host clock re-anchors tempo and count
 
 ## 2. Conformance
 

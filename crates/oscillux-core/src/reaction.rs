@@ -262,7 +262,8 @@ pub struct Reaction {
     pub tempo_bpm: f64,
     /// Tracker confidence of the latest hop, 1 with a host clock, 0 without a reference.
     pub confidence: f64,
-    /// Beats counted at output wraps; with a host clock, the clock's beat index.
+    /// Beats counted at output wraps; a newly set host clock re-anchors it to the clock's beat
+    /// index at the next sample.
     pub beat_count: i64,
     /// Index of the current beat within the bar; 0 is the downbeat.
     pub beat_in_bar: u32,
@@ -404,6 +405,8 @@ pub struct ReactionSampler {
     follower: Option<Follower>,
     /// The next sample snaps the follower to the reference.
     resync: bool,
+    /// The next sample moves the follower's beat count to a newly set beat clock's.
+    reanchor: bool,
 }
 
 fn frac(x: f64) -> f64 {
@@ -460,6 +463,7 @@ impl ReactionSampler {
             clock: None,
             follower: None,
             resync: true,
+            reanchor: false,
         })
     }
 
@@ -488,6 +492,7 @@ impl ReactionSampler {
         self.clock = None;
         self.follower = None;
         self.resync = true;
+        self.reanchor = false;
     }
 
     /// Queues one mapped hop whose analysis window ends at `media_time_ms`, with the tracker
@@ -520,7 +525,8 @@ impl ReactionSampler {
     }
 
     /// Drives the beat outputs from `clock` instead of the tracker; `None` returns to the
-    /// tracker. A new clock is followed by slewing, as a tracker update is.
+    /// tracker. The next sample takes a new clock's tempo and beat count; its phase is followed
+    /// by slewing, as a tracker update is.
     pub fn set_beat_clock(&mut self, clock: Option<&BeatClock>) -> Result<(), ReactionError> {
         if let Some(c) = clock {
             let ok = [c.media_time_ms, c.tempo_bpm, c.beat_phase, c.bar_phase]
@@ -536,6 +542,7 @@ impl ReactionSampler {
             }
         }
         self.clock = clock.copied();
+        self.reanchor = clock.is_some();
         Ok(())
     }
 
@@ -733,6 +740,7 @@ impl ReactionSampler {
             Some(f) => self.resync || t < f.last_t || t - f.last_t > RESYNC_MS,
         };
         self.resync = false;
+        let reanchor = core::mem::take(&mut self.reanchor);
         let mut f = if resync {
             let target = r.beats_at(t);
             let beats = if absolute {
@@ -755,9 +763,20 @@ impl ReactionSampler {
                 return;
             };
             let dt = t - f.last_t;
+            let reference = r.beats_at(t);
+            if reanchor && absolute {
+                // A host clock is authoritative: take its tempo and beat count at once. The
+                // phase still slews.
+                f.rate = r.per_ms();
+                f.beats += libm::floor(reference - (f.beats + dt * f.rate) + 0.5);
+            }
             f.rate += (r.per_ms() - f.rate) * (1.0 - libm::exp(-dt / RATE_SLEW_MS));
-            let err = wrap(r.beats_at(t) - (f.beats + dt * f.rate));
-            let target = err / (PHASE_SLEW_MS * f.rate);
+            let err = wrap(reference - (f.beats + dt * f.rate));
+            let target = if f.rate > 0.0 {
+                err / (PHASE_SLEW_MS * f.rate)
+            } else {
+                0.0
+            };
             // Explicit bounds rather than `f64::clamp`, whose bound-check panic
             // links float formatting into the wasm build.
             #[allow(clippy::manual_clamp)]
@@ -769,15 +788,15 @@ impl ReactionSampler {
                 target
             };
             f.correction += (target - f.correction) * (1.0 - libm::exp(-dt / CORRECTION_SLEW_MS));
-            let advance = dt * f.rate * (1.0 + f.correction);
-            let residual = wrap(r.beats_at(t) - (f.beats + advance));
-            let advance = if libm::fabs(residual) < PHASE_SNAP {
-                advance + residual
+            let next = f.beats + dt * f.rate * (1.0 + f.correction);
+            let snapped = reference + libm::floor(next - reference + 0.5);
+            let next = if libm::fabs(next - snapped) < PHASE_SNAP && snapped >= f.beats {
+                snapped
             } else {
-                advance
+                next
             };
             let before = libm::floor(f.beats);
-            f.beats += advance;
+            f.beats = next;
             if libm::floor(f.beats) > before {
                 f.in_bar = bar_index(r.bar_at(t), frac(f.beats));
                 f.pulsed = r.active;
@@ -792,7 +811,7 @@ impl ReactionSampler {
         self.follower = Some(f);
 
         let phase = frac(f.beats);
-        let per_ms = f.rate;
+        let per_ms = f.rate * (1.0 + f.correction);
         let after = phase / per_ms;
         let before = (1.0 - phase) / per_ms;
         let decay = libm::exp(-after / self.config.pulse_decay_ms);
@@ -809,11 +828,7 @@ impl ReactionSampler {
         out.bar_phase = (f.in_bar as f64 + phase) / bpb as f64;
         out.tempo_bpm = r.tempo_bpm;
         out.confidence = r.confidence;
-        out.beat_count = if absolute {
-            libm::floor(r.beats_at(t) - phase + 0.5) as i64
-        } else {
-            libm::floor(f.beats) as i64
-        };
+        out.beat_count = libm::floor(f.beats) as i64;
         out.beat_in_bar = f.in_bar;
         out.locked = 1;
     }
@@ -1004,6 +1019,29 @@ mod tests {
             (previous.downbeat - 1.0).abs() < 1e-9,
             "beat 20 is a downbeat"
         );
+    }
+
+    #[test]
+    fn a_replaced_clock_reanchors_the_count_and_it_then_only_counts_up() {
+        let mut s = sampler(plain());
+        s.set_beat_clock(Some(&clock(120.0))).unwrap();
+        let frame = 1000.0 / 60.0;
+        let mut previous = s.sample(0.0).unwrap();
+        for k in 1..=120 {
+            previous = s.sample(k as f64 * frame).unwrap();
+        }
+        assert_eq!(previous.beat_count, 4);
+        // Same origin at half the tempo: the clock is at beat 2.
+        s.set_beat_clock(Some(&clock(60.0))).unwrap();
+        previous = s.sample(121.0 * frame).unwrap();
+        assert_eq!(previous.beat_count, 2);
+        for k in 122..=600 {
+            let r = s.sample(k as f64 * frame).unwrap();
+            assert!(r.beat_count == previous.beat_count || r.beat_count == previous.beat_count + 1);
+            assert!(r.beat_phase > previous.beat_phase || r.beat_count == previous.beat_count + 1);
+            previous = r;
+        }
+        assert_eq!(previous.beat_count, 10);
     }
 
     #[test]

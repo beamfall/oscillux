@@ -75,19 +75,20 @@ Otherwise the tracker reference with the lock offset added to `beats` and `bar_b
 **Beat.** Without a reference: set the resync flag and leave every beat output 0 (`locked` 0). With one, `p = tempo / 60000`, bar length `B`,
 `bar_index(bb, ph) = min(k mod B, B - 1)` with `k = floor(bb - ph + 0.5)` (mod into `[0, B)`).
 The follower resyncs when there is none, the flag is set, `t < last_t` or `t - last_t > 500`; the
-flag is then cleared. Resync: `beats = beats_at(t)` in absolute mode, else
+flag is then cleared. Storing a clock sets a re-anchor flag, which every sample clears. Resync: `beats = beats_at(t)` in absolute mode, else
 `floor(previous follower beats, or 0) + frac(beats_at(t))`; `in_bar = bar_index(bar_at(t),
 frac(beats))`; `rate = p`, `corr = 0`; not pulsed. Otherwise with `dt = t - last_t`:
-`rate += (p - rate) * (1 - exp(-dt / 1000))`, `err = wrap(beats_at(t) - (beats + dt * rate))`,
-`corr += (clamp(err / (500 * rate), -0.15, 0.15) - corr) * (1 - exp(-dt / 250))`,
-`adv = dt * rate * (1 + corr)`, `res = wrap(beats_at(t) - (beats + adv))`, plus `res` when
-`|res| < 1e-9`; `beats += adv`; when `floor(beats)` increased, `in_bar = bar_index(bar_at(t), frac(beats))`, `pulsed = active`,
+`R = beats_at(t)`; in absolute mode with the re-anchor flag set, `rate = p` and
+`beats += floor(R - (beats + dt * rate) + 0.5)`; `rate += (p - rate) * (1 - exp(-dt / 1000))`; `err = wrap(R - (beats + dt * rate))`,
+`corr += (clamp(err / (500 * rate), -0.15, 0.15) - corr) * (1 - exp(-dt / 250))` (target 0 when
+`rate` is 0), `n = beats + dt * rate * (1 + corr)`, `s = R + floor(n - R + 0.5)`; `beats = s` when
+`|n - s| < 1e-9` and `s >= beats`, else `beats = n`; when `floor(beats)` increased, `in_bar = bar_index(bar_at(t), frac(beats))`, `pulsed = active`,
 `pulsed_down = active and in_bar == 0`. Either way `last_t = t` and `in_bar` is reduced mod `B`.
-Outputs with `ph = frac(beats)`: `decay = exp(-(ph / rate) / pulse_decay)`,
-`rise = exp(-(((1 - ph) / rate) / pulse_rise)^2)`; `beat = max(pulsed ? decay : 0, active ? rise : 0)`,
+Outputs with `ph = frac(beats)` and `v = rate * (1 + corr)`: `decay = exp(-(ph / v) / pulse_decay)`,
+`rise = exp(-(((1 - ph) / v) / pulse_rise)^2)`; `beat = max(pulsed ? decay : 0, active ? rise : 0)`,
 `downbeat` the same with `pulsed_down` and `active and (in_bar + 1) mod B == 0`;
 `beat_phase = ph`, `bar_phase = (in_bar + ph) / B`, tempo, confidence, `beat_in_bar = in_bar`,
-`beat_count = floor(beats_at(t) - ph + 0.5)` in absolute mode else `floor(beats)`, `locked` 1.
+`beat_count = floor(beats)`, `locked` 1.
 
 ## Vectors
 
