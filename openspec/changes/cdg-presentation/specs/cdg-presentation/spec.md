@@ -72,13 +72,31 @@ down and right, under the graphics. The output SHALL be opaque RGBA8.
 ### Requirement: Render command
 
 `oscillux-cdg-render` SHALL read a CD+G stream on stdin and write raw RGBA8 frames of the given
-width and height to stdout. Frame `n` shows source time `start + n / fps * tempo`, rounded to the
-microsecond. Media time stops 300 ms after the stream's last pack, so the picture holds after the
-stream ends. With `--frames N` it SHALL write exactly N frames and exit 0, and exit non-zero if a
-write fails first. Otherwise it SHALL keep writing frames until a write fails, then exit 0.
+width and height to stdout. With `--frames N` it SHALL write exactly N frames and exit 0, or exit
+non-zero if a write fails first. Otherwise it SHALL write frames until a write fails, then exit 0.
 Invalid arguments SHALL exit non-zero with a message on stderr and write no frames.
 
 #### Scenario: Frame size
 
 - **WHEN** it runs with `--width 640 --height 360 --fps 30` and stdout is read for 10 frames
 - **THEN** exactly 10 x 640 x 360 x 4 bytes arrive before the reader closes
+
+#### Scenario: Truncated bounded render
+
+- **WHEN** it runs with `--frames 40` and the reader closes after the first bytes
+- **THEN** it exits non-zero
+
+### Requirement: Render clock
+
+Frame `n` of `oscillux-cdg-render` SHALL show source time `start + n / fps * tempo`, rounded to
+the microsecond, and media time SHALL stop 300 ms after the stream's last pack.
+
+#### Scenario: Pack on a frame boundary
+
+- **WHEN** a pack is due at exactly frame 11 of a 30 fps render
+- **THEN** frame 11 shows it
+
+#### Scenario: Hold after the stream ends
+
+- **WHEN** frames are written more than 300 ms after the last pack
+- **THEN** they are identical
