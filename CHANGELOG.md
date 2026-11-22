@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-11-22
+
 ### Changed
 
 - `ReactionSampler`'s beat follower no longer races and stalls when the reference tempo wavers
