@@ -172,8 +172,8 @@ the colour per axis. Black SHALL change nothing. A fire SHALL set the pixel's re
 A pixel's first value with no state SHALL set known boxes and count nothing. "Black, nothing owed"
 SHALL leave both boxes known and empty, and zero both unknown. An unknown saturated box SHALL count
 down at every changed far colour, and an unknown far box up at every changed saturated colour,
-until a definite step makes it known. The auditor SHALL make both boxes unknown at a zero restart
-and count at most one large-area red transition a frame.
+until a definite step makes it known. The auditor SHALL take a zero restart's unknown boxes (before
+its first frame, the zero texel's whole state) and count one large-area red transition a frame at most.
 
 #### Scenario: A blue after a black start
 

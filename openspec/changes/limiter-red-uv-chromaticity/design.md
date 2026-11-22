@@ -200,7 +200,10 @@ each frame with the previous input frame:
 - a black reseed makes both boxes known and empty, as `BLACK_TEXEL` does;
 - a zero restart makes both boxes unknown, as the zero seed does, so the auditor and the limiter
   step the same chromaticity state from it (P1-B, section 13). Unknown boxes are a superset of any
-  history, so this never hides a transition the auditor kept.
+  history, so this never hides a transition the auditor kept;
+- a zero restart before its first frame gives each pixel the zero texel's whole state (both
+  trackers falling at 0, the red memory and the boxes unknown) and steps that frame from black,
+  as the limiter steps its first output from the zero seed (section 13).
 
 Its red direction per pixel and frame is the u'v' one when that fires, else the 320 rule's. It
 records at most one large-area red transition a frame (up when both directions are over the
@@ -370,4 +373,14 @@ Round 2, widened memory with SB and FB boxes (HOLD); the fixes are in section 13
   probe before the seed. The CORE-2869 restart-report test now expects the red transition at
   (5, 0, 0) after a zero restart as a rise: the zero seed's unknown boxes fire it (the merged
   direction), as the limiter does from the zero texel.
+- **Code review delta round 1 (Codex).** No P1. P2: the auditor's zero-seeded first frame kept a
+  counted red memory where the zero texel's is unknown, so after a zero start on (18, 0, 5) the
+  limiter fell at the first saturated output (frame 81) and the auditor missed it. A zero restart
+  before the first frame now seeds the auditor with the zero texel's whole state (both trackers
+  falling at 0, the red memory and the boxes unknown) and steps the frame from black; the red
+  memory gains the unknown state redStep has. A regression test fails on the old auditor. A fuzz
+  of 200 zero-started full-frame runs (1 to 4 colour runs, saturation-edge reds among them) finds
+  no frame where the limiter fires a channel the auditor does not record; on the same runs the old
+  auditor missed red falls and the luma rise from black of a bright first output. P3s: the 16-bit store wording (a zero seed survives) and the probe value
+  (it passes the marker check, not a written state).
 - **Status.** The design review is closed; the legs and the host follow under code review.

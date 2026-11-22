@@ -40,6 +40,9 @@ import { LUMA_DARK, LUMA_STEP, RED_STEP, UV_FBK, UV_SBK, blackLongEnough, lumaCo
   uvStep } from './limiter-model.mjs';
 
 export const AUDIT_COVERAGE_MS = 1000 / 15;
+/** The zero texel's red memory, unknown: a change counts at once, and so does the first saturated
+ * state with no change, in the tracker's direction (limiter-model.mjs, redStep). */
+const RED_UNKNOWN = 2;
 // The measures are the limiter's codes (limiter-model.mjs: lumaCode, redCode, redSat), and the
 // codes are the measure: luma steps of 3275 15-bit codes (0.1 relative luminance) with the darker
 // side below 26215 (0.8); red steps of 15 codes (20 of WCAG's 320 scale) of (R - G - B) >> 8
@@ -61,8 +64,8 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
   // a pixel starts as if it fell to its first value), the extreme since it and the level at it.
   const ext = [new Float64Array(N), new Float64Array(N)], ref = [new Float64Array(N), new Float64Array(N)];
   const dir = [new Int8Array(N), new Int8Array(N)];
-  // Per pixel: whether the red tracker's latest step counted, and whether a saturated red state
-  // was seen since it.
+  // Per pixel: whether the red tracker's latest step counted (1), did not (0) or is unknown
+  // (RED_UNKNOWN), and whether a saturated red state was seen since it.
   const redCounted = new Uint8Array(N), anySat = new Uint8Array(N);
   // Per pixel: the chromaticity boxes as the tracker texel's high halves, their known bits, and the
   // previous colour.
@@ -215,17 +218,22 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       }
       if (r !== 0 || g !== 0 || b !== 0) blackSince[j] = NaN;
       else if (Number.isNaN(blackSince[j])) blackSince[j] = clock;
-      if (!live) {
+      if (!live && pending !== 'zero') {
         ext[0][j] = ref[0][j] = v; ext[1][j] = ref[1][j] = rv; dir[0][j] = dir[1][j] = -1;
         redCounted[j] = 1; anySat[j] = sat ? 1 : 0;
-        // A zero restart before the first frame is the seed: the limiter steps its first output from
-        // the zero texel after a black history, so the auditor does too and counts the red direction
-        // that step returns (Codex design round 3, code round 1).
-        const fu = pending === 'zero' ? uvStep(0, 0, 0, 0, 0, r, g, b, 0, 0, 0, uv) : (uvFirst(r, g, b, uv), 0);
+        uvFirst(r, g, b, uv);
         setUv(j);
         prev[3 * j] = r; prev[3 * j + 1] = g; prev[3 * j + 2] = b;
-        if (fu !== 0) { last[fu > 0 ? 2 : 3][j] = clock; firing[j] |= 2; firedNow[1] = true; }
         continue;
+      }
+      if (!live) {
+        // A zero restart before the first frame is the seed: the limiter steps its first output from
+        // the zero texel, tracked black (falling at 0, the red memory and the boxes unknown), so the
+        // auditor takes that state and steps the frame from black (Codex design round 3, code
+        // rounds 1 and 2). The boxes were made unknown above.
+        ext[0][j] = ref[0][j] = 0; ext[1][j] = ref[1][j] = 0; dir[0][j] = dir[1][j] = -1;
+        redCounted[j] = RED_UNKNOWN; anySat[j] = 0;
+        prev[3 * j] = prev[3 * j + 1] = prev[3 * j + 2] = 0;
       }
       const fl = track(0, j, v);
       if (fl !== 0) { last[fl > 0 ? 0 : 1][j] = clock; firing[j] |= 1; firedNow[0] = true; }
@@ -236,11 +244,12 @@ export function createAuditor({ width: W, height: H, field = { fw: 1 / 3, fh: 1 
       const fr = track(1, j, rv);
       let count = 0;
       if (fr !== 0) {
+        const unknown = redCounted[j] === RED_UNKNOWN;
         redCounted[j] = sat || anySat[j] ? 1 : 0;
-        if (redCounted[j]) count = fr;
+        if (redCounted[j] || unknown) count = fr;
         anySat[j] = sat ? 1 : 0;
       } else {
-        if (!redCounted[j] && sat) { count = dir[1][j]; redCounted[j] = 1; }
+        if (redCounted[j] !== 1 && sat) { count = dir[1][j]; redCounted[j] = 1; }
         if (sat) anySat[j] = 1;
       }
       if (fu !== 0) count = fu;

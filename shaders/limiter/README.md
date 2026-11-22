@@ -316,10 +316,11 @@ CORE-2516.)
 
 The tracker textures are RGBA32UI (`rgba32Uint`, `GL_RGBA32UI`) and every seed and clear is
 32-bit. At start, before it seeds, a host clears a texel of each tracker copy to a value with bit 31 set
-in every word, reads each back and presents black if any word differs: a 16-bit store would
-otherwise fire every direction at every changed pixel. It then writes the production seed over
-the probed texel; a probe value left in place is a valid texel with full boxes and fires where
-`BLACK_TEXEL` would not.
+in every word, reads each back and presents black if any word differs: on a 16-bit store a zero
+seed survives, but every texel a pass writes loses the marker and then fires every direction at a
+changed colour. It then writes the production seed over the probed texel: the probe value passes
+the marker check but is not a state the passes write (with 0x80000000 in every word the saturated
+box's u maximum is empty), so it must not stay in place.
 
 `G` and the tracker state of a frame on screen are never cleared. When only the window changes
 (the viewing geometry: the same frame at the same display scale, all of it still in view), the

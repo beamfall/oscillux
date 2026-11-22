@@ -25,9 +25,10 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   is 32-bit. `BLACK_TEXEL` is (0, 32768, 2147508224, 0); zero and `UNTRACKED` (0, 8192, 0, 0) keep
   their meaning. A host checks at start that each tracker copy keeps bit 31 of every word and
   presents black if not. The `rows` pass reads the previous output: bind `uHist` (texture 2) to
-  it as to the `output` pass. A texel stored at less than 32 bits fires every direction at a
-  changed colour and counts toward the area limit like any firing pixel; the format check is
-  what keeps a 16-bit store off screen.
+  it as to the `output` pass. On a store of less than 32 bits every texel a pass writes loses the
+  marker, then fires every direction at a changed colour and counts toward the area limit like
+  any firing pixel (a zero seed survives and is tracked black); the format check is what keeps a
+  16-bit store off screen.
 
 ## [0.2.12] - 2026-11-21
 

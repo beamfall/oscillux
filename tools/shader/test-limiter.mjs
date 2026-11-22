@@ -1624,6 +1624,23 @@ test(`u'v': a zero restart before a non-black first frame counts the limiter's f
   assert.deepEqual(a.transitions[3], [0], 'the auditor counts the fall on frame 0');
 });
 
+// Codex code round 2 P2: the zero texel's red memory is unknown, so the limiter counts the first
+// saturated state after it in the tracker's direction; the auditor seeded a counted memory and
+// missed that fall.
+test(`u'v': a zero restart before the first frame leaves the auditor's red memory unknown`, () => {
+  const w = 64, h = 36, lim = model.createLimiter({ width: w, height: h, start: 'zero' });
+  const a = createAuditor({ width: w, height: h }), px = new Uint8Array(w * h * 4), fell = [];
+  for (let j = 0; j < w * h; j++) px.set([18, 0, 5, 255], 4 * j);
+  a.restart('zero');
+  for (let t = 0; t < 160; t++) {
+    const r = lim.step(px, DT);
+    if (r.stats.fired[3] === w * h) fell.push(t);
+    a.push(r.out, DT);
+  }
+  assert.equal(fell.length, 1, `the limiter falls once at every pixel (frames ${fell})`);
+  assert.deepEqual(a.transitions[3], fell, 'the auditor counts that fall');
+});
+
 test(`u'v': the 32-bit marker and the RGBA16UI clamp (P1-3)`, () => {
   const [x, y, z, w] = model.BLACK_TEXEL;
   assert.ok(model.texelValid(x, y, z, w) && model.texelValid(0, 0, 0, 0));
