@@ -246,10 +246,11 @@ pub struct Presenter {
     rows: Vec<Tap>,
     shadow_cols: Vec<Tap>,
     shadow_rows: Vec<Tap>,
-    stage_row: Vec<[u32; 3]>,
     /// Per frame pixel, the graphics over the shadow, rebuilt only when the window, background
     /// or palette changes: premultiplied R, G and B, `255 - alpha`, and the shadow's `keep`.
     overlay: Vec<[u8; 5]>,
+    /// Per frame row, whether any overlay pixel there is not empty (`[0, 0, 0, 255, 255]`).
+    overlay_ink: Vec<bool>,
     frame: Vec<u8>,
     /// The background and palette the shadow mask was built for; `None` before the first frame.
     built: Option<(u8, [u16; 16])>,
@@ -296,8 +297,8 @@ impl Presenter {
             rows: vec![Tap::default(); height],
             shadow_cols: vec![Tap::default(); width],
             shadow_rows: vec![Tap::default(); height],
-            stage_row: vec![[0; 3]; width],
             overlay: vec![[0, 0, 0, 255, 255]; width * height],
+            overlay_ink: vec![false; height],
             frame: vec![255; width * height * 4],
             built: None,
             drawn: None,
@@ -434,9 +435,19 @@ impl Presenter {
     /// layer's mask is 255 where the pixel ranks at or above the layer's index, box blurred once
     /// (radius 1, separable, edges clamped).
     fn build_layers(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
+        // Which indices are present, and per doubled row the highest rank outside the backdrop
+        // (-1 for none): a layer is zero away from the rows reaching its floor, so only those
+        // rows and their blur neighbours need work.
         let mut present = [false; 16];
-        for &index in self.x2.iter() {
-            present[index as usize] = !backdrop[index as usize];
+        let mut row_top = [-1i32; X2_HEIGHT];
+        for (top, row) in row_top.iter_mut().zip(self.x2.chunks_exact(X2_WIDTH)) {
+            for &index in row {
+                let shown = !backdrop[index as usize];
+                present[index as usize] = shown;
+                if shown {
+                    *top = (*top).max(rank[index as usize] as i32);
+                }
+            }
         }
         self.layer_count = 0;
         for (i, _) in present.iter().enumerate().filter(|(_, &p)| p) {
@@ -445,16 +456,26 @@ impl Presenter {
         }
         self.layer_index[..self.layer_count].sort_unstable_by_key(|&i| rank[i as usize]);
         for layer in 0..self.layer_count {
-            let floor = rank[self.layer_index[layer] as usize];
+            let floor = rank[self.layer_index[layer] as usize] as i32;
+            // The layer's own index is present, so some row reaches the floor.
+            let inked = |y: &usize| row_top[*y] >= floor;
+            let first = (0..X2_HEIGHT).find(inked).unwrap_or(0);
+            let last = (0..X2_HEIGHT).rev().find(inked).unwrap_or(0);
+            // Rows the vertical blur can reach, and the scratch rows those read.
+            let (lo, hi) = (first.saturating_sub(1), (last + 1).min(X2_HEIGHT - 1));
+            let (scratch_lo, scratch_hi) = (lo.saturating_sub(1), (hi + 1).min(X2_HEIGHT - 1));
             let mask = &mut self.layers[layer * X2_SIZE..(layer + 1) * X2_SIZE];
-            for (m, &index) in mask.iter_mut().zip(self.x2.iter()) {
-                *m = if !backdrop[index as usize] && rank[index as usize] >= floor {
+            let rows = first * X2_WIDTH..(last + 1) * X2_WIDTH;
+            for (m, &index) in mask[rows.clone()].iter_mut().zip(&self.x2[rows]) {
+                *m = if !backdrop[index as usize] && rank[index as usize] as i32 >= floor {
                     255
                 } else {
                     0
                 };
             }
-            for y in 0..X2_HEIGHT {
+            self.layer_scratch[scratch_lo * X2_WIDTH..first * X2_WIDTH].fill(0);
+            self.layer_scratch[(last + 1) * X2_WIDTH..(scratch_hi + 1) * X2_WIDTH].fill(0);
+            for y in first..=last {
                 let row = &mask[y * X2_WIDTH..(y + 1) * X2_WIDTH];
                 let out = &mut self.layer_scratch[y * X2_WIDTH..(y + 1) * X2_WIDTH];
                 for x in 0..X2_WIDTH {
@@ -463,7 +484,9 @@ impl Presenter {
                     out[x] = l + row[x] as u16 + r;
                 }
             }
-            for y in 0..X2_HEIGHT {
+            mask[..lo * X2_WIDTH].fill(0);
+            mask[(hi + 1) * X2_WIDTH..].fill(0);
+            for y in lo..=hi {
                 let up = y.saturating_sub(1) * X2_WIDTH;
                 let down = (y + 1).min(X2_HEIGHT - 1) * X2_WIDTH;
                 for x in 0..X2_WIDTH {
@@ -592,10 +615,32 @@ impl Presenter {
                 *entry = [r, g, b, 255];
             }
         }
+        // Source rows holding any ink: an output row whose shadow and graphics taps all read
+        // empty rows is the empty pixel throughout (no shadow, and layer 0, which every later
+        // layer nests inside, is zero at every tap).
+        let mut mask_ink = [false; MASK_HEIGHT];
+        for (ink, row) in mask_ink.iter_mut().zip(self.mask.chunks_exact(MASK_WIDTH)) {
+            *ink = row.iter().any(|&m| m != 0);
+        }
+        let mut layer_ink = [false; X2_HEIGHT];
+        if self.layer_count > 0 {
+            let layer0 = self.layers[..X2_SIZE].chunks_exact(X2_WIDTH);
+            for (ink, row) in layer_ink.iter_mut().zip(layer0) {
+                *ink = row.iter().any(|&m| m != 0);
+            }
+        }
         let width = self.width;
         for (y, line) in self.overlay.chunks_exact_mut(width).enumerate() {
             let ry = self.rows[y];
             let sy = self.shadow_rows[y];
+            let inked = mask_ink[sy.i0 as usize]
+                || mask_ink[sy.i1 as usize]
+                || (ry.edge != 0 && (layer_ink[ry.i0 as usize] || layer_ink[ry.i1 as usize]));
+            self.overlay_ink[y] = inked;
+            if !inked {
+                line.fill([0, 0, 0, 255, 255]);
+                continue;
+            }
             let row0 = ry.i0 as usize * X2_WIDTH;
             let row1 = ry.i1 as usize * X2_WIDTH;
             let m0 = &self.mask[sy.i0 as usize * MASK_WIDTH..][..MASK_WIDTH];
@@ -656,37 +701,118 @@ impl Presenter {
         }
     }
 
-    /// Draws the backdrop at `millis` under the overlay into `frame`.
+    /// Draws the backdrop at `millis` under the overlay into `frame`. The backdrop row is
+    /// sampled every [`BACKDROP_STEP`] pixels and at the last pixel and linearly interpolated
+    /// between samples (rounding half up), fused here with the dither and blend.
     fn draw(&mut self, millis: i64) {
         let backdrop = Backdrop::new(self.stage, self.width as i64, self.height as i64, millis);
         let width = self.width;
+        let last = width - 1;
         let rows = self.frame.chunks_exact_mut(width * 4);
         for (y, (line, over)) in rows.zip(self.overlay.chunks_exact(width)).enumerate() {
-            backdrop.row(y as i64, &mut self.stage_row);
-            let bayer = &BAYER[y & 3];
-            for (x, (px, o)) in line.chunks_exact_mut(4).zip(over).enumerate() {
-                let threshold = bayer[x & 3] * 16 + 8;
-                let stage = self.stage_row[x];
-                let (keep, clear) = (o[4] as u32, o[3] as u32);
-                if keep == 255 && clear == 255 {
-                    // No graphics and no shadow: div255(v * 255) == v, so the pixel is the
-                    // dithered stage plus the (zero-alpha) overlay.
-                    for c in 0..3 {
-                        let s = ((stage[c] + threshold) >> 8).min(255);
-                        px[c] = (o[c] as u32 + s).min(255) as u8;
+            let bayer = BAYER[y & 3].map(|b| b * 16 + 8);
+            if !self.overlay_ink[y] {
+                bare_row(&backdrop, y as i64, line, &bayer);
+                continue;
+            }
+            let mut a = backdrop.sample(0, y as i64);
+            shade(&mut line[..4], &over[0], a, bayer[0]);
+            let mut x0 = 0;
+            while x0 < last {
+                let x1 = (x0 + BACKDROP_STEP).min(last);
+                let b = backdrop.sample(x1 as i64, y as i64);
+                let span = (x1 - x0) as u32;
+                let pixels = line[(x0 + 1) * 4..x1 * 4].chunks_exact_mut(4);
+                let overs = &over[x0 + 1..x1];
+                if span == BACKDROP_STEP as u32 {
+                    // The common full step: (a * (8 - t) + b * t + 4) >> 3, stepped by b - a in
+                    // wrapping arithmetic (every partial sum is the non-negative true value).
+                    let mut acc = a.map(|v| v * 8 + 4);
+                    let d = [0, 1, 2].map(|c| b[c].wrapping_sub(a[c]));
+                    for (k, (px, o)) in pixels.zip(overs).enumerate() {
+                        for c in 0..3 {
+                            acc[c] = acc[c].wrapping_add(d[c]);
+                        }
+                        let stage = acc.map(|v| v >> STEP_SHIFT);
+                        shade(px, o, stage, bayer[(x0 + 1 + k) & 3]);
                     }
-                    px[3] = 255;
-                    continue;
+                } else {
+                    for (k, (px, o)) in pixels.zip(overs).enumerate() {
+                        let t = k as u32 + 1;
+                        let stage =
+                            [0, 1, 2].map(|c| (a[c] * (span - t) + b[c] * t + span / 2) / span);
+                        shade(px, o, stage, bayer[(x0 + 1 + k) & 3]);
+                    }
                 }
-                for c in 0..3 {
-                    let s = ((stage[c] + threshold) >> 8).min(255);
-                    let shade = div255(s * keep);
-                    px[c] = (o[c] as u32 + div255(shade * clear)).min(255) as u8;
-                }
-                px[3] = 255;
+                shade(&mut line[x1 * 4..x1 * 4 + 4], &over[x1], b, bayer[x1 & 3]);
+                a = b;
+                x0 = x1;
             }
         }
     }
+}
+
+/// A row with an empty overlay: the dithered backdrop alone, which is what [`shade`] gives for
+/// an empty overlay pixel.
+fn bare_row(backdrop: &Backdrop, y: i64, line: &mut [u8], bayer: &[u32; 4]) {
+    let last = line.len() / 4 - 1;
+    let put = |px: &mut [u8], stage: [u32; 3], threshold: u32| {
+        for c in 0..3 {
+            px[c] = ((stage[c] + threshold) >> 8) as u8;
+        }
+        px[3] = 255;
+    };
+    let mut a = backdrop.sample(0, y);
+    put(&mut line[..4], a, bayer[0]);
+    let mut x0 = 0;
+    while x0 < last {
+        let x1 = (x0 + BACKDROP_STEP).min(last);
+        let b = backdrop.sample(x1 as i64, y);
+        let span = (x1 - x0) as u32;
+        let pixels = line[(x0 + 1) * 4..x1 * 4].chunks_exact_mut(4);
+        if span == BACKDROP_STEP as u32 {
+            // x0 is a multiple of 8, so pixel x0 + 1 + k takes Bayer column (1 + k) & 3.
+            let mut acc = a.map(|v| v * 8 + 4);
+            let d = [0, 1, 2].map(|c| b[c].wrapping_sub(a[c]));
+            for (k, px) in pixels.enumerate() {
+                for c in 0..3 {
+                    acc[c] = acc[c].wrapping_add(d[c]);
+                }
+                put(px, acc.map(|v| v >> STEP_SHIFT), bayer[(1 + k) & 3]);
+            }
+        } else {
+            for (k, px) in pixels.enumerate() {
+                let t = k as u32 + 1;
+                let stage = [0, 1, 2].map(|c| (a[c] * (span - t) + b[c] * t + span / 2) / span);
+                put(px, stage, bayer[(x0 + 1 + k) & 3]);
+            }
+        }
+        put(&mut line[x1 * 4..x1 * 4 + 4], b, bayer[x1 & 3]);
+        a = b;
+        x0 = x1;
+    }
+}
+
+/// One output pixel: the stage (8.8, at most 65280) dithered by `threshold` (at most 248, so the
+/// sum stays within 8 bits after the shift), shaded and cleared by the overlay, plus its colour.
+#[inline(always)]
+fn shade(px: &mut [u8], o: &[u8; 5], stage: [u32; 3], threshold: u32) {
+    let (keep, clear) = (o[4] as u32, o[3] as u32);
+    if keep == 255 && clear == 255 {
+        // No graphics and no shadow: div255(v * 255) == v, so the pixel is the dithered stage
+        // plus the (zero-alpha) overlay.
+        for c in 0..3 {
+            let s = (stage[c] + threshold) >> 8;
+            px[c] = (o[c] as u32 + s).min(255) as u8;
+        }
+    } else {
+        for c in 0..3 {
+            let s = (stage[c] + threshold) >> 8;
+            let shade = div255(s * keep);
+            px[c] = (o[c] as u32 + div255(shade * clear)).min(255) as u8;
+        }
+    }
+    px[3] = 255;
 }
 
 /// Relative luminance of an 8-bit colour, 0..=65025: the Rec. 709 weights (54, 183, 19 of 256)
@@ -813,38 +939,6 @@ impl Backdrop {
                 glow(light, 0, [18, 34], [20, 40], 75, 36_000),
                 glow(warm, 1, [66, 84], [60, 82], 65, 30_000),
             ],
-        }
-    }
-
-    /// Row `y`, sampled every [`BACKDROP_STEP`] pixels and at the last pixel, linearly
-    /// interpolated between samples (rounding half up).
-    fn row(&self, y: i64, out: &mut [[u32; 3]]) {
-        let last = out.len() - 1;
-        let mut x0 = 0;
-        out[0] = self.sample(0, y);
-        while x0 < last {
-            let x1 = (x0 + BACKDROP_STEP).min(last);
-            out[x1] = self.sample(x1 as i64, y);
-            let (a, b) = (out[x0], out[x1]);
-            let span = (x1 - x0) as u32;
-            if span == BACKDROP_STEP as u32 {
-                // The common full step: the same rounding with a shift (values are non-negative).
-                for (k, px) in out[x0 + 1..x1].iter_mut().enumerate() {
-                    let t = k as u32 + 1;
-                    for ch in 0..3 {
-                        px[ch] = (a[ch] * (span - t) + b[ch] * t + span / 2) >> STEP_SHIFT;
-                    }
-                }
-                x0 = x1;
-                continue;
-            }
-            for (k, px) in out[x0 + 1..x1].iter_mut().enumerate() {
-                let t = k as u32 + 1;
-                for ch in 0..3 {
-                    px[ch] = (a[ch] * (span - t) + b[ch] * t + span / 2) / span;
-                }
-            }
-            x0 = x1;
         }
     }
 
