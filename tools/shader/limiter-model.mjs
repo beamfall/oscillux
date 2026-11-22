@@ -24,8 +24,9 @@
 //      floor((i + 1) W / 64)), likewise y) and 16 x 9 cells of 4 x 4 sub-blocks. Per cell, the
 //      count of pixels firing now or with a recent stamp in any direction: pixels changing in
 //      either channel and direction at once flash together (Codex rounds 12, 13).
-//   4. Area gate: every direction is over when some window of cols x rows cells holds more than
-//      `limit` such pixels. The window is the fewest whole cells that contain the field (the 10°
+//   4. Area gate: every direction is over when some window of bcols x brows sub-blocks holds more
+//      than `limit` such pixels (cols x rows cells for a host that passes no sub-block window,
+//      CORE-3238). The window is the fewest whole sub-blocks (or cells) that contain the field (the 10°
 //      field for the viewing geometry, fwPx x fhPx pixels: limiter-geometry.mjs) wherever it is
 //      placed, and the limit a quarter of the field's pixels, so every field the auditor finds
 //      over makes some window over.
@@ -69,7 +70,7 @@
 // createLimiter({ width, height, geometry, maxFlashHz, start }).step(rgba8, dt) returns
 //   { out, held (pixels), holdMask (sub-blocks with a held pixel), grant, deficit, redDeficit, state (the four grant words), track, stats: { requests, asked (direction bits asked of the grant, recent channels included), over, admitted, fired } }.
 // `out` is reused every other frame; `track` is the packed tracker state after the frame.
-import { GRID_X, GRID_Y, SUB, windowOf } from './limiter-geometry.mjs';
+import { GRID_X, GRID_Y, SUB, cellWindow, windowOf } from './limiter-geometry.mjs';
 
 /** The largest frame side the passes support (shaders/limiter/README.md, "Frame size"). */
 export const MAX_SIDE = 8192;
@@ -420,13 +421,14 @@ export const blockOf = (x, n, blocks) => Math.floor((blocks * (x + 1) - 1) / n);
  * conformance vectors start from; 'zero' tracked black with the red memory unknown, a host's
  * start when hostBlackLongEnough does not hold; 'black' BLACK_TEXEL, a host's start when it does
  * (shaders/limiter/README.md, "Ping-pong and reset"). */
-export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlashHz = 3, start = 'untracked' }) {
+export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlashHz = 3, start = 'untracked', cellWindows = false }) {
   if (W < BLOCKS_X || H < BLOCKS_Y) throw new Error(`limiter: frame ${W}x${H} is under ${BLOCKS_X}x${BLOCKS_Y}`);
   // The passes' 32-bit counts and the float limit hold any frame up to 8192 x 8192
   // (shaders/limiter/README.md, "Frame size").
   if (W > MAX_SIDE || H > MAX_SIDE) throw new Error(`limiter: frame ${W}x${H} is over ${MAX_SIDE}x${MAX_SIDE}`);
   const N = W * H;
-  let win = windowOf(geometry, W, H);
+  const windowFor = g => (cellWindows ? cellWindow : w => w)(windowOf(g, W, H));
+  let win = windowFor(geometry);
   const clock = createClock(maxFlashHz);
   // Packed tracker state per pixel (RGBA32UI), cleared to the start texel.
   const track = new Uint32Array(N * 4);
@@ -434,8 +436,11 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   for (let p = 0; p < N; p++) track.set(seed, 4 * p);
   const req = new Uint8Array(BLOCKS);
   const holdMask = new Uint8Array(BLOCKS);
-  // Per cell: pixels changing in any channel and direction, now or recently.
+  // Per cell and per sub-block: pixels changing in any channel and direction, now or recently.
   const area = new Int32Array(CELLS);
+  const barea = new Int32Array(BLOCKS);
+  // Summed-area table of barea, (BLOCKS_X + 1) x (BLOCKS_Y + 1).
+  const bsum = new Int32Array((BLOCKS_X + 1) * (BLOCKS_Y + 1));
   let lastRedDown = false;
   const tmp = [0, 0, 0];
   const uv = [0, 0, 0, 0, 0];
@@ -555,6 +560,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
     hist = bufs[flip];
     req.fill(0);
     area.fill(0);
+    barea.fill(0);
     for (let y = 0; y < H; y++) {
       const by = rowBlock[y];
       for (let x = 0, p = y * W; x < W; x++, p++) {
@@ -564,7 +570,10 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
         let rec = 0;
         for (let d = 0; d < 4; d++) rec |= recent((st >> (4 * d)) & 15, unit, deltaMs) ? 1 << d : 0;
         req[k] |= now | rec << 4;
-        if (now || rec) area[(by >> 2) * GRID_X + (colBlock[x] >> 2)]++;
+        if (now || rec) {
+          area[(by >> 2) * GRID_X + (colBlock[x] >> 2)]++;
+          barea[k]++;
+        }
       }
     }
     // Directions firing now, and the channels changed recently: when something fires now, a channel
@@ -580,13 +589,31 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
       if (!(askNow & 3) && askRecent & 3) asked |= askRecent & 1 ? 1 : 2;
       if (!(askNow & 12) && askRecent & 12) asked |= askRecent & 4 ? 4 : 8;
     }
-    // Worst window: over it, every direction is over.
+    // Worst window: over it, every direction is over. Windows are whole sub-blocks when the host
+    // passes their size, else whole cells.
     let isOver = false;
-    for (let y0 = 0; y0 + win.rows <= GRID_Y && !isOver; y0++) {
-      for (let x0 = 0; x0 + win.cols <= GRID_X && !isOver; x0++) {
-        let s = 0;
-        for (let y = y0; y < y0 + win.rows; y++) for (let x = x0; x < x0 + win.cols; x++) s += area[y * GRID_X + x];
-        if (s > win.limit) isOver = true;
+    if (win.bcols > 0 && win.brows > 0) {
+      const SX = BLOCKS_X + 1;
+      for (let y = 0; y < BLOCKS_Y; y++) {
+        for (let x = 0, row = 0; x < BLOCKS_X; x++) {
+          row += barea[y * BLOCKS_X + x];
+          bsum[(y + 1) * SX + x + 1] = bsum[y * SX + x + 1] + row;
+        }
+      }
+      for (let y0 = 0; y0 + win.brows <= BLOCKS_Y && !isOver; y0++) {
+        for (let x0 = 0; x0 + win.bcols <= BLOCKS_X && !isOver; x0++) {
+          const x1 = x0 + win.bcols, y1 = y0 + win.brows;
+          const s = bsum[y1 * SX + x1] - bsum[y0 * SX + x1] - bsum[y1 * SX + x0] + bsum[y0 * SX + x0];
+          if (s > win.limit) isOver = true;
+        }
+      }
+    } else {
+      for (let y0 = 0; y0 + win.rows <= GRID_Y && !isOver; y0++) {
+        for (let x0 = 0; x0 + win.cols <= GRID_X && !isOver; x0++) {
+          let s = 0;
+          for (let y = y0; y < y0 + win.rows; y++) for (let x = x0; x < x0 + win.cols; x++) s += area[y * GRID_X + x];
+          if (s > win.limit) isOver = true;
+        }
       }
     }
     const over = [isOver, isOver, isOver, isOver];
@@ -693,7 +720,7 @@ export function createLimiter({ width: W, height: H, geometry = 'wcag', maxFlash
   // state is written fully spent (as on a resize): a smaller window can put pixels that fired
   // recently, each admitted while under the old limit, over the new one with no grant paying.
   const setGeometry = g => {
-    win = windowOf(g, W, H);
+    win = windowFor(g);
     deficit = 2 * TOKEN;
     credit = 0;
     redDeficit = TOKEN;

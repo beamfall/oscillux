@@ -1222,12 +1222,12 @@ function runReset(name, { seed, runs, at, restart = true } = {}) {
   const signal = runs ? { kind: 'runs', runs } : c.signal;
   const reset = { at: at ?? c.reset.at, seed: seed ?? c.reset.seed };
   const { width: w, height: h } = c;
-  let lim = model.createLimiter({ width: w, height: h });
+  let lim = model.createLimiter({ width: w, height: h, cellWindows: !!c.cellWindows });
   const input = createAuditor({ width: w, height: h }), output = createAuditor({ width: w, height: h });
   const px = new Uint8Array(w * h * 4), held = [];
   for (let t = 0; t < c.frames; t++) {
     if (t === reset.at) {
-      lim = model.createLimiter({ width: w, height: h, start: reset.seed });
+      lim = model.createLimiter({ width: w, height: h, start: reset.seed, cellWindows: !!c.cellWindows });
       if (restart) { input.restart(reset.seed); output.restart(reset.seed); }
     }
     renderSignal(signal, t, w, h, px);
@@ -1417,12 +1417,12 @@ test('the Codex design round 1 and 2 sequences drop only a straddling pair (CORE
 function runCase(name, { signal, keep } = {}) {
   const c = VECTOR_CASES.find(k => k.name === name);
   const w = c.width || W, h = c.height || H;
-  let lim = model.createLimiter({ width: w, height: h });
+  let lim = model.createLimiter({ width: w, height: h, cellWindows: !!c.cellWindows });
   const input = createAuditor({ width: w, height: h }), output = createAuditor({ width: w, height: h });
   const px = new Uint8Array(w * h * 4), held = [], frames = [];
   for (let t = 0; t < c.frames; t++) {
     if (t === c.reset?.at) {
-      lim = model.createLimiter({ width: w, height: h, start: c.reset.seed });
+      lim = model.createLimiter({ width: w, height: h, start: c.reset.seed, cellWindows: !!c.cellWindows });
       input.restart(c.reset.seed); output.restart(c.reset.seed);
     }
     renderSignal(signal || c.signal, t, w, h, px);

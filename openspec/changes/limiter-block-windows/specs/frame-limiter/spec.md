@@ -26,7 +26,8 @@ whole cells that does.
 #### Scenario: The limiter's trackers are the auditor's
 
 - **WHEN** any sequence of frames runs through the limiter and the auditor reads its output, both
-  starting from the same tracker state
+  starting from the same tracker state, and at every host restart that seeds "black, nothing
+  owed" after 1250 ms of presented exact black the auditor is told of the restart
 - **THEN** every pixel's tracker makes the auditor's transition decisions for that pixel, on every
   frame, although a compressed tracker may decode to a different reference
 
@@ -56,6 +57,21 @@ whole cells that does.
 - **THEN** the pixel auditor counts at most 1 large-area red transition in every 1 s window of the
   output
 
+#### Scenario: Saturated red after a black start
+
+- **WHEN** the limiter starts at "black, nothing owed" after 76 frames of black, and a full frame
+  then shows 100 frames each of black, (60, 0, 0), black and (110, 64, 0), then (90, 0, 0) for one
+  frame, then black
+- **THEN** the pixel auditor, told of the restart, counts at most 1 large-area red transition in
+  every 1 s window of the output
+
+#### Scenario: A faint red after a black start
+
+- **WHEN** the limiter starts at "black, nothing owed" after 100 frames of black, and a full frame
+  then shows (5, 0, 0), (110, 64, 0) and (60, 0, 0) for 100 frames each
+- **THEN** the pixel auditor, told of the restart, counts at most 1 large-area red transition in
+  every 1 s window of the output
+
 #### Scenario: An unchanged frame makes no transition
 
 - **WHEN** red pixels fall in one area, the next frame raises an adjacent area and a far area, and
@@ -64,6 +80,7 @@ whole cells that does.
 
 #### Scenario: Motion over less than a quarter of the field
 
-- **WHEN** at 480 x 270 a change covers 20 % of a sub-block window of the field's size every
-  frame, each pixel changing at most twice a second
+- **WHEN** at 480 x 270, with the host passing a sub-block window, the pixels that fire now or
+  fired within the coverage interval cover at most 20 % of the field's pixels in every window of
+  whole sub-blocks that contains the field, each pixel firing at most twice a second
 - **THEN** no direction is over and no pixel is held

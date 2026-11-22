@@ -7,7 +7,7 @@ Ticket: **CORE-3238** (Corvint Tasks, beamfall core queue).
 
 A direction is over when a window that contains the field wherever it is placed holds more than a
 quarter of the field's pixels. The window is made of whole cells of the 16 x 9 grid, so at 480 x
-270 with the WCAG field (120 x 120 px, limit 3600 px) it is 7 x 4 cells, 25,200 px, 1.75 times the
+270 with the WCAG field (160 x 90 px, limit 3600 px) it is 7 x 4 cells, 25,200 px, 1.75 times the
 field. Ordinary motion that is not a flash then fills a quarter of the field: on Disco Floor under
 loud audio the auditor counts 2 luma transitions a second in the input, yet the limiter reads 63
 frames over, one run lasting 37 frames. The token refills about every 10 frames, so 57 frames are

@@ -28,7 +28,7 @@ The uniform block holds two vectors:
 
 - `limiter0 = (cols, rows, limit, refill)`
   - `cols` and `rows` are the window size in cells: the fewest whole cells that contain the 10°
-    field wherever it sits.
+    field wherever it sits. The passes use them only when `limiter1` carries no sub-block window.
   - `limit` is the area limit in pixels, a quarter of the field's pixels; a window is over when
     its count is strictly greater.
   - `refill` is the token refill this frame: `earned = carry + clamp(2 * maxFlashHz * dt, 0, 1) *
@@ -41,7 +41,11 @@ The uniform block holds two vectors:
     viewing-geometry change), `refill` is 0 and `carry` restarts at 0: time that passed before
     `G` was written does not repay it. Only `refill` restarts: `deltaMs` and `tick` are those of
     any other frame (`limiter1` below), which age the trackers' stamps (Codex round 16).
-- `limiter1 = (tick, deltaMs, 0, 0)`
+- `limiter1 = (tick, deltaMs, bcols, brows)`
+  - `bcols` and `brows` are the window size in sub-blocks: the fewest whole sub-blocks that contain
+    the field wherever it sits. At 480 x 270 the WCAG window is 23 x 13 sub-blocks, about 1.17
+    times the field, where the 7 x 4 cell window is 1.75 times it; ordinary motion in the larger
+    window read as over and was held (CORE-3238). A host that sends 0 and 0 gets cell windows.
   - `tick` is `floor(ms / (1000/15/64)) mod 240`; the recency stamps use `tick >> 4`. `ms` is
     the host's credited time, which also drives `refill`.
   - `deltaMs` is a lower bound, as float32, on how long the previous frame was shown; every stamp
@@ -89,8 +93,8 @@ The uniform block holds two vectors:
     which a browser presents or delays rather than replaces. Presentation feedback, where a
     platform gives it, is tracked in OSC-0046.
 
-`windowOf(geometry, width, height)` in `tools/shader/limiter-geometry.mjs` gives `cols`, `rows`
-and `limit` for a device class and frame size. `createClock` in the model gives `tick`, `deltaMs`
+`windowOf(geometry, width, height)` in `tools/shader/limiter-geometry.mjs` gives `cols`, `rows`,
+`bcols`, `brows` and `limit` for a device class and frame size. `createClock` in the model gives `tick`, `deltaMs`
 and `refill`.
 
 ## Frame size
@@ -118,8 +122,8 @@ of the size shown. The entry point is `oscillux_limiter_<pass>`.
 |---|---|---|---|---|
 | 1 | `rows` | 64 x frame height | `uFrame`, `uTrack` (previous), `uHist` (previous output) | `oR` = (count, directions firing now \| recent directions << 4, 0, 0): per sub-block column and pixel row, the pixels whose tracker fires now or fired within the coverage interval, in any channel and direction |
 | 2 | `reduce` | 64 x 36 | `uRows` | `oS`, the same layout summed over the sub-block; a sub-block requests each direction one of its pixels fires in now |
-| 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, 0, 0): the cell's pixel count, directions firing now and recent directions << 4 |
-| 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): 1 when the window with its origin at this cell counts more than the limit |
+| 3 | `cells` | 16 x 9 | `uS` | `oC` = (count, requests, over, 0): the cell's pixel count, directions firing now and recent directions << 4, and with a sub-block window 1 when a window with its origin at one of the cell's sub-blocks counts more than the limit |
+| 4 | `windows` | 16 x 9 | `uC` | `oW` = (over, 0, 0, 0): with a sub-block window the cells pass's flag; otherwise 1 when the cell window with its origin at this cell counts more than the limit |
 | 5 | `grant` | 1 x 1 | `uC`, `uW`, `uG` (previous) | `oG` = (admitted bits \| held bits << 4 \| second luma token << 8 \| last red grant was down << 9 \| red refill remainder << 10, luma token deficit, red token deficit, luma credit) |
 | 6 | `output` | frame | `uFrame`, `uHist` (previous output), `uTrack` (previous), `uG` (this frame) | `oColor`, `oTrack` |
 

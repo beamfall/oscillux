@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Pass 5, grant: one fragment (1 x 1). The frame is over when some window of cols x rows cells
-// (covering the 10° field) counts more than the area limit pixels changing in any channel and
-// direction (flagged by the windows pass); every direction is then over. Luminance over the limit
+// Pass 5, grant: one fragment (1 x 1). The frame is over when some window of bcols x brows
+// sub-blocks, or cols x rows cells without a sub-block window (covering the 10° field), counts
+// more than the area limit pixels changing in any channel and direction (flagged by the windows
+// pass); every direction is then over. Luminance over the limit
 // is rationed by one token budget; red has its own, refilled at an eighth of the luma rate, so at
 // most one large-area red transition (either direction) falls in any 1 s window: no saturated-red
 // flash (ITU-R BT.1702, ADR-0232 R5), and a held red change is admitted instead of freezing (R7,

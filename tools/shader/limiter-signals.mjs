@@ -9,8 +9,9 @@
 //   { kind: 'steps', colors }                 the whole frame shows colors[t], the last from then on
 //   { kind: 'runs', runs: [[n, color], ...] } the whole frame shows each color for n frames in
 //                                             turn, the last from then on
-//   { kind: 'square', hz, on, off, bg?, bgStep?, rect?, until?, after? }
-//       rect (default the whole frame) shows `on` in the first half period and `off` in the second,
+//   { kind: 'square', hz, on, off, bg?, bgStep?, rect?, rects?, until?, after? }
+//       rect (default the whole frame), and each of rects when given in its place, shows `on` in
+//       the first half period and `off` in the second,
 //       at 60 frames a second; from frame `until` on it shows `after` ('on' or 'off'). bgStep
 //       [r, g, b] drifts the background by bgStep * (t % 60), so pixels beside a hold differ from
 //       the previous output and the feather shows.
@@ -50,12 +51,12 @@ export function renderSignal(spec, t, W, H, out) {
       }
     }
   } else if (spec.kind === 'square') {
-    const r = spec.rect || [0, 0, 1, 1];
+    const rs = spec.rects || [spec.rect || [0, 0, 1, 1]];
     let on = halves(spec.hz) % 2 === 0;
     if (spec.until !== undefined && t >= spec.until) on = spec.after === 'on';
     const bg = spec.bg || [0, 0, 0], st = spec.bgStep || [0, 0, 0];
-    if (spec.rect) fill(0, 0, W, H, [0, 1, 2].map(c => bg[c] + st[c] * (t % 60)));
-    fill(Math.floor(r[0] * W), Math.floor(r[1] * H), Math.floor(r[2] * W), Math.floor(r[3] * H), on ? spec.on : spec.off);
+    if (spec.rect || spec.rects) fill(0, 0, W, H, [0, 1, 2].map(c => bg[c] + st[c] * (t % 60)));
+    for (const r of rs) fill(Math.floor(r[0] * W), Math.floor(r[1] * H), Math.floor(r[2] * W), Math.floor(r[3] * H), on ? spec.on : spec.off);
   } else if (spec.kind === 'checker') {
     const sw = Math.max(1, Math.floor(spec.size[0] * W)), sh = Math.max(1, Math.floor(spec.size[1] * H));
     const phase = halves(spec.hz) % 2;

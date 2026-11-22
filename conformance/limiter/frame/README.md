@@ -21,10 +21,11 @@ Metal where available) against the vectors.
   cells of 4 x 4) only to sum those counts; the counts are exact, so a change over any share of a
   sub-block, a fine pattern that inverts, or a thin bar is measured at any resolution (CORE-2515,
   CORE-2543, Codex round 7).
-- Every direction is over when some window of `cols` x `rows` cells holds more than `limit`
-  pixels that fire in any channel and direction now or within the coverage interval (the combined
-  area, Codex rounds 12 and 13). The window is the fewest whole cells that contain the 10° field for the viewing geometry
-  wherever the field sits, and `limit` is a quarter of the field's pixels, so a field the auditor
+- Every direction is over when some window of `bcols` x `brows` sub-blocks holds more than
+  `limit` pixels that fire in any channel and direction now or within the coverage interval (the
+  combined area, Codex rounds 12 and 13). The window is the fewest whole sub-blocks that contain
+  the 10° field for the viewing geometry wherever the field sits (`cols` x `rows` whole cells for a
+  host that passes no sub-block window, CORE-3238), and `limit` is a quarter of the field's pixels, so a field the auditor
   would count over its limit is always inside one window that is over.
 - Luma over the limit is rationed by a token budget (at most `maxFlashHz` flashes, default 3, per
   second). When both luma directions are over in one frame, the grant admits the pair only once the
@@ -65,8 +66,8 @@ gives the window. Sources and dimensions are in `tools/shader/limiter-geometry.m
 How the columns are derived (`windowOf(geometry, width, height)`):
 
 - Field: `fwPx = round(fw x width)` by `fhPx = round(fh x height)` pixels, clamped to the frame.
-- Window: per axis, the fewest whole cells that contain a span of the field's pixels at every
-  offset, clamped to the grid.
+- Window: per axis, the fewest whole sub-blocks (`bcols`, `brows`) and the fewest whole cells
+  (`cols`, `rows`) that contain a span of the field's pixels at every offset, clamped to the grid.
 - Limit: `floor(fwPx x fhPx / 4)`, a quarter of the field's pixels.
 - A window is over when its count is strictly greater than the limit.
 
@@ -75,7 +76,7 @@ A host that does not know its device class uses `wcag`.
 ## Format
 
 ```
-{ model, dt, cases: [{ name, frames, width, height, geometry, window: {cols, rows, limit},
+{ model, dt, cases: [{ name, frames, width, height, geometry, window: {cols, rows, bcols, brows, fwPx, fhPx, limit},
                        signal, frameRecords: [[hold, gx, gy, gz, gw, digest, track], ...] }] }
 ```
 
@@ -83,7 +84,8 @@ A host that does not know its device class uses `wcag`.
   (`shaders/limiter/README.md`, "Frame size").
 - `signal`: the synthetic frame source, rendered by `tools/shader/limiter-signals.mjs`
   (`renderSignal`). `dt` is 1/60 s and the model's default `maxFlashHz` is 3.
-- `window`: `windowOf(geometry, width, height)`.
+- `window`: `windowOf(geometry, width, height)`; a case with `cellWindows: true` has `bcols` and
+  `brows` 0, as a host that passes no sub-block window.
 - `hold`: run lengths of the held mask over the 64 x 36 sub-blocks in row order (a sub-block is
   set when one of its pixels is held), starting with a run of not-held sub-blocks. It is `"="` when unchanged from the previous frame.
 - `gx`, `gy`, `gz`, `gw`: the grant state the grant pass writes (`shaders/limiter/grant.glsl`).

@@ -168,7 +168,7 @@ async function pageMain({ passes, cases, helpers, time }) {
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, block);
     drawFrame(s);
   }
-  const blockOf = (c, clock) => new Float32Array([c.window.cols, c.window.rows, c.window.limit, clock.refill, clock.tick, clock.deltaMs, 0, 0]);
+  const blockOf = (c, clock) => new Float32Array([c.window.cols, c.window.rows, c.window.limit, clock.refill, clock.tick, clock.deltaMs, c.window.bcols, c.window.brows]);
 
   const results = [];
   for (const c of cases) {
@@ -327,7 +327,7 @@ async function runMetal() {
     return { function: limiterFunction(p), metal: path, formats: p.outputs.map(([, t]) => t) };
   });
   const asCase = c => ({ name: c.name, width: c.width, height: c.height, frames: c.frames, cols: c.window.cols, rows: c.window.rows,
-    limit: c.window.limit, clock: c.clock.map(k => [k.tick, k.deltaMs, k.refill]), resetAt: c.resetAt, seed: c.seed });
+    bcols: c.window.bcols, brows: c.window.brows, limit: c.window.limit, clock: c.clock.map(k => [k.tick, k.deltaMs, k.refill]), resetAt: c.resetAt, seed: c.seed });
   const config = { passes: metalPasses, cases: cases.map(asCase), timing: time ? asCase({ ...time, name: 'timing' }) : null };
   writeFileSync(join(out, 'config.json'), JSON.stringify(config));
   const child = spawn(join(out, 'check'), [join(out, 'config.json')], { stdio: ['pipe', 'pipe', 'inherit'] });

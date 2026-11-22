@@ -2,9 +2,10 @@
 // Runs the frame flash limiter's generated Metal passes (tools/shader/limiter.mjs) for
 // limiter-check.mjs --metal. The config (argv[1]) is
 //   { passes: [{ function, metal, formats }], cases: [Case], timing: Case? }
-// with Case { name, width, height, frames, cols, rows, limit, clock: [[tick, deltaMs, refill]],
-// resetAt?, seed? }: at frame resetAt the host starts a new limiter, its trackers cleared to the
-// seed texel ([x, y, z, w]) and G written fully spent (limiter-vectors.mjs `reset`).
+// with Case { name, width, height, frames, cols, rows, bcols, brows, limit,
+// clock: [[tick, deltaMs, refill]], resetAt?, seed? }: at frame resetAt the host starts a new
+// limiter, its trackers cleared to the seed texel ([x, y, z, w]) and G written fully spent
+// (limiter-vectors.mjs `reset`).
 // Every case's frames arrive on stdin in order as raw RGBA8, top row first; the timing case sends
 // two frames that alternate. Per case it prints one JSON line
 //   { name, frames: [[holdMask ("0"/"1" per sub-block, row order), grant, deficit, outputDigest,
@@ -27,6 +28,8 @@ struct Case: Decodable {
     let frames: Int
     let cols: Float
     let rows: Float
+    let bcols: Float
+    let brows: Float
     let limit: Float
     let clock: [[Float]]
     let resetAt: Int?
@@ -171,7 +174,7 @@ final class Limiter {
 }
 
 func blockOf(_ c: Case, _ t: Int) -> [Float] {
-    [c.cols, c.rows, c.limit, c.clock[t][2], c.clock[t][0], c.clock[t][1], 0, 0]
+    [c.cols, c.rows, c.limit, c.clock[t][2], c.clock[t][0], c.clock[t][1], c.bcols, c.brows]
 }
 
 func fnv1a(_ bytes: [UInt8]) -> String {

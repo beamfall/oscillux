@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { windowOf } from './limiter-geometry.mjs';
+import { cellWindow, windowOf } from './limiter-geometry.mjs';
 import { createLimiter, MODEL } from './limiter-model.mjs';
 import { renderSignal } from './limiter-signals.mjs';
 
@@ -43,6 +43,11 @@ export const CASES = [
   { name: 'luma-3hz', frames: 120, signal: { kind: 'square', hz: 3, on: W, off: K } },
   { name: 'luma-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: W, off: K } },
   { name: 'luma-10hz-small', frames: 90, signal: { kind: 'square', hz: 10, on: W, off: K, rect: [0.5, 0.5, 0.5625, 0.6111111111111112], bg: G } },
+  // limiter-block-windows: two 15 x 60 px patches 125 px apart, 1800 px against a 1605 px limit.
+  // No window of whole sub-blocks (115 px wide) holds both, so nothing is held; a window of whole
+  // cells (140 px) does, so a host that passes no sub-block window holds them.
+  { name: 'two-patches-10hz', frames: 90, signal: { kind: 'square', hz: 10, on: W, off: K, rects: [[0, 0, 0.046875, 1 / 3], [0.390625, 0, 0.4375, 1 / 3]], bg: G } },
+  { name: 'two-patches-10hz-cells', frames: 90, cellWindows: true, signal: { kind: 'square', hz: 10, on: W, off: K, rects: [[0, 0, 0.046875, 1 / 3], [0.390625, 0, 0.4375, 1 / 3]], bg: G } },
   { name: 'luma-settle', frames: 120, signal: { kind: 'square', hz: 10, on: W, off: K, until: 60, after: 'on' } },
   { name: 'red-3hz', frames: 120, signal: { kind: 'square', hz: 3, on: RED, off: K } },
   { name: 'red-10hz', frames: 120, signal: { kind: 'square', hz: 10, on: RED, off: K } },
@@ -150,13 +155,13 @@ export function trackDigest(track) {
 export function modelFrames(c) {
   const width = c.width || 320, height = c.height || 180;
   const geometry = c.geometry || 'wcag';
-  let lim = createLimiter({ width, height, geometry });
+  let lim = createLimiter({ width, height, geometry, cellWindows: !!c.cellWindows });
   const px = new Uint8Array(width * height * 4);
   const frames = [];
   let last = '';
   for (let t = 0; t < c.frames; t++) {
     if (t === c.reset?.at) {
-      lim = createLimiter({ width, height, geometry, start: c.reset.seed });
+      lim = createLimiter({ width, height, geometry, start: c.reset.seed, cellWindows: !!c.cellWindows });
     }
     renderSignal(c.signal, t, width, height, px);
     const r = lim.step(px, DT);
@@ -176,7 +181,7 @@ export function buildVectors() {
       width: c.width || 320,
       height: c.height || 180,
       geometry: c.geometry || 'wcag',
-      window: windowOf(c.geometry || 'wcag', c.width || 320, c.height || 180),
+      window: (c.cellWindows ? cellWindow : w => w)(windowOf(c.geometry || 'wcag', c.width || 320, c.height || 180)),
       frameRecords: modelFrames(c),
     })),
   };

@@ -35,15 +35,30 @@ function span(len, n, cells) {
   return most;
 }
 
+// The most sub-blocks a run of `len` pixels touches along an axis of `n` pixels split into `blocks`
+// sub-blocks (sub-block of pixel x: floor((blocks (x + 1) - 1) / n)).
+function blockSpan(len, n, blocks) {
+  const blockOf = x => Math.floor((blocks * (x + 1) - 1) / n);
+  let most = 1;
+  for (let s = 0; s + len <= n; s++) most = Math.max(most, blockOf(s + len - 1) - blockOf(s) + 1);
+  return most;
+}
+
 /** The window the limiter uses for a geometry on a W x H frame: the field is fwPx x fhPx pixels
- * (as the auditor rounds it), the window the fewest whole cells that contain the field wherever it
- * is placed, and the area limit a quarter of the field's pixels (a window is over it when its
- * changed pixels are strictly more). */
+ * (as the auditor rounds it), the window the fewest whole sub-blocks (bcols x brows) or whole cells
+ * (cols x rows, for a host that passes no sub-block window) that contain the field wherever it is
+ * placed, and the area limit a quarter of the field's pixels (a window is over it when its changed
+ * pixels are strictly more). */
 export function windowOf(geometry, W, H) {
   const g = typeof geometry === 'string' ? GEOMETRY[geometry] : geometry;
   if (!g) throw new Error(`unknown geometry ${geometry}`);
   if (!(W > 0 && H > 0)) throw new Error('windowOf: frame size required');
   const fwPx = Math.max(1, Math.min(W, Math.round(g.fw * W)));
   const fhPx = Math.max(1, Math.min(H, Math.round(g.fh * H)));
-  return { cols: span(fwPx, W, GRID_X), rows: span(fhPx, H, GRID_Y), fwPx, fhPx, limit: Math.floor((fwPx * fhPx) / 4) };
+  return { cols: span(fwPx, W, GRID_X), rows: span(fhPx, H, GRID_Y),
+    bcols: blockSpan(fwPx, W, GRID_X * SUB), brows: blockSpan(fhPx, H, GRID_Y * SUB),
+    fwPx, fhPx, limit: Math.floor((fwPx * fhPx) / 4) };
 }
+
+/** The same window as a host that passes no sub-block window sees it: whole cells. */
+export const cellWindow = win => ({ ...win, bcols: 0, brows: 0 });
