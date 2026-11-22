@@ -10,6 +10,17 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- The frame limiter's over test runs on windows of whole 64 x 36 sub-blocks (CORE-3238,
+  openspec/changes/limiter-block-windows/). A host passes the window's columns and rows in
+  sub-blocks in `limiter1.zw` (`windowOf()` returns them as `bcols` and `brows`); 0 and 0 keep
+  the windows of whole 16 x 9 cells. At 480 x 270 a cell window was 1.75 times the 10° field, so
+  ordinary motion read as over and was held, which showed as a ghost and then a jump when the
+  hold released; a sub-block window is about 1.17 times the field. `conformance/limiter/frame/
+  vectors.json` is regenerated and adds two cases, two patches that a sub-block window passes and
+  a cell window holds.
+
 ## [0.2.17] - 2026-11-22
 
 ### Changed
