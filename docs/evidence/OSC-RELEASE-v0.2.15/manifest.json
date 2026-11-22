@@ -1,0 +1,68 @@
+{
+  "artifacts": [
+    {
+      "file": "oscillux-cdg-render.wasm",
+      "sha256": "d79f39962cb11694799cb825a39cb7028305084696dd42c32a1bd625b1f13d55",
+      "sizeBytes": 131547
+    },
+    {
+      "file": "oscillux-wasm.tgz",
+      "sha256": "cf479df1d39e96c24adc3df65fd7ce32e923071fbba58f726144c56e91f51d20",
+      "sizeBytes": 187475
+    },
+    {
+      "file": "oscillux-xcframework.zip",
+      "sha256": "8bb3c675b6a4c37831276dc20dace801baf256237d64dc386e163622dc527069",
+      "sizeBytes": 4243172
+    },
+    {
+      "file": "oscillux.aar",
+      "sha256": "f00a65b6afd434b277344d3627b403617e41c087ea62e7443b73fb0a8a53a5bc",
+      "sizeBytes": 713087
+    },
+    {
+      "file": "windows-required-host.json",
+      "sha256": "41818ebca99a6e536bbc90d0669df4895f2388dbf8dad7fbac12f3165a2c5727",
+      "sizeBytes": 270
+    }
+  ],
+  "build": {
+    "appleSdks": {
+      "appletvos": "27.2",
+      "appletvsimulator": "27.2",
+      "iphoneos": "27.2",
+      "iphonesimulator": "27.2",
+      "macosx": "27.2"
+    },
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "host": "macOS-27.2.1-arm64-arm-64bit",
+    "javac": "javac 17.0.21.0.3",
+    "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 28.2.13676358\nPkg.BaseRevision = 28.2.13676358\nPkg.ReleaseName = r28c",
+    "python": "3.9.6 (default, Oct 19 2026, 19:18:13) \n[Clang 21.0.0 (clang-2100.4.1.1)]",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "sourceDirty": false,
+    "sourceRevision": "646b841912f268faedd0809dc0b22e27bb710c1d",
+    "wasmBindgen": "wasm-bindgen 0.2.130",
+    "xcode": "Xcode 27.2\nBuild version 27B52"
+  },
+  "details": {
+    "wasm": {
+      "bytes": 288378,
+      "cdgRenderBytes": 131547,
+      "gzipBudgetBytes": 102400,
+      "gzipBytes": 98417
+    },
+    "windows": {
+      "reason": "requires a Windows host; windows-required-host.json is a requirement record, not a binary",
+      "status": "not-built"
+    }
+  },
+  "license": "AGPL-3.0-only",
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "apple",
+    "android",
+    "windows",
+    "wasm"
+  ]
+}

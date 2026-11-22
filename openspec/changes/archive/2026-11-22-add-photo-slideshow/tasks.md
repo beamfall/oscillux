@@ -7,5 +7,5 @@
       audio identity, flash sequence, contact frames) and compile the pass in `verify.mjs`.
 - [x] Ship the pass in the `glsl300` and `msl` legs.
 - [x] Add `make slideshow-check` to `make gate`.
-- [ ] `make gate` on the exact head.
-- [ ] `openspec archive add-photo-slideshow` after landing.
+- [x] `make gate` on the exact head.
+- [x] `openspec archive add-photo-slideshow` after landing.
