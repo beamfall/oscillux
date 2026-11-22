@@ -45,6 +45,7 @@ class WasiRecipeTests(unittest.TestCase):
         probe.assert_not_called()
         self.assertEqual(result['DYLD_LIBRARY_PATH'], 'preserved')
         self.assertEqual(result['CARGO_TARGET_WASM32_WASIP1_RUNNER'], 'wasmtime')
+        self.assertEqual(result['CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS'], '-C target-feature=+simd128')
 
     def test_missing_runner_fails(self):
         with patch.object(recipe.shutil, 'which', return_value=None):

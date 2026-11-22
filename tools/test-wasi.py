@@ -32,6 +32,9 @@ def environment(cargo, environ, system):
     if not shutil.which('wasmtime', path=env['PATH']):
         raise RuntimeError('test-wasi requires wasmtime on PATH')
     env['CARGO_TARGET_WASM32_WASIP1_RUNNER'] = 'wasmtime'
+    # The shipped oscillux-cdg-render.wasm is built with wasm SIMD (tools/artifacts.py); test the
+    # same code generation.
+    env['CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS'] = '-C target-feature=+simd128'
     return env
 
 

@@ -40,7 +40,9 @@ source of visual effects, so the look belongs here, not in ffmpeg filter strings
 - Add the `oscillux-cdg-render` command (WASI): it reads a `.cdg` stream on stdin and writes raw
   RGBA frames at a fixed rate to stdout for a given size, start time and tempo, either a given
   number of frames (`--frames`) or until stdout closes. Release it as
-  `oscillux-cdg-render.wasm` (wasm32-wasip1).
+  `oscillux-cdg-render.wasm` (wasm32-wasip1), built with the wasm SIMD feature (`simd128`), which
+  roughly doubles its frame rate under a server runtime such as wazero. The arithmetic stays
+  integer, so the SIMD build matches the vectors byte for byte; hosts need a runtime with SIMD.
 - Add `conformance/cdg-present/` vectors (background and backdrop choice, frame digests) made by
   an independent Python oracle, checked by a portable test on the host and on wasm32 and by
   `make gate`.

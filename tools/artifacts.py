@@ -20,6 +20,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 SPDX = "AGPL-3.0-only"
 BINDGEN = "0.2.130"
+WASI_RUSTFLAGS = ("-C", "target-feature=+simd128")
 
 def crate_version():
     """The workspace crate version, so the npm package matches the C header and Cargo.toml."""
@@ -118,8 +119,11 @@ def check_host_paths(files):
         raise RuntimeError("artifacts embed host paths:\n  " + "\n  ".join(found[:20]))
 
 
-def build(target, package="oscillux-ffi"):
-    run("cargo", "build", "--locked", "--release", "--target", target, "-p", package, cwd=ROOT)
+def build(target, package="oscillux-ffi", rustflags=()):
+    env = dict(os.environ)
+    if rustflags:
+        env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join([env["CARGO_ENCODED_RUSTFLAGS"], *rustflags])
+    run("cargo", "build", "--locked", "--release", "--target", target, "-p", package, cwd=ROOT, env=env)
     return Path(os.environ["CARGO_TARGET_DIR"]) / target / "release"
 
 
@@ -205,7 +209,8 @@ def wasm(stage, dist):
     data = (package / "oscillux_bg.wasm").read_bytes()
     size = wasm_size(data)
     # The CD+G renderer is a WASI command that servers run (conformance/cdg-present/README.md).
-    render = build("wasm32-wasip1", "oscillux-cdg-render") / "oscillux-cdg-render.wasm"
+    # Built with wasm SIMD, as test-wasi.py tests it: integer only, so the vectors still hold.
+    render = build("wasm32-wasip1", "oscillux-cdg-render", WASI_RUSTFLAGS) / "oscillux-cdg-render.wasm"
     shutil.copyfile(render, dist / "oscillux-cdg-render.wasm")
     size["cdgRenderBytes"] = render.stat().st_size
     return size

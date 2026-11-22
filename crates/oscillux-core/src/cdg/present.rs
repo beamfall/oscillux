@@ -60,6 +60,7 @@ const MASK_HEIGHT: usize = WINDOW_HEIGHT + 2 * PAD;
 const SHADOW_OFFSET: i64 = 1 << 16;
 /// Backdrop sample spacing in frame pixels; the glows and vignette are interpolated between.
 const BACKDROP_STEP: usize = 8;
+const STEP_SHIFT: u32 = BACKDROP_STEP.trailing_zeros();
 const BAYER: [[u32; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
 /// The background colour index of the current window: the Memory Preset colour when it covers at
@@ -588,6 +589,16 @@ impl Presenter {
                 let threshold = bayer[x & 3] * 16 + 8;
                 let stage = self.stage_row[x];
                 let (keep, clear) = (o[4] as u32, o[3] as u32);
+                if keep == 255 && clear == 255 {
+                    // No graphics and no shadow: div255(v * 255) == v, so the pixel is the
+                    // dithered stage plus the (zero-alpha) overlay.
+                    for c in 0..3 {
+                        let s = ((stage[c] + threshold) >> 8).min(255);
+                        px[c] = (o[c] as u32 + s).min(255) as u8;
+                    }
+                    px[3] = 255;
+                    continue;
+                }
                 for c in 0..3 {
                     let s = ((stage[c] + threshold) >> 8).min(255);
                     let shade = div255(s * keep);
@@ -655,6 +666,17 @@ impl Backdrop {
             out[x1] = self.sample(x1 as i64, y);
             let (a, b) = (out[x0], out[x1]);
             let span = (x1 - x0) as u32;
+            if span == BACKDROP_STEP as u32 {
+                // The common full step: the same rounding with a shift (values are non-negative).
+                for (k, px) in out[x0 + 1..x1].iter_mut().enumerate() {
+                    let t = k as u32 + 1;
+                    for ch in 0..3 {
+                        px[ch] = (a[ch] * (span - t) + b[ch] * t + span / 2) >> STEP_SHIFT;
+                    }
+                }
+                x0 = x1;
+                continue;
+            }
             for (k, px) in out[x0 + 1..x1].iter_mut().enumerate() {
                 let t = k as u32 + 1;
                 for ch in 0..3 {
