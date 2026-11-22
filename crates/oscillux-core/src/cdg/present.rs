@@ -702,8 +702,9 @@ fn contrast_x1024(a: i64, b: i64) -> i64 {
 }
 
 /// Luminances bounding every backdrop point for a stage colour in 8.8 fixed point. Each backdrop
-/// channel is multilinear in the two glow weights (0 up to their strengths) and the vignette
-/// factor, so its extremes lie at the corners of that box; luminance grows with every channel, so
+/// channel is a chain of rounded blends, each monotone in its input and in its weight (the two
+/// glow weights, 0 up to their strengths, and the vignette factor), so its extremes lie at the
+/// corners of that box; luminance grows with every channel, so
 /// the per-channel minimum and maximum over the eight corners bound it from below and above.
 fn backdrop_range(stage: [i64; 3]) -> (i64, i64) {
     let lighten = |v: i64, k: i64| v + (65280 - v) * k / 1024;

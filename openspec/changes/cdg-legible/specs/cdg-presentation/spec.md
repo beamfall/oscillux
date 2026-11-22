@@ -6,9 +6,10 @@
 ### Requirement: Legible graphics colours
 
 Unless it is outlined (below), the presenter SHALL draw each graphics colour that touches the
-backdrop and has less than a 3.5:1 contrast ratio against some backdrop point mixed toward white
-or black, by the fewest sixteenths (white first) that reach 3.5:1, or by the best mix when none
-does, in integer arithmetic (`conformance/cdg-present/README.md`, Colours).
+backdrop and has less than a 3.5:1 contrast ratio against the backdrop's luminance range (from its
+darkest to its brightest possible point; 1:1 inside it) mixed toward white or black, by the fewest
+sixteenths (white first) that reach 3.5:1, or by the best mix when none does, in integer arithmetic
+(`conformance/cdg-present/README.md`, Colours).
 
 #### Scenario: Low-contrast lyrics
 
