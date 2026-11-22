@@ -66,7 +66,7 @@ const visuals = Object.fromEntries(pick(manifest.byTarget.web).map(v => [v.id, {
   trailDecay: v.trailDecay,
 }]));
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
 const page = await browser.newPage();
 page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
 

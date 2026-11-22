@@ -239,7 +239,7 @@ async function main() {
   const results = new Array(visuals.length);
   let next = 0;
   const job = async () => {
-    const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+    const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
     const page = await browser.newPage();
     page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
     await page.evaluate(setUp, { W, H });

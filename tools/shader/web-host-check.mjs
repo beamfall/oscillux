@@ -38,7 +38,7 @@ const HZ = 60;
 const RESTORE_MS = 1000;
 const BASE = { visual: 'aurora', size: '160x90', quality: '3', trace: '', quantise: 'none' };
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio', '--autoplay-policy=no-user-gesture-required'] });
 let failed = false;
 const report = {};
 try {

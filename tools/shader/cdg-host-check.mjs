@@ -59,7 +59,7 @@ const KARAOKE_ZIP = zip([
   { name: '__MACOSX/Artist - Song/._Artist - Song.wav', data: new Uint8Array(82) },
 ]);
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio', '--autoplay-policy=no-user-gesture-required'] });
 let failed = false;
 const report = { runs: [] };
 try {

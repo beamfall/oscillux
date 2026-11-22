@@ -140,7 +140,7 @@ async function main() {
   const results = new Array(visuals.length);
   let next = 0, renderer = '';
   const job = async () => {
-    const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] });
+    const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader', '--mute-audio'] });
     const page = await browser.newPage();
     await page.route(`${ORIGIN}/**`, route => {
       const name = new URL(route.request().url()).pathname.slice(1);

@@ -284,7 +284,7 @@ function compare(leg, results) {
   }
 }
 
-const args = gpu ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--enable-unsafe-swiftshader'];
+const args = [...(gpu ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--enable-unsafe-swiftshader']), '--mute-audio'];
 const browser = await chromium.launch({ args });
 try {
   const page = await browser.newPage();

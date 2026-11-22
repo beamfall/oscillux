@@ -156,7 +156,7 @@ const known = new Set(['flash-stress', ...sets.flatMap(s => s.visuals.map(v => v
 const unknown = ONLY.filter(id => !known.has(id));
 if (unknown.length) throw new Error(`unknown --only visual id(s): ${unknown.join(', ')}`);
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
 const page = await browser.newPage();
 page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
 await page.addScriptTag({ content: `window.__audioAt = ${audioAt.toString()};` });

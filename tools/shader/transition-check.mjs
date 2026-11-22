@@ -58,7 +58,7 @@ const ENDPOINT_LIMIT = 0.03;
 const POP_RATIO_LIMIT = 3;
 const ONLY = opts.only.split(',').filter(Boolean);
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
 let failed = false;
 try {
   const report = opts.host ? await hostMode() : await shaderMode();
