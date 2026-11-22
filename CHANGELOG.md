@@ -10,6 +10,23 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-11-22
+
+### Added
+
+- A photo slideshow pass, `shaders/slideshow/slideshow.glsl` (CORE-2980,
+  openspec/changes/add-photo-slideshow/, specified by `conformance/slideshow/`). A host fills
+  `SlideshowInputs` and calls `slideshow(uv, s)` for each pixel. The pass pans and zooms slowly
+  toward each photo's salient rectangle. It lays a photo out as cover, as fit over a blurred fill,
+  or as a portrait pair. It changes photos with a dissolve, a light sweep or an iris. Tempo
+  coupling is off by default (`amplitude` 0), and a host passes beats per slide in `extra.y`. The
+  pass ships in the `glsl300` and `msl` legs, and `make slideshow-check` renders it in WebGL2 and
+  Metal against the vectors. The C interface is unchanged.
+
+### Changed
+
+- The shader check harnesses launch Chromium with `--mute-audio`.
+
 ## [0.2.14] - 2026-11-21
 
 ### Added
