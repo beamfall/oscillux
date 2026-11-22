@@ -10,6 +10,17 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.19] - 2026-11-22
+
+### Changed
+
+- The CD+G presenter draws about twice as fast with bit-identical frames (CORE-3260). Rows with
+  no overlay ink skip the blend and take a plain dithered backdrop, compose skips rows the layer
+  masks leave empty, the layer blur runs only over rows that hold ink, and the backdrop
+  interpolates with an accumulator instead of a divide per pixel. Under wazero on the Tower a
+  960 x 540 canvas went from 49 to 95 fps and 1280 x 720 from 29 to 62 fps. The conformance
+  vectors are unchanged, and a full song hashes the same at 960 x 540, 1280 x 720 and 643 x 357.
+
 ## [0.2.18] - 2026-11-22
 
 ### Changed
