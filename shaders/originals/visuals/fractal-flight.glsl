@@ -154,11 +154,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
     float speed = mix(0.25, 1.4, u.param0);
     // the 32-beat profile shapes the pace, but a burst runs under twice cruise
-    // at every tempo up to 240 BPM (1.4 + 0.14 * 4 * 4.5 < 2 * (1.4 + 0.14 * 4)):
+    // at every tempo up to 240 BPM (1.4 + 0.13 * 4 * 4.5 = 3.74 < 2 * (1.4 + 0.13 * 4) = 3.84):
     // a fast pass through bright lace changes most of the frame's luminance
     // every frame, which the frame limiter has to hold back as ghosting
     vec2 fl = osFlight(u, 0.0, 1.0);
-    float z = mod(u.time * speed * 1.4 + fl.x * speed * 0.14, FF_LOOP);
+    float z = mod(u.time * speed * 1.4 + fl.x * speed * 0.13, FF_LOOP);
     float rush = saturate((fl.y - 1.0) / 3.5);
     float lull = saturate(1.0 - fl.y);
     vec3 ro = ffPath(z);
