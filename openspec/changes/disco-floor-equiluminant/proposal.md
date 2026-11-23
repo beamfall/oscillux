@@ -43,8 +43,8 @@ the large areas change colour at a fixed luminance, which the limiter does not c
   after the floor change.
 - The mirror ball's spots and the dress sequins are coloured, and add less than the 0.1 relative
   luminance step that makes a flash to whatever they cross, measured on the displayed frame after
-  the present pass's grade and tone map. A spot does not land on a sequin, so the two never add
-  up on one pixel. Palette colours are clamped at zero before they are set to a luminance, so a
+  the present pass's grade and tone map. Spots fade out over the dresses, so a spot and a sequin
+  together stay within one glint's budget. Palette colours are clamped at zero before they are set to a luminance, so a
   palette that swings a channel negative cannot brighten a tile when the display clips it. A white spot sweeping a pixel lit and
   darkened it in under a second, so each pass counted as a flash and the limiter held the pixels
   it crossed. The sequins are placed in the dress's own frame, so they move with it.

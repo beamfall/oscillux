@@ -551,7 +551,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
             body += dfAtLuma(mix(vec3(1.0), Pal.warm, 0.5), DF_GLINT_L) * tw * dressMask * min(sparkle, 1.0);
             body += Pal.hot * 0.03 * dressMask;
         }
-        // the spots pass over the dress, so a spot and a sequin never add up on one pixel
+        // the spots fade out over the dress, so a spot and a sequin together stay within one glint
         body += dfAtLuma(mix(vec3(1.0), Pal.cool, 0.5), 0.7 * DF_GLINT_L) * dfSpots(sp, u) * min(sparkle, 1.0) * (1.0 - dressMask);
         col = mix(col, body, fill);
     }

@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.20] - 2026-11-22
+
 ### Changed
 
 - Disco Floor moves colour, not brightness (CORE-3263). Its LED tiles swap hue at a fixed
@@ -18,7 +20,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   The dancers are solid figures in the complement of the floor's palette at about the floor's
   luminance, edged in neon at the same luminance, so a fast move no longer sweeps a light step
   across the frame. The mirror-ball spots and the dress sequins are coloured and stay under the
-  flash step on the displayed frame, a spot never lands on a sequin, and the sequins move with the dress. Strong reds ease toward grey, so the palette
+  flash step on the displayed frame, spots fade out over the dresses so a spot and a sequin together
+  stay within one glint's budget, and the sequins move with the dress. Strong reds ease toward grey, so the palette
   tour's red no longer spends the limiter's red budget. Beams sit at a fixed luminance, the spots
   turn slower and the trail is off. With the default palette and controls under the red audit's
   loud audio, the frame limiter now sees no large-area transitions instead of 55 a second and
