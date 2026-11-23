@@ -848,7 +848,8 @@
       "tunables": [
         "palette"
       ],
-      "trailDecay": 0
+      "trailDecay": 0,
+      "overrides": true
     },
     {
       "id": "velvet-blinds",

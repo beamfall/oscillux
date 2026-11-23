@@ -649,6 +649,79 @@
       }
     },
     {
+      "id": "disco-floor",
+      "body": "originals/visuals/disco-floor.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": false,
+      "header": "// Disco Floor: Neon-edged dancers sway their hips out on every beat and change moves every eight on an LED floor that changes colour, under a mirror ball that throws its spots across the room and moving heads that sweep coloured beams through the haze.",
+      "name": "Disco Floor",
+      "blurb": "Neon-edged dancers sway their hips out on every beat and change moves every eight on an LED floor that changes colour, under a mirror ball that throws its spots across the room and moving heads that sweep coloured beams through the haze.",
+      "tier": "flagship",
+      "input": "frequency + beat",
+      "overlay": false,
+      "calm": false,
+      "palette": [
+        8,
+        0,
+        8,
+        0
+      ],
+      "params": [
+        {
+          "id": "glow",
+          "uniform": "param0",
+          "label": "Glow",
+          "labelKey": "visual.disco-floor.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.7,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        },
+        {
+          "id": "sway",
+          "uniform": "param1",
+          "label": "Sway",
+          "labelKey": "visual.disco-floor.sway",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "sparkle",
+          "uniform": "param2",
+          "label": "Sparkle",
+          "labelKey": "visual.disco-floor.sparkle",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "detail"
+        }
+      ],
+      "tunables": [
+        "palette"
+      ],
+      "trailDecay": 0,
+      "post": {
+        "bloomStrength": 0.4,
+        "bloomThreshold": 0.9,
+        "chroma": 0.002,
+        "vignette": 0.7,
+        "grain": 0.012
+      }
+    },
+    {
       "id": "drift",
       "body": "visuals/drift.glsl",
       "targets": [
@@ -4592,6 +4665,7 @@
     "event-horizon",
     "prism-room",
     "lumen-field",
-    "laser-tunnel"
+    "laser-tunnel",
+    "disco-floor"
   ]
 }

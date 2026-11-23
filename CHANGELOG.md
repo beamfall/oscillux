@@ -12,6 +12,12 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [0.2.20] - 2026-11-22
 
+### Added
+
+- Disco Floor joins the release catalog (CORE-3263, openspec/changes/disco-floor-catalog/): a
+  flagship, frequency + beat scene, last in `catalogOrder`, with Glow, Sway and Sparkle controls
+  (`visual.disco-floor.*`). The legs and `catalog.json` now carry 62 visuals.
+
 ### Changed
 
 - Disco Floor moves colour, not brightness (CORE-3263). Its LED tiles swap hue at a fixed

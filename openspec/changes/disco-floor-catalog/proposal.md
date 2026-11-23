@@ -26,8 +26,12 @@ CORE-3263 rework reaches the reference hosts and no client. The owner chose to s
   - Placed last in `catalogOrder`, after the newest catalog additions.
 - The params and their `visual.disco-floor.*` labelKeys (Glow, Sway, Sparkle) are the original's.
 - The catalog entry's `body` names the original's file, because no catalog-only body exists. An
-  override always draws the original's body with the original's wrapper.
-- The catalog and leg counts go from 61 to 62 visuals.
+  override always draws the original's body with the original's wrapper. The reference-catalog
+  test reads each entry's `body` path instead of assuming `visuals/<id>.glsl`.
+- The entry carries `post` tuning like every catalog entry. The release set draws the original's
+  effect data, which has no `post`, so the shipped look is unchanged.
+- The catalog and leg counts go from 61 to 62 visuals, including `ANDROID_GLES_VISUAL_COUNT`; the
+  android-gles catalog and source digests are repinned.
 
 ## Non-goals
 
@@ -38,4 +42,6 @@ CORE-3263 rework reaches the reference hosts and no client. The owner chose to s
 ## Failure modes
 
 - A host with a fixed list of 61 visuals sees a new id. Hosts already take the catalog as data and
-  own selection, so they list it or gate it out.
+  own selection, so they list it or gate it out. The one fixed count found is
+  `beamfall-android-ui`'s EGL test harness (`expected 61 shaders`), which its repin to 0.2.20
+  updates.
