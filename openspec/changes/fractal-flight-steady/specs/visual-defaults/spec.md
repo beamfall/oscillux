@@ -6,8 +6,9 @@
 ### Requirement: Fractal Flight moves colour, not brightness
 
 Fractal Flight (`shaders/originals/visuals/fractal-flight.glsl`) SHALL answer the beat by
-changing the colour of its panes, lace and haze at a near-constant luminance, and SHALL NOT let
-light in the air near the camera, which every pixel shares, follow the beat.
+changing the colour of its panes, lace and haze at a near-constant luminance, with at most a
+gentle swell of the dim sunlit haze, and SHALL NOT let the sun shafts in the air near the camera,
+which every pixel shares, follow the beat.
 
 #### Scenario: Still answers the beat
 

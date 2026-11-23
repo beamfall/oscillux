@@ -18,7 +18,7 @@ Ablations (`limiter-red-audit.mjs --only fractal-flight --audio loud --beats 32`
 | Release body | 49 | 0.090 | 0.311 |
 | No inscatter (sun shafts and haze) | — | 0.006 | — |
 | Softer, wider shafts | worse | worse | worse |
-| This change | 10 | 0.010 | 0.116 |
+| This change | 10 | 0.012 | 0.118 |
 
 The sunlit shafts were the main source: air close to the camera is shared by every pixel, so a
 beam brightening there brightens the whole frame at once. The second source was the window panes,
@@ -39,6 +39,11 @@ pace. Slowing the flight to remove them makes the visual dull, which the owner r
   0.239 before, 0.233 after).
 - The lace's beat wave recolours the lace at its own luminance instead of brightening it, and
   the near-miss glow answers the amplitude less.
+- So the frame still answers the kick, the dim sunlit haze swells by up to about 10% on each beat and
+  settles over it (`FF_HAZE_BEAT`). The haze is dim enough that no pixel steps far enough in
+  light to be limited: beat-lint passes (luma r 0.83 at lag 1, swing 0.011) and the held
+  fraction rises only from 0.010 to 0.012 on average. Without it the panes' equal-luminance
+  recolouring left beat-lint at NO-BEAT.
 - The hue follows the bars only. The pace follows `osFlight`'s 32-beat profile around a steady
   cruise, kept under twice cruise at every tempo up to the beat grid's default 240 BPM ceiling,
   and the field of view widens a little with it.
