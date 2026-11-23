@@ -19,4 +19,4 @@
 ## 3. Close
 
 - [x] 3.1 CHANGELOG entry
-- [ ] 3.2 Archive this change
+- [x] 3.2 Archive this change
