@@ -24,7 +24,7 @@ list every visual id exactly once.
 #### Scenario: Reference set
 
 - **WHEN** `shaders/manifest.json` is loaded
-- **THEN** each of its 62 visuals has the catalog fields and `catalogOrder` lists all 62 ids
+- **THEN** each of its 63 visuals has the catalog fields and `catalogOrder` lists all 63 ids
 
 ### Requirement: Param labels
 
@@ -50,7 +50,7 @@ SHA-256, holding the release, the rev, the licence and every release-set visual 
 #### Scenario: Leg contents
 
 - **WHEN** `bundle-legs.mjs glsl300` runs on a checkout
-- **THEN** the leg holds one shader file per release-set visual and `catalog.json` lists 62
+- **THEN** the leg holds one shader file per release-set visual and `catalog.json` lists 63
   visuals in `catalogOrder`
 
 #### Scenario: Web lab parity
