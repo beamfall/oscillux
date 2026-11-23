@@ -20,7 +20,8 @@ frames per CPU second at 960 x 540, far below the 30 frames per second the strea
 - Layer masks blur with the kernel [1, 4, 1] / 6 per axis instead of the box [1, 1, 1] / 3. The
   edge threshold rises from 112 to 171, just under the 177 a lone window pixel reaches, so each
   edge sits about 0.15 magnified pixels inside the unblurred edge. Strokes are lighter, counters
-  open wider, and lone pixels still draw at twice the window and above.
+  open wider, and a lone pixel whose eight neighbours share one index still draws at twice the
+  window and above, outside the one-tile edge feather.
 - A layer draws at a frame pixel only where its own index lies inside the blur support of its
   taps: its levels at the taps with nonzero bilinear weight differ from the next layer's. The last layer draws wherever it is
   not zero. The fringe goes; coverage geometry is unchanged.

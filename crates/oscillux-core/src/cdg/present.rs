@@ -1304,7 +1304,8 @@ mod tests {
     fn lone_pixel_draws_at_twice_the_window_and_above() {
         // Inside the one-tile feather band at the window edge, and wherever the rectangle is
         // smaller than the doubled grid (a lone pixel at window (35, 35) at 300x200), the frame
-        // may sample between the pixel's peaks; elsewhere every placement draws.
+        // may sample between the pixel's peaks; elsewhere every placement on a uniform
+        // surround draws (two neighbour indices on a diagonal can let scale2x trim the pixel).
         for (width, height) in [(576, 384), (700, 470), (960, 540)] {
             for y in [12, 95, 96, 97, 179] {
                 for x in [6, 143, 144, 145, 281] {
