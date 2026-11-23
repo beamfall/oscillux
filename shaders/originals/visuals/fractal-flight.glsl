@@ -256,8 +256,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // carries the brightness instead
     vec3 hazeT = ffLit(ffCyc(hue + 0.3, cA, cB, cC, cD), paneL, sunC);
     // each beat the haze swells and settles over the beat: the air is dim, so
-    // the whole frame answers the kick without any pixel stepping far enough
-    // in light to need the frame limiter
+    // the whole frame answers the kick with little added limiting (the swell
+    // leaves the held fraction near 0.010 in the loud audit)
     float swell = 1.0 + FF_HAZE_BEAT * (1.0 - bp) * (1.0 - bp) * (0.7 + 0.6 * saturate(bassL));
     vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18 * swell) * phase;
     vec3 fogCol = hazeC * 0.03 + cB * 0.002 * phase;
