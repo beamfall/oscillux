@@ -35,7 +35,7 @@ contrast of your captions and controls over any visual.
 **A catalogue, not a demo.** 62 visuals across tunnels, flights, sky and space, light and glass,
 liquid, scopes and meters, photo and dancers, from calm to intense, plus 30 switch transitions.
 Each is written once in portable GLSL and translated by a pinned toolchain for WebGL2, Vulkan,
-Metal and HLSL. Another 23, a calmer set, are already written in `shaders/originals/` and on their
+Metal and HLSL. Another 22, a calmer set, are already written in `shaders/originals/` and on their
 way into the catalogue.
 
 **Built to be embedded.** One C header, opaque handles, caller-owned buffers and plain status

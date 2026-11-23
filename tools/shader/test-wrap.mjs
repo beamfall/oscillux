@@ -154,16 +154,35 @@ test('reference catalog wraps for every target and stays host data', () => {
 
 // Disco Floor's catalog body is its original with the common.glsl helpers it calls copied ahead,
 // so the catalog compiles on its own prelude while the release set draws the original (CORE-3263).
+// The copy must equal that construction byte for byte.
 test('Disco Floor catalog body is the original on copied common helpers', () => {
   const read = name => readFileSync(join(ROOT, 'shaders', name), 'utf8');
+  const raw = JSON.parse(readFileSync(CATALOG, 'utf8'));
+  assert.equal(raw.visuals.find(v => v.id === 'disco-floor').body, 'visuals/disco-floor.glsl');
   const spdx = '// SPDX-License-Identifier: AGPL-3.0-only\n';
-  const copy = read('visuals/disco-floor.glsl');
-  const original = read('originals/visuals/disco-floor.glsl');
-  assert.ok(copy.startsWith(spdx) && original.startsWith(spdx));
-  assert.ok(copy.endsWith(original.slice(spdx.length)), 'the copy ends with the original body');
   const common = read('originals/common.glsl');
-  const helpers = copy.slice(spdx.length, copy.length - original.length + spdx.length).split('\n\n').slice(1);
-  for (const part of helpers) if (part.trim()) assert.ok(common.includes(part.trim()), `not in common.glsl: ${part.slice(0, 60)}`);
+  const original = read('originals/visuals/disco-floor.glsl');
+  // Each helper block runs from its first line through the end of the line holding `end`.
+  const block = (start, end) => {
+    const a = common.indexOf(start);
+    assert.ok(a >= 0, `common.glsl: ${start}`);
+    const b = common.indexOf(end, a);
+    assert.ok(b >= 0, `common.glsl: ${end}`);
+    return common.slice(a, common.indexOf('\n', b + end.length) + 1);
+  };
+  const helpers = [
+    block('// Detail the host can afford', 'float osDetail('),
+    block('// Smooth union with blend radius k.', '    return mix(b, a, h) - k * h * (1.0 - h);\n}'),
+    block('// ---- vivid palettes ----', 'return osVividMix(osPalLoop(t + nudge, a), osPalLoop(t + nudge, b), blend);\n}'),
+    block('// Every original finishes through osOffRed.', '    return c;\n}'),
+    block('// Everything joined after this file reads', '#define palVisual osPalVisual'),
+  ].join('\n');
+  const copy = read('visuals/disco-floor.glsl');
+  const note = copy.slice(spdx.length, copy.indexOf('\n\n') + 1);
+  assert.match(note, /^(\/\/[^\n]*\n)+$/, 'a comment note follows the SPDX line');
+  assert.ok(original.startsWith(spdx));
+  assert.equal(copy, spdx + note + '\n' + helpers + '\n' + original.slice(spdx.length),
+    'regenerate shaders/visuals/disco-floor.glsl from originals/common.glsl and the original');
 });
 
 // The Oscillux originals (shaders/originals/) share the catalog's library and
