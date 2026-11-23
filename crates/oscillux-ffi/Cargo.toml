@@ -20,3 +20,8 @@ oscillux-core = { path = "../oscillux-core" }
 [[bench]]
 name = "frame_budget"
 harness = false
+
+# CD+G presenter worst-case CPU-time guard, also run by `make bench`; method in the bench.
+[[bench]]
+name = "cdg_present_budget"
+harness = false

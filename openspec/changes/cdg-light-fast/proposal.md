@@ -25,10 +25,11 @@ frames per CPU second at 960 x 540, far below the 30 frames per second the strea
   taps: its four tap levels differ from the next layer's. The last layer draws wherever it is
   not zero. The fringe goes; coverage geometry is unchanged.
 - The shadow's alpha drops from 166 to 110.
-- The presenter gets faster without changing any frame: index sets per magnified pixel replace
-  scans of empty layers, and work goes only to rows whose source changed. A CPU-time guard in
-  the frame budget bench fails when a worst-case stream presents below 120 frames per CPU second
-  natively at 960 x 540, which keeps wasm32 under wazero above 60.
+- The presenter gets faster without changing any frame: all layers' levels are computed together
+  in byte lanes, a pixel stops at the first fully covering layer, and a rebuild redoes only the
+  magnified pixels and frame pixels whose inputs changed. A CPU-time guard bench beside the frame
+  budget bench fails when a worst-case stream takes more than 7 ms of CPU time per frame natively
+  at 960 x 540, which keeps wasm32 under wazero (about 2.3x slower) at 60 frames per CPU second.
 - Spec, oracle and vectors updated together.
 
 ## Non-goals

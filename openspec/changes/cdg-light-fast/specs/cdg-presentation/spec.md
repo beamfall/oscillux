@@ -5,14 +5,14 @@
 
 ### Requirement: Real-time presentation
 
-Presenting the worst-case stream of the frame budget bench (every colour inked, a tile changed
-by every pack) at 960 x 540 SHALL take at most 1/120 of a CPU second per frame natively, so the
-wasm32 render command keeps above 60 frames per CPU second.
+Presenting the worst-case stream of the presenter budget bench (every colour inked, a random
+tile changed by every pack, 10 packs per frame) at 960 x 540 SHALL take at most 7 ms of thread
+CPU time per frame natively, so the wasm32 render command keeps 60 frames per CPU second.
 
 #### Scenario: Busy disc
 
-- **WHEN** the frame budget bench presents its worst-case stream at 960 x 540
-- **THEN** the median CPU time per frame is at most 8.3 ms
+- **WHEN** the `cdg_present_budget` bench presents its worst-case stream at 960 x 540
+- **THEN** the mean CPU time per frame of its fastest round is at most 7 ms
 
 ## MODIFIED Requirements
 

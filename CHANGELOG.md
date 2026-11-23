@@ -27,6 +27,18 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   loud audio, the frame limiter now sees no large-area transitions instead of 55 a second and
   holds none of the frame, so the ghosting and stutter are gone. Other palettes and the vivid
   host grade can still trip it a few times a second.
+- CD+G lyrics draw lighter, at regular weight (CORE-3260, openspec/changes/cdg-light-fast/).
+  Layer masks blur with [1, 4, 1] / 6 per axis and the edge threshold rises from 112 to 171, so
+  each edge sits just inside the unblurred edge while a lone window pixel still draws. A colour
+  draws only where it lies inside the blur support of a pixel's taps, so lower colours no longer
+  fringe the edges of higher ones, and the shadow's alpha drops from 166 to 110. The
+  `conformance/cdg-present/` vectors are regenerated.
+- The CD+G presenter's worst case is about 5x faster with frames bit-identical to the new look.
+  All layers' levels are computed together in byte lanes, a pixel stops at the first fully
+  covering layer, and a rebuild redoes only the magnified and frame pixels whose inputs changed.
+  A 960 x 540 stream with every colour inked and a tile changed by every pack went from 13 to
+  67 frames per CPU second under wazero. The new `cdg_present_budget` bench (`make bench`)
+  fails when that stream takes more than 7 ms of CPU time per frame natively.
 
 ## [0.2.19] - 2026-11-22
 

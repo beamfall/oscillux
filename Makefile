@@ -55,11 +55,13 @@ abi-snapshot:
 gate: abi-check
 
 # Host per-frame budget for DSP, limiter, mapping, packing, beat tracking and adaptive levels in the
-# release profile; the threshold and noise policy are in crates/oscillux-ffi/benches/frame_budget.rs.
+# release profile, and the CD+G presenter's worst-case CPU time; thresholds and noise policy are in
+# crates/oscillux-ffi/benches/frame_budget.rs and cdg_present_budget.rs.
 # cargo-llvm.py lets the release strip load libLLVM on macOS.
 .PHONY: bench
 bench:
 	python3 tools/cargo-llvm.py "$(CARGO)" bench -p oscillux-ffi --bench frame_budget
+	python3 tools/cargo-llvm.py "$(CARGO)" bench -p oscillux-ffi --bench cdg_present_budget
 
 gate: bench
 

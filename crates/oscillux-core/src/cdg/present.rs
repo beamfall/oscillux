@@ -57,6 +57,11 @@ pub const BLUR_CENTRE: u32 = 4;
 pub const EDGE_THRESHOLD: i64 = 171;
 /// Least edge ramp: the smallest that still takes a full mask (255) to full coverage.
 const MIN_RAMP: i64 = (127 * 256 + (255 - EDGE_THRESHOLD) - 1) / (255 - EDGE_THRESHOLD);
+/// The steepest edge ramp, at the widest frame.
+const MAX_RAMP: i64 = MAX_DIMENSION as i64 * 256 / 150;
+const _: () = assert!(EDGE_THRESHOLD * 256 * MAX_RAMP <= i32::MAX as i64);
+// A full mask (level 255 at every tap, 255 << 8 in 8.8) reaches full coverage at `MIN_RAMP`.
+const _: () = assert!(((((255 << 8) - EDGE_THRESHOLD * 256) * MIN_RAMP) >> 16) + 128 >= 255);
 /// Least contrast ratio, times 10, a graphics colour keeps against the whole backdrop.
 pub const MIN_CONTRAST_X10: i64 = 35;
 
@@ -67,10 +72,48 @@ const X2_SIZE: usize = X2_WIDTH * X2_HEIGHT;
 const MAX_LAYERS: usize = 15;
 /// Sum of the 2D layer blur kernel's weights.
 const BLUR_AREA: u32 = (BLUR_CENTRE + 2) * (BLUR_CENTRE + 2);
+// Layers live one per byte lane of a `u128`, and a lane holds counts up to `BLUR_AREA`; the
+// horizontal pass multiplies by `BLUR_CENTRE` with a shift.
+const _: () = assert!(MAX_LAYERS <= 16 && BLUR_AREA < 256 && BLUR_CENTRE.is_power_of_two());
+/// The blurred mask byte of each lane's weighted neighbour count,
+/// `round(255 * count / BLUR_AREA)`. With `BLUR_AREA` 36 that is
+/// `7 * count + (count + 6) / 12`, and the second term counts the thresholds 6, 18 and 30 the
+/// count reaches; no lane carries into the next (a count is at most 36, a level at most 255).
+fn level(counts: u128) -> u128 {
+    const _: () = assert!(BLUR_AREA == 36);
+    let reached =
+        |threshold: u8| ((counts + u128::from_ne_bytes([128 - threshold; 16])) & HIGH1) >> 7;
+    counts * 7 + reached(6) + reached(18) + reached(30)
+}
+
+/// Nonzero in every byte lane that differs from the next lane up.
+fn next_differs(lanes: u128) -> u128 {
+    lanes ^ (lanes >> 8)
+}
+
+const LOW7: u128 = u128::from_ne_bytes([0x7f; 16]);
+const HIGH1: u128 = u128::from_ne_bytes([0x80; 16]);
+
+/// Bit `k` set for every nonzero byte lane `k` of `x`.
+fn nonzero_lanes(x: u128) -> u32 {
+    // The top bit of each nonzero lane, moved to the lane's low bit, then gathered eight lanes
+    // at a time into the top byte by one multiply (the partial products never overlap).
+    let lanes = ((((x & LOW7) + LOW7) | x) & HIGH1) >> 7;
+    let gather = |half: u64| (half.wrapping_mul(0x0102_0408_1020_4080) >> 56) as u32;
+    gather(lanes as u64) | gather((lanes >> 64) as u64) << 8
+}
 /// Zero padding around the shadow mask, wider than the blur so the blur never reaches its edge.
 const PAD: usize = 4;
 const MASK_WIDTH: usize = WINDOW_WIDTH + 2 * PAD;
 const MASK_HEIGHT: usize = WINDOW_HEIGHT + 2 * PAD;
+/// Words in a row of change bits: one bit per doubled pixel, and one per mask pixel.
+const X2_WORDS: usize = X2_WIDTH.div_ceil(64);
+const MASK_WORDS: usize = MASK_WIDTH.div_ceil(64);
+
+/// Whether bit `x` of a row of change bits is set.
+fn changed(bits: &[u64], x: u32) -> bool {
+    bits[x as usize / 64] >> (x % 64) & 1 != 0
+}
 /// Shadow offset, one window pixel in 16.16 fixed point.
 const SHADOW_OFFSET: i64 = 1 << 16;
 /// Backdrop sample spacing in frame pixels; the glows and vignette are interpolated between.
@@ -156,13 +199,14 @@ fn taps(
 /// (`2w` x `2h`). Corners round as in EPX, except where two diagonals cross (the diagonal
 /// neighbour has the pixel's own colour, a 2 x 2 checker): there the corner takes the
 /// neighbours' colour only when it ranks above the pixel's own. Diagonal ink steps then join
-/// instead of both diagonals cutting each other into an X.
-fn scale2x(src: &[u8], w: usize, h: usize, rank: &[u16; 16], dst: &mut [u8]) {
+/// instead of both diagonals cutting each other into an X. Only the source columns
+/// `spans[y].0..spans[y].1` of each row `y` are doubled; the rest of `dst` is left as it was.
+fn scale2x(src: &[u8], w: usize, h: usize, rank: &[u16; 16], spans: &[Span], dst: &mut [u8]) {
     let dw = 2 * w;
-    for y in 0..h {
+    for (y, &(lo, hi)) in spans.iter().enumerate().take(h) {
         let up = if y == 0 { 0 } else { y - 1 };
         let down = if y + 1 == h { y } else { y + 1 };
-        for x in 0..w {
+        for x in lo..hi {
             let left = if x == 0 { 0 } else { x - 1 };
             let right = if x + 1 == w { x } else { x + 1 };
             let p = src[y * w + x];
@@ -200,9 +244,40 @@ fn scale2x(src: &[u8], w: usize, h: usize, rank: &[u16; 16], dst: &mut [u8]) {
     }
 }
 
+/// A half-open column range `lo..hi`; empty when `lo >= hi`.
+type Span = (usize, usize);
+
+/// The union of `a` and `b`.
+fn union(a: Span, b: Span) -> Span {
+    if a.0 >= a.1 {
+        b
+    } else if b.0 >= b.1 {
+        a
+    } else {
+        (a.0.min(b.0), a.1.max(b.1))
+    }
+}
+
+/// `a` widened by one column each side and clipped to `0..len`; empty stays empty.
+fn widen(a: Span, len: usize) -> Span {
+    if a.0 >= a.1 {
+        a
+    } else {
+        (a.0.saturating_sub(1), (a.1 + 1).min(len))
+    }
+}
+
 /// `round(x / 255)` for `x <= 65535`.
 fn div255(x: u32) -> u32 {
     (x + 128 + ((x + 128) >> 8)) >> 8
+}
+
+/// `div255(p * cov + g * (255 - cov))` on each of four 16-bit lanes of 8-bit values. No lane
+/// ever exceeds `255 * 255 + 128 + 254`, so no carry crosses a lane.
+fn blend(p: u64, g: u64, cov: u32) -> u64 {
+    const LOW: u64 = 0x00ff_00ff_00ff_00ff;
+    let x = p * cov as u64 + g * (255 - cov) as u64 + 0x0080_0080_0080_0080;
+    ((x + ((x >> 8) & LOW)) >> 8) & LOW
 }
 
 /// A 12-bit `0xRGB` colour as 8.8 fixed-point channels (`c * 17 << 8`).
@@ -239,17 +314,32 @@ pub struct Presenter {
     height: usize,
     window: Vec<u8>,
     x2: Vec<u8>,
-    /// Blurred coverage mask of each layer, `X2_SIZE` bytes each, lowest rank first.
-    layers: Vec<u8>,
-    layer_scratch: Vec<u16>,
+    /// Per doubled pixel, the blurred mask of every layer: byte `k` is layer `k`'s level,
+    /// lowest rank first, and zero past the last layer.
+    levels: Vec<[u8; 16]>,
+    /// Three rows of horizontal blur sums, one lane per layer as in `levels`.
+    weight_rows: Vec<u128>,
+    /// Per doubled row, a bit for each pixel whose `levels` changed in the last rebuild.
+    level_changes: Vec<u64>,
+    /// Per doubled column, scratch for `compose`: the layers that differ from the next.
+    tap_diff: Vec<u128>,
+    /// Per doubled row, whether any layer is nonzero there.
+    layer_ink: [bool; X2_HEIGHT],
     layer_index: [u8; MAX_LAYERS],
     layer_count: usize,
+    /// The backdrop and ranks `x2` and `levels` were built for; while they hold, a rebuild
+    /// redoes only the columns near window pixels that changed.
+    layers_for: Option<([bool; 16], [u16; 16])>,
     /// Edge ramp steepness: coverage gained per mask level, 8.8 fixed point.
     ramp: i64,
     /// Indices seen beside graphics that contrast with both them and the backdrop, under the
     /// current background and palette; their colours are never adjusted for contrast.
     protected: [bool; 16],
     mask: Vec<u8>,
+    /// The mask `compose` last read, and per mask row a bit for each pixel that has changed
+    /// since.
+    mask_prev: Vec<u8>,
+    mask_changes: Vec<u64>,
     blur: Vec<u16>,
     cols: Vec<Tap>,
     rows: Vec<Tap>,
@@ -260,6 +350,9 @@ pub struct Presenter {
     overlay: Vec<[u8; 5]>,
     /// Per frame row, whether any overlay pixel there is not empty (`[0, 0, 0, 255, 255]`).
     overlay_ink: Vec<bool>,
+    /// What `overlay` was composed with besides `levels` and `mask`: background, colour table
+    /// and layer order. While it holds, only pixels reading a changed level or mask recompose.
+    composed: Option<(u8, [u64; 16], [u8; MAX_LAYERS], usize)>,
     frame: Vec<u8>,
     /// The background and palette the shadow mask was built for; `None` before the first frame.
     built: Option<(u8, [u16; 16])>,
@@ -292,15 +385,21 @@ impl Presenter {
             height,
             window: vec![0; WINDOW_WIDTH * WINDOW_HEIGHT],
             x2: vec![0; X2_WIDTH * X2_HEIGHT],
-            layers: vec![0; X2_SIZE * MAX_LAYERS],
-            layer_scratch: vec![0; X2_SIZE],
+            levels: vec![[0; 16]; X2_SIZE],
+            level_changes: vec![0; X2_HEIGHT * X2_WORDS],
+            weight_rows: vec![0; 3 * X2_WIDTH],
+            tap_diff: vec![0; X2_WIDTH],
+            layer_ink: [false; X2_HEIGHT],
             layer_index: [0; MAX_LAYERS],
             layer_count: 0,
+            layers_for: None,
             // A mask pixel spans `rw / 576` frame pixels; ramp the full 255 over about 0.6
             // frame pixels, but never so gently that a full mask stays translucent.
             ramp: (rw as i64 * 256 / 150).max(MIN_RAMP),
             protected: [false; 16],
             mask: vec![0; MASK_WIDTH * MASK_HEIGHT],
+            mask_prev: vec![0; MASK_WIDTH * MASK_HEIGHT],
+            mask_changes: vec![0; MASK_HEIGHT * MASK_WORDS],
             blur: vec![0; MASK_WIDTH * MASK_HEIGHT],
             cols: vec![Tap::default(); width],
             rows: vec![Tap::default(); height],
@@ -308,6 +407,7 @@ impl Presenter {
             shadow_rows: vec![Tap::default(); height],
             overlay: vec![[0, 0, 0, 255, 255]; width * height],
             overlay_ink: vec![false; height],
+            composed: None,
             frame: vec![255; width * height * 4],
             built: None,
             drawn: None,
@@ -377,12 +477,23 @@ impl Presenter {
 
         let (x0, y0) = state.window_origin();
         let mut window_changed = false;
-        for row in 0..WINDOW_HEIGHT {
+        // Per window row, the columns that changed.
+        let mut changed: [Span; WINDOW_HEIGHT] = [(0, 0); WINDOW_HEIGHT];
+        for (row, span) in changed.iter_mut().enumerate() {
             let at = (y0 + row) * SCREEN_WIDTH + x0;
             let src = &state.screen[at..at + WINDOW_WIDTH];
             let dst = &mut self.window[row * WINDOW_WIDTH..(row + 1) * WINDOW_WIDTH];
             if dst != src {
-                dst.copy_from_slice(src);
+                let lo = dst.iter().zip(src).position(|(a, b)| a != b).unwrap_or(0);
+                let hi = WINDOW_WIDTH
+                    - dst
+                        .iter()
+                        .zip(src)
+                        .rev()
+                        .position(|(a, b)| a != b)
+                        .unwrap_or(0);
+                dst[lo..hi].copy_from_slice(&src[lo..hi]);
+                *span = (lo, hi);
                 window_changed = true;
             }
         }
@@ -390,14 +501,26 @@ impl Presenter {
         if rebuilt {
             let backdrop = backdrop_indices(decoder);
             let rank = ranks(background, &palette);
+            // Per window row, the pixels whose doubled 2 x 2 block may differ: those beside a
+            // changed pixel, or all of them when the backdrop or ranks moved.
+            let partial = self.layers_for == Some((backdrop, rank));
+            let mut doubled: [Span; WINDOW_HEIGHT] = [(0, WINDOW_WIDTH); WINDOW_HEIGHT];
+            if partial {
+                for (y, span) in doubled.iter_mut().enumerate() {
+                    let near = &changed[y.saturating_sub(1)..(y + 2).min(WINDOW_HEIGHT)];
+                    *span = widen(near.iter().fold((0, 0), |a, &b| union(a, b)), WINDOW_WIDTH);
+                }
+            }
             scale2x(
                 &self.window,
                 WINDOW_WIDTH,
                 WINDOW_HEIGHT,
                 &rank,
+                &doubled,
                 &mut self.x2,
             );
-            self.build_layers(&backdrop, &rank);
+            self.build_layers(&backdrop, &rank, partial.then_some(&doubled));
+            self.layers_for = Some((backdrop, rank));
             self.build_mask(&backdrop, &rank);
             if self
                 .built
@@ -442,68 +565,140 @@ impl Presenter {
 
     /// One layer per non-background index present in the doubled window, lowest rank first. A
     /// layer's mask is 255 where the pixel ranks at or above the layer's index, blurred once with
-    /// `[1, BLUR_CENTRE, 1]` (separable, edges clamped).
-    fn build_layers(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
-        // Which indices are present, and per doubled row the highest rank outside the backdrop
-        // (-1 for none): a layer is zero away from the rows reaching its floor, so only those
-        // rows and their blur neighbours need work.
-        let mut present = [false; 16];
-        let mut row_top = [-1i32; X2_HEIGHT];
-        for (top, row) in row_top.iter_mut().zip(self.x2.chunks_exact(X2_WIDTH)) {
-            for &index in row {
-                let shown = !backdrop[index as usize];
-                present[index as usize] = shown;
-                if shown {
-                    *top = (*top).max(rank[index as usize] as i32);
-                }
-            }
+    /// `[1, BLUR_CENTRE, 1]` (separable, edges clamped). Every layer is kept at once, one byte
+    /// lane each: the blur sums weighted neighbour counts, and [`level`] turns them into mask
+    /// bytes.
+    fn build_layers(
+        &mut self,
+        backdrop: &[bool; 16],
+        rank: &[u16; 16],
+        doubled: Option<&[Span; WINDOW_HEIGHT]>,
+    ) {
+        let hidden = (0..16).fold(0u16, |m, i| m | (backdrop[i] as u16) << i);
+        let mut seen = 0u16;
+        let mut row_shown = [false; X2_HEIGHT];
+        for (shown_row, row) in row_shown.iter_mut().zip(self.x2.chunks_exact(X2_WIDTH)) {
+            let row_seen = row.iter().fold(0u16, |m, &index| m | 1 << (index & 15));
+            *shown_row = row_seen & !hidden != 0;
+            seen |= row_seen;
         }
+        let previous = (self.layer_index, self.layer_count);
         self.layer_count = 0;
-        for (i, _) in present.iter().enumerate().filter(|(_, &p)| p) {
+        for i in (0..16).filter(|&i| (seen & !hidden) >> i & 1 != 0) {
             self.layer_index[self.layer_count] = i as u8;
             self.layer_count += 1;
         }
         self.layer_index[..self.layer_count].sort_unstable_by_key(|&i| rank[i as usize]);
-        for layer in 0..self.layer_count {
-            let floor = rank[self.layer_index[layer] as usize] as i32;
-            // The layer's own index is present, so some row reaches the floor.
-            let inked = |y: &usize| row_top[*y] >= floor;
-            let first = (0..X2_HEIGHT).find(inked).unwrap_or(0);
-            let last = (0..X2_HEIGHT).rev().find(inked).unwrap_or(0);
-            // Rows the vertical blur can reach, and the scratch rows those read.
-            let (lo, hi) = (first.saturating_sub(1), (last + 1).min(X2_HEIGHT - 1));
-            let (scratch_lo, scratch_hi) = (lo.saturating_sub(1), (hi + 1).min(X2_HEIGHT - 1));
-            let mask = &mut self.layers[layer * X2_SIZE..(layer + 1) * X2_SIZE];
-            let rows = first * X2_WIDTH..(last + 1) * X2_WIDTH;
-            for (m, &index) in mask[rows.clone()].iter_mut().zip(&self.x2[rows]) {
-                *m = if !backdrop[index as usize] && rank[index as usize] as i32 >= floor {
-                    255
-                } else {
-                    0
-                };
-            }
-            self.layer_scratch[scratch_lo * X2_WIDTH..first * X2_WIDTH].fill(0);
-            self.layer_scratch[(last + 1) * X2_WIDTH..(scratch_hi + 1) * X2_WIDTH].fill(0);
-            for y in first..=last {
-                let row = &mask[y * X2_WIDTH..(y + 1) * X2_WIDTH];
-                let out = &mut self.layer_scratch[y * X2_WIDTH..(y + 1) * X2_WIDTH];
-                for x in 0..X2_WIDTH {
-                    let l = row[x.saturating_sub(1)] as u16;
-                    let r = row[(x + 1).min(X2_WIDTH - 1)] as u16;
-                    out[x] = l + BLUR_CENTRE as u16 * row[x] as u16 + r;
+        // Per index, a 1 in the lane of every layer it counts towards.
+        let mut stack = [0u128; 16];
+        for (layer, &floor_index) in self.layer_index[..self.layer_count].iter().enumerate() {
+            let floor = rank[floor_index as usize];
+            for (j, lanes) in stack.iter_mut().enumerate() {
+                if !backdrop[j] && rank[j] >= floor {
+                    *lanes |= 1 << (8 * layer);
                 }
             }
-            mask[..lo * X2_WIDTH].fill(0);
-            mask[(hi + 1) * X2_WIDTH..].fill(0);
-            for y in lo..=hi {
-                let up = y.saturating_sub(1) * X2_WIDTH;
-                let down = (y + 1).min(X2_HEIGHT - 1) * X2_WIDTH;
-                for x in 0..X2_WIDTH {
-                    let sum = self.layer_scratch[up + x] as u32
-                        + BLUR_CENTRE * self.layer_scratch[y * X2_WIDTH + x] as u32
-                        + self.layer_scratch[down + x] as u32;
-                    mask[y * X2_WIDTH + x] = ((sum + BLUR_AREA / 2) / BLUR_AREA) as u8;
+        }
+        let centre = BLUR_CENTRE.trailing_zeros();
+        if let Some(doubled) = doubled.filter(|_| previous == (self.layer_index, self.layer_count))
+        {
+            self.update_levels(&stack, doubled);
+            return;
+        }
+        // Horizontal sums of row `y` into ring slot `y % 3`; false when the row is all zero.
+        let horizontal = |x2: &[u8], ring: &mut [u128], y: usize| -> bool {
+            let out = &mut ring[(y % 3) * X2_WIDTH..][..X2_WIDTH];
+            if !row_shown[y] {
+                out.fill(0);
+                return false;
+            }
+            let row = &x2[y * X2_WIDTH..][..X2_WIDTH];
+            for x in 0..X2_WIDTH {
+                let l = stack[row[x.saturating_sub(1)] as usize];
+                let r = stack[row[(x + 1).min(X2_WIDTH - 1)] as usize];
+                out[x] = l + (stack[row[x] as usize] << centre) + r;
+            }
+            true
+        };
+        let mut nonzero = [false; 3];
+        nonzero[0] = horizontal(&self.x2, &mut self.weight_rows, 0);
+        for y in 0..X2_HEIGHT {
+            let down = (y + 1).min(X2_HEIGHT - 1);
+            if down != y {
+                nonzero[down % 3] = horizontal(&self.x2, &mut self.weight_rows, down);
+            }
+            let up = y.saturating_sub(1);
+            let out = &mut self.levels[y * X2_WIDTH..][..X2_WIDTH];
+            let bits = &mut self.level_changes[y * X2_WORDS..][..X2_WORDS];
+            bits.fill(0);
+            if !(nonzero[up % 3] || nonzero[y % 3] || nonzero[down % 3]) {
+                for (x, level) in out.iter_mut().enumerate() {
+                    if *level != [0; 16] {
+                        *level = [0; 16];
+                        bits[x / 64] |= 1 << (x % 64);
+                    }
                 }
+                self.layer_ink[y] = false;
+                continue;
+            }
+            let ring = &self.weight_rows;
+            let (hu, hc, hd) = (
+                &ring[(up % 3) * X2_WIDTH..][..X2_WIDTH],
+                &ring[(y % 3) * X2_WIDTH..][..X2_WIDTH],
+                &ring[(down % 3) * X2_WIDTH..][..X2_WIDTH],
+            );
+            let mut any = 0;
+            for x in 0..X2_WIDTH {
+                let w = hu[x] + (hc[x] << centre) + hd[x];
+                any |= w;
+                let new = level(w).to_le_bytes();
+                if out[x] != new {
+                    out[x] = new;
+                    bits[x / 64] |= 1 << (x % 64);
+                }
+            }
+            self.layer_ink[y] = any != 0;
+        }
+    }
+
+    /// Recomputes `levels` only where a doubled pixel in `doubled` (per window row, the source
+    /// columns `scale2x` redid) falls under the 3 x 3 blur, giving the same levels as a full
+    /// build under the same `stack`.
+    fn update_levels(&mut self, stack: &[u128; 16], doubled: &[Span; WINDOW_HEIGHT]) {
+        let centre = BLUR_CENTRE.trailing_zeros();
+        let x2 = &self.x2;
+        let horizontal = |y: usize, x: usize| -> u128 {
+            let row = &x2[y * X2_WIDTH..][..X2_WIDTH];
+            stack[row[x.saturating_sub(1)] as usize]
+                + (stack[row[x] as usize] << centre)
+                + stack[row[(x + 1).min(X2_WIDTH - 1)] as usize]
+        };
+        for y in 0..X2_HEIGHT {
+            let bits = &mut self.level_changes[y * X2_WORDS..][..X2_WORDS];
+            bits.fill(0);
+            let up = y.saturating_sub(1);
+            let down = (y + 1).min(X2_HEIGHT - 1);
+            let source = |r: usize| {
+                let (lo, hi) = doubled[r / 2];
+                (2 * lo, 2 * hi)
+            };
+            let (lo, hi) = widen(union(union(source(up), source(y)), source(down)), X2_WIDTH);
+            if lo >= hi {
+                continue;
+            }
+            let out = &mut self.levels[y * X2_WIDTH..][..X2_WIDTH];
+            let mut moved = false;
+            for x in lo..hi {
+                let w = horizontal(up, x) + (horizontal(y, x) << centre) + horizontal(down, x);
+                let new = level(w).to_le_bytes();
+                if out[x] != new {
+                    out[x] = new;
+                    bits[x / 64] |= 1 << (x % 64);
+                    moved = true;
+                }
+            }
+            if moved {
+                self.layer_ink[y] = out.iter().any(|l| *l != [0; 16]);
             }
         }
     }
@@ -542,6 +737,20 @@ impl Presenter {
                         + self.blur[y * MASK_WIDTH + x] as u32
                         + self.blur[(y + 1) * MASK_WIDTH + x] as u32;
                     self.mask[y * MASK_WIDTH + x] = ((sum + 4) / 9) as u8;
+                }
+            }
+        }
+        let rows = self.mask.chunks_exact(MASK_WIDTH);
+        let prev = self.mask_prev.chunks_exact_mut(MASK_WIDTH);
+        for ((row, prev), bits) in rows
+            .zip(prev)
+            .zip(self.mask_changes.chunks_exact_mut(MASK_WORDS))
+        {
+            bits.fill(0);
+            for (x, (&m, p)) in row.iter().zip(prev.iter_mut()).enumerate() {
+                if m != *p {
+                    *p = m;
+                    bits[x / 64] |= 1 << (x % 64);
                 }
             }
         }
@@ -617,11 +826,12 @@ impl Presenter {
     /// Composes the graphics layers and the shadow into `overlay`.
     fn compose(&mut self, background: u8, colours: &[[i64; 3]; 16]) {
         // Premultiplied colour of each index; the background index is transparent.
-        let mut lut = [[0u32; 4]; 16];
+        // Held as four 16-bit lanes, R lowest, for `blend`.
+        let mut lut = [0u64; 16];
         for (i, entry) in lut.iter_mut().enumerate() {
             if i as u8 != background {
-                let [r, g, b] = colours[i].map(|v| v as u32);
-                *entry = [r, g, b, 255];
+                let [r, g, b] = colours[i].map(|v| v as u64);
+                *entry = r | g << 16 | b << 32 | 255 << 48;
             }
         }
         // Source rows holding any ink: an output row whose shadow and graphics taps all read
@@ -631,17 +841,35 @@ impl Presenter {
         for (ink, row) in mask_ink.iter_mut().zip(self.mask.chunks_exact(MASK_WIDTH)) {
             *ink = row.iter().any(|&m| m != 0);
         }
-        let mut layer_ink = [false; X2_HEIGHT];
-        if self.layer_count > 0 {
-            let layer0 = self.layers[..X2_SIZE].chunks_exact(X2_WIDTH);
-            for (ink, row) in layer_ink.iter_mut().zip(layer0) {
-                *ink = row.iter().any(|&m| m != 0);
-            }
-        }
+        let layer_ink = self.layer_ink;
+        let key = (background, lut, self.layer_index, self.layer_count);
+        // Every pixel reads only that key, `levels` and `mask`; with the key unchanged, only a
+        // pixel with a changed tap can change.
+        let all = self.composed != Some(key);
+        self.composed = Some(key);
         let width = self.width;
+        // Bounded by `MAX_RAMP`, so coverage arithmetic fits `i32`.
+        let ramp = self.ramp as i32;
+        let mut tap_diff = core::mem::take(&mut self.tap_diff);
         for (y, line) in self.overlay.chunks_exact_mut(width).enumerate() {
             let ry = self.rows[y];
             let sy = self.shadow_rows[y];
+            let level_bits = |row: u32| &self.level_changes[row as usize * X2_WORDS..][..X2_WORDS];
+            let mask_bits =
+                |row: u32| &self.mask_changes[row as usize * MASK_WORDS..][..MASK_WORDS];
+            let mut lv = [0u64; X2_WORDS];
+            for (k, w) in lv.iter_mut().enumerate() {
+                *w = level_bits(ry.i0)[k] | level_bits(ry.i1)[k];
+            }
+            let mut mk = [0u64; MASK_WORDS];
+            for (k, w) in mk.iter_mut().enumerate() {
+                *w = mask_bits(sy.i0)[k] | mask_bits(sy.i1)[k];
+            }
+            if !all && lv == [0; X2_WORDS] && mk == [0; MASK_WORDS] {
+                continue;
+            }
+            // An empty row's pixels all compose to the empty pixel, so an empty row that turns
+            // inked keeps them where nothing changed.
             let inked = mask_ink[sy.i0 as usize]
                 || mask_ink[sy.i1 as usize]
                 || (ry.edge != 0 && (layer_ink[ry.i0 as usize] || layer_ink[ry.i1 as usize]));
@@ -650,59 +878,79 @@ impl Presenter {
                 line.fill([0, 0, 0, 255, 255]);
                 continue;
             }
-            let row0 = ry.i0 as usize * X2_WIDTH;
-            let row1 = ry.i1 as usize * X2_WIDTH;
+            let r0 = &self.levels[ry.i0 as usize * X2_WIDTH..][..X2_WIDTH];
+            let r1 = &self.levels[ry.i1 as usize * X2_WIDTH..][..X2_WIDTH];
+            if ry.edge != 0 {
+                // Per doubled column, which layers differ from the next at either source row.
+                for (d, (a, b)) in tap_diff.iter_mut().zip(r0.iter().zip(r1)) {
+                    *d = next_differs(u128::from_le_bytes(*a))
+                        | next_differs(u128::from_le_bytes(*b));
+                }
+            }
+            let (fy0, fy1) = (256 - ry.f, ry.f);
             let m0 = &self.mask[sy.i0 as usize * MASK_WIDTH..][..MASK_WIDTH];
             let m1 = &self.mask[sy.i1 as usize * MASK_WIDTH..][..MASK_WIDTH];
             for (x, px) in line.iter_mut().enumerate() {
                 let sx = self.shadow_cols[x];
+                let rx = self.cols[x];
+                if !all
+                    && !(changed(&lv, rx.i0)
+                        || changed(&lv, rx.i1)
+                        || changed(&mk, sx.i0)
+                        || changed(&mk, sx.i1))
+                {
+                    continue;
+                }
                 let top =
                     m0[sx.i0 as usize] as u32 * (256 - sx.f) + m0[sx.i1 as usize] as u32 * sx.f;
                 let bottom =
                     m1[sx.i0 as usize] as u32 * (256 - sx.f) + m1[sx.i1 as usize] as u32 * sx.f;
                 let m = (top * (256 - sy.f) + bottom * sy.f) >> 16;
                 let keep = 255 - div255(m * SHADOW_ALPHA);
-                let rx = self.cols[x];
-                let mut g = [0u32; 4];
+                let mut g = 0u64;
                 let edge = rx.edge * ry.edge;
-                if edge != 0 {
-                    let w00 = (256 - rx.f) * (256 - ry.f);
-                    let w01 = rx.f * (256 - ry.f);
-                    let w10 = (256 - rx.f) * ry.f;
-                    let w11 = rx.f * ry.f;
-                    let (a, b) = (row0 + rx.i0 as usize, row0 + rx.i1 as usize);
-                    let (c, d) = (row1 + rx.i0 as usize, row1 + rx.i1 as usize);
-                    for layer in 0..self.layer_count {
-                        let mask = &self.layers[layer * X2_SIZE..(layer + 1) * X2_SIZE];
-                        let (m00, m01, m10, m11) = (mask[a], mask[b], mask[c], mask[d]);
-                        if (m00 | m01 | m10 | m11) == 0 {
-                            // Layers nest, so every later layer is empty here too.
+                // A layer is drawn where its taps differ from the next layer's: one whose taps
+                // equal the next's holds none of its own index in their blur support, and
+                // drawing it would only fringe the next one. Layers nest, so a drawn layer is
+                // never empty, and lanes past the last layer are zero.
+                let (i0, i1) = (rx.i0 as usize, rx.i1 as usize);
+                let differs = if edge != 0 {
+                    tap_diff[i0] | tap_diff[i1]
+                } else {
+                    0
+                };
+                if differs != 0 {
+                    let mut drawn = nonzero_lanes(differs);
+                    let taps = [&r0[i0], &r0[i1], &r1[i0], &r1[i1]];
+                    let (fx0, fx1) = (256 - rx.f, rx.f);
+                    let mut covs = [0u8; 16];
+                    let mut partial = 0u32;
+                    // Top layer down: a fully covering layer hides every layer below it, so
+                    // blending starts at the highest one.
+                    while drawn != 0 {
+                        let layer = (31 - drawn.leading_zeros()) as usize;
+                        drawn &= !(1 << layer);
+                        // Mask level in 8.8 fixed point: bilinear, rows first.
+                        let t0 = taps[0][layer] as u32 * fy0 + taps[2][layer] as u32 * fy1;
+                        let t1 = taps[1][layer] as u32 * fy0 + taps[3][layer] as u32 * fy1;
+                        let v = (t0 * fx0 + t1 * fx1) >> 8;
+                        let cov = ((((v as i32 - EDGE_THRESHOLD as i32 * 256) * ramp) >> 16) + 128)
+                            .clamp(0, 255) as u32;
+                        if cov == 255 {
+                            g = lut[self.layer_index[layer] as usize];
                             break;
                         }
-                        // A layer whose taps equal the next layer's holds none of its own index
-                        // in their blur support: drawing it would only fringe the next one.
-                        if layer + 1 < self.layer_count {
-                            let next = &self.layers[(layer + 1) * X2_SIZE..(layer + 2) * X2_SIZE];
-                            if (next[a], next[b], next[c], next[d]) == (m00, m01, m10, m11) {
-                                continue;
-                            }
-                        }
-                        // Mask level in 8.8 fixed point.
-                        let v = (m00 as u32 * w00
-                            + m01 as u32 * w01
-                            + m10 as u32 * w10
-                            + m11 as u32 * w11)
-                            >> 8;
-                        let cov = (((v as i64 - EDGE_THRESHOLD * 256) * self.ramp) >> 16) + 128;
-                        let cov = cov.clamp(0, 255) as u32;
-                        if cov == 0 {
-                            continue;
-                        }
-                        let p = &lut[self.layer_index[layer] as usize];
-                        for ch in 0..4 {
-                            g[ch] = div255(p[ch] * cov + g[ch] * (255 - cov));
-                        }
+                        covs[layer] = cov as u8;
+                        partial |= ((cov != 0) as u32) << layer;
                     }
+                    while partial != 0 {
+                        let layer = partial.trailing_zeros() as usize;
+                        partial &= partial - 1;
+                        g = blend(lut[self.layer_index[layer] as usize], g, covs[layer] as u32);
+                    }
+                }
+                let mut g = [0, 16, 32, 48].map(|shift| (g >> shift) as u32 & 0xffff);
+                if edge != 1 << 16 {
                     for ch in g.iter_mut() {
                         *ch = (*ch * edge + 32768) >> 16;
                     }
@@ -716,6 +964,7 @@ impl Presenter {
                 ];
             }
         }
+        self.tap_diff = tap_diff;
     }
 
     /// Draws the backdrop at `millis` under the overlay into `frame`. The backdrop row is
@@ -973,5 +1222,25 @@ impl Backdrop {
         }
         let v = 65536 - 30_000 * ((x - hw) * (x - hw) + (y - hh) * (y - hh)) / corner;
         c.map(|ch| ((ch * v) >> 16).clamp(0, 65280) as u32)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn level_rounds_every_count_in_every_lane() {
+        for count in 0..=BLUR_AREA as u8 {
+            let want = ((255 * count as u32 + BLUR_AREA / 2) / BLUR_AREA) as u8;
+            for lane in 0..16 {
+                let mut counts = [0u8; 16];
+                counts[lane] = count;
+                counts[(lane + 1) % 16] = BLUR_AREA as u8;
+                let got = level(u128::from_le_bytes(counts)).to_le_bytes();
+                assert_eq!(got[lane], want, "count {count} lane {lane}");
+                assert_eq!(got[(lane + 1) % 16], 255);
+            }
+        }
     }
 }

@@ -11,9 +11,9 @@
 
 ## 2. Speed
 
-- [ ] 2.1 Faster presenter, frames bit-identical to 1
-- [ ] 2.2 CPU-time guard on a worst-case stream in `frame_budget`
-- [ ] 2.3 Measure wasm32 under wazero: 60 frames per CPU second or better on the worst case
+- [x] 2.1 Faster presenter, frames bit-identical to 1
+- [x] 2.2 CPU-time guard on a worst-case stream (`cdg_present_budget`, beside `frame_budget`)
+- [x] 2.3 Measure wasm32 under wazero: 60 frames per CPU second or better on the worst case
 
 ## 3. Close
 
