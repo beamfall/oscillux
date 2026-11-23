@@ -128,11 +128,11 @@ boolean (default false), and every param uniform needs a label: a control carrie
 `unreadParamLabels` (an object keyed by `param0` to `param2`, labels as for controls) gives one
 for each param the body does not read, for hosts that list all three. The optional top-level
 `catalogOrder` lists every visual id once, in the order a catalog shows them; without it the
-order is the manifest's. The reference set carries the fields for all 62 visuals: the 61
+order is the manifest's. The reference set carries the fields for all 63 visuals: the 61
 imported ones in the order of the imported catalog (its `catalog.json`, then
-`catalog.parts/*.json` by file name), then Disco Floor (CORE-3263), whose catalog body is its
-original with the `common.glsl` helpers it calls copied ahead. The fields do not change any
-emitted shader byte.
+`catalog.parts/*.json` by file name), Disco Floor (CORE-3263), whose catalog body is its
+original with the `common.glsl` helpers it calls copied ahead, and Cover Drift (CORE-3286). The
+fields do not change any emitted shader byte.
 
 `tools/shader/import-visuals.mjs` generates the controls of the imported visuals from the
 catalog labels and the bodies (`tools/shader/param-controls.mjs`): a label's slug is the id,

@@ -10,6 +10,13 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Added
+
+- Cover Drift joins the release catalog (CORE-3286, openspec/changes/cover-drift-visual/): a
+  calm, `lite`, `image + level` background visual (`cover-drift`, `visual.cover-drift.*`)
+  modelling blurred album cover colours drifting and rotating slowly behind white player text.
+  The legs and `catalog.json` now carry 63 visuals.
+
 ### Changed
 
 - Fractal Flight moves colour, not brightness (CORE-3272, openspec/changes/fractal-flight-steady/).

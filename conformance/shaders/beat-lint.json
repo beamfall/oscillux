@@ -52,6 +52,10 @@
     {
       "id": "falling-beams",
       "reason": "calm set: no beat pulse by design, the smoothed level breathes the light (OSC-0038)"
+    },
+    {
+      "id": "cover-drift",
+      "reason": "calm by design: tvOS music background, no beat pulse; the smoothed level breathes the light (CORE-3286)"
     }
   ]
 }

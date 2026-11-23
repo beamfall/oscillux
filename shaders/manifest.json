@@ -531,6 +531,80 @@
       }
     },
     {
+      "id": "cover-drift",
+      "body": "visuals/cover-drift.glsl",
+      "targets": [
+        "web",
+        "vulkan",
+        "msl",
+        "hlsl"
+      ],
+      "imageInput": true,
+      "header": "// Cover Drift: Album cover colours dissolved into slow-drifting blurred light.",
+      "name": "Cover Drift",
+      "blurb": "Album cover colours dissolved into slow-drifting blurred light.",
+      "tier": "lite",
+      "input": "image + level",
+      "overlay": true,
+      "calm": true,
+      "imageCapable": true,
+      "palette": [
+        10,
+        0,
+        10,
+        0
+      ],
+      "params": [
+        {
+          "id": "speed",
+          "uniform": "param0",
+          "label": "Speed",
+          "labelKey": "visual.cover-drift.speed",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "motion"
+        },
+        {
+          "id": "softness",
+          "uniform": "param1",
+          "label": "Softness",
+          "labelKey": "visual.cover-drift.softness",
+          "min": 0,
+          "max": 1,
+          "default": 0.6,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "shape"
+        },
+        {
+          "id": "glow",
+          "uniform": "param2",
+          "label": "Glow",
+          "labelKey": "visual.cover-drift.glow",
+          "min": 0,
+          "max": 1,
+          "default": 0.5,
+          "step": 0.01,
+          "curve": "linear",
+          "group": "color"
+        }
+      ],
+      "tunables": [
+        "motion"
+      ],
+      "trailDecay": 0,
+      "post": {
+        "bloomStrength": 0.25,
+        "bloomThreshold": 0.96,
+        "chroma": 0,
+        "vignette": 0.35,
+        "grain": 0.02
+      }
+    },
+    {
       "id": "crystal",
       "body": "visuals/crystal.glsl",
       "targets": [
@@ -4641,6 +4715,7 @@
     "photo-gallery",
     "photo-curtain",
     "photo-veil",
+    "cover-drift",
     "particles",
     "kaleidoscope",
     "helix",

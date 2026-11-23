@@ -90,6 +90,7 @@
     "waveform": ["scopes", "lively"],
 
     "memory-tunnel": ["photo", "calm"],
+    "cover-drift": ["photo", "calm"],
     "photo-curtain": ["photo", "lively"],
     "photo-gallery": ["photo", "calm"],
     "photo-glass": ["photo", "lively"],

@@ -130,7 +130,7 @@ test('import-visuals leaves the locally owned library alone', () => {
 test('reference catalog wraps for every target and stays host data', () => {
   const m = loadManifest(CATALOG);
   const want = declarations(loadSchema());
-  assert.equal(m.visuals.length, 62);
+  assert.equal(m.visuals.length, 63);
   const sources = ['library.glsl', ...m.visuals.map(v => `visuals/${v.id}.glsl`)]
     .map(name => [name, readFileSync(join(ROOT, 'shaders', name), 'utf8')]);
   for (const [name, text] of sources) {
@@ -143,13 +143,13 @@ test('reference catalog wraps for every target and stays host data', () => {
     assert.deepEqual(declared(m.wrapper.wrapGLSL300(v.body, v.imageInput), 'struct VisualUniforms'), want, v.id);
     assert.deepEqual(declared(m.wrapper.wrapGLSL450MSL(v.body, v.imageInput), 'uniform VisualUniformBlock'), want, v.id);
   }
-  assert.equal(emitManifest(m).size, 1 + 62 * 4);
+  assert.equal(emitManifest(m).size, 1 + 63 * 4);
   // Every reference visual carries its own post tuning (in range: loadManifest checks it).
   const raw = JSON.parse(readFileSync(CATALOG, 'utf8'));
   for (const v of raw.visuals) assert.deepEqual(Object.keys(v.post ?? {}), POST_KEYS, `${v.id}: post`);
   // Every reference visual carries the catalog fields the release legs' catalog.json lists.
   for (const v of m.visuals) assert.ok(v.catalog, `${v.id}: catalog fields`);
-  assert.equal(raw.catalogOrder.length, 62);
+  assert.equal(raw.catalogOrder.length, 63);
 });
 
 // Disco Floor's catalog body is its original with the common.glsl helpers it calls copied ahead,
