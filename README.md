@@ -2,7 +2,7 @@
 
 **Visuals that hear the music.** Oscillux is the audio-reactive visual engine behind
 [Beamfall](https://github.com/beamfall): it listens to a stream of audio, finds the beat, and
-drives 61 visuals and 30 transitions that move with it, on every screen your app runs on.
+drives 62 visuals and 30 transitions that move with it, on every screen your app runs on.
 
 [![Licence: AGPL-3.0-only](https://img.shields.io/badge/licence-AGPL--3.0--only-blue)](LICENSE)
 [![Rust MSRV 1.85](https://img.shields.io/badge/rust-1.85%2B-orange)](Cargo.toml)
@@ -32,7 +32,7 @@ reproduce them. No platform-specific floating-point shortcuts, no "close enough 
 analyzer and a GPU frame flash limiter ship in the box, alongside overlay regions that hold the
 contrast of your captions and controls over any visual.
 
-**A catalogue, not a demo.** 61 visuals across tunnels, flights, sky and space, light and glass,
+**A catalogue, not a demo.** 62 visuals across tunnels, flights, sky and space, light and glass,
 liquid, scopes and meters, photo and dancers, from calm to intense, plus 30 switch transitions.
 Each is written once in portable GLSL and translated by a pinned toolchain for WebGL2, Vulkan,
 Metal and HLSL. Another 23, a calmer set, are already written in `shaders/originals/` and on their

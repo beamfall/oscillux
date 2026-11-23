@@ -25,9 +25,11 @@ CORE-3263 rework reaches the reference hosts and no client. The owner chose to s
   - `overlay` false and `calm` false: an opaque, beat-driven scene.
   - Placed last in `catalogOrder`, after the newest catalog additions.
 - The params and their `visual.disco-floor.*` labelKeys (Glow, Sway, Sparkle) are the original's.
-- The catalog entry's `body` names the original's file, because no catalog-only body exists. An
-  override always draws the original's body with the original's wrapper. The reference-catalog
-  test reads each entry's `body` path instead of assuming `visuals/<id>.glsl`.
+- The catalog entry's `body` is `visuals/disco-floor.glsl`: the original with the
+  `shaders/originals/common.glsl` helpers it calls copied ahead of it, so tools that load the
+  catalog alone (`bundle-hosts`, render, verify) compile it on the catalog prelude. A test keeps the
+  copy equal to the original and its helpers to `common.glsl`. The release set and hosts draw the
+  original's body with the original's wrapper, because it overrides the entry.
 - The entry carries `post` tuning like every catalog entry. The release set draws the original's
   effect data, which has no `post`, so the shipped look is unchanged.
 - The catalog and leg counts go from 61 to 62 visuals, including `ANDROID_GLES_VISUAL_COUNT`; the

@@ -650,7 +650,7 @@
     },
     {
       "id": "disco-floor",
-      "body": "originals/visuals/disco-floor.glsl",
+      "body": "visuals/disco-floor.glsl",
       "targets": [
         "web",
         "vulkan",

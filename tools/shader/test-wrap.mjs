@@ -131,7 +131,7 @@ test('reference catalog wraps for every target and stays host data', () => {
   const m = loadManifest(CATALOG);
   const want = declarations(loadSchema());
   assert.equal(m.visuals.length, 62);
-  const sources = ['library.glsl', ...JSON.parse(readFileSync(CATALOG, 'utf8')).visuals.map(v => v.body)]
+  const sources = ['library.glsl', ...m.visuals.map(v => `visuals/${v.id}.glsl`)]
     .map(name => [name, readFileSync(join(ROOT, 'shaders', name), 'utf8')]);
   for (const [name, text] of sources) {
     assert.ok(text.startsWith('// SPDX-License-Identifier: AGPL-3.0-only\n'), `${name}: SPDX header`);
@@ -150,6 +150,20 @@ test('reference catalog wraps for every target and stays host data', () => {
   // Every reference visual carries the catalog fields the release legs' catalog.json lists.
   for (const v of m.visuals) assert.ok(v.catalog, `${v.id}: catalog fields`);
   assert.equal(raw.catalogOrder.length, 62);
+});
+
+// Disco Floor's catalog body is its original with the common.glsl helpers it calls copied ahead,
+// so the catalog compiles on its own prelude while the release set draws the original (CORE-3263).
+test('Disco Floor catalog body is the original on copied common helpers', () => {
+  const read = name => readFileSync(join(ROOT, 'shaders', name), 'utf8');
+  const spdx = '// SPDX-License-Identifier: AGPL-3.0-only\n';
+  const copy = read('visuals/disco-floor.glsl');
+  const original = read('originals/visuals/disco-floor.glsl');
+  assert.ok(copy.startsWith(spdx) && original.startsWith(spdx));
+  assert.ok(copy.endsWith(original.slice(spdx.length)), 'the copy ends with the original body');
+  const common = read('originals/common.glsl');
+  const helpers = copy.slice(spdx.length, copy.length - original.length + spdx.length).split('\n\n').slice(1);
+  for (const part of helpers) if (part.trim()) assert.ok(common.includes(part.trim()), `not in common.glsl: ${part.slice(0, 60)}`);
 });
 
 // The Oscillux originals (shaders/originals/) share the catalog's library and

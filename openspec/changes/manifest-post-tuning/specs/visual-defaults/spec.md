@@ -33,4 +33,4 @@ host bundle SHALL copy each visual's `post` unchanged.
 #### Scenario: Reference set
 
 - **WHEN** `shaders/manifest.json` is loaded
-- **THEN** each of its 61 visuals has a `post` object with all five keys, each within its range
+- **THEN** each of its 62 visuals has a `post` object with all five keys, each within its range
