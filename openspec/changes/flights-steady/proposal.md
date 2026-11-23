@@ -18,7 +18,7 @@ large-area transitions, held is the fraction of pixels the limiter holds):
 | Visual | Change | luma in /s | held mean | held max |
 |---|---|---|---|---|
 | Neon Run | Release body | 62 | 0.089 | 0.204 |
-| Neon Run | This change | 37 | 0.049 | 0.189 |
+| Neon Run | This change | 43 | 0.048 | 0.188 |
 | Space Flight | Release body | 88 | 0.236 | 0.507 |
 | Space Flight | This change, planet off | 36 | 0.052 | 0.261 |
 | Space Flight | This change, rings off | 36 | 0.073 | 0.293 |
@@ -43,8 +43,9 @@ broad sun sheen rode on top of it.
 
 ## What Changes
 
-- **Neon Run.** Windows, billboard bars and the spectrum rows are recoloured at a fixed
-  luminance (`nrAtLuma`), so the music changes the colour of a light, not its brightness. The
+- **Neon Run.** Windows and the spectrum rows are recoloured at a fixed luminance (`nrAtLuma`),
+  so the music changes the colour of a light, not its brightness; billboard bars still fill with
+  the spectrum. The
   window grid is filtered over the pixel's footprint and the frame's travel: lit floors smear into
   streaks at speed and sub-pixel grids glow at their mean. Billboard bars glow off at the top and
   keep their unlit segments faintly on. Oncoming craft lights blur along their run over the frame
@@ -57,8 +58,7 @@ broad sun sheen rode on top of it.
   division blend to their mean instead of shimmering.
 - **Ocean Glide.** Each water pixel keeps its hue (amber where the sky shows, teal in the deep,
   foam and spray) but its luminance is pulled 85% of the way, in log space, to what a calm mirror
-  shows there. The broad sun sheen sits under that hold; the sun's pinpoint glints, a pixel or two
-  each, stay on top so the sun path still sparkles.
+  shows there. The broad sun sheen sits under that hold; the sun's narrow glints stay on top so the sun path still sparkles.
 
 Render mean luma before and after: Neon Run 0.095 → 0.105, Space Flight 0.206 → 0.193,
 Ocean Glide 0.403 → 0.381.

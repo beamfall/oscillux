@@ -27,7 +27,7 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   Space Flight's streaks and stars are never thinner than a pixel, the treble swings star tint
   instead of brightening the field, and its rings are filtered over the pixel footprint. Ocean
   Glide's water luminance is held to the calm mirror with the sun's pinpoint glints on top. Under
-  loud audio the limiter holds about half as much of each frame or less. These are originals
+  loud audio the limiter holds about half as much of the frame on average, or less. These are originals
   outside the release catalog, so this changes no release leg.
 
 ## [0.2.20] - 2026-11-22

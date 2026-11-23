@@ -277,6 +277,12 @@ float sfField(vec3 ro, vec3 rd, float tmax, float time, float detail, out vec3 n
     return -1.0;
 }
 
+// One screen pixel in centered() units: centered() zooms a portrait frame out by
+// shortSideFit, so a pixel spans that much more of the plane.
+float sfPx1(VisualUniforms u) {
+    return shortSideFit(u.resolution.x / max(u.resolution.y, 1.0)) / max(u.resolution.y, 1.0);
+}
+
 // Star streaks: in each angular sector around the vanishing point a star
 // rushes toward the camera; its streak runs from where it is now back to where
 // it was a moment ago, so streaks lengthen with speed and shrink to points in
@@ -286,7 +292,7 @@ float sfField(vec3 ro, vec3 rd, float tmax, float time, float detail, out vec3 n
 vec3 sfWarp(vec2 p, vec2 sunS, float roll, float z, float v, float fov, float tHit, SfPal P, VisualUniforms u, float detail) {
     float r = length(p);
     float a = atan2_(p.y, p.x) + roll;
-    float px = 2.0 / max(u.resolution.y, 1.0);
+    float px = 2.0 * sfPx1(u);
     float rush = saturate((v - 1.0) / 3.0);
     float len = 0.08 + 0.55 * v * v;          // world distance the streak spans
     vec3 col = vec3(0.0);
@@ -326,7 +332,7 @@ vec3 sfWarp(vec2 p, vec2 sunS, float roll, float z, float v, float fov, float tH
         float wid0 = px * (0.55 + 0.9 * saturate(4.0 / d)) * (0.55 + 0.65 * along);
         float wid = max(wid0, px * 1.1);
         float g = exp(-(dr * dr + arc * arc) / (wid * wid)) * sqrt(wid0 / wid);
-        float fade = smoothstep(span, span * 0.5, d) * step(d, tHit) * step(density, h2);
+        float fade = (1.0 - smoothstep(span * 0.5, span, d)) * step(d, tHit) * step(density, h2);
         fade *= (0.25 + 0.75 * saturate(8.0 / d)) * smoothstep(0.08, 0.5, r);
         fade *= mix(1.0, 0.12 + 0.88 * along * along, saturate(v - 0.6)) * (1.0 - 0.9 * smoothstep(0.55, 1.0, along));
         // colour temperature varies; tails blue-shift in a burst
@@ -352,7 +358,7 @@ vec3 sfWarp(vec2 p, vec2 sunS, float roll, float z, float v, float fov, float tH
 // fainter field that crowds into a galactic band.
 vec3 sfStars(vec2 s, float band, VisualUniforms u) {
     vec3 col = vec3(0.0);
-    float px = 0.7 / max(u.resolution.y, 1.0);   // a pixel on the sky sheet
+    float px = 0.7 * sfPx1(u);   // a pixel on the sky sheet
     float tm = mod(u.time, 600.0);
     for (int l = 0; l < 2; l++) {
         float sc = l == 0 ? 34.0 : 120.0;
@@ -671,7 +677,7 @@ void sfComet(vec2 s, SfEv E, vec2 sunSky, float px, SfPal P, VisualUniforms u, i
 void sfJellies(vec2 p, vec3 ro, vec3 rt, vec3 cu, vec3 fw, float fov, SfEv E, vec2 sunS, float zHit,
                SfPal P, VisualUniforms u, inout vec3 col) {
     float tm = mod(u.time, 600.0);
-    float px = 2.0 / max(u.resolution.y, 1.0);
+    float px = 2.0 * sfPx1(u);
     vec3 glowC = mix(vec3(0.3, 1.0, 1.25), sfPeak(P, 0.1, u), 0.3);
     vec3 tipC = mix(sfPal(P, 0.85), vec3(1.0, 0.5, 0.8), 0.4);
     float pulse = u.bassImpact;
@@ -817,7 +823,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     if (hit < 0.5 || t > 50.0) {
         // sky sheet coordinates: smooth over the forward hemisphere
         vec2 s = rd.xy / (rd.z + 1.35);
-        float pxS = 0.8 / max(u.resolution.y, 1.0);
+        float pxS = 0.8 * sfPx1(u);
         vec2 sunSky = sunDir.xy / (sunDir.z + 1.35);
         // the wormhole bends the sky sheet itself: outside its throat the sky
         // is lensed (stars smear into arcs), inside lies another, swirling sky
@@ -884,7 +890,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
         // the procession of worlds: the next one ahead, then the one after it
         float k0 = floor((z - 1600.0) / SF_PSPACE) + 1.0;
-        float pxa = 2.0 / (max(u.resolution.y, 1.0) * fov);
+        float pxa = 2.0 * sfPx1(u) / fov;
         sfPlanet(k0 + 1.0, ro, rd, sunDir, pxa, P, u, col);
         sfPlanet(k0, ro, rd, sunDir, pxa, P, u, col);
     }

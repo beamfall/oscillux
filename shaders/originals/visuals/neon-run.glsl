@@ -117,8 +117,12 @@ vec3 nrFacade(vec3 pos, vec3 n, float fp, float mv, VisualUniforms u) {
     // lit floors smear into light streaks at speed (half the windows of a lit
     // floor, two thirds of each cell glass); where even the floors are below
     // a pixel the facade glows with the grid's mean.
+    // the mean is the tower's, the same in every cell, or the filtered facade
+    // would still step in brightness from window to window
     float hot = smoothstep(0.15, 0.85, band(u, bi));
-    vec3 meanC = mix(nrAtLuma(palVisual(hue + 0.075, u), wl), hotC, hot);
+    vec3 towerC = palVisual(hue + 0.075, u);
+    float wlT = 1.1 * luma(max(towerC, vec3(0.0)));
+    vec3 meanC = mix(nrAtLuma(towerC, wlT), nrAtLuma(palRolePeak(hue + 0.5 + 0.1 * float(bi), u), wlT), hot);
     float along = max(fp, abs(n.x) > 0.5 ? mv : 0.0) * 5.0;
     float winY = smoothstep(0.2, 0.3, g.y) * (1.0 - smoothstep(0.7, 0.8, g.y));
     col = mix(col, meanC * winY * floorOn * 0.32, smoothstep(0.3, 0.9, along));
@@ -234,7 +238,7 @@ vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, float mv, 
         // the distance a craft closes on the camera in one frame: oncoming craft
         // pass a light's width every frame, so each light is blurred along its
         // run over the frame, keeping its energy, or it would strobe
-        float blur = abs(vel / 60.0 - mv);
+        float blur = abs(vel * clamp(u.dt, 1.0 / 60.0, 0.1) - mv);
         float k = floor((P.z - shift) / spacing + 0.5);
         for (int j = -1; j <= 1; j++) {
             float kk = k + float(j);
@@ -317,10 +321,12 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 cu = cross(rt, fw);
     float fov = 1.25 - 0.18 * rush + 0.08 * lull;
     vec3 rd = normalize(p.x * rt + p.y * cu + fov * fw);
-    float pixAng = 2.0 / max(u.resolution.y, 1.0) / fov;
-    // the distance flown in one 60 Hz frame (osFlight's velocity, taking the
-    // beat at 150 BPM so faster songs are covered too)
-    float mv = (speed * 0.2 + fl.y * 2.5 * (speed * 0.4 + surge)) / 60.0;
+    float pixAng = 2.0 * shortSideFit(u.resolution.x / max(u.resolution.y, 1.0)) / max(u.resolution.y, 1.0) / fov;
+    // the distance flown in this frame (osFlight's velocity, taking the beat at
+    // 150 BPM, so slower songs are slightly over-filtered and none under-filtered
+    // up to that tempo); a frame is the host's dt, at least 1/60 s
+    float frameDt = clamp(u.dt, 1.0 / 60.0, 0.1);
+    float mv = (speed * 0.2 + fl.y * 2.5 * (speed * 0.4 + surge)) * frameDt;
 
     float tw = mod(u.time, 600.0);
     float neon = mix(0.5, 1.6, u.param2);
