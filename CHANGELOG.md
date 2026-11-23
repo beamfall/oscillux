@@ -10,6 +10,17 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- Fractal Flight moves colour, not brightness (CORE-3272, openspec/changes/fractal-flight-steady/).
+  Every window pane sits at one luminance, so the panes turn through the palette with the bars and
+  a beat swings them toward the complementary colour without flashing. The sun shafts fade out in
+  the air just in front of the camera, which every pixel shares, and a steady haze tinted from the
+  palette keeps the frame as bright as before. The lace's beat wave recolours it at its own
+  luminance. The pace follows the 32-beat flight profile, kept under twice cruise. Under loud audio
+  the frame limiter now holds 1% of the frame on average instead of 9%, and 13% at most instead of
+  31%, so the vault no longer ghosts. Originals ship in no release leg.
+
 ## [0.2.20] - 2026-11-22
 
 ### Added
