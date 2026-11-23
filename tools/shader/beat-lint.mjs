@@ -57,6 +57,8 @@ const WARM_BEATS = 2;
 export const R_MIN = 0.35;
 export const MAX_LAG = 1;            // frames
 const SWING_MIN = { luma: 0.004, motion: 0.0015 };
+const CONTEXT_LOST = 'webgl context lost';  // renderOne's error when the context is gone
+const CONTEXT_RETRIES = 4;
 export const FLASH_STEP = 0.10;      // relative luminance
 export const FLASH_MAX = 3;          // flashes in any one second
 
@@ -238,18 +240,29 @@ async function main() {
   // SwiftShader renders a page on about one core, so each job is its own browser.
   const results = new Array(visuals.length);
   let next = 0;
-  const job = async () => {
+  const open = async () => {
     const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
     const page = await browser.newPage();
     page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
     await page.evaluate(setUp, { W, H });
+    return { browser, page };
+  };
+  const job = async () => {
+    let b = await open();
     while (next < visuals.length) {
       const i = next++, v = visuals[i];
       const t0 = Date.now();
-      const got = await page.evaluate(renderOne, { v, audio, W, H, FPS });
+      let got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
+      // Headless Chromium on the Mac sometimes loses the WebGL context before a compile
+      // (CORE-2623): that says nothing about the shader, so retry it in a fresh browser.
+      for (let retry = 0; got.error === CONTEXT_LOST && retry < CONTEXT_RETRIES; retry++) {
+        await b.browser.close();
+        b = await open();
+        got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
+      }
       results[i] = measure(v, got, Date.now() - t0);
     }
-    await browser.close();
+    await b.browser.close();
   };
   const jobs = Math.max(1, Math.min(parseInt(opts.jobs, 10) || 1, visuals.length));
   await Promise.all(Array.from({ length: jobs }, job));
@@ -318,6 +331,7 @@ precision highp float; uniform sampler2D uT; in vec2 vUV; out vec4 o;
 vec3 tm2(vec3 x){x=(x*(2.51*x+.03))/(x*(2.43*x+.59)+.14);return pow(clamp(x,0.,1.),vec3(1./2.2));}
 void main(){ o=vec4(tm2(texture(uT,vUV).rgb),1.); }`));
   } catch (e) {
+    if (gl.isContextLost()) return { error: 'webgl context lost' };
     return { error: String(e.message || e).slice(0, 600) };
   }
   const target = () => {
