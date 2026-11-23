@@ -18,27 +18,30 @@ Ablations (`limiter-red-audit.mjs --only fractal-flight --audio loud --beats 32`
 | Release body | 49 | 0.090 | 0.311 |
 | No inscatter (sun shafts and haze) | — | 0.006 | — |
 | Softer, wider shafts | worse | worse | worse |
-| This change | 13 | 0.011 | 0.129 |
+| This change | 10 | 0.010 | 0.116 |
 
 The sunlit shafts were the main source: air close to the camera is shared by every pixel, so a
 beam brightening there brightens the whole frame at once. The second source was the window panes,
 whose palette colours have very different luminances, so a beat that recoloured a handful of panes
-stepped their brightness. The 13 transitions left come from flying past the fractal walls at
+stepped their brightness. The 10 transitions left come from flying past the fractal walls at
 pace. Slowing the flight to remove them makes the visual dull, which the owner rejected.
 
 ## What Changes
 
-- Every pane colour is set to one shared luminance (the mean of the palette's), so the panes turn
-  through the palette with the bars and a beat flare swings them toward the complementary colour
-  without changing their brightness. A fresh handful of panes swings all the way.
+- Every pane colour, as lit by the warm sun, is set to one shared luminance: the mean of the
+  palette's four stops, read without the free palette mode's beat nudge so the target never steps
+  on a beat. Negative palette channels (Heat/Ice) are dropped first. The panes turn through the
+  palette with the bars and a beat flare swings them toward a contrasting palette stop without
+  changing their brightness. A fresh handful of panes swings all the way.
 - The shafts fade out over the first few units in front of the camera, and their weight drops.
   A steady sunlit haze tinted from the palette at a fixed luminance carries the brightness the
-  brighter shafts used to give, so the frame stays as bright as before (render mean luma 0.239
-  before and after).
+  brighter shafts used to give, so the frame stays about as bright as before (render mean luma
+  0.239 before, 0.233 after).
 - The lace's beat wave recolours the lace at its own luminance instead of brightening it, and
   the near-miss glow answers the amplitude less.
 - The hue follows the bars only. The pace follows `osFlight`'s 32-beat profile around a steady
-  cruise, kept under twice cruise, and the field of view widens a little with it.
+  cruise, kept under twice cruise at every tempo up to the beat grid's default 240 BPM ceiling,
+  and the field of view widens a little with it.
 
 ## Non-goals
 
