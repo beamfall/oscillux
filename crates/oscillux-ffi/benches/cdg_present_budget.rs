@@ -179,8 +179,9 @@ fn main() -> ExitCode {
     let ms = |ns: u64| ns as f64 / 1e6;
     let round_ms: Vec<String> = means.iter().map(|&m| format!("{:.3}", ms(m))).collect();
     let name = "cdg_present_budget worst 960x540 30 fps";
+    let clock = if THREAD_CLOCK { "CPU" } else { "wall" };
     println!(
-        "{name}: {ROUNDS}x{FRAMES_PER_ROUND} frames, round mean CPU ms [{}] (digest {digest:016x})",
+        "{name}: {ROUNDS}x{FRAMES_PER_ROUND} frames, round mean {clock} ms [{}] (digest {digest:016x})",
         round_ms.join(", ")
     );
     if !THREAD_CLOCK {

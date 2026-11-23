@@ -51,10 +51,11 @@ The output SHALL be opaque RGBA8.
 ### Requirement: Sharp edges
 
 The coverage threshold SHALL put a straight edge slightly inside the unblurred edge, so strokes
-are drawn at regular weight, while a lone window pixel still draws wherever the window rectangle
-is at least twice the window (576 x 384 frame pixels) and the pixel lies outside the one-tile
-feather band at the window edge. Smaller rectangles sample more sparsely than the doubled grid and
-may fall between a lone pixel's peaks. The ramp SHALL be under one frame pixel wide at magnified
+are drawn at regular weight, while a lone window pixel whose eight neighbours share one index
+still draws wherever the window rectangle is at least twice the window (576 x 384 frame pixels)
+and the pixel lies outside the one-tile feather band at the window edge. Smaller rectangles sample
+more sparsely than the doubled grid and may fall between a lone pixel's peaks, and Scale2x may
+trim a pixel that sits on a diagonal boundary between two other indices. The ramp SHALL be under one frame pixel wide at magnified
 sizes, and SHALL take a fully inked area to full coverage at every frame size.
 
 #### Scenario: Crisp letter edges
@@ -66,7 +67,7 @@ sizes, and SHALL take a fully inked area to full coverage at every frame size.
 #### Scenario: Lone pixel
 
 - **WHEN** a single window pixel of a graphics colour, outside the feather band at the window
-  edge, is surrounded by background and the window rectangle is at least 576 x 384
+  edge, has eight neighbours of one index and the window rectangle is at least 576 x 384
 - **THEN** it is drawn with some coverage
 
 #### Scenario: Solid interiors at small sizes
