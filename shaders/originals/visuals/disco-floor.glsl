@@ -16,8 +16,8 @@
 // The kick moves colour, never light. A lit area that pumps on the beat, or an
 // edge that snaps across the dark wall, is a large-area flash the limiter has
 // to hold (ADR-0232), and a held frame shows as ghosts. So the tiles swap
-// colour at nearly one luminance, crossfading over most of the beat and gliding
-// from one pattern to the next over the bar; the kick tints the floor, beams,
+// colour at nearly one luminance, crossfading over most of the beat, stepping
+// their palette on the beat and fading from one pattern to the next; the kick tints the floor, beams,
 // haze and crowd toward the rig's hot colour at a fixed luminance; the beams
 // and halos shine steadily; the spots and sequins are coloured and add less
 // than a flash step to whatever they cross; strong reds ease toward grey so the
@@ -325,6 +325,8 @@ struct DfPalette { vec3 warm; vec3 hot; vec3 cool; };
 // that covers much of the frame moves its colour at a fixed luminance, so it
 // stays vivid without flashing.
 vec3 dfAtLuma(vec3 c, float y) {
+    // a palette can swing a channel below zero; the display would clip it and brighten the colour
+    c = max(c, vec3(0.0));
     vec3 c1 = c / max(max(c.r, c.g), max(c.b, 1e-4));
     float l1 = luma(c1);
     if (l1 >= y) return c1 * (y / max(l1, 1e-4));
@@ -338,9 +340,11 @@ const float DF_LED_OFF = 0.13;  // an unlit tile's: another colour, as bright
 const float DF_BODY_L = 0.1;  // a dancer's figure, between the floor and the wall
 // what a spot or a sequin adds: under the 0.1 luminance step that makes a flash, so the spots
 // sweeping the room and the sequins riding the dresses never count as one
-const float DF_GLINT_L = 0.085;
+// before the present pass's grade and tone map, which lift a glint on the floor ~1.65 times
+const float DF_GLINT_L = 0.045;
 
-vec3 dfLed(vec2 tile, float pattern, float t, float kick, VisualUniforms u, DfPalette P) {
+// How lit a tile is in one of the floor's four patterns.
+float dfPattern(vec2 tile, float pattern, float t) {
     // a pattern that steps on the beat crossfades over most of the beat
     float on;
     float xf = smoothstep(0.0, 0.7, fract(t));
@@ -356,11 +360,21 @@ vec3 dfLed(vec2 tile, float pattern, float t, float kick, VisualUniforms u, DfPa
         float ch = fract((tile.x - tile.y) * 0.125 - t * 0.25);
         on = smoothstep(0.0, 0.06, ch) * (1.0 - smoothstep(0.3, 0.36, ch));
     }
+    return saturate(on);
+}
+
+// A tile's colour. Every eight beats the floor moves to its next pattern, fading the outgoing
+// one out over the first beat of the incoming one rather than cutting between them.
+vec3 dfLed(vec2 tile, float t, float kick, DfPalette P) {
+    float block = floor(t / 8.0);
+    float pattern = mod(block, 4.0);
+    float on = dfPattern(tile, pattern, t);
+    float fade = smoothstep(0.0, 1.0, t - block * 8.0);
+    if (fade < 1.0) on = mix(dfPattern(tile, mod(block + 3.0, 4.0), t), on, fade);
     float h = hash21(tile * 1.31 + 7.0);
     vec3 c = (h < 0.4) ? P.hot : ((h < 0.75) ? P.warm : P.cool);
     vec3 c2 = (h < 0.4) ? P.cool : ((h < 0.75) ? P.hot : P.warm);
     // lit and unlit differ in colour; the kick blushes every tile toward the rig's hot colour
-    on = saturate(on);
     vec3 hue = mix(c2, c, on);
     hue = mix(hue, P.hot, 0.55 * kick);
     return dfAtLuma(hue, mix(DF_LED_OFF, DF_LED_ON, on));
@@ -390,8 +404,9 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float sparkle = 0.4 + 1.2 * u.param2;
     float detail = osDetail(u);
 
-    // colours move on through each bar, gliding rather than cutting on the downbeat
-    float bar = floor(u.beatCount / 4.0) + smoothstep(0.0, 1.0, fract(u.beatCount / 4.0));
+    // the colours move on a step every beat, an even quarter of their bar's move each time: the
+    // floor's answer to the beat, at a fixed luminance, so it is a change of colour, not a flash
+    float bar = u.beatCount / 4.0;
     DfPalette Pal;
     Pal.warm = palVisual(fract(0.12 + bar * 0.17), u);
     Pal.hot = palVisual(fract(0.45 + bar * 0.17), u);
@@ -415,8 +430,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         vec2 fp = floorP;
         vec2 tile = floor(fp);
         vec2 f = fract(fp) - 0.5;
-        float pattern = mod(floor(u.beatCount / 8.0), 4.0);
-        vec3 led = dfLed(tile, pattern, t, kick, u, Pal);
+        vec3 led = dfLed(tile, t, kick, Pal);
         vec2 fw = floorW;
         float seamW = max(fw.x, fw.y);
         float edge = max(abs(f.x), abs(f.y));
@@ -537,7 +551,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
             body += dfAtLuma(mix(vec3(1.0), Pal.warm, 0.5), DF_GLINT_L) * tw * dressMask * min(sparkle, 1.0);
             body += Pal.hot * 0.03 * dressMask;
         }
-        body += dfAtLuma(mix(vec3(1.0), Pal.cool, 0.5), 0.7 * DF_GLINT_L) * dfSpots(sp, u) * min(sparkle, 1.0);
+        // the spots pass over the dress, so a spot and a sequin never add up on one pixel
+        body += dfAtLuma(mix(vec3(1.0), Pal.cool, 0.5), 0.7 * DF_GLINT_L) * dfSpots(sp, u) * min(sparkle, 1.0) * (1.0 - dressMask);
         col = mix(col, body, fill);
     }
     // the mirror ball, hanging from the rig

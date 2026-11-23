@@ -28,8 +28,9 @@ the large areas change colour at a fixed luminance, which the limiter does not c
 
 ## What Changes
 
-- LED tiles keep one luminance on and off. A pattern step swaps a tile's hue and glides over the
-  bar instead of cutting, and the kick tints the whole floor hot without changing its luminance.
+- LED tiles keep one luminance on and off. A pattern step swaps a tile's hue, the palette steps on every
+  beat at that luminance and the floor fades from one pattern to the next over a beat instead of
+  cutting, and the kick tints the whole floor hot without changing its luminance.
   The floor has no white sparks.
 - The floor's light no longer scales with the kick. Glow lifts it a little. The wall, halo and
   crowd hold steady.
@@ -41,7 +42,10 @@ the large areas change colour at a fixed luminance, which the limiter does not c
   flash over all the area it crosses: the bright rims alone made 9 of the 13 transitions left
   after the floor change.
 - The mirror ball's spots and the dress sequins are coloured, and add less than the 0.1 relative
-  luminance step that makes a flash to whatever they cross. A white spot sweeping a pixel lit and
+  luminance step that makes a flash to whatever they cross, measured on the displayed frame after
+  the present pass's grade and tone map. A spot does not land on a sequin, so the two never add
+  up on one pixel. Palette colours are clamped at zero before they are set to a luminance, so a
+  palette that swings a channel negative cannot brighten a tile when the display clips it. A white spot sweeping a pixel lit and
   darkened it in under a second, so each pass counted as a flash and the limiter held the pixels
   it crossed. The sequins are placed in the dress's own frame, so they move with it.
 - Strong reds (red share above 0.7) ease halfway toward grey at their own luminance. When the
