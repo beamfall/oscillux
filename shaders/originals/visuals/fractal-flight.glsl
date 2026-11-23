@@ -4,15 +4,18 @@
 // fractal, treated as a cathedral: far overhead the sun reaches the galleries
 // through a drifting vault of stained-glass panes, so every shaft through the
 // lace carries its pane's colour, pools of tinted light slide over the bone-
-// dark walls, and the panes turn through the palette as the music builds. The
+// dark walls, and the panes turn through the palette with the bars. The
 // fractal's inversion strength drifts slowly along the path, so the lace
 // thickens, opens and morphs as the flight goes on and the gallery never
-// repeats. The speed follows a 32-beat profile of cruise, build, burst, brake
-// and drift; the field of view widens with it and the roll eases to a new side
-// every eight beats. Audio drives the light, never the camera: the bass swells
-// the shafts, a glow wave runs down the lace on each beat, spectrum bands
-// light the orbit-trap veins, the treble sparks the fine lace and each beat
-// flares a fresh handful of panes.
+// repeats. The pace follows a 32-beat profile of cruise, build, burst, brake
+// and drift, kept under twice cruise; the field of view widens a little with
+// it and the roll eases to a new side every eight beats. Audio recolours the
+// light at a steady brightness, never the camera: a colour wave runs down the
+// lace on each beat, spectrum bands light the orbit-trap veins and each beat
+// swings the vault toward the complementary colour, a fresh handful of panes
+// all the way. Every pane
+// passes the same luminance, so the flight changes the frame's colour rather
+// than flashing its brightness, which the frame limiter would hold as ghosting.
 // param0 = Flight Speed ; param1 = Banking ; param2 = Glow
 
 // The path and every drift along z are periodic over FF_LOOP world units (a
@@ -91,6 +94,12 @@ vec3 ffCyc(float h, vec3 a, vec3 b, vec3 c, vec3 d) {
     return mix(r, a, smoothstep(3.0, 4.0, x));
 }
 
+// c recoloured to the luminance of ref: a beat changes the colour of the
+// light, not its brightness, so no large area flashes
+vec3 ffAtLuma(vec3 c, vec3 ref) {
+    return c * (luma(ref) / max(luma(c), 1e-4));
+}
+
 // Stained-glass light cookie: the sun reaches the galleries through a slowly
 // drifting vault of panes far overhead. c is the position across the beams,
 // in the plane square to the sun. Returns the pane's tinted transmission.
@@ -106,10 +115,15 @@ vec3 ffCookie(vec2 c, float tm, float soft, float oct, float hue, float flare, f
     // leaded panes: a cell grid sheared off the noise lattice
     vec2 cell = floor(q * 1.1 + vec2(0.37 * q.y, 0.0));
     float hp = hash21(cell + 17.0);
-    vec3 tint = ffCyc(hue + 0.7 * hp, ca, cb, cc, cd);
-    // each beat a different few panes flare
-    float pick = step(fract(hp * 7.31 + fseed), 0.24);
-    return tint * open * (1.0 + flare * pick);
+    // every pane passes the same luminance in its own colour, so flying
+    // through the beams changes their colour, not the frame's brightness
+    vec3 tint = ffAtLuma(ffCyc(hue + 0.7 * hp, ca, cb, cc, cd),
+                         vec3(0.25 * (luma(ca) + luma(cb) + luma(cc) + luma(cd))));
+    // each beat the vault swings toward the complementary colour and eases
+    // back, a different few panes all the way
+    float pick = mix(0.6, 1.0, step(fract(hp * 7.31 + fseed), 0.24));
+    vec3 flareC = ffAtLuma(ffCyc(hue + 0.7 * hp + 0.4, ca, cb, cc, cd), tint);
+    return mix(tint, flareC, flare * pick) * open;
 }
 
 vec3 osBody(vec2 uv, VisualUniforms u) {
@@ -118,8 +132,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float detail = osDetail(u);
 
     float speed = mix(0.25, 1.4, u.param0);
-    vec2 fl = osFlight(u, speed, 0.22 * mix(0.5, 1.5, u.param0));
-    float z = mod(fl.x, FF_LOOP);
+    // the 32-beat profile shapes the pace, but a burst runs under twice cruise:
+    // a fast pass through bright lace changes most of the frame's luminance
+    // every frame, which the frame limiter has to hold back as ghosting
+    vec2 fl = osFlight(u, 0.0, 1.0);
+    float z = mod(u.time * speed * 1.3 + fl.x * speed * 0.19, FF_LOOP);
     float rush = saturate((fl.y - 1.0) / 3.5);
     float lull = saturate(1.0 - fl.y);
     vec3 ro = ffPath(z);
@@ -130,7 +147,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 up = vec3(sin(roll), cos(roll), 0.0);
     vec3 rt = normalize(cross(fw, up));
     vec3 cu = cross(rt, fw);
-    float fov = 1.05 - 0.18 * rush + 0.08 * lull;
+    float fov = 1.05 - 0.1 * rush + 0.05 * lull;
     vec3 rd = normalize(p.x * rt + p.y * cu + fov * fw);
 
     float tm = mod(u.time, 600.0);
@@ -142,11 +159,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 cB = palVisual(0.25, u);
     vec3 cC = palVisual(0.50, u);
     vec3 cD = palVisual(0.77, u);
-    // pane hues turn slowly with the bar and swing further on builds and bursts
+    // pane hues turn slowly with the bar
     float bars = mod(u.beatCount + saturate(u.beatPhase), 512.0);
-    float hue = bars / 48.0 + 0.22 * rush;
+    float hue = bars / 48.0;
     float bp = saturate(u.beatPhase);
-    float flare = (1.0 - bp) * (1.0 - bp) * (0.6 + 0.9 * bassL);
+    float flare = (1.0 - bp) * (1.0 - bp);
     float fseed = fract(floor(mod(u.beatCount, 512.0)) * 0.618034);
 
     // the sun: high above and ahead, fixed in the world; the panes tint it
@@ -194,7 +211,9 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float ts = (float(i) + dith) * dv;
         vec3 x = ro + rd * ts;
         vec3 sh = ffCookie(vec2(dot(x, e1), dot(x, e2)), tm, soft, 0.0, hue, flare, fseed, cA, cB, cC, cD);
-        shafts += sh * exp(-sigma * ts) * dv;
+        // the air at the camera is shared by every pixel: a beam crossing it
+        // would brighten the whole frame at once, so the shafts start ahead
+        shafts += sh * exp(-sigma * ts) * smoothstep(0.3, 3.0, ts) * dv;
     }
     // quad average: the partner's value is v +/- dFdx(v); the sign comes from
     // the parity's own derivative, so it holds whatever way a target orients
@@ -206,7 +225,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     shafts = max(shafts, vec3(0.0));
     // forward-scattering phase: shafts glow brightest looking toward the sun
     float phase = 0.08 + 0.9 * pow(saturate(mu * 0.5 + 0.5), 8.0) + 2.5 * pow(saturate(mu), 24.0);
-    vec3 inscatter = sunC * shafts * phase * 0.2 * (0.85 + 0.35 * bassL);
+    // the beams keep their contrast low, since flying through them sweeps it
+    // across the frame; a steady sunlit haze in the turning palette colour
+    // carries the brightness instead
+    vec3 hazeT = ffAtLuma(ffCyc(hue + 0.3, cA, cB, cC, cD), 0.25 * (cA + cB + cC + cD));
+    vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18) * phase;
     vec3 fogCol = hazeC * 0.03 + cB * 0.002 * phase;
 
     vec3 col = fogCol;
@@ -286,7 +309,10 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float wz = z + 1.0 + 9.0 * saturate(u.beatPhase);
         float wave = exp(-abs(pos.z - wz) * 2.5) * (1.0 - saturate(u.beatPhase)) * (0.4 + 0.8 * bassL);
         vec3 laceCol = ffCyc(hue + 0.5 + 0.15 * tone, cA, cB, cC, cD);
-        col += laceCol * lace * lace * glowAmt * (0.12 + 0.7 * u.treble + 1.4 * wave) * (0.3 + 0.7 * ao) * (1.0 - 0.6 * fine);
+        // the wave recolours the lace at its own luminance
+        vec3 waveC = ffAtLuma(ffCyc(hue + 0.85 + 0.15 * tone, cA, cB, cC, cD), laceCol);
+        laceCol = mix(laceCol, waveC, saturate(wave));
+        col += laceCol * lace * lace * glowAmt * (0.4 + 0.15 * u.treble) * (0.3 + 0.7 * ao) * (1.0 - 0.6 * fine);
 
         col = mix(col, fogCol, 1.0 - exp(-t * sigma));
     }
@@ -297,7 +323,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
     // emissive glow from near misses
     vec3 gc = ffCyc(hue + 0.5, cA, cB, cC, cD);
-    col += gc * glow * 0.0015 * glowAmt * (0.5 + 0.6 * u.bassImpact + 0.4 * u.amplitude);
+    col += gc * glow * 0.0015 * glowAmt * (0.75 + 0.15 * u.amplitude);
 
     // break 8-bit banding in the dim haze gradients with a tiny dither
     float gn = ffIgn(px + vec2(17.0, 29.0)) - 0.5;
