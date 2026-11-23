@@ -13,10 +13,12 @@
 //! - The 288 x 192 window is doubled with Scale2x (EPX) on the colour indices, then drawn as
 //!   smooth vector-like shapes into a centred 3:2 rectangle of the frame height (or width, for
 //!   frames narrower than 3:2). Each colour present is a layer, ordered by its distance from the
-//!   background colour; a layer's coverage mask (that colour or any farther one) is box blurred
-//!   and cut at [`EDGE_THRESHOLD`] with a ramp a little over half a frame pixel wide, which
-//!   rounds corners and turns pixel stair-steps into crisp anti-aliased lines. Backdrop-index
-//!   pixels are transparent, so the backdrop shows through and there is no border or pillarbox.
+//!   background colour; a layer's coverage mask (that colour or any farther one) is blurred with
+//!   a `[1, 4, 1]` kernel and cut at [`EDGE_THRESHOLD`] with a ramp a little over half a frame
+//!   pixel wide, which rounds corners and turns pixel stair-steps into crisp anti-aliased lines
+//!   of regular weight. A layer draws only where its own colour is under the blur, so it never
+//!   fringes a farther colour's edges. Backdrop-index pixels are transparent, so the backdrop
+//!   shows through and there is no border or pillarbox.
 //! - A graphics colour that touches the backdrop and has less than [`MIN_CONTRAST_X10`] / 10
 //!   contrast against its darkest or brightest point is mixed toward white or black until it
 //!   does, unless it is outlined by a colour that is legible there.
@@ -39,17 +41,22 @@ pub const MAX_DIMENSION: usize = 8192;
 /// Media time the stage takes to ease to a new background colour.
 pub const EASE_MS: i64 = 300;
 /// Shadow opacity where the blurred mask is full, out of 255.
-pub const SHADOW_ALPHA: u32 = 166;
+pub const SHADOW_ALPHA: u32 = 110;
 /// Squared colour distance (4-bit levels) from the background at which a colour casts a shadow.
 pub const INK_DISTANCE: i32 = 12;
 /// Brightness of the backdrop's base relative to the background colour, out of 1024.
 pub const BASE_LEVEL: i64 = 230;
 /// Drift periods of the two glows' centres (x, y), in media milliseconds.
 pub const GLOW_PERIODS_MS: [[i64; 2]; 2] = [[23_000, 31_000], [27_000, 37_000]];
-/// Level (of 255) of a blurred layer mask where its edge is drawn. Just below the 113 a lone
-/// window pixel reaches after the blur, so it still draws, and close to the 127.5 of a straight
-/// edge, so strokes do not fatten and letter counters stay open.
-pub const EDGE_THRESHOLD: i64 = 112;
+/// Centre weight of the layer blur kernel `[1, BLUR_CENTRE, 1]` (per axis).
+pub const BLUR_CENTRE: u32 = 4;
+/// Level (of 255) of a blurred layer mask where its edge is drawn. Just below the 177 a lone
+/// window pixel reaches after the blur, so it still draws, and above the 127.5 of a straight
+/// edge, so strokes are drawn at regular weight (each edge about 0.15 magnified pixels inside
+/// the unblurred one) and letter counters stay open.
+pub const EDGE_THRESHOLD: i64 = 171;
+/// Least edge ramp: the smallest that still takes a full mask (255) to full coverage.
+const MIN_RAMP: i64 = (127 * 256 + (255 - EDGE_THRESHOLD) - 1) / (255 - EDGE_THRESHOLD);
 /// Least contrast ratio, times 10, a graphics colour keeps against the whole backdrop.
 pub const MIN_CONTRAST_X10: i64 = 35;
 
@@ -58,6 +65,8 @@ const X2_HEIGHT: usize = WINDOW_HEIGHT * 2;
 const X2_SIZE: usize = X2_WIDTH * X2_HEIGHT;
 /// At most every index but the background is a layer.
 const MAX_LAYERS: usize = 15;
+/// Sum of the 2D layer blur kernel's weights.
+const BLUR_AREA: u32 = (BLUR_CENTRE + 2) * (BLUR_CENTRE + 2);
 /// Zero padding around the shadow mask, wider than the blur so the blur never reaches its edge.
 const PAD: usize = 4;
 const MASK_WIDTH: usize = WINDOW_WIDTH + 2 * PAD;
@@ -287,9 +296,9 @@ impl Presenter {
             layer_scratch: vec![0; X2_SIZE],
             layer_index: [0; MAX_LAYERS],
             layer_count: 0,
-            // A blurred straight edge climbs 85 levels per mask pixel and a mask pixel spans
-            // `rw / 576` frame pixels; ramp the full 255 over about 0.6 frame pixels.
-            ramp: (rw as i64 * 256 / 150).max(256),
+            // A mask pixel spans `rw / 576` frame pixels; ramp the full 255 over about 0.6
+            // frame pixels, but never so gently that a full mask stays translucent.
+            ramp: (rw as i64 * 256 / 150).max(MIN_RAMP),
             protected: [false; 16],
             mask: vec![0; MASK_WIDTH * MASK_HEIGHT],
             blur: vec![0; MASK_WIDTH * MASK_HEIGHT],
@@ -432,8 +441,8 @@ impl Presenter {
     }
 
     /// One layer per non-background index present in the doubled window, lowest rank first. A
-    /// layer's mask is 255 where the pixel ranks at or above the layer's index, box blurred once
-    /// (radius 1, separable, edges clamped).
+    /// layer's mask is 255 where the pixel ranks at or above the layer's index, blurred once with
+    /// `[1, BLUR_CENTRE, 1]` (separable, edges clamped).
     fn build_layers(&mut self, backdrop: &[bool; 16], rank: &[u16; 16]) {
         // Which indices are present, and per doubled row the highest rank outside the backdrop
         // (-1 for none): a layer is zero away from the rows reaching its floor, so only those
@@ -481,7 +490,7 @@ impl Presenter {
                 for x in 0..X2_WIDTH {
                     let l = row[x.saturating_sub(1)] as u16;
                     let r = row[(x + 1).min(X2_WIDTH - 1)] as u16;
-                    out[x] = l + row[x] as u16 + r;
+                    out[x] = l + BLUR_CENTRE as u16 * row[x] as u16 + r;
                 }
             }
             mask[..lo * X2_WIDTH].fill(0);
@@ -491,9 +500,9 @@ impl Presenter {
                 let down = (y + 1).min(X2_HEIGHT - 1) * X2_WIDTH;
                 for x in 0..X2_WIDTH {
                     let sum = self.layer_scratch[up + x] as u32
-                        + self.layer_scratch[y * X2_WIDTH + x] as u32
+                        + BLUR_CENTRE * self.layer_scratch[y * X2_WIDTH + x] as u32
                         + self.layer_scratch[down + x] as u32;
-                    mask[y * X2_WIDTH + x] = ((sum + 4) / 9) as u8;
+                    mask[y * X2_WIDTH + x] = ((sum + BLUR_AREA / 2) / BLUR_AREA) as u8;
                 }
             }
         }
@@ -669,6 +678,14 @@ impl Presenter {
                         if (m00 | m01 | m10 | m11) == 0 {
                             // Layers nest, so every later layer is empty here too.
                             break;
+                        }
+                        // A layer whose taps equal the next layer's holds none of its own index
+                        // in their blur support: drawing it would only fringe the next one.
+                        if layer + 1 < self.layer_count {
+                            let next = &self.layers[(layer + 1) * X2_SIZE..(layer + 2) * X2_SIZE];
+                            if (next[a], next[b], next[c], next[d]) == (m00, m01, m10, m11) {
+                                continue;
+                            }
                         }
                         // Mask level in 8.8 fixed point.
                         let v = (m00 as u32 * w00

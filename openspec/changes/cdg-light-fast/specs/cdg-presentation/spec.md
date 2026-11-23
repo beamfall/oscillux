@@ -46,7 +46,8 @@ The output SHALL be opaque RGBA8.
 
 The coverage threshold SHALL put a straight edge slightly inside the unblurred edge, so strokes
 are drawn at regular weight, while a lone window pixel still draws. The ramp SHALL be under one
-frame pixel wide.
+frame pixel wide at magnified sizes, and SHALL take a fully inked area to full coverage at every
+frame size.
 
 #### Scenario: Crisp letter edges
 
@@ -58,3 +59,8 @@ frame pixel wide.
 
 - **WHEN** a single window pixel of a graphics colour is surrounded by background
 - **THEN** it is drawn with some coverage
+
+#### Scenario: Solid interiors at small sizes
+
+- **WHEN** a frame is smaller than the 288 x 192 window
+- **THEN** the inside of a filled area is drawn in its exact colour

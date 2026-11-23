@@ -8,10 +8,11 @@ are decoded with the independent decoder model in tools/cdg-vectors.py (`Model`)
 replays the stream from the start.
 
 It computes differently from a straightforward renderer where it can: the doubled window is kept
-as ranks, and a blurred layer mask is evaluated only at the taps a frame samples, as a count of
-the 3 x 3 clamped neighbourhood of the doubled image whose rank reaches the layer's rank
-(`(255 * count + 4) // 9`, which is exactly the README's row-then-column box blur of 0/255
-masks with clamped coordinates). Scenes are cached by decoder content.
+as ranks, and a blurred layer mask is evaluated only at the taps a frame samples, as a weighted
+count of the 3 x 3 clamped neighbourhood of the doubled image whose rank reaches the layer's rank
+(weights 1 4 1 / 4 16 4 / 1 4 1, value `(255 * weight + 18) // 36`, which is exactly the
+README's row-then-column [1, 4, 1] blur of 0/255 masks with clamped coordinates). Scenes are
+cached by decoder content.
 
 Usage: python3 -I tools/cdg-present-vectors.py
        python3 -I tools/cdg-present-vectors.py --check   (exit 1 if a generated file differs)
@@ -306,7 +307,7 @@ class Scene:
         self.shadow = m
 
     def layer_values(self, x, y):
-        """Blurred mask value of every layer at doubled (x, y): 3 x 3 clamped neighbourhood."""
+        """Blurred mask value of every layer at doubled (x, y): weighted 3 x 3 clamped neighbourhood."""
         key = y * DW + x
         got = self.values.get(key)
         if got is None:
@@ -315,10 +316,14 @@ class Scene:
             for yy in (max(y - 1, 0), y, min(y + 1, DH - 1)):
                 r = self.drank[yy]
                 neigh += (r[xs[0]], r[xs[1]], r[xs[2]])
-            got = [(255 * sum(1 for q in neigh if q >= lr) + 4) // 9 for lr in self.layer_ranks]
+            got = [(255 * sum(w for q, w in zip(neigh, WEIGHTS) if q >= lr) + 18) // 36
+                   for lr in self.layer_ranks]
             self.values[key] = got
         return got
 
+
+# README, Layers: the [1, 4, 1] row-then-column blur as 3 x 3 weights, row-major.
+WEIGHTS = (1, 4, 1, 4, 16, 4, 1, 4, 1)
 
 SCENES = {}
 
@@ -441,7 +446,7 @@ class Presenter:
         self.gy = graphics_taps(h, ry, rh, DH, rh * 12 // 192)
         self.sx = shadow_taps(w, rx, rw, WIN_W, 295)
         self.sy = shadow_taps(h, ry, rh, WIN_H, 199)
-        self.ramp = max(rw * 256 // 150, 256)
+        self.ramp = max(rw * 256 // 150, 388)
         self.protected = set()
         self.built = None
 
@@ -495,7 +500,7 @@ class Presenter:
                 top = srow0[sx0] * (256 - sfx) + srow0[sx1] * sfx
                 bot = srow1[sx0] * (256 - sfx) + srow1[sx1] * sfx
                 m = (top * (256 - sfy) + bot * sfy) >> 16
-                keep = 255 - div255(m * 166)
+                keep = 255 - div255(m * 110)
                 g = [0, 0, 0, 0]
                 gx0, gx1, fx, ex = gx[x]
                 edge = ex * ey
@@ -506,10 +511,13 @@ class Presenter:
                         a, b, c, d = v00[li], v10[li], v01[li], v11[li]
                         if a == 0 and b == 0 and c == 0 and d == 0:
                             break
+                        if li + 1 < nlayers and (v00[li + 1], v10[li + 1], v01[li + 1],
+                                                 v11[li + 1]) == (a, b, c, d):
+                            continue
                         top = a * (256 - fx) + b * fx
                         bot = c * (256 - fx) + d * fx
                         v = (top * (256 - fy) + bot * fy) >> 8
-                        cov = clamp((((v - 112 * 256) * ramp) >> 16) + 128, 0, 255)
+                        cov = clamp((((v - 171 * 256) * ramp) >> 16) + 128, 0, 255)
                         if cov > 0:
                             p = lcol[li]
                             g = [div255(p[ch] * cov + g[ch] * (255 - cov)) for ch in range(4)]

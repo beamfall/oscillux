@@ -51,9 +51,10 @@ the window edge: `A` above, `B` right, `C` left, `D` below and the diagonals `UL
 
 Every index present in the doubled window that is not a backdrop index is a layer, ordered by
 rank, lowest first. Layer `L` with index `i` has a 576 x 384 mask: 255 where the doubled pixel is
-not a backdrop index and its rank is at least `rank(i)`, else 0. Each mask is box blurred once.
-First, each row: `h[x] = m[x-1] + m[x] + m[x+1]`, with coordinates clamped to the row. Then
-each column: `m'[y] = (h[y-1] + h[y] + h[y+1] + 4) // 9`, with coordinates clamped to the column.
+not a backdrop index and its rank is at least `rank(i)`, else 0. Each mask is blurred once with
+the kernel `[1, 4, 1]` on each axis. First, each row: `h[x] = m[x-1] + 4 * m[x] + m[x+1]`, with
+coordinates clamped to the row. Then each column: `m'[y] = (h[y-1] + 4 * h[y] + h[y+1] + 18) // 36`,
+with coordinates clamped to the column.
 
 ## Colours
 
@@ -178,13 +179,16 @@ is `(a * (x1 - x0 - t) + b * t + (x1 - x0) // 2) // (x1 - x0)` per channel.
 
 For frame pixel `(x, y)`:
 
-1. **Shadow.** `m = bilinear(shadow mask, shadow taps) >> 16`, and `keep = 255 - div255(m * 166)`.
+1. **Shadow.** `m = bilinear(shadow mask, shadow taps) >> 16`, and `keep = 255 - div255(m * 110)`.
 2. **Graphics.** Start from `g = (0, 0, 0, 0)`, premultiplied RGBA. If `edge = ex * ey` is non-zero,
    for each layer in order:
    - `v = bilinear(layer mask, graphics taps) >> 8`.
    - If all four mask taps are 0, stop. Later layers are empty there too.
-   - `cov = clamp((((v - 112 * 256) * ramp) >> 16) + 128, 0, 255)`, with
-     `ramp = max(rw * 256 // 150, 256)` and an arithmetic shift.
+   - If this is not the last layer and its four mask taps equal the next layer's four, skip it.
+     None of its own index lies under the blur there, so it would only fringe the next layer.
+   - `cov = clamp((((v - 171 * 256) * ramp) >> 16) + 128, 0, 255)`, with
+     `ramp = max(rw * 256 // 150, 388)` and an arithmetic shift. 388 is the least ramp that takes a
+     full mask (`v = 255 * 256`) to `cov = 255`.
    - If `cov > 0`, then for each channel `g = div255(p * cov + g * (255 - cov))`. Here `p` is the
      layer's drawn colour (Colours) with alpha 255. All four channels, alpha included, use this.
 
