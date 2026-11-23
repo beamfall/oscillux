@@ -17,5 +17,5 @@
 
 ## 3. Close
 
-- [ ] 3.1 `make gate`, Codex review
-- [ ] 3.2 Release, then archive this change
+- [x] 3.1 `make gate`, Codex review
+- [x] 3.2 Release, then archive this change
