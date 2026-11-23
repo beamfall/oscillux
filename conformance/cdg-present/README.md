@@ -184,8 +184,11 @@ For frame pixel `(x, y)`:
    for each layer in order:
    - `v = bilinear(layer mask, graphics taps) >> 8`.
    - If all four mask taps are 0, stop. Later layers are empty there too.
-   - If this is not the last layer and its four mask taps equal the next layer's four, skip it.
-     None of its own index lies under the blur there, so it would only fringe the next layer.
+   - If this is not the last layer and its mask taps equal the next layer's at every tap with
+     non-zero bilinear weight, skip it. None of its own index lies under the blur there, so it
+     would only fringe the next layer. A tap's weight is zero when its axis fraction puts all the
+     weight on the other tap: the second column's taps when `fx = 0`, the second row's when
+     `fy = 0`.
    - `cov = clamp((((v - 171 * 256) * ramp) >> 16) + 128, 0, 255)`, with
      `ramp = max(rw * 256 // 150, 388)` and an arithmetic shift. 388 is the least ramp that takes a
      full mask (`v = 255 * 256`) to `cov = 255`.

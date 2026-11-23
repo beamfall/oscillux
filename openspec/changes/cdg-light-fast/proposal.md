@@ -20,9 +20,9 @@ frames per CPU second at 960 x 540, far below the 30 frames per second the strea
 - Layer masks blur with the kernel [1, 4, 1] / 6 per axis instead of the box [1, 1, 1] / 3. The
   edge threshold rises from 112 to 171, just under the 177 a lone window pixel reaches, so each
   edge sits about 0.15 magnified pixels inside the unblurred edge. Strokes are lighter, counters
-  open wider, and lone pixels still draw.
+  open wider, and lone pixels still draw at twice the window and above.
 - A layer draws at a frame pixel only where its own index lies inside the blur support of its
-  taps: its four tap levels differ from the next layer's. The last layer draws wherever it is
+  taps: its levels at the taps with nonzero bilinear weight differ from the next layer's. The last layer draws wherever it is
   not zero. The fringe goes; coverage geometry is unchanged.
 - The shadow's alpha drops from 166 to 110.
 - The presenter gets faster without changing any frame: all layers' levels are computed together

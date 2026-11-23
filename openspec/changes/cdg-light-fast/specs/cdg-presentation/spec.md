@@ -42,12 +42,20 @@ The output SHALL be opaque RGBA8.
 - **WHEN** white lyrics are drawn and red graphics are elsewhere in the window
 - **THEN** no red is mixed into the edges of the white lyrics
 
+#### Scenario: Unweighted taps
+
+- **WHEN** a frame pixel samples the doubled grid with a zero bilinear fraction and a different
+  colour lies only under a tap with zero weight
+- **THEN** that colour is not drawn there
+
 ### Requirement: Sharp edges
 
 The coverage threshold SHALL put a straight edge slightly inside the unblurred edge, so strokes
-are drawn at regular weight, while a lone window pixel still draws. The ramp SHALL be under one
-frame pixel wide at magnified sizes, and SHALL take a fully inked area to full coverage at every
-frame size.
+are drawn at regular weight, while a lone window pixel still draws wherever the window rectangle
+is at least twice the window (576 x 384 frame pixels) and the pixel lies outside the one-tile
+feather band at the window edge. Smaller rectangles sample more sparsely than the doubled grid and
+may fall between a lone pixel's peaks. The ramp SHALL be under one frame pixel wide at magnified
+sizes, and SHALL take a fully inked area to full coverage at every frame size.
 
 #### Scenario: Crisp letter edges
 
@@ -57,7 +65,8 @@ frame size.
 
 #### Scenario: Lone pixel
 
-- **WHEN** a single window pixel of a graphics colour is surrounded by background
+- **WHEN** a single window pixel of a graphics colour, outside the feather band at the window
+  edge, is surrounded by background and the window rectangle is at least 576 x 384
 - **THEN** it is drawn with some coverage
 
 #### Scenario: Solid interiors at small sizes

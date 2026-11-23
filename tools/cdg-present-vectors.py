@@ -507,12 +507,18 @@ class Presenter:
                 if edge:
                     v00, v10 = values(gx0, gy0), values(gx1, gy0)
                     v01, v11 = values(gx0, gy1), values(gx1, gy1)
+                    # Only taps with nonzero bilinear weight decide whether a layer differs.
+                    used = (True, fx != 0, fy != 0, fx != 0 and fy != 0)
+
+                    def weighted(li):
+                        q = (v00[li], v10[li], v01[li], v11[li])
+                        return tuple(t for t, u in zip(q, used) if u)
+
                     for li in range(nlayers):
                         a, b, c, d = v00[li], v10[li], v01[li], v11[li]
                         if a == 0 and b == 0 and c == 0 and d == 0:
                             break
-                        if li + 1 < nlayers and (v00[li + 1], v10[li + 1], v01[li + 1],
-                                                 v11[li + 1]) == (a, b, c, d):
+                        if li + 1 < nlayers and weighted(li + 1) == weighted(li):
                             continue
                         top = a * (256 - fx) + b * fx
                         bot = c * (256 - fx) + d * fx
@@ -580,8 +586,9 @@ def frames_for(name, packs):
 
 STREAMS = ("karaoke-blue", "karaoke-tiles", "presets", "scroll")
 SIZES = ((192, 108), (90, 150), (7, 5))
-# One wide frame per stream covers the steeper coverage ramp (rw >= 600).
-WIDE = (600, 400)
+# One wide frame per stream covers the steeper coverage ramp (rw >= 600), and one at exactly
+# twice the window, where every tap fraction is zero, covers unweighted taps.
+WIDE = ((600, 400), (576, 384))
 
 
 def expect(name, head):
@@ -604,13 +611,14 @@ def expect(name, head):
             rgba = presenter.present(dec, millis)
             lines.append("frame %d %d %s" % (p, millis, hashlib.sha256(rgba).hexdigest()))
             nframes += 1
-    w, h = WIDE
-    lines.append("size %d %d" % (w, h))
-    presenter, dec = Presenter(w, h), Decoder(packs)
-    p, millis = frames[len(frames) // 2]
-    dec.advance(p)
-    lines.append("frame %d %d %s" % (p, millis, hashlib.sha256(presenter.present(dec, millis)).hexdigest()))
-    nframes += 1
+    for w, h in WIDE:
+        lines.append("size %d %d" % (w, h))
+        presenter, dec = Presenter(w, h), Decoder(packs)
+        p, millis = frames[len(frames) // 2]
+        dec.advance(p)
+        rgba = presenter.present(dec, millis)
+        lines.append("frame %d %d %s" % (p, millis, hashlib.sha256(rgba).hexdigest()))
+        nframes += 1
     return "\n".join(lines) + "\n", nframes
 
 

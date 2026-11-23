@@ -4,19 +4,23 @@
 //! A host composing live karaoke renders 960x540 frames at 30 fps, so each frame advances the
 //! decoder by 10 packs (300 packs per second). The stream here is the presenter's worst case:
 //! after a memory preset and a palette of 16 distinct colours, every pack XORs a random 6 x 12
-//! tile with random colours anywhere on the screen, so all 16 indices are inked across the
-//! window and some tile changes in every frame. It is generated in code with the
-//! `conformance/cdg/README.md` LCG; no recorded stream is checked in.
+//! tile with random colours somewhere in the visible window, so all 16 indices are inked across
+//! the window and every timed pack changes visible pixels (checked before timing). It is
+//! generated in code with the `conformance/cdg/README.md` LCG; no recorded stream is checked in.
 //!
-//! The statistic is thread CPU time (`CLOCK_THREAD_CPUTIME_ID` on macOS and Linux, wall time
-//! elsewhere), so a busy host's other work is not charged to the presenter. Frames are timed in
+//! The statistic is thread CPU time (`CLOCK_THREAD_CPUTIME_ID` on 64-bit macOS and Linux), so a
+//! busy host's other work is not charged to the presenter. Elsewhere there is no thread CPU
+//! clock here: the bench reports wall time and does not enforce the budget. Frames are timed in
 //! `ROUNDS` rounds; the gated statistic is the minimum round mean (the mean, since the rare full
 //! rebuilds on a background change are part of the sustained cost), so the check fails only
 //! when every round is slow.
 //!
 //! `BUDGET_NS` keeps the WASI renderer at 60 fps or better: under wazero the presenter runs about
 //! 2.3x slower than the native release build, so 7 ms native is about 16 ms, one 60 Hz frame.
-use oscillux_core::cdg::{present::Presenter, Decoder, PACKS_PER_SECOND};
+use oscillux_core::cdg::{
+    present::Presenter, Decoder, BORDER_X, BORDER_Y, PACKS_PER_SECOND, SCREEN_WIDTH, WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+};
 use std::{hint::black_box, process::ExitCode};
 
 /// Gated limit on the minimum round mean of native thread CPU time per frame, nanoseconds.
@@ -68,17 +72,25 @@ fn worst_stream(tiles: usize) -> Vec<u8> {
     out.extend_from_slice(&palette(31, 8));
     for _ in 0..tiles {
         let mut data = [0u8; 16];
+        // Inside the visible window (tile rows 1..=16, columns 1..=48), with a nonzero colour 1
+        // and a set bit in every row, so every pack changes visible pixels.
         data[0] = next(16) as u8;
-        data[1] = next(16) as u8;
-        data[2] = next(18) as u8;
-        data[3] = next(50) as u8;
+        data[1] = 1 + next(15) as u8;
+        data[2] = 1 + next(16) as u8;
+        data[3] = 1 + next(48) as u8;
         for row in &mut data[4..] {
-            *row = next(64) as u8;
+            *row = 1 + next(63) as u8;
         }
         out.extend_from_slice(&pack(38, &data));
     }
     out
 }
+
+/// Whether `cpu_ns` reads a thread CPU clock, so the budget is enforced.
+const THREAD_CLOCK: bool = cfg!(all(
+    any(target_os = "macos", target_os = "linux"),
+    target_pointer_width = "64"
+));
 
 #[cfg(all(
     any(target_os = "macos", target_os = "linux"),
@@ -122,6 +134,25 @@ fn main() -> ExitCode {
     let frames = WARMUP + ROUNDS as u64 * FRAMES_PER_ROUND;
     let stream = worst_stream((SEED_PACKS + frames * packs_per_frame) as usize);
     let mut decoder = Decoder::new(&stream);
+    let mut before = vec![0u8; WINDOW_WIDTH * WINDOW_HEIGHT];
+    let window = |decoder: &Decoder, out: &mut [u8]| {
+        let rows = decoder.state().screen.chunks_exact(SCREEN_WIDTH);
+        for (dst, row) in out.chunks_exact_mut(WINDOW_WIDTH).zip(rows.skip(BORDER_Y)) {
+            dst.copy_from_slice(&row[BORDER_X..BORDER_X + WINDOW_WIDTH]);
+        }
+    };
+    decoder.advance_to(SEED_PACKS);
+    for applied in SEED_PACKS..decoder.pack_count() {
+        window(&decoder, &mut before);
+        decoder.advance_to(applied + 1);
+        let rows = decoder.state().screen.chunks_exact(SCREEN_WIDTH);
+        let changed = before
+            .chunks_exact(WINDOW_WIDTH)
+            .zip(rows.skip(BORDER_Y))
+            .any(|(b, row)| *b != row[BORDER_X..BORDER_X + WINDOW_WIDTH]);
+        assert!(changed, "pack {applied} leaves the window unchanged");
+    }
+    let mut decoder = Decoder::new(&stream);
     let mut presenter = Presenter::new(WIDTH, HEIGHT).expect("presenter size");
     let mut digest = 0xcbf2_9ce4_8422_2325u64;
     let mut frame = 0u64;
@@ -152,6 +183,14 @@ fn main() -> ExitCode {
         "{name}: {ROUNDS}x{FRAMES_PER_ROUND} frames, round mean CPU ms [{}] (digest {digest:016x})",
         round_ms.join(", ")
     );
+    if !THREAD_CLOCK {
+        println!(
+            "{name}: SKIP: no thread CPU clock on this target; min round mean wall {:.3} ms, budget {:.3} ms not enforced",
+            ms(gated),
+            ms(BUDGET_NS)
+        );
+        return ExitCode::SUCCESS;
+    }
     let pass = gated <= BUDGET_NS;
     println!(
         "{name}: {}: min round mean {:.3} ms, budget {:.3} ms",

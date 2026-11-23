@@ -881,10 +881,12 @@ impl Presenter {
             let r0 = &self.levels[ry.i0 as usize * X2_WIDTH..][..X2_WIDTH];
             let r1 = &self.levels[ry.i1 as usize * X2_WIDTH..][..X2_WIDTH];
             if ry.edge != 0 {
-                // Per doubled column, which layers differ from the next at either source row.
+                // Per doubled column, which layers differ from the next at the source rows with
+                // nonzero weight.
+                let lower = if ry.f != 0 { u128::MAX } else { 0 };
                 for (d, (a, b)) in tap_diff.iter_mut().zip(r0.iter().zip(r1)) {
                     *d = next_differs(u128::from_le_bytes(*a))
-                        | next_differs(u128::from_le_bytes(*b));
+                        | (next_differs(u128::from_le_bytes(*b)) & lower);
                 }
             }
             let (fy0, fy1) = (256 - ry.f, ry.f);
@@ -909,15 +911,16 @@ impl Presenter {
                 let keep = 255 - div255(m * SHADOW_ALPHA);
                 let mut g = 0u64;
                 let edge = rx.edge * ry.edge;
-                // A layer is drawn where its taps differ from the next layer's: one whose taps
-                // equal the next's holds none of its own index in their blur support, and
-                // drawing it would only fringe the next one. Layers nest, so a drawn layer is
-                // never empty, and lanes past the last layer are zero.
+                // A layer is drawn where its weighted taps differ from the next layer's: one
+                // whose taps equal the next's holds none of its own index in their blur
+                // support, and drawing it would only fringe the next one. A tap with zero
+                // bilinear weight takes no part. Layers nest, so a drawn layer is never empty,
+                // and lanes past the last layer are zero.
                 let (i0, i1) = (rx.i0 as usize, rx.i1 as usize);
-                let differs = if edge != 0 {
-                    tap_diff[i0] | tap_diff[i1]
-                } else {
-                    0
+                let differs = match (edge, rx.f) {
+                    (0, _) => 0,
+                    (_, 0) => tap_diff[i0],
+                    _ => tap_diff[i0] | tap_diff[i1],
                 };
                 if differs != 0 {
                     let mut drawn = nonzero_lanes(differs);
@@ -1228,6 +1231,7 @@ impl Backdrop {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cdg::{BORDER_X, BORDER_Y};
 
     #[test]
     fn level_rounds_every_count_in_every_lane() {
@@ -1240,6 +1244,76 @@ mod tests {
                 let got = level(u128::from_le_bytes(counts)).to_le_bytes();
                 assert_eq!(got[lane], want, "count {count} lane {lane}");
                 assert_eq!(got[(lane + 1) % 16], 255);
+            }
+        }
+    }
+
+    /// Colour 0 black, 1 white, 2 red, then one XOR tile per `(window x, window y, colour)`
+    /// inking that single window pixel.
+    fn pixel_stream(pixels: &[(usize, usize, u8)]) -> Vec<u8> {
+        let pack = |instruction: u8, data: [u8; 16]| {
+            let mut p = [0u8; 24];
+            p[0] = 9;
+            p[1] = instruction;
+            p[4..20].copy_from_slice(&data);
+            p
+        };
+        let mut palette = [0u8; 16];
+        palette[2..6].copy_from_slice(&[0x3f, 0x3f, 0x3c, 0x00]);
+        let mut out = Vec::new();
+        out.extend_from_slice(&pack(1, [0; 16]));
+        out.extend_from_slice(&pack(30, palette));
+        for &(x, y, colour) in pixels {
+            let (sx, sy) = (x + BORDER_X, y + BORDER_Y);
+            let mut data = [0u8; 16];
+            data[1] = colour;
+            data[2] = (sy / TILE_HEIGHT) as u8;
+            data[3] = (sx / TILE_WIDTH) as u8;
+            data[4 + sy % TILE_HEIGHT] = 0x20 >> (sx % TILE_WIDTH);
+            out.extend_from_slice(&pack(38, data));
+        }
+        out
+    }
+
+    fn present_pixels(width: usize, height: usize, pixels: &[(usize, usize, u8)]) -> Presenter {
+        let stream = pixel_stream(pixels);
+        let mut decoder = Decoder::new(&stream);
+        decoder.advance_to(decoder.pack_count());
+        let window = |x: usize, y: usize| {
+            decoder.state().screen[(y + BORDER_Y) * SCREEN_WIDTH + x + BORDER_X]
+        };
+        for &(x, y, colour) in pixels {
+            assert_eq!(window(x, y), colour, "stream inks window ({x}, {y})");
+        }
+        let mut presenter = Presenter::new(width, height).unwrap();
+        presenter.present(&decoder, 0);
+        presenter
+    }
+
+    #[test]
+    fn zero_weight_taps_do_not_fringe() {
+        // At exactly twice the window, frame (200, 160) samples doubled cell (200, 160) with
+        // both fractions zero, so red one window pixel to the right must not tint it.
+        let at = (160 * 576 + 200) * 4;
+        let white = present_pixels(576, 384, &[(100, 80, 1)]);
+        let both = present_pixels(576, 384, &[(100, 80, 1), (101, 80, 2)]);
+        assert_eq!(white.frame[at..at + 4], both.frame[at..at + 4]);
+    }
+
+    #[test]
+    fn lone_pixel_draws_at_twice_the_window_and_above() {
+        // Inside the one-tile feather band at the window edge, and wherever the rectangle is
+        // smaller than the doubled grid (a lone pixel at window (35, 35) at 300x200), the frame
+        // may sample between the pixel's peaks; elsewhere every placement draws.
+        for (width, height) in [(576, 384), (700, 470), (960, 540)] {
+            for y in [12, 95, 96, 97, 179] {
+                for x in [6, 143, 144, 145, 281] {
+                    let presenter = present_pixels(width, height, &[(x, y, 1)]);
+                    assert!(
+                        presenter.overlay.iter().any(|px| px[3] != 255),
+                        "window ({x}, {y}) at {width}x{height}"
+                    );
+                }
             }
         }
     }
