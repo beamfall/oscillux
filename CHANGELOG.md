@@ -21,6 +21,14 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   the loud-audio limiter audit the frame limiter now holds 1% of the frame on average instead of
   9%, and 12% at most instead of 31%. Fractal Flight is an original outside the release catalog, so
   this changes no release leg.
+- Neon Run, Space Flight and Ocean Glide hold their light steady (CORE-3273..3275,
+  openspec/changes/flights-steady/). Neon Run's lights are recoloured at a fixed luminance and its
+  window grid, billboards and traffic are filtered over the pixel footprint and the frame's travel.
+  Space Flight's streaks and stars are never thinner than a pixel, the treble swings star tint
+  instead of brightening the field, and its rings are filtered over the pixel footprint. Ocean
+  Glide's water luminance is held to the calm mirror with the sun's pinpoint glints on top. Under
+  loud audio the limiter holds about half as much of each frame or less. These are originals
+  outside the release catalog, so this changes no release leg.
 
 ## [0.2.20] - 2026-11-22
 

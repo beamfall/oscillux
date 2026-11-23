@@ -332,7 +332,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // glitter path toward the sun, sparkling on the treble
         float gl = saturate(dot(rr, sunDir));
         float path = pow(sd, 3.0);
-        col += sunCol * (pow(gl, 1200.0) * 30.0 * (0.4 + 0.6 * path) * (1.0 + 2.0 * u.treble) + pow(gl, 80.0) * 0.5 * path);
+        col += sunCol * pow(gl, 80.0) * 0.5 * path;
 
         // whitecaps: a web of foam filaments over the sharpest crests, more on onsets
         float foamLine = mix(0.74, 0.64, saturate(u.onset * 0.7 + u.bassImpact * 0.5));
@@ -362,6 +362,19 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
             vec3 sprayCol = palVisual(0.5, u) * 0.1 + sunCol * (0.15 + 2.5 * pow(sd, 4.0));
             col += sprayCol * tip * (0.15 + drops) * (0.6 + 1.2 * u.onset);
         }
+
+        // The water streams past the camera, and every facet that turns from the
+        // dark deep to the bright sunset sky and back would flash its pixels. So
+        // each pixel keeps its hue (amber where the sky shows, teal in the deep,
+        // the foam and spray) but its brightness is pulled most of the way to
+        // what a calm mirror shows there: the colour moves, the light holds.
+        vec3 rf = vec3(rd.x, abs(rd.y) + 0.015 * smoothstep(100.0, tFar, tSea), rd.z);
+        float fres0 = 0.02 + 0.98 * pow(saturate(1.0 + rd.y), 5.0);
+        float lm = luma(mix(deep, ogSky(rf, ro, sunDir, u, 0), fres0));
+        col *= pow(max(lm, 1e-4) / max(luma(col), 1e-4), 0.85);
+        // the sun's glints stay sparkling on top: each covers a pixel or two, too
+        // little area to flash the frame
+        col += sunCol * pow(gl, 1200.0) * 30.0 * (0.4 + 0.6 * path) * (1.0 + 2.0 * u.treble);
     } else {
         tHit = tFar;
         col = ogSky(rd, ro, sunDir, u, cloudOct);

@@ -74,7 +74,17 @@ float nrMarch(vec3 ro, vec3 rd, float tmax, int n, float floorY) {
 
 // Emission of a tower face: lit window grid, edge sign strips, a holographic
 // spectrum billboard on some street faces, and the roof neon band.
-vec3 nrFacade(vec3 pos, vec3 n, VisualUniforms u) {
+// c recoloured to luminance l, negative palette channels dropped first: the
+// music changes the colour of a light, not its brightness
+vec3 nrAtLuma(vec3 c, float l) {
+    c = max(c, vec3(0.0));
+    float lc = luma(c);
+    return lc < 1e-3 ? vec3(l) : c * (l / lc);
+}
+
+// fp is the width of one pixel on the facade and mv the distance the camera
+// travels in one frame, both in world units
+vec3 nrFacade(vec3 pos, vec3 n, float fp, float mv, VisualUniforms u) {
     float sx = pos.x - nrStreet(pos.z);
     float side = sx < 0.0 ? -1.0 : 1.0;
     float cz = floor(pos.z / NR_CELL);
@@ -92,12 +102,27 @@ vec3 nrFacade(vec3 pos, vec3 n, VisualUniforms u) {
     // lit floors come in bands, so towers read as buildings rather than LED boards
     float floorOn = step(0.35, hash21(vec2(cell.y, id.x * 3.0 + id.y)));
     float on = step(0.5, wr) * floorOn;
-    // the spectrum lights window rows by height
-    int bi = int(clamp(pos.y / max(b.y, 1.0), 0.0, 1.0) * float(NBANDS - 1));
-    float lvl = 0.2 + 1.8 * band(u, bi);
     // most windows take the tower's hue, a few run warm or cold against it
     vec3 winCol = palVisual(hue + 0.15 * hash21(cell) + step(0.9, wr) * 0.45, u);
-    vec3 col = winCol * win * on * lvl;
+    // the spectrum colours window rows by height, at the windows' own
+    // luminance: the same band lights a row on every tower at once, so
+    // brightening it would flash a large part of the frame
+    int bi = int(clamp(pos.y / max(b.y, 1.0), 0.0, 1.0) * float(NBANDS - 1));
+    float wl = 1.1 * luma(max(winCol, vec3(0.0)));
+    vec3 hotC = nrAtLuma(palRolePeak(hue + 0.5 + 0.1 * float(bi), u), wl);
+    vec3 col = mix(nrAtLuma(winCol, wl), hotC, smoothstep(0.15, 0.85, band(u, bi))) * win * on;
+    // where a window is smaller than a pixel, or the camera passes more than
+    // a window in a frame, the grid would strobe as it streams past, flipping
+    // much of the frame between lit and dark each frame. Along the street the
+    // lit floors smear into light streaks at speed (half the windows of a lit
+    // floor, two thirds of each cell glass); where even the floors are below
+    // a pixel the facade glows with the grid's mean.
+    float hot = smoothstep(0.15, 0.85, band(u, bi));
+    vec3 meanC = mix(nrAtLuma(palVisual(hue + 0.075, u), wl), hotC, hot);
+    float along = max(fp, abs(n.x) > 0.5 ? mv : 0.0) * 5.0;
+    float winY = smoothstep(0.2, 0.3, g.y) * (1.0 - smoothstep(0.7, 0.8, g.y));
+    col = mix(col, meanC * winY * floorOn * 0.32, smoothstep(0.3, 0.9, along));
+    col = mix(col, meanC * 0.104, smoothstep(0.3, 0.9, fp * 3.5));
 
     // vertical sign strips on the street-facing corners
     float edge = max(abs(abs(sx) - NR_HALF), abs(abs(pos.z - (cz + 0.5) * NR_CELL) - b.z));
@@ -112,13 +137,22 @@ vec3 nrFacade(vec3 pos, vec3 n, VisualUniforms u) {
         vec2 bp = vec2(zc / (b.z * 0.85), (pos.y - y0) / 2.6);
         if (abs(bp.x) < 1.0 && bp.y > 0.0 && bp.y < 1.0) {
             float bx = (bp.x * 0.5 + 0.5) * 16.0;
+            // the board streams past along z, so its detail is filtered over the
+            // pixel's footprint and the frame's travel: bars that get narrower than
+            // that blend to their mean, and the rim keeps its energy as it widens
+            float fz = max(fp, mv) / (b.z * 0.85);
             float bar = smoothstep(0.1, 0.2, fract(bx)) * (1.0 - smoothstep(0.8, 0.9, fract(bx)));
+            bar = mix(bar, 0.7, smoothstep(0.03, 0.1, fz));
             float lv = saturate(0.08 + 1.3 * bandAt(u, floor(bx) / 16.0));
-            float fill = 1.0 - smoothstep(lv - 0.03, lv, bp.y);
+            // the bar's top glows off over a quarter of its height and the unlit
+            // segments stay faintly on, so a bar rising or falling with the music
+            // brightens and dims its column smoothly instead of switching it
+            float fill = 1.0 - smoothstep(lv - 0.25, lv + 0.05, bp.y);
             float scan = 0.75 + 0.25 * sin(pos.y * 40.0 - u.time * 6.0);
             vec3 bc = palVisual(hue + 0.3 + bp.y * 0.35, u);
-            float frame = 1.0 - smoothstep(0.0, 0.03, min(1.0 - abs(bp.x), min(bp.y, 1.0 - bp.y)));
-            col = col * 0.15 + bc * (bar * fill * 3.0 * scan + 0.12) + palRolePeak(hue + 0.3, u) * frame * 3.0;
+            float fw = max(0.03, max(fp / 2.6, fz) * 1.5);
+            float frame = (1.0 - smoothstep(0.0, fw, min(1.0 - abs(bp.x), min(bp.y, 1.0 - bp.y)))) * 0.03 / fw;
+            col = col * 0.15 + bc * (bar * (fill * 2.0 + 0.35) * scan + 0.12) + palRolePeak(hue + 0.3, u) * frame * 3.0;
         }
     }
 
@@ -178,7 +212,8 @@ vec3 nrSky(vec3 rd, float drift, float clouds, VisualUniforms u) {
 
 // Flying traffic: up to six lanes of glowing craft above the street, some slots
 // empty. stretch > 1 smears each light vertically, for the wet-road mirror.
-vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, int lanes, VisualUniforms u) {
+// mv is the distance the camera flies in one frame.
+vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, float mv, int lanes, VisualUniforms u) {
     vec3 acc = vec3(0.0);
     for (int i = 0; i < 6; i++) {
         if (i >= lanes) break;
@@ -194,7 +229,12 @@ vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, int lanes,
         if (tp < 0.0 || tp > tMax) continue;
         vec3 P = ro + rd * tp;
         float spacing = mix(mix(11.0, 15.0, hi), 9.0, lo);
-        float shift = dir * mix(mix(16.0, 22.0, hi), 30.0, lo) * tw;
+        float vel = dir * mix(mix(16.0, 22.0, hi), 30.0, lo);
+        float shift = vel * tw;
+        // the distance a craft closes on the camera in one frame: oncoming craft
+        // pass a light's width every frame, so each light is blurred along its
+        // run over the frame, keeping its energy, or it would strobe
+        float blur = abs(vel / 60.0 - mv);
         float k = floor((P.z - shift) / spacing + 0.5);
         for (int j = -1; j <= 1; j++) {
             float kk = k + float(j);
@@ -209,10 +249,15 @@ vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, int lanes,
             // each craft is a light bar with a long light trail streaming behind it
             float tz = perp.z * dir;
             float zs = tz > 0.0 ? 0.25 : 0.012;
-            float d2 = perp.x * perp.x + perp.z * perp.z * zs + (perp.y / stretch) * (perp.y / stretch);
             float r = 0.13 + 0.004 * tc;
-            float core = exp(-d2 / (r * r));
-            float halo = r * r / (d2 + r * r) * 0.16;
+            float rz2 = r * r / zs;
+            float rzb = rz2 + blur * blur * 0.25;
+            float d2 = perp.x * perp.x + perp.z * perp.z * r * r / rzb + (perp.y / stretch) * (perp.y / stretch);
+            // and it fades out over the last few units before it passes the
+            // camera instead of vanishing at once
+            float near = smoothstep(0.0, 3.0 + 4.0 * blur, tc);
+            float core = exp(-d2 / (r * r)) * sqrt(rz2 / rzb) * near;
+            float halo = r * r / (d2 + r * r) * 0.16 * near;
             // tail lights going away, headlights coming on
             vec3 lc = dir > 0.0 ? palVisual(0.02, u) * vec3(1.7, 0.45, 0.45) : vec3(0.85, 0.95, 1.15) * 1.5;
             acc += lc * (core * 5.0 + halo) * (1.0 + 1.5 * u.treble) * exp(-tc * 0.010);
@@ -254,7 +299,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
     float speed = mix(6.0, 22.0, u.param0);
     float detail = osDetail(u);
-    vec2 fl = osFlight(u, speed, 1.6 * mix(0.5, 1.5, u.param0));
+    float surge = 1.6 * mix(0.5, 1.5, u.param0);
+    vec2 fl = osFlight(u, speed, surge);
     float z = fl.x;
     float rush = saturate((fl.y - 1.0) / 3.5);
     float lull = saturate(1.0 - fl.y);
@@ -271,6 +317,10 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     vec3 cu = cross(rt, fw);
     float fov = 1.25 - 0.18 * rush + 0.08 * lull;
     vec3 rd = normalize(p.x * rt + p.y * cu + fov * fw);
+    float pixAng = 2.0 / max(u.resolution.y, 1.0) / fov;
+    // the distance flown in one 60 Hz frame (osFlight's velocity, taking the
+    // beat at 150 BPM so faster songs are covered too)
+    float mv = (speed * 0.2 + fl.y * 2.5 * (speed * 0.4 + surge)) / 60.0;
 
     float tw = mod(u.time, 600.0);
     float neon = mix(0.5, 1.6, u.param2);
@@ -301,11 +351,12 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
                 t2 = 120.0;
             } else {
                 vec3 p2 = pos + rr * t2;
-                refl = nrFacade(p2, nrNormal(p2), u) * neon;
+                vec3 n2 = nrNormal(p2);
+                refl = nrFacade(p2, n2, (t + t2) * pixAng / max(abs(dot(n2, rr)), 0.15), mv, u) * neon;
                 refl = mix(refl, haze, 1.0 - exp(-t2 * 0.025));
             }
             // the traffic overhead, stretched into long streaks on the wet road
-            refl += nrTraffic(pos, rr, t2, mix(7.0, 2.5, puddle), tw, 4, u);
+            refl += nrTraffic(pos, rr, t2, mix(7.0, 2.5, puddle), tw, mv, 4, u);
             refl += nrGates(pos, rr, t2, mix(7.0, 2.5, puddle), 2, u);
             refl *= mix(0.55, 1.0, puddle);
             // a kerb glow along both sides
@@ -314,7 +365,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
             vec3 asphalt = vec3(0.006, 0.006, 0.01) * (1.0 - puddle);
             col = refl * fres + asphalt + palRoleTrace(0.6, u) * kerb * 1.5;
         } else {
-            vec3 em = nrFacade(pos, n, u) * neon;
+            vec3 em = nrFacade(pos, n, t * pixAng / max(abs(dot(n, rd)), 0.15), mv, u) * neon;
             // glossy facades pick up the street's glow at grazing angles
             float gr = pow(1.0 - saturate(abs(dot(n, rd))), 4.0);
             float amb = 0.02 + 0.03 * saturate(n.y);
@@ -322,7 +373,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         }
     }
     // the traffic in the canyon, in front of whatever the ray hit
-    col += nrTraffic(ro, rd, tHit, 1.0, tw, 6, u);
+    col += nrTraffic(ro, rd, tHit, 1.0, tw, mv, 6, u);
     col += nrGates(ro, rd, tHit, 1.0, 4, u);
 
     // haze: distance fog plus glow that the neon throws into the air

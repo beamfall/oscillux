@@ -298,7 +298,10 @@ vec3 sfWarp(vec2 p, vec2 sunS, float roll, float z, float v, float fov, float tH
     float sunSide = saturate(dot(dir, sunS) * 0.65 + 0.35);
     sunSide *= sunSide;
     vec3 accent = sfPeak(P, 0.12, u);
-    int nl = osSteps(2.0, 4.0, detail);
+    // each streak lights a fresh run of pixels every frame as it flies out, so
+    // the field is kept sparse at cruise and fills in only for a burst
+    int nl = osSteps(2.0, 3.0, detail);
+    float density = mix(0.62, 0.45, rush);
     for (int l = 0; l < 4; l++) {
         if (l >= nl) break;
         float fl = float(l);
@@ -317,11 +320,15 @@ vec3 sfWarp(vec2 p, vec2 sunS, float roll, float z, float v, float fov, float tH
         float along = saturate((r - rt) / max(rs - rt, 1e-4));   // 0 tail .. 1 head
         float arc = (f - 0.2 - 0.6 * h1) * (6.2831853 / n) * r;
         float dr = max(max(rt - r, r - rs), 0.0);
-        float wid = px * (0.55 + 0.9 * saturate(4.0 / d)) * (0.55 + 0.65 * along);
-        float g = wid * wid / (dr * dr + arc * arc + wid * wid);
-        float fade = smoothstep(span, span * 0.5, d) * step(d, tHit) * step(0.45, h2);
+        // a streak is never drawn thinner than a pixel: as the view banks the
+        // streaks sweep sideways, and a sub-pixel line would blink on and off
+        // the pixel grid. A thin streak spreads to a pixel at the same energy.
+        float wid0 = px * (0.55 + 0.9 * saturate(4.0 / d)) * (0.55 + 0.65 * along);
+        float wid = max(wid0, px * 1.1);
+        float g = exp(-(dr * dr + arc * arc) / (wid * wid)) * sqrt(wid0 / wid);
+        float fade = smoothstep(span, span * 0.5, d) * step(d, tHit) * step(density, h2);
         fade *= (0.25 + 0.75 * saturate(8.0 / d)) * smoothstep(0.08, 0.5, r);
-        fade *= mix(1.0, 0.12 + 0.88 * along * along, saturate(v - 0.6));
+        fade *= mix(1.0, 0.12 + 0.88 * along * along, saturate(v - 0.6)) * (1.0 - 0.9 * smoothstep(0.55, 1.0, along));
         // colour temperature varies; tails blue-shift in a burst
         vec3 coolT = sfPal(P, 0.5 + 0.3 * h1);
         coolT = mix(coolT * coolT * 2.2, vec3(0.45, 0.65, 1.4), 0.35);
@@ -355,13 +362,19 @@ vec3 sfStars(vec2 s, float band, VisualUniforms u) {
         vec2 dlt = (fract(g) - 0.2 - 0.6 * h) / sc;
         float rs = saturate(u.resolution.y / 1000.0);
         float on = l == 0 ? step(0.8, h.y) : step(0.985 - 0.42 * band * (0.45 + 0.55 * rs), h.y);
-        float sz = px * (l == 0 ? 1.2 : 0.75);
+        // a star is never smaller than a pixel: the sky turns with the view and
+        // a sub-pixel star would blink as it crosses the pixel grid, so a small
+        // star spreads to a pixel's width at the same total light
+        float sz0 = px * (l == 0 ? 1.2 : 0.75);
+        float sz = max(sz0, px * 2.0);
         float tw = 0.75 + 0.25 * sin(tm * (1.5 + 3.0 * h.x) + h.y * 40.0);
-        float b = exp(-dot(dlt, dlt) / (sz * sz));
-        vec3 tint = mix(vec3(0.75, 0.88, 1.3), vec3(1.3, 0.95, 0.7), h.x);
+        float b = exp(-dot(dlt, dlt) / (sz * sz)) * (sz0 * sz0) / (sz * sz);
+        // the treble swings each star between its warm and cool tint instead of
+        // brightening the whole field at once, which would flash the frame
+        vec3 tint = mix(vec3(0.75, 0.88, 1.3), vec3(1.3, 0.95, 0.7), mix(h.x, 1.0 - h.x, 0.7 * u.treble));
         // the faint field dims at low render scales, where each star covers more
         // of the frame, so level 0 is not a snowstorm
-        float mag = l == 0 ? 0.6 + 3.0 * pow(fract(h.x * 7.31), 3.0) : (0.35 + 0.4 * h.x) * (0.5 + 0.5 * rs);
+        float mag = l == 0 ? 0.6 + 1.2 * pow(fract(h.x * 7.31), 3.0) : (0.35 + 0.4 * h.x) * (0.5 + 0.5 * rs);
         vec3 sc0 = tint * b * mag;
         if (l == 0) {
             // spikes on the brightest
@@ -369,7 +382,7 @@ vec3 sfStars(vec2 s, float band, VisualUniforms u) {
             float spk = exp(-ad.x * 0.9) * exp(-ad.y * 0.05) + exp(-ad.y * 0.9) * exp(-ad.x * 0.05);
             sc0 += tint * spk * 0.025 * mag * mag * step(0.88, fract(h.x * 7.31));
         }
-        col += sc0 * on * tw * (1.0 + 0.6 * u.treble);
+        col += sc0 * on * tw;
     }
     return col;
 }
@@ -429,7 +442,8 @@ vec4 sfPlanetAt(float k, out vec4 look) {
 }
 
 // Shade planet k over col (sky behind it). Returns the planet hit distance.
-float sfPlanet(float k, vec3 ro, vec3 rd, vec3 sunDir, SfPal P, VisualUniforms u, inout vec3 col) {
+// pxa is the angle a pixel spans, for filtering the rings over its footprint.
+float sfPlanet(float k, vec3 ro, vec3 rd, vec3 sunDir, float pxa, SfPal P, VisualUniforms u, inout vec3 col) {
     vec4 look;
     vec4 pl = sfPlanetAt(k, look);
     vec3 pc = vec3(pl.xy, pl.z);
@@ -489,12 +503,18 @@ float sfPlanet(float k, vec3 ro, vec3 rd, vec3 sunDir, SfPal P, VisualUniforms u
         if (tr > 0.0 && tr < tPlanet) {
             vec3 rp = ro + rd * tr;
             float rr = length(rp - pc) / pr;
-            float ring = smoothstep(1.3, 1.36, rr) * (1.0 - smoothstep(2.2, 2.3, rr));
-            // fine ringlets, a dark division and a bright inner band; the
-            // ringlets fade out with distance so they never alias
-            float aa = saturate(tr * 0.0006);
-            float grooves = mix(vnoise(vec2(rr * 70.0, 0.5)) * 0.6 + vnoise(vec2(rr * 210.0, 3.5)) * 0.4, 0.5, aa);
-            ring *= smoothstep(0.15, 0.75, grooves) * (1.0 - 0.9 * smoothstep(1.72, 1.735, rr) * (1.0 - smoothstep(1.79, 1.805, rr)));
+            // the ring radius one pixel spans on the ring plane, wider where the
+            // plane is seen edge-on; every ring feature is filtered over it so the
+            // rings stay steady as the planet sweeps past instead of shimmering
+            float fw = tr * pxa / max(abs(dn), 0.04) / pr;
+            float ring = smoothstep(1.3 - fw, 1.36 + fw, rr) * (1.0 - smoothstep(2.2 - fw, 2.3 + fw, rr));
+            // fine ringlets, a dark division and a bright inner band; each set of
+            // ringlets blends to its mean once a pixel covers a few of them
+            float g1 = mix(vnoise(vec2(rr * 70.0, 0.5)), 0.5, smoothstep(0.004, 0.012, fw));
+            float g2 = mix(vnoise(vec2(rr * 210.0, 3.5)), 0.5, smoothstep(0.0013, 0.004, fw));
+            float grooves = g1 * 0.6 + g2 * 0.4;
+            float gap = smoothstep(1.72 - fw, 1.735 + fw, rr) * (1.0 - smoothstep(1.79 - fw, 1.805 + fw, rr));
+            ring *= mix(smoothstep(0.15, 0.75, grooves), 0.55, smoothstep(0.004, 0.012, fw)) * (1.0 - 0.9 * gap);
             ring *= 1.0 + 0.8 * smoothstep(1.45, 1.55, rr) * (1.0 - smoothstep(1.65, 1.72, rr));
             vec3 rel = rp - pc;
             float sb = dot(rel, sunDir);
@@ -864,8 +884,9 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
 
         // the procession of worlds: the next one ahead, then the one after it
         float k0 = floor((z - 1600.0) / SF_PSPACE) + 1.0;
-        sfPlanet(k0 + 1.0, ro, rd, sunDir, P, u, col);
-        sfPlanet(k0, ro, rd, sunDir, P, u, col);
+        float pxa = 2.0 / (max(u.resolution.y, 1.0) * fov);
+        sfPlanet(k0 + 1.0, ro, rd, sunDir, pxa, P, u, col);
+        sfPlanet(k0, ro, rd, sunDir, pxa, P, u, col);
     }
     if (hit > 0.5) {
         vec3 pos = ro + rd * t;
