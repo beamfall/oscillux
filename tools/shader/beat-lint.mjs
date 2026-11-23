@@ -275,7 +275,10 @@ async function main() {
     }
   };
   const jobs = Math.max(1, Math.min(parseInt(opts.jobs, 10) || 1, visuals.length));
-  await Promise.all(Array.from({ length: jobs }, job));
+  // every job closes its own browser before the first failure is reported
+  const settled = await Promise.allSettled(Array.from({ length: jobs }, job));
+  const failed = settled.find(r => r.status === 'rejected');
+  if (failed) throw failed.reason;
 
   writeFileSync(join(OUT, 'report.json'), JSON.stringify({ bpm: BPM, beats: BEATS, width: W, height: H, results }, null, 2));
   let fail = 0;

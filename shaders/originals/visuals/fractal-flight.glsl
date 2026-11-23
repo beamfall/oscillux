@@ -259,7 +259,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // the whole frame answers the kick without any pixel stepping far enough
     // in light to need the frame limiter
     float swell = 1.0 + FF_HAZE_BEAT * (1.0 - bp) * (1.0 - bp) * (0.7 + 0.6 * saturate(bassL));
-    vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18) * phase * swell;
+    vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18 * swell) * phase;
     vec3 fogCol = hazeC * 0.03 + cB * 0.002 * phase;
 
     vec3 col = fogCol;

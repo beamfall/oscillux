@@ -238,7 +238,7 @@ vec3 nrTraffic(vec3 ro, vec3 rd, float tMax, float stretch, float tw, float mv, 
         // the distance a craft closes on the camera in one frame: oncoming craft
         // pass a light's width every frame, so each light is blurred along its
         // run over the frame, keeping its energy, or it would strobe
-        float blur = abs(vel * clamp(u.dt, 1.0 / 60.0, 0.1) - mv);
+        float blur = abs(vel * (u.dt > 0.0 ? min(u.dt, 0.1) : 1.0 / 60.0) - mv);
         float k = floor((P.z - shift) / spacing + 0.5);
         for (int j = -1; j <= 1; j++) {
             float kk = k + float(j);
@@ -324,8 +324,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float pixAng = 2.0 * shortSideFit(u.resolution.x / max(u.resolution.y, 1.0)) / max(u.resolution.y, 1.0) / fov;
     // the distance flown in this frame (osFlight's velocity, taking the beat at
     // 150 BPM, so slower songs are slightly over-filtered and none under-filtered
-    // up to that tempo); a frame is the host's dt, at least 1/60 s
-    float frameDt = clamp(u.dt, 1.0 / 60.0, 0.1);
+    // up to that tempo); a frame is the host's dt, or 1/60 s without a clock
+    float frameDt = u.dt > 0.0 ? min(u.dt, 0.1) : 1.0 / 60.0;
     float mv = (speed * 0.2 + fl.y * 2.5 * (speed * 0.4 + surge)) * frameDt;
 
     float tw = mod(u.time, 600.0);
