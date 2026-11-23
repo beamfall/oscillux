@@ -1243,4 +1243,78 @@ mod tests {
             }
         }
     }
+
+    /// A stream of random XOR tiles, with a palette load, memory presets, border presets and
+    /// scrolls mixed in, so rebuilds see changed spans, layer sets and backgrounds.
+    fn busy_stream(packs: usize) -> Vec<u8> {
+        let mut seed = 0x1234_5678_u64;
+        let mut next = move |bound: u32| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((seed >> 32) as u32) % bound
+        };
+        let mut out = Vec::new();
+        for i in 0..packs {
+            let mut p = [0u8; 24];
+            p[0] = 9;
+            let mut data = [0u8; 16];
+            for d in &mut data {
+                *d = next(64) as u8;
+            }
+            p[1] = match (i, next(100)) {
+                (0, _) => 1,
+                (1, _) => 30,
+                (2, _) => 31,
+                (_, 0) => 1,
+                (_, 1) => 2,
+                (_, 2) => 24,
+                (_, 3) => 20,
+                (_, 4) => 30,
+                (_, 5..=40) => 6,
+                _ => 38,
+            };
+            if matches!(p[1], 6 | 38) {
+                data[0] &= 15;
+                data[1] &= 15;
+                data[2] = next(18) as u8;
+                data[3] = next(50) as u8;
+            }
+            p[4..20].copy_from_slice(&data);
+            out.extend_from_slice(&p);
+        }
+        out
+    }
+
+    #[test]
+    fn partial_rebuilds_match_full_rebuilds() {
+        let stream = busy_stream(3_000);
+        let mut decoder = Decoder::new(&stream);
+        let mut kept = Presenter::new(213, 120).unwrap();
+        // Forward in uneven steps, one backward seek, then single packs.
+        let mut targets: Vec<u64> = (0..60).map(|i| i * i / 2 + i).collect();
+        targets.extend([400, 900, 901, 902, 903, 910, 2_999]);
+        for (step, &applied) in targets.iter().enumerate() {
+            decoder.advance_to(applied);
+            kept.present(&decoder, step as i64 * 33);
+            // Protection only grows under one background and palette; start from the same set.
+            let mut fresh = Presenter::new(213, 120).unwrap();
+            fresh.protected = kept.protected;
+            fresh.present(&decoder, step as i64 * 33);
+            assert!(
+                kept.protected == fresh.protected,
+                "protected at pack {applied}"
+            );
+            assert!(kept.levels == fresh.levels, "levels at pack {applied}");
+            assert!(
+                kept.layer_ink == fresh.layer_ink,
+                "layer ink at pack {applied}"
+            );
+            assert!(kept.overlay == fresh.overlay, "overlay at pack {applied}");
+            assert!(
+                kept.overlay_ink == fresh.overlay_ink,
+                "overlay ink at pack {applied}"
+            );
+        }
+    }
 }
