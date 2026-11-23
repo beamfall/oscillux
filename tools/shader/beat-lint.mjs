@@ -242,27 +242,37 @@ async function main() {
   let next = 0;
   const open = async () => {
     const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--mute-audio'] });
-    const page = await browser.newPage();
-    page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
-    await page.evaluate(setUp, { W, H });
-    return { browser, page };
+    try {
+      const page = await browser.newPage();
+      page.on('console', m => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
+      await page.evaluate(setUp, { W, H });
+      return { browser, page };
+    } catch (e) {
+      await browser.close();
+      throw e;
+    }
   };
   const job = async () => {
     let b = await open();
-    while (next < visuals.length) {
-      const i = next++, v = visuals[i];
-      const t0 = Date.now();
-      let got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
-      // Headless Chromium on the Mac sometimes loses the WebGL context before a compile
-      // (CORE-2623): that says nothing about the shader, so retry it in a fresh browser.
-      for (let retry = 0; got.error === CONTEXT_LOST && retry < CONTEXT_RETRIES; retry++) {
-        await b.browser.close();
-        b = await open();
-        got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
+    try {
+      while (next < visuals.length) {
+        const i = next++, v = visuals[i];
+        const t0 = Date.now();
+        let got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
+        // Headless Chromium on the Mac sometimes loses the WebGL context (CORE-2623): that
+        // says nothing about the shader, so retry it in a fresh browser.
+        for (let retry = 0; got.error === CONTEXT_LOST && retry < CONTEXT_RETRIES; retry++) {
+          const old = b;
+          b = null;
+          await old.browser.close();
+          b = await open();
+          got = await b.page.evaluate(renderOne, { v, audio, W, H, FPS });
+        }
+        results[i] = measure(v, got, Date.now() - t0);
       }
-      results[i] = measure(v, got, Date.now() - t0);
+    } finally {
+      if (b) await b.browser.close();
     }
-    await b.browser.close();
   };
   const jobs = Math.max(1, Math.min(parseInt(opts.jobs, 10) || 1, visuals.length));
   await Promise.all(Array.from({ length: jobs }, job));
@@ -331,7 +341,9 @@ precision highp float; uniform sampler2D uT; in vec2 vUV; out vec4 o;
 vec3 tm2(vec3 x){x=(x*(2.51*x+.03))/(x*(2.43*x+.59)+.14);return pow(clamp(x,0.,1.),vec3(1./2.2));}
 void main(){ o=vec4(tm2(texture(uT,vUV).rgb),1.); }`));
   } catch (e) {
-    if (gl.isContextLost()) return { error: 'webgl context lost' };
+    // a failed compile with no info log at all is a context being lost before the loss is
+    // reported (CORE-2623), not a shader error
+    if (gl.isContextLost() || e.message === 'null' || e.message === '') return { error: 'webgl context lost' };
     return { error: String(e.message || e).slice(0, 600) };
   }
   const target = () => {
@@ -409,5 +421,7 @@ void main(){ o=vec4(tm2(texture(uT,vUV).rgb),1.); }`));
   }
   gl.deleteProgram(prog); gl.deleteProgram(blit);
   for (const t of [a, b]) { gl.deleteTexture(t.t); gl.deleteFramebuffer(t.f); }
+  // a context lost mid-render leaves stale pixels in the readback: discard the whole attempt
+  if (gl.isContextLost()) return { error: 'webgl context lost' };
   return { luma, rel, motion };
 }
