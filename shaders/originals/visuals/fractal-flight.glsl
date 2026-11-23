@@ -13,7 +13,7 @@
 // light at a steady brightness, never the camera: a colour wave runs down the
 // lace on each beat, spectrum bands light the orbit-trap veins and each beat
 // swings the vault toward the complementary colour, a fresh handful of panes
-// all the way. Every pane
+// all the way, while the dim haze swells a little. Every pane
 // passes the same luminance, so the flight changes the frame's colour rather
 // than flashing its brightness, which the frame limiter would hold as ghosting.
 // param0 = Flight Speed ; param1 = Banking ; param2 = Glow
@@ -147,6 +147,9 @@ vec3 ffCookie(vec2 c, float tm, float soft, float oct, float hue, float flare, f
     return mix(tint, flareC, flare * pick) * open;
 }
 
+// how far the sunlit haze swells on each beat
+const float FF_HAZE_BEAT = 0.08;
+
 vec3 osBody(vec2 uv, VisualUniforms u) {
     vec2 p = centered(uv, u.resolution);
     p.y = -p.y;
@@ -252,7 +255,11 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     // across the frame; a steady sunlit haze in the turning palette colour
     // carries the brightness instead
     vec3 hazeT = ffLit(ffCyc(hue + 0.3, cA, cB, cC, cD), paneL, sunC);
-    vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18) * phase;
+    // each beat the haze swells and settles over the beat: the air is dim, so
+    // the whole frame answers the kick without any pixel stepping far enough
+    // in light to need the frame limiter
+    float swell = 1.0 + FF_HAZE_BEAT * (1.0 - bp) * (1.0 - bp) * (0.7 + 0.6 * saturate(bassL));
+    vec3 inscatter = sunC * (shafts * 0.15 + hazeT * 0.18) * phase * swell;
     vec3 fogCol = hazeC * 0.03 + cB * 0.002 * phase;
 
     vec3 col = fogCol;
