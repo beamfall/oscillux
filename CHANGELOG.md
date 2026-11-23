@@ -29,8 +29,9 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
   host grade can still trip it a few times a second.
 - CD+G lyrics draw lighter, at regular weight (CORE-3260, openspec/changes/cdg-light-fast/).
   Layer masks blur with [1, 4, 1] / 6 per axis and the edge threshold rises from 112 to 171, so
-  each edge sits just inside the unblurred edge while a lone window pixel still draws at twice
-  the window and above. A colour draws only where it lies inside the blur support of a pixel's
+  each edge sits just inside the unblurred edge while a lone window pixel whose eight neighbours
+  share one index still draws at twice the window and above, outside the one-tile edge feather.
+  A colour draws only where it lies inside the blur support of a pixel's
   weighted taps, so lower colours no longer fringe the edges of higher ones, and the shadow's
   alpha drops from 166 to 110. The `conformance/cdg-present/` vectors are regenerated, with a
   frame at exactly twice the window added per stream.
