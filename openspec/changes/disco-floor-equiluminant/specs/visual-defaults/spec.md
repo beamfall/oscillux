@@ -7,7 +7,8 @@
 
 Disco Floor (`shaders/originals/visuals/disco-floor.glsl`) SHALL answer the beat on large areas
 (the LED floor, the dancers, the beams) by changing colour at a near-constant luminance, and
-SHALL keep its brightness flashes to small areas: rims, far tiles, glints and spots.
+SHALL keep the spots and sequins that sweep across it under the 0.1 relative luminance step
+that counts as a flash.
 
 #### Scenario: Still answers the beat
 

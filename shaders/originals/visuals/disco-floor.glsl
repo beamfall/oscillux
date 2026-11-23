@@ -2,17 +2,27 @@
 // Disco Floor.
 // Saturday night under the mirror ball: a lit LED dance floor runs back to a
 // crowd at the far wall, and eight dancers work it: six women, curvy in
-// sequinned minis and catsuits, and two men, seen as dark silhouettes edged
-// with a thin rim of the rig's two colours. Every dancer pops a hip out on
-// each beat and dips into it, the knees giving and the shoulders answering
-// the hips, and every eight beats each one changes moves (hands up, a hand
-// through the hair or his point, arms low and loose, hands on the hips) and
-// may turn to profile. Hair swings behind the sway and whips round on the bar. The floor changes
-// its pattern every eight beats too (a checker that flips on the beat, a
-// ripple from the middle, a scatter, a diagonal chase) and flashes on the
-// kick; the ball throws its spots across the wall, the floor and the dancers,
-// and four moving heads sweep coloured beams through the haze, changing
-// colour on the bar. The camera holds still; only the room moves.
+// sequinned minis and catsuits, and two men, each a solid figure in the
+// complement of the floor's colours, edged in neon. Every dancer sways a hip
+// out on each beat and dips into it, the knees giving and the shoulders
+// answering the hips, and every eight beats each one changes moves (hands up,
+// a hand through the hair or his point, arms low and loose, hands on the hips)
+// and may turn to profile. Hair swings behind the sway. The floor changes its
+// pattern every eight beats too (a checker that flips on the beat, a ripple
+// from the middle, a scatter, a diagonal chase). The ball throws its spots
+// across the wall, the floor and the dancers, and four moving heads sweep
+// coloured beams through the haze. The camera holds still; only the room moves.
+//
+// The kick moves colour, never light. A lit area that pumps on the beat, or an
+// edge that snaps across the dark wall, is a large-area flash the limiter has
+// to hold (ADR-0232), and a held frame shows as ghosts. So the tiles swap
+// colour at nearly one luminance, crossfading over most of the beat and gliding
+// from one pattern to the next over the bar; the kick tints the floor, beams,
+// haze and crowd toward the rig's hot colour at a fixed luminance; the beams
+// and halos shine steadily; the spots and sequins are coloured and add less
+// than a flash step to whatever they cross; strong reds ease toward grey so the
+// palette tour never spends the limiter's red budget; and the dancers move at a
+// bounded speed, with no snap through the middle of a sway.
 // param0 = Glow ; param1 = Sway ; param2 = Sparkle
 
 const float DF_H = -0.12;      // horizon
@@ -119,17 +129,19 @@ DfPose dfPose(float seed, VisualUniforms u) {
     float w = smoothstep(0.0, 1.0, t - block * 8.0);
     P.turn = mix(step(0.62, hash11((block - 1.0) * 3.17 + seed * 7.9)), step(0.62, hash11(block * 3.17 + seed * 7.9)), w);
 
-    // the hip pops to a side on every beat and the knees dip into it; the chest answers late
-    float c = cos(3.14159265 * (t + mirror));
-    P.sway = sign(c) * pow(abs(c), 0.6);
+    // the hip sways to a side on every beat as a plain sine, and the knees dip over the first
+    // part of each beat and rest; the chest answers late. Nothing snaps: a fast edge would jerk
+    // the figure and sweep it across the dark wall in a frame, which the limiter must hold
+    P.sway = cos(3.14159265 * (t + mirror));
     float cl = cos(3.14159265 * (t + mirror - 0.18));
     float hx = 0.07 * amt * P.sway * (1.0 - 0.5 * P.turn);
-    P.dy = 0.035 * amt * (0.5 + 0.5 * cos(6.2831853 * t)) + 0.015 * u.beat * amt;
+    float dip = sin(3.14159265 * min(fract(t) / 0.4, 1.0));
+    P.dy = 0.04 * amt * dip * dip;
     P.hip = vec2(hx, 0.93 - P.dy);
-    P.chest = vec2(-0.4 * 0.07 * amt * sign(cl) * pow(abs(cl), 0.6) * (1.0 - 0.5 * P.turn), 1.30 - 0.85 * P.dy);
+    P.chest = vec2(-0.4 * 0.07 * amt * cl * (1.0 - 0.5 * P.turn), 1.30 - 0.85 * P.dy);
     P.head = P.chest + vec2(-0.25 * hx + 0.02 * P.facing * P.turn, 0.29 + 0.02 * P.male);
     P.headR = mix(vec2(0.07, 0.097), vec2(0.082, 0.103), P.male);
-    P.lag = 0.09 * amt * cos(3.14159265 * (t + mirror - 0.35)) + 0.04 * u.downbeat * (mirror * 2.0 - 1.0);
+    P.lag = 0.1 * amt * cos(3.14159265 * (t + mirror - 0.35));
 
     // the outline: an hourglass from the front, bust and seat in profile; his is a V
     vec3 fLo = mix(vec3(0.165, 0.19, 0.122), vec3(0.15, 0.155, 0.145), P.male);
@@ -201,6 +213,19 @@ float dfLimb(vec2 p, vec2 a, vec2 b, vec4 rOut, vec4 rIn, vec2 outer) {
     vec4 r = (dot(q, n) * dot(n, outer) >= 0.0) ? rOut : rIn;
     float g = saturate(1.0 - (h - r.w) * (h - r.w) * 8.0);
     return length(q) - (mix(r.x, r.y, h) + r.z * g * g);
+}
+
+// Where p sits on the dress: across from the line the dress hangs on (the torso's centre above
+// the hips, the hem's swinging centre below) and up from the feet, both moving with the pose, so
+// the sequins ride on the fabric instead of sliding under it as she sways and dips.
+vec2 dfDressFrame(vec2 p, DfPose P) {
+    float yy = p.y + P.dy;
+    float xc = mix(P.hip.x, P.chest.x, smoothstep(0.9, 1.34, yy));
+    float hem = 0.66 - 0.5 * P.dy;
+    float k = saturate((P.hip.y - yy) / (P.hip.y - hem));
+    vec2 km = 0.5 * (P.knee0 + P.knee1);
+    float cx = mix(P.hip.x, km.x, k * (P.hip.y - hem) / max(P.hip.y - km.y, 0.1)) - 0.12 * P.lag * k;
+    return vec2(p.x - mix(xc, cx, step(yy, P.hip.y)), yy);
 }
 
 // The figure's signed distance at p (local units, feet at y = 0); dressMask is 1 inside the dress.
@@ -295,35 +320,63 @@ float dfBody(vec2 p, DfPose P, out float dressMask) {
 
 struct DfPalette { vec3 warm; vec3 hot; vec3 cool; };
 
-vec3 dfLed(vec2 tile, float pattern, float t, VisualUniforms u, DfPalette P) {
+// The colour c at relative luminance y: its hue kept, scaled to y, or at full
+// strength with white mixed in where full strength is darker than y. A layer
+// that covers much of the frame moves its colour at a fixed luminance, so it
+// stays vivid without flashing.
+vec3 dfAtLuma(vec3 c, float y) {
+    vec3 c1 = c / max(max(c.r, c.g), max(c.b, 1e-4));
+    float l1 = luma(c1);
+    if (l1 >= y) return c1 * (y / max(l1, 1e-4));
+    return mix(c1, vec3(1.0), (y - l1) / (1.0 - l1));
+}
+
+// Lit and unlit tiles differ in colour only: a beat that changed the floor's luminance changed
+// most of the screen at once, which the flash limiter has to hold (the ghosting)
+const float DF_LED_ON = 0.13;   // a lit tile's luminance
+const float DF_LED_OFF = 0.13;  // an unlit tile's: another colour, as bright
+const float DF_BODY_L = 0.1;  // a dancer's figure, between the floor and the wall
+// what a spot or a sequin adds: under the 0.1 luminance step that makes a flash, so the spots
+// sweeping the room and the sequins riding the dresses never count as one
+const float DF_GLINT_L = 0.085;
+
+vec3 dfLed(vec2 tile, float pattern, float t, float kick, VisualUniforms u, DfPalette P) {
+    // a pattern that steps on the beat crossfades over most of the beat
     float on;
+    float xf = smoothstep(0.0, 0.7, fract(t));
     if (pattern < 1.0) {
-        on = mod(tile.x + tile.y + floor(t), 2.0);
+        on = mix(mod(tile.x + tile.y + floor(t) + 1.0, 2.0), mod(tile.x + tile.y + floor(t), 2.0), xf);
     } else if (pattern < 2.0) {
         float r = length(tile - vec2(0.0, 6.0));
         float e0 = r - fract(t) * 6.0, e1 = e0 - 3.0;
         on = exp(-e0 * e0 * 0.8) + 0.25 * exp(-e1 * e1 * 0.8);
     } else if (pattern < 3.0) {
-        on = step(0.62, hash21(tile + floor(t) * 1.7));
+        on = mix(step(0.62, hash21(tile + (floor(t) - 1.0) * 1.7)), step(0.62, hash21(tile + floor(t) * 1.7)), xf);
     } else {
-        on = step(fract((tile.x - tile.y) * 0.125 - t * 0.25), 0.3);
+        float ch = fract((tile.x - tile.y) * 0.125 - t * 0.25);
+        on = smoothstep(0.0, 0.06, ch) * (1.0 - smoothstep(0.3, 0.36, ch));
     }
     float h = hash21(tile * 1.31 + 7.0);
     vec3 c = (h < 0.4) ? P.hot : ((h < 0.75) ? P.warm : P.cool);
-    return c * mix(0.03, 1.0, on);
+    vec3 c2 = (h < 0.4) ? P.cool : ((h < 0.75) ? P.hot : P.warm);
+    // lit and unlit differ in colour; the kick blushes every tile toward the rig's hot colour
+    on = saturate(on);
+    vec3 hue = mix(c2, c, on);
+    hue = mix(hue, P.hot, 0.55 * kick);
+    return dfAtLuma(hue, mix(DF_LED_OFF, DF_LED_ON, on));
 }
 
 // Spots thrown by the mirror ball: cells in angle and log distance around it, turning as it does.
 float dfSpots(vec2 sp, VisualUniforms u) {
     vec2 q = sp - DF_BALL;
     float r = length(q);
-    float a = atan2_(q.y, q.x) / 6.2831853 * 48.0 + u.time * 1.1;
+    float a = atan2_(q.y, q.x) / 6.2831853 * 48.0 + u.time * 0.35;
     float lr = log(max(r, 1e-3)) * 7.0;
     vec2 cell = floor(vec2(a, lr));
     vec2 f = fract(vec2(a, lr)) - 0.5;
     vec2 o = (hash22(cell) - 0.5) * 0.6;
     float on = step(0.6, hash21(cell + 19.0));
-    float s = exp(-dot(f - o, f - o) * 140.0) * on;
+    float s = exp(-dot(f - o, f - o) * 60.0) * on;
     return s * smoothstep(DF_BALL_R * 1.4, DF_BALL_R * 3.0, r);
 }
 
@@ -337,15 +390,14 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     float sparkle = 0.4 + 1.2 * u.param2;
     float detail = osDetail(u);
 
-    // colours change on the bar
-    float bar = floor(u.beatCount / 4.0);
+    // colours move on through each bar, gliding rather than cutting on the downbeat
+    float bar = floor(u.beatCount / 4.0) + smoothstep(0.0, 1.0, fract(u.beatCount / 4.0));
     DfPalette Pal;
     Pal.warm = palVisual(fract(0.12 + bar * 0.17), u);
     Pal.hot = palVisual(fract(0.45 + bar * 0.17), u);
     Pal.cool = palVisual(fract(0.80 + bar * 0.17), u);
 
     vec3 col;
-    float spotGain;
 
     // the floor's tile coordinates and their pixel footprint, taken here while every pixel
     // runs together: fwidth is undefined inside the branch below
@@ -355,9 +407,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
     if (sp.y > DF_H) {
         // the far wall: dark, with coloured haze rising off the floor
         float hgt = sp.y - DF_H;
-        col = mix(Pal.hot * 0.05, Pal.cool * 0.015, saturate(hgt * 0.9)) * (0.8 + 0.4 * u.level);
-        col += Pal.warm * 0.08 * exp(-hgt * 6.0) * (0.6 + kick);
-        spotGain = 0.7;
+        col = mix(Pal.hot * 0.05, Pal.cool * 0.015, saturate(hgt * 0.9));
+        col += dfAtLuma(mix(Pal.warm, Pal.hot, kick), 0.03) * exp(-hgt * 6.0);
     } else {
         // the LED floor in perspective
         float z = floorZ;
@@ -365,7 +416,7 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         vec2 tile = floor(fp);
         vec2 f = fract(fp) - 0.5;
         float pattern = mod(floor(u.beatCount / 8.0), 4.0);
-        vec3 led = dfLed(tile, pattern, t, u, Pal);
+        vec3 led = dfLed(tile, pattern, t, kick, u, Pal);
         vec2 fw = floorW;
         float seamW = max(fw.x, fw.y);
         float edge = max(abs(f.x), abs(f.y));
@@ -373,15 +424,15 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float centre = 1.0 - 0.45 * smoothstep(0.0, 0.5, edge);
         // far tiles fall below a pixel: show their mean instead of aliasing
         float farMix = saturate(seamW * 2.0 - 0.3);
-        vec3 mean = (Pal.hot * 0.4 + Pal.warm * 0.35 + Pal.cool * 0.25) * 0.45;
+        vec3 mean = dfAtLuma(Pal.hot * 0.4 + Pal.warm * 0.35 + Pal.cool * 0.25, 0.07);
         vec3 floorCol = mix(led * glass * centre, mean, farMix);
-        col = floorCol * (0.35 + 1.6 * kick) * glow;
+        // Glow lifts the floor only a little: its light stays near the dancers'
+        col = floorCol * (0.85 + 0.3 * u.param0);
         // a mist where the floor meets the wall
         col = mix(col, Pal.warm * 0.08, exp(-(DF_H - sp.y) * 14.0) * 0.8);
         // the ball, mirrored in the glass
         vec2 mb = vec2(sp.x, 2.0 * DF_H - sp.y) - DF_BALL;
         col += Pal.cool * 0.05 * exp(-length(mb) * 5.0);
-        spotGain = 0.35;
     }
 
     // the moving heads: four beams from the rig, sweeping through the haze
@@ -398,7 +449,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float aw = across / width;
         float beam = exp(-aw * aw) * step(0.0, along) * exp(-along * 0.55);
         vec3 bc = (mod(fi + bar, 3.0) < 1.0) ? Pal.cool : ((mod(fi + bar, 3.0) < 2.0) ? Pal.hot : Pal.warm);
-        col += bc * beam * haze * (0.18 + 0.35 * u.mid + 0.4 * kick) * glow;
+        bc = dfAtLuma(mix(bc, Pal.hot, 0.65 * kick), 0.3);
+        col += bc * beam * haze * 0.42 * glow;
     }
 
     // the crowd along the far wall: heads and shoulders, bouncing on the beat
@@ -413,8 +465,8 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         float dh = length(hq) - 0.022;
         float shoulders = sp.y - (DF_H + 0.012 + 0.012 * (1.0 - fx * fx * 4.0) - bob);
         float dc = min(dh, shoulders);
-        // some hands go up when the music lifts
-        if (hash11(cell * 3.7) < 0.25 + 0.5 * u.level) {
+        // some hands are up
+        if (hash11(cell * 3.7) < 0.3) {
             float hx0 = (cell + 0.5) / 15.0;
             float reach = 0.055 + 0.02 * hh;
             dc = min(dc, dfCapsule(sp, vec2(hx0 - 0.02, top - 0.012), vec2(hx0 - 0.034, top + reach), 0.0045, 0.0035));
@@ -422,12 +474,12 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         }
         float a = aaFill(dc) * step(DF_H - 0.02, sp.y);
         col = mix(col, Pal.hot * 0.01, a);
-        col += Pal.warm * 0.4 * aaLine(dc, 0.0015) * step(DF_H, sp.y) * (0.5 + kick);
+        col += dfAtLuma(mix(Pal.warm, Pal.hot, kick), 0.12) * aaLine(dc, 0.0015) * step(DF_H, sp.y);
     }
 
-    // the ball's spots on the wall and the floor
-    float spots = dfSpots(sp, u) * sparkle * (0.5 + 0.8 * u.treble + 0.5 * u.onset);
-    col += mix(vec3(1.0), Pal.cool, 0.3) * spots * spotGain;
+    // the ball's spots on the wall and the floor: coloured, and less than a flash brighter than
+    // what they cross, since a spot sweeping a pixel lights and darkens it in under a second
+    col += dfAtLuma(mix(vec3(1.0), Pal.cool, 0.5), DF_GLINT_L) * dfSpots(sp, u) * min(sparkle, 1.0);
 
     // the dancers, back to front, each with its reflection in the floor
     for (int i = 0; i < 8; i++) {
@@ -447,35 +499,45 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         // the reflection: the dancer mirrored about the feet, faint in the glass
         if (inRefl) {
             float dr = dfBody(vec2(p.x, -p.y), P, dressMask);
-            col *= 1.0 - 0.55 * saturate(0.5 - dr / px) * exp(p.y * 1.5);
+            col *= 1.0 - 0.3 * saturate(0.5 - dr / px) * exp(p.y * 1.5);
         }
         if (!inFig) continue;
         float d = dfBody(p, P, dressMask);
         // a soft halo of the lights behind them
-        col += mix(Pal.warm, Pal.hot, saturate(p.y * 0.5)) * exp(-max(d, 0.0) * 40.0) * 0.07 * glow * (0.5 + kick);
+        col += mix(Pal.warm, Pal.hot, saturate(p.y * 0.5)) * exp(-max(d, 0.0) * 40.0) * 0.07 * glow * 0.8;
         float fill = saturate(0.5 - d / px);
         if (fill <= 0.0) continue;
         // rim light from the outline's normal: the rig's two colours from either side above,
         // the floor's from below
         float e = 0.006, dm;
         vec2 n = normalize(vec2(dfBody(p + vec2(e, 0.0), P, dm) - d, dfBody(p + vec2(0.0, e), P, dm) - d) + vec2(0.0, 1e-5));
-        // a thin band, a few pixels wide however far away the dancer is; inside, near black
+        // a thin band, a few pixels wide however far away the dancer is
         float rim = pow(saturate(1.0 + d / (2.5 * px)), 2.0);
         float lightL = pow(saturate(dot(n, vec2(-0.85, 0.53))), 1.5);
         float lightR = pow(saturate(dot(n, vec2(0.85, 0.53))), 1.5);
         float bounce = saturate(-n.y);
-        vec3 body = Pal.hot * 0.01
-            + (Pal.hot * lightL + Pal.cool * lightR) * rim * (0.8 + 1.4 * kick) * glow
-            + Pal.warm * bounce * rim * 0.35 * (0.5 + kick);
+        // the figure is a solid colour of its own, lit by the rig from either side, at a
+        // luminance near the floor's: dark on the bright floor, its every move would step the
+        // light over the area it sweeps, a large-area flash
+        // its hue is the complement of the floor's, so it stands apart by colour, not light
+        vec3 fm = Pal.hot * 0.4 + Pal.warm * 0.35 + Pal.cool * 0.25;
+        vec3 comp = max(vec3(max(max(fm.r, fm.g), fm.b)) - fm, vec3(0.02));
+        vec3 skin = dfAtLuma(comp, DF_BODY_L * (1.0 + 0.4 * (lightL + lightR - 0.5)));
+        // the rim is a neon edge in the rig's colours at about the figure's luminance: a bright
+        // edge sweeping with the dance would flash over all the area it crosses
+        float rimA = rim * saturate((lightL + lightR + 0.35 * bounce) * 1.6) * (0.6 + 0.4 * glow);
+        vec3 rimHue = mix(Pal.hot * lightL + Pal.cool * lightR + Pal.warm * bounce * 0.35, Pal.hot, 0.6 * kick);
+        vec3 body = mix(skin, dfAtLuma(rimHue, 0.14), rimA);
         // sequins on the dresses catch the light
         if (dressMask > 0.0) {
-            vec2 sq = floor(p * 140.0);
-            float dot_ = 1.0 - smoothstep(0.25, 0.45, length(fract(p * 140.0) - 0.5));
-            float tw = step(0.9 - 0.06 * u.treble, hash21(sq + floor(u.time * 12.0))) * dot_;
-            body += mix(vec3(1.0), Pal.warm, 0.4) * tw * dressMask * sparkle * 0.9;
+            vec2 dp = dfDressFrame(p, P) * 140.0;
+            vec2 sq = floor(dp);
+            float dot_ = 1.0 - smoothstep(0.25, 0.45, length(fract(dp) - 0.5));
+            float tw = pow(0.5 + 0.5 * sin(u.time * (1.5 + 2.0 * hash21(sq + 5.0)) + 6.2831853 * hash21(sq)), 6.0) * dot_;
+            body += dfAtLuma(mix(vec3(1.0), Pal.warm, 0.5), DF_GLINT_L) * tw * dressMask * min(sparkle, 1.0);
             body += Pal.hot * 0.03 * dressMask;
         }
-        body += mix(vec3(1.0), Pal.cool, 0.3) * dfSpots(sp, u) * sparkle * 0.25;
+        body += dfAtLuma(mix(vec3(1.0), Pal.cool, 0.5), 0.7 * DF_GLINT_L) * dfSpots(sp, u) * min(sparkle, 1.0);
         col = mix(col, body, fill);
     }
     // the mirror ball, hanging from the rig
@@ -488,21 +550,26 @@ vec3 osBody(vec2 uv, VisualUniforms u) {
         if (disc > 0.0) {
             vec2 nq = q / DF_BALL_R;
             vec3 n = vec3(nq, sqrt(max(1.0 - dot(nq, nq), 0.0)));
-            float lon = atan2_(n.x, n.z) + u.time * 0.6;
+            float lon = atan2_(n.x, n.z) + u.time * 0.3;
             float lat = asin(clamp(n.y, -1.0, 1.0));
             vec2 fc = vec2(lon, lat) * (14.0 / 3.14159265);
             vec2 cell = floor(fc);
             vec2 ff = fract(fc) - 0.5;
-            float seam = smoothstep(0.38, 0.5, max(abs(ff.x), abs(ff.y)));
-            float glint = step(0.88 - 0.1 * u.onset, hash21(cell + floor(u.time * 6.0)));
+            float seam = smoothstep(0.3, 0.5, max(abs(ff.x), abs(ff.y)));
+            float glint = pow(0.5 + 0.5 * sin(u.time * (1.0 + 1.0 * hash21(cell + 3.0)) + 6.2831853 * hash21(cell)), 4.0);
             vec3 silver = vec3(0.10, 0.10, 0.12) * (0.4 + 0.6 * n.z) + Pal.cool * 0.05;
-            vec3 ball = silver * (1.0 - 0.8 * seam) + mix(vec3(1.0), Pal.warm, 0.25) * glint * (1.0 - seam) * (1.2 + 2.0 * kick) * sparkle;
+            vec3 ball = silver * (1.0 - 0.8 * seam) + mix(vec3(1.0), mix(Pal.warm, Pal.hot, kick), 0.35) * glint * (1.0 - seam) * 1.4 * sparkle;
             col = mix(col, ball, disc);
         }
-        col += mix(vec3(1.0), Pal.cool, 0.4) * exp(-r * 9.0) * (0.12 + 0.25 * u.treble + 0.3 * kick) * glow;
+        col += mix(vec3(1.0), Pal.cool, 0.4) * exp(-r * 9.0) * 0.25 * glow;
     }
 
     col *= 1.0 - 0.35 * smoothstep(0.9, 2.0, length(sp));
+    // Strong reds ease toward grey at their own luminance. As the palette tours through red the
+    // floor, beams and figures turn a red the vivid present grades into saturated red, and the
+    // limiter's slower red budget then held whole windows of the room (the ghosting).
+    float redShare = col.r / (col.r + col.g + col.b + 1e-4);
+    col = mix(col, vec3(luma(col)), saturate((redShare - 0.7) * 5.0) * 0.5);
     float ign = fract(52.9829189 * fract(dot(uv * u.resolution, vec2(0.06711056, 0.00583715))));
     col += (ign - 0.5) * 0.0015;
     return max(col, 0.0); // LINEAR HDR — post chain tonemaps

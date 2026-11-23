@@ -10,6 +10,19 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- Disco Floor moves colour, not brightness (CORE-3263). Its LED tiles swap hue at a fixed
+  luminance, glide between patterns over the bar and blush hot on the kick instead of flashing.
+  The dancers are solid figures in the complement of the floor's palette at about the floor's
+  luminance, edged in neon at the same luminance, so a fast move no longer sweeps a light step
+  across the frame. The mirror-ball spots and the dress sequins are coloured and stay under the
+  flash step, and the sequins move with the dress. Strong reds ease toward grey, so the palette
+  tour's red no longer spends the limiter's red budget. Beams sit at a fixed luminance, the spots
+  turn slower and the trail is off. On loud audio the frame limiter now sees no large-area
+  transitions instead of 55 a second and holds none of the frame, so the ghosting and stutter
+  are gone.
+
 ## [0.2.19] - 2026-11-22
 
 ### Changed

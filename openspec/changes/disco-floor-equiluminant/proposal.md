@@ -28,10 +28,11 @@ the large areas change colour at a fixed luminance, which the limiter does not c
 
 ## What Changes
 
-- LED tiles keep one luminance on and off. A pattern step swaps a tile's hue, and the kick tints
-  the whole floor hot, without changing its luminance. A few small far tiles spark white on the
-  beat: they are bright but too small to count as a large area.
-- The floor's light no longer scales with the kick. Glow lifts it a little.
+- LED tiles keep one luminance on and off. A pattern step swaps a tile's hue and glides over the
+  bar instead of cutting, and the kick tints the whole floor hot without changing its luminance.
+  The floor has no white sparks.
+- The floor's light no longer scales with the kick. Glow lifts it a little. The wall, halo and
+  crowd hold steady.
 - The dancers are a solid colour at a luminance near the floor's, in the complement of the
   floor's palette, so they stand apart by hue. Their motion no longer steps the light, and the
   floor never shows through them.
@@ -39,6 +40,14 @@ the large areas change colour at a fixed luminance, which the limiter does not c
   turns it hot without brightening it. A bright edge sweeping with the dance would count as a
   flash over all the area it crosses: the bright rims alone made 9 of the 13 transitions left
   after the floor change.
+- The mirror ball's spots and the dress sequins are coloured, and add less than the 0.1 relative
+  luminance step that makes a flash to whatever they cross. A white spot sweeping a pixel lit and
+  darkened it in under a second, so each pass counted as a flash and the limiter held the pixels
+  it crossed. The sequins are placed in the dress's own frame, so they move with it.
+- Strong reds (red share above 0.7) ease halfway toward grey at their own luminance. When the
+  palette tour passed red, the vivid present graded the floor, beams and figures into saturated
+  red, and the limiter's slower red budget held whole windows of the room. CORE-3269 tracks the
+  shared fix in `osOffRed` and the present grade.
 - Beams hold a fixed luminance and answer the kick less. The spots turn more slowly.
 - The manifest sets `trailDecay` 0 for Disco Floor.
 

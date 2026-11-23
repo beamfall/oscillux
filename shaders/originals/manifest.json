@@ -800,7 +800,7 @@
         "hlsl"
       ],
       "imageInput": false,
-      "header": "// Disco Floor: Rim-lit dancers sway their hips out on every beat and change moves every eight on a flashing LED floor, under a mirror ball that throws its spots across the room and moving heads that sweep coloured beams through the haze.",
+      "header": "// Disco Floor: Neon-edged dancers sway their hips out on every beat and change moves every eight on an LED floor that changes colour, under a mirror ball that throws its spots across the room and moving heads that sweep coloured beams through the haze.",
       "palette": [
         8,
         0,
@@ -848,7 +848,7 @@
       "tunables": [
         "palette"
       ],
-      "trailDecay": 0.5
+      "trailDecay": 0
     },
     {
       "id": "velvet-blinds",
