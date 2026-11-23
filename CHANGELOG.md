@@ -10,6 +10,8 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.21] - 2026-11-23
+
 ### Added
 
 - Cover Drift joins the release catalog (CORE-3286, openspec/changes/cover-drift-visual/): a

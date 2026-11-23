@@ -22,28 +22,28 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "oscillux-cdg-render"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "oscillux-core",
 ]
 
 [[package]]
 name = "oscillux-core"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "libm",
 ]
 
 [[package]]
 name = "oscillux-ffi"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "oscillux-core",
 ]
 
 [[package]]
 name = "oscillux-wasm"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "oscillux-core",
  "oscillux-ffi",
