@@ -112,6 +112,7 @@ shader-test:
 	node tools/shader/test-palette-tour.mjs
 	node tools/shader/test-originals-red.mjs
 	node tools/shader/test-preset.mjs
+	node tools/shader/test-safety.mjs
 	node tools/shader/test-karaoke-zip.mjs
 	node tools/shader/test-android-gles.mjs
 
@@ -371,6 +372,13 @@ gate: limiter-hold-check
 .PHONY: visual-flash-check
 visual-flash-check: tools/shader/node_modules
 	node tools/shader/limiter-red-audit.mjs --release --audio loud --max-luma 6 --jobs 4
+
+# Each catalog visual's measured photosensitivity data within the safety block the manifest
+# declares (CORE-3417). Not part of gate, for the same reason; run it after changing a visual,
+# and refresh the blocks with --write-safety in place of --check-safety.
+.PHONY: visual-safety-check
+visual-safety-check: tools/shader/node_modules
+	node tools/shader/limiter-red-audit.mjs --release --audio loud --check-safety --jobs 4
 
 # Reference hosts (hosts/README.md): the same bundled visuals in a browser and a
 # SwiftUI macOS/iOS app. host-bundle needs the shader-verify toolchain; host-mac

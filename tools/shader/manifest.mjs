@@ -62,12 +62,19 @@ import { PARAM_UNIFORMS, TRAIL_DECAY_MAX } from './preset.mjs';
 export { PARAM_UNIFORMS, TRAIL_DECAY_MAX };
 export const TARGETS = ['web', 'vulkan', 'msl', 'hlsl'];
 const VISUAL_KEYS = new Set(['id', 'body', 'targets', 'imageInput', 'header', 'palette', 'params', 'tunables', 'trailDecay', 'post', 'overrides',
-  'name', 'blurb', 'tier', 'input', 'overlay', 'calm', 'imageCapable', 'unreadParamLabels']);
+  'name', 'blurb', 'tier', 'input', 'overlay', 'calm', 'imageCapable', 'unreadParamLabels', 'safety']);
 // Catalog fields: descriptive data a host may show or select by. Oscillux applies no policy to
 // them. CATALOG_KEYS come together or not at all; imageCapable is optional with them, and with
 // them every param uniform has a label: its control's, else one from unreadParamLabels.
 export const CATALOG_KEYS = Object.freeze(['name', 'blurb', 'tier', 'input', 'overlay', 'calm']);
 export const CATALOG_TIERS = Object.freeze(['lite', 'standard', 'flagship']);
+// A catalog visual's measured photosensitivity data (CORE-3417), required with the catalog fields:
+// maxFlashHz, the most flashes a second the visual itself makes (half its large-area luma
+// transitions in any one second, before the limiter); maxLuminanceDelta, the largest change in mean
+// relative luminance of a WCAG field window within the limiter's coverage interval; textSafeZone,
+// the band ('center' or 'upper', else 'none') dark and steady enough for overlaid text. The
+// declared values bound the measured ones (limiter-red-audit.mjs --check-safety).
+export const TEXT_SAFE_ZONES = Object.freeze(['none', 'center', 'upper']);
 /** True when a catalog input names the image, which it must exactly when imageInput is true. */
 export const inputIsImage = input => /\bimage\b/.test(input);
 const CONTROL_KEYS = new Set(['id', 'uniform', 'label', 'labelKey', 'min', 'max', 'default', 'step', 'curve', 'group']);
@@ -330,7 +337,7 @@ function stripComments(text) {
 function catalogFields(v, at, controls) {
   const present = CATALOG_KEYS.filter(k => v[k] !== undefined);
   if (present.length === 0) {
-    for (const k of ['imageCapable', 'unreadParamLabels']) {
+    for (const k of ['imageCapable', 'unreadParamLabels', 'safety']) {
       if (v[k] !== undefined) fail(`${at}.${k}`, `needs the catalog fields ${CATALOG_KEYS.join(', ')}`);
     }
     return null;
@@ -357,7 +364,21 @@ function catalogFields(v, at, controls) {
     return label;
   });
   return Object.freeze({ name: v.name, blurb: v.blurb, tier: v.tier, input: v.input, overlay: v.overlay, calm: v.calm,
-    imageCapable: v.imageCapable ?? false, paramLabels: Object.freeze(paramLabels) });
+    imageCapable: v.imageCapable ?? false, paramLabels: Object.freeze(paramLabels), safety: safetyFields(v.safety, `${at}.safety`) });
+}
+
+function safetyFields(s, at) {
+  if (s === undefined) fail(at, 'is required with the catalog fields');
+  const keys = ['maxFlashHz', 'maxRedFlashHz', 'maxLuminanceDelta', 'textSafeZone'];
+  exactKeys(s, new Set(keys), at, keys);
+  for (const k of ['maxFlashHz', 'maxRedFlashHz']) {
+    if (!(typeof s[k] === 'number' && s[k] >= 0 && s[k] <= 30)) fail(`${at}.${k}`, 'must be a number in [0, 30]');
+  }
+  if (!(typeof s.maxLuminanceDelta === 'number' && s.maxLuminanceDelta >= 0 && s.maxLuminanceDelta <= 1)) {
+    fail(`${at}.maxLuminanceDelta`, 'must be a number in [0, 1]');
+  }
+  if (!TEXT_SAFE_ZONES.includes(s.textSafeZone)) fail(`${at}.textSafeZone`, `must be one of ${TEXT_SAFE_ZONES.join(', ')}`);
+  return Object.freeze({ maxFlashHz: s.maxFlashHz, maxRedFlashHz: s.maxRedFlashHz, maxLuminanceDelta: s.maxLuminanceDelta, textSafeZone: s.textSafeZone });
 }
 
 // catalogOrder: every visual id exactly once. Absent, the manifest's own order.

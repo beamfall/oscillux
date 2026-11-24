@@ -7,6 +7,7 @@
 //   imageCapable, imageInput,
 //   palette      {index, phase}: palette[0] and palette[2]
 //   controls     the visual's param controls, as the manifest gives them
+//   safety       {maxFlashHz, maxRedFlashHz, maxLuminanceDelta, textSafeZone}, measured (manifest.mjs)
 import { PARAM_UNIFORMS } from './preset.mjs';
 
 export const CATALOG_SCHEMA_VERSION = 1;
@@ -27,6 +28,7 @@ export function catalogVisuals(manifest) {
       imageCapable: c.imageCapable, imageInput: v.imageInput,
       palette: { index: v.palette[0], phase: v.palette[2] },
       controls: v.controls,
+      safety: c.safety,
     };
   });
 }

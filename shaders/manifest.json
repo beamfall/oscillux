@@ -75,6 +75,12 @@
         "chroma": 0.0015,
         "vignette": 0.6,
         "grain": 0.016
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -151,6 +157,12 @@
         "chroma": 0.0012,
         "vignette": 0.48,
         "grain": 0.016
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -227,6 +239,12 @@
         "chroma": 0.002,
         "vignette": 0.22,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.03,
+        "textSafeZone": "center"
       }
     },
     {
@@ -302,6 +320,12 @@
         "chroma": 0.0035,
         "vignette": 0.62,
         "grain": 0.022
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "center"
       }
     },
     {
@@ -378,6 +402,12 @@
         "chroma": 0.0018,
         "vignette": 0.58,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "center"
       }
     },
     {
@@ -453,6 +483,12 @@
         "chroma": 0.004,
         "vignette": 0.52,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -528,6 +564,12 @@
         "chroma": 0.002,
         "vignette": 0.56,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "center"
       }
     },
     {
@@ -602,6 +644,12 @@
         "chroma": 0,
         "vignette": 0.35,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -678,6 +726,12 @@
         "chroma": 0.007,
         "vignette": 0.44,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -720,6 +774,12 @@
         "chroma": 0.0035,
         "vignette": 0.48,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 1,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.12,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -793,6 +853,12 @@
         "chroma": 0.002,
         "vignette": 0.7,
         "grain": 0.012
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -869,6 +935,12 @@
         "chroma": 0.0025,
         "vignette": 0.72,
         "grain": 0.014
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.04,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -943,6 +1015,12 @@
         "chroma": 0.0025,
         "vignette": 0.58,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "none"
       }
     },
     {
@@ -1018,6 +1096,12 @@
         "chroma": 0.004,
         "vignette": 0.45,
         "grain": 0.025
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1094,6 +1178,12 @@
         "chroma": 0.0012,
         "vignette": 0.25,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "center"
       }
     },
     {
@@ -1169,6 +1259,12 @@
         "chroma": 0.003,
         "vignette": 0.5,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1244,6 +1340,12 @@
         "chroma": 0.003,
         "vignette": 0.48,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1317,6 +1419,12 @@
         "chroma": 0.0015,
         "vignette": 0.3,
         "grain": 0.04
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1393,6 +1501,12 @@
         "chroma": 0.0015,
         "vignette": 0.28,
         "grain": 0.04
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1469,6 +1583,12 @@
         "chroma": 0.005,
         "vignette": 0.46,
         "grain": 0.028
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1545,6 +1665,12 @@
         "chroma": 0.004,
         "vignette": 0.45,
         "grain": 0.025
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1621,6 +1747,12 @@
         "chroma": 0.0025,
         "vignette": 0.5,
         "grain": 0.022
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "center"
       }
     },
     {
@@ -1696,6 +1828,12 @@
         "chroma": 0,
         "vignette": 0.3,
         "grain": 0.04
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1772,6 +1910,12 @@
         "chroma": 0.002,
         "vignette": 0.4,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1846,6 +1990,12 @@
         "chroma": 0.001,
         "vignette": 0.3,
         "grain": 0.05
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1921,6 +2071,12 @@
         "chroma": 0.002,
         "vignette": 0.38,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.03,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -1997,6 +2153,12 @@
         "chroma": 0.006,
         "vignette": 0.55,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2071,6 +2233,12 @@
         "chroma": 0.0015,
         "vignette": 0.32,
         "grain": 0.05
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2146,6 +2314,12 @@
         "chroma": 0.002,
         "vignette": 0.2,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2222,6 +2396,12 @@
         "chroma": 0.004,
         "vignette": 0.48,
         "grain": 0.038
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2298,6 +2478,12 @@
         "chroma": 0.0015,
         "vignette": 0.25,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2374,6 +2560,12 @@
         "chroma": 0.004,
         "vignette": 0.42,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2450,6 +2642,12 @@
         "chroma": 0.002,
         "vignette": 0.46,
         "grain": 0.016
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2523,6 +2721,12 @@
         "chroma": 0.0025,
         "vignette": 0.35,
         "grain": 0.05
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2599,6 +2803,12 @@
         "chroma": 0.004,
         "vignette": 0.5,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2674,6 +2884,12 @@
         "chroma": 0.0025,
         "vignette": 0.52,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2749,6 +2965,12 @@
         "chroma": 0.003,
         "vignette": 0.54,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2825,6 +3047,12 @@
         "chroma": 0.006,
         "vignette": 0.48,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2901,6 +3129,12 @@
         "chroma": 0.003,
         "vignette": 0.52,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -2977,6 +3211,12 @@
         "chroma": 0.004,
         "vignette": 0.46,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 1,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3053,6 +3293,12 @@
         "chroma": 0.004,
         "vignette": 0.48,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3129,6 +3375,12 @@
         "chroma": 0.003,
         "vignette": 0.58,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.03,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3205,6 +3457,12 @@
         "chroma": 0.0025,
         "vignette": 0.56,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3279,6 +3537,12 @@
         "chroma": 0.0025,
         "vignette": 0.54,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 2,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.03,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3355,6 +3619,12 @@
         "chroma": 0.003,
         "vignette": 0.42,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3431,6 +3701,12 @@
         "chroma": 0.003,
         "vignette": 0.45,
         "grain": 0.02
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3505,6 +3781,12 @@
         "chroma": 0.003,
         "vignette": 0.52,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3581,6 +3863,12 @@
         "chroma": 0.004,
         "vignette": 0.54,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3657,6 +3945,12 @@
         "chroma": 0.002,
         "vignette": 0.48,
         "grain": 0.016
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3733,6 +4027,12 @@
         "chroma": 0.003,
         "vignette": 0.32,
         "grain": 0.018
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "center"
       }
     },
     {
@@ -3807,6 +4107,12 @@
         "chroma": 0.0005,
         "vignette": 0.3,
         "grain": 0.06
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3848,6 +4154,12 @@
         "chroma": 0.003,
         "vignette": 0.52,
         "grain": 0.026
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3923,6 +4235,12 @@
         "chroma": 0.0025,
         "vignette": 0.52,
         "grain": 0.022
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -3999,6 +4317,12 @@
         "chroma": 0.006,
         "vignette": 0.54,
         "grain": 0.035
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4073,6 +4397,12 @@
         "chroma": 0.001,
         "vignette": 0.3,
         "grain": 0.05
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4148,6 +4478,12 @@
         "chroma": 0.0025,
         "vignette": 0.62,
         "grain": 0.024
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4224,6 +4560,12 @@
         "chroma": 0.007,
         "vignette": 0.56,
         "grain": 0.04
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4298,6 +4640,12 @@
         "chroma": 0.001,
         "vignette": 0.25,
         "grain": 0.05
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4374,6 +4722,12 @@
         "chroma": 0.0015,
         "vignette": 0.55,
         "grain": 0.018
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4449,6 +4803,12 @@
         "chroma": 0.002,
         "vignette": 0.4,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4524,6 +4884,12 @@
         "chroma": 0.0015,
         "vignette": 0.28,
         "grain": 0.04
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.02,
+        "textSafeZone": "center"
       }
     },
     {
@@ -4600,6 +4966,12 @@
         "chroma": 0.0025,
         "vignette": 0.25,
         "grain": 0.03
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     },
     {
@@ -4675,6 +5047,12 @@
         "chroma": 0.002,
         "vignette": 0.42,
         "grain": 0.018
+      },
+      "safety": {
+        "maxFlashHz": 0,
+        "maxRedFlashHz": 0,
+        "maxLuminanceDelta": 0.01,
+        "textSafeZone": "upper"
       }
     }
   ],

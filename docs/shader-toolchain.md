@@ -126,7 +126,11 @@ together or not at all: `name`, `blurb` and `input` are one-line trimmed strings
 `input` names `image` exactly when `imageInput` is true. With them, `imageCapable` is an optional
 boolean (default false), and every param uniform needs a label: a control carries its own, and
 `unreadParamLabels` (an object keyed by `param0` to `param2`, labels as for controls) gives one
-for each param the body does not read, for hosts that list all three. The optional top-level
+for each param the body does not read, for hosts that list all three. `safety` is required with
+them: `{maxFlashHz, maxRedFlashHz, maxLuminanceDelta, textSafeZone}`, measured from the shipped
+bodies by `limiter-red-audit.mjs --write-safety` and checked by `make visual-safety-check`. The
+flash rates are in [0, 30], the luminance delta in [0, 1], and `textSafeZone` is `none`,
+`center` or `upper`. Spatial patterns are not measured. The optional top-level
 `catalogOrder` lists every visual id once, in the order a catalog shows them; without it the
 order is the manifest's. The reference set carries the fields for all 63 visuals: the 61
 imported ones in the order of the imported catalog (its `catalog.json`, then
@@ -330,8 +334,8 @@ adds timing at 1920x1080 and writes contact sheets to `out/present-v2`.
 visuals}`, the visuals in `catalogOrder`, each with `id`, the catalog fields, `params` (all three
 as `{key, label, def}`, `def` being the default the host packs), `postFX` (`post` plus
 `trailDecay`, keyed `bloomStrength`, `bloomThreshold`, `trailDecay`, `chroma`, `vignette`,
-`grain`), `imageCapable`, `imageInput`, `palette` (`{index, phase}`) and `controls` (the
-manifest's param controls). Every visual needs the catalog fields, or the leg is not written.
+`grain`), `imageCapable`, `imageInput`, `palette` (`{index, phase}`), `controls` (the
+manifest's param controls) and `safety`. Every visual needs the catalog fields, or the leg is not written.
 
 The `android-gles` leg's `AndroidGlesShaders.kt` (`tools/shader/android-gles-contract.mjs`) is
 the Android GLES contract 1.0.0 consumed as `com.beamfall.kit.visuals.AndroidGlesShaders`: the

@@ -367,7 +367,8 @@ test('malformed manifests are rejected with a path to the fault', () => {
     const control = { id: 'glow', uniform: 'param0', label: 'Glow', labelKey: 'visual.a.glow', min: 0, max: 0.8, default: 0.5,
       step: 0.01, curve: 'linear', group: 'color' };
     const post = { bloomStrength: 0.6, bloomThreshold: 0.95, chroma: 0.003, vignette: 0.45, grain: 0.02 };
-    const cat = { name: 'A', blurb: 'A visual.', tier: 'lite', input: 'amplitude', overlay: false, calm: true };
+    const cat = { name: 'A', blurb: 'A visual.', tier: 'lite', input: 'amplitude', overlay: false, calm: true,
+      safety: { maxFlashHz: 1, maxRedFlashHz: 0, maxLuminanceDelta: 0.1, textSafeZone: 'upper' } };
     const unread = { param0: 'One', param1: 'Two', param2: 'Three' };
     const listed = { ...visual, ...cat, unreadParamLabels: unread };
     const one = v => ({ prelude: 'prelude.glsl', visuals: [v] });

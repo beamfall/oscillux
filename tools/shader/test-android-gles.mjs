@@ -217,7 +217,8 @@ test('the catalog lists every visual in catalogOrder with the fields hosts read'
   for (const v of doc.visuals) {
     const source = MANIFEST.byId.get(v.id);
     assert.deepEqual(Object.keys(v), ['id', 'name', 'tier', 'input', 'overlay', 'calm', 'blurb', 'params', 'postFX',
-      'imageCapable', 'imageInput', 'palette', 'controls'], v.id);
+      'imageCapable', 'imageInput', 'palette', 'controls', 'safety'], v.id);
+    assert.deepEqual(v.safety, source.catalog.safety, v.id);
     assert.deepEqual(v.params.map(p => p.def), source.params, v.id);
     for (const c of source.controls) assert.equal(v.params[Number(c.uniform.slice(-1))].label, c.label, v.id);
     assert.deepEqual(Object.keys(v.postFX), POST_FX_KEYS, v.id);
