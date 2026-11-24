@@ -10,6 +10,19 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.22] - 2026-11-24
+
+### Added
+
+- Every catalog visual carries measured photosensitivity data (CORE-3417,
+  openspec/changes/catalog-safety/): a `safety` block in `shaders/manifest.json` and each leg's
+  `catalog.json` with `maxFlashHz`, `maxRedFlashHz`, `maxLuminanceDelta` and `textSafeZone`,
+  measured from the shipped bodies through the present pass under loud audio.
+  `make visual-safety-check` fails a visual whose measures exceed its declared data, whose text
+  band is not dark and steady, or that was not measured. Spatial patterns are not measured yet:
+  hosts must not read the block as a pattern clearance. The `android-gles` contract does not
+  carry the block yet.
+
 ## [0.2.21] - 2026-11-23
 
 ### Added
