@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "producer": "oscillux",
+  "leg": "android-gles",
+  "release": "v0.2.22",
+  "rev": "47480571dae083ee074bf16a1462780dad92c204",
+  "license": "AGPL-3.0-only",
+  "generator": "tools/shader/bundle-legs.mjs android-gles at the pinned rev",
+  "files": [
+    {
+      "path": "AndroidGlesShaders.kt",
+      "sha256": "dc185d775ec02533aaec1a1600a12dadaf0ee14c573e25588a0df1551966f668",
+      "bytes": 8129837
+    }
+  ]
+}
