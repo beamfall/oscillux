@@ -231,7 +231,10 @@ async function main() {
       palette: v.palette, params: v.params, trailDecay: v.trailDecay, overrides: v.overrides,
     }));
   });
-  const visuals = mergeVisualSets(sets).filter(v => !ONLY.length || ONLY.includes(v.id));
+  const merged = mergeVisualSets(sets);
+  const unknown = ONLY.filter(id => !merged.some(v => v.id === id));
+  if (unknown.length) { console.error(`limiter-red-audit: --only names no visual: ${unknown.join(', ')}`); process.exit(64); }
+  const visuals = merged.filter(v => !ONLY.length || ONLY.includes(v.id));
   const audio = Array.from({ length: FRAMES }, (_, fr) => (opts.audio === 'loud' ? loudAudioAt : lintAudioAt)(fr, BPM));
   const results = new Array(visuals.length);
   let next = 0, renderer = '';

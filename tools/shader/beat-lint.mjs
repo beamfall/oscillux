@@ -343,7 +343,7 @@ export function renderOne({ v, audio, W, H, FPS, tonemap = 'lint' }) {
       'gl_Position = vec4(aPos.x, -aPos.y, 0.0, 1.0);'));
     prog = link(vsFbo, compile(gl.FRAGMENT_SHADER, v.fragment));
     blit = link(compile(gl.VERTEX_SHADER, v.vertex), compile(gl.FRAGMENT_SHADER, `#version 300 es
-precision highp float; uniform sampler2D uT; in vec2 vUV; out vec4 o;
+precision highp float; uniform highp sampler2D uT; in vec2 vUV; out vec4 o;
 vec3 tm2(vec3 x){x=(x*(2.51*x+.03))/(x*(2.43*x+.59)+.14);return pow(clamp(x,0.,1.),vec3(1./2.2));}
 vec3 tmP(vec3 x){const vec3 L=vec3(.2126,.7152,.0722);float l=dot(x,L);if(l<=1e-6)return x*(.03/.14);
 float t=clamp((l*(2.51*l+.03))/(l*(2.43*l+.59)+.14),0.,1.);vec3 c=x*(t/l);float m=max(c.r,max(c.g,c.b));
@@ -395,6 +395,26 @@ void main(){ vec3 c=texture(uT,vUV).rgb; o=vec4(${tonemap === 'present' ? 'srgb(
   const locT = gl.getUniformLocation(blit, 'uT');
 
   let a = target(), b = target();
+  // An incomplete float target (no EXT_color_buffer_float) draws nothing: black frames
+  // that would measure as perfectly safe. Refuse the render instead.
+  // A lost context outranks any other cause, so beat-lint retries it; pending errors are
+  // drained so the next visual on this shared context reports only its own.
+  const fail = why => {
+    gl.deleteProgram(prog); gl.deleteProgram(blit);
+    for (const t of [a, b]) { gl.deleteTexture(t.t); gl.deleteFramebuffer(t.f); }
+    const lost = gl.isContextLost();
+    for (let i = 0; i < 16 && gl.getError() !== gl.NO_ERROR; i++);
+    return { error: lost ? 'webgl context lost' : why };
+  };
+  if (gl.isContextLost()) return fail('webgl context lost');
+  for (const t of [a, b]) {
+    if (!t.t || !t.f) return fail('render target not allocated');
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.f);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) return fail(`render target incomplete (0x${status.toString(16)})`);
+  }
+  const setupError = gl.getError();
+  if (setupError !== gl.NO_ERROR) return fail(`webgl setup error 0x${setupError.toString(16)}`);
   const px = new Uint8Array(W * H * 4), prev = new Float32Array(W * H);
   const lin = new Float32Array(256);
   for (let i = 0; i < 256; i++) { const c = i / 255; lin[i] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }
@@ -429,9 +449,11 @@ void main(){ vec3 c=texture(uT,vUV).rgb; o=vec4(${tonemap === 'present' ? 'srgb(
     }
     luma.push(l / (W * H)); rel.push(y / (W * H)); motion.push(fr ? m / (W * H) : 0);
   }
+  // A draw or readback error, or a context lost mid-render, leaves stale or black pixels:
+  // discard the whole attempt.
+  const glError = gl.getError();
+  if (glError !== gl.NO_ERROR || gl.isContextLost()) return fail(`webgl error 0x${glError.toString(16)}`);
   gl.deleteProgram(prog); gl.deleteProgram(blit);
   for (const t of [a, b]) { gl.deleteTexture(t.t); gl.deleteFramebuffer(t.f); }
-  // a context lost mid-render leaves stale pixels in the readback: discard the whole attempt
-  if (gl.isContextLost()) return { error: 'webgl context lost' };
   return { luma, rel, motion };
 }
