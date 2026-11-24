@@ -367,7 +367,7 @@ function catalogFields(v, at, controls) {
     imageCapable: v.imageCapable ?? false, paramLabels: Object.freeze(paramLabels), safety: safetyFields(v.safety, `${at}.safety`) });
 }
 
-function safetyFields(s, at) {
+export function safetyFields(s, at) {
   if (s === undefined) fail(at, 'is required with the catalog fields');
   const keys = ['maxFlashHz', 'maxRedFlashHz', 'maxLuminanceDelta', 'textSafeZone'];
   exactKeys(s, new Set(keys), at, keys);

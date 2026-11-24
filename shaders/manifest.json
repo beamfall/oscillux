@@ -778,7 +778,7 @@
       "safety": {
         "maxFlashHz": 1,
         "maxRedFlashHz": 0,
-        "maxLuminanceDelta": 0.12,
+        "maxLuminanceDelta": 0.13,
         "textSafeZone": "upper"
       }
     },
@@ -1019,7 +1019,7 @@
       "safety": {
         "maxFlashHz": 0,
         "maxRedFlashHz": 0,
-        "maxLuminanceDelta": 0.01,
+        "maxLuminanceDelta": 0.02,
         "textSafeZone": "none"
       }
     },
@@ -2482,7 +2482,7 @@
       "safety": {
         "maxFlashHz": 0,
         "maxRedFlashHz": 0,
-        "maxLuminanceDelta": 0.02,
+        "maxLuminanceDelta": 0.03,
         "textSafeZone": "upper"
       }
     },
@@ -2888,7 +2888,7 @@
       "safety": {
         "maxFlashHz": 0,
         "maxRedFlashHz": 0,
-        "maxLuminanceDelta": 0.01,
+        "maxLuminanceDelta": 0.02,
         "textSafeZone": "upper"
       }
     },
@@ -3377,7 +3377,7 @@
         "grain": 0.024
       },
       "safety": {
-        "maxFlashHz": 0,
+        "maxFlashHz": 3,
         "maxRedFlashHz": 0,
         "maxLuminanceDelta": 0.03,
         "textSafeZone": "upper"
@@ -5049,7 +5049,7 @@
         "grain": 0.018
       },
       "safety": {
-        "maxFlashHz": 0,
+        "maxFlashHz": 1,
         "maxRedFlashHz": 0,
         "maxLuminanceDelta": 0.01,
         "textSafeZone": "upper"

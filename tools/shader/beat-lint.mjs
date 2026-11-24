@@ -319,7 +319,10 @@ export function setUp({ W, H }) {
 // In the page: renders one visual for every frame of `audio` with feedback ping-pong, as
 // render.mjs does, and returns per-frame mean luma, relative luminance and motion energy of the
 // tonemapped image.
-export function renderOne({ v, audio, W, H, FPS }) {
+// tonemap 'present' maps like the shipped present pass at neutral post settings (luminance ACES,
+// hue kept, exact sRGB encode; shaders/present/present.glsl) for measures of what viewers see
+// (CORE-3417); the default per-channel map is the one beat-lint's own budgets were set against.
+export function renderOne({ v, audio, W, H, FPS, tonemap = 'lint' }) {
   const { gl, quad, img } = window.lint;
   const compile = (type, src) => {
     const s = gl.createShader(type);
@@ -342,7 +345,11 @@ export function renderOne({ v, audio, W, H, FPS }) {
     blit = link(compile(gl.VERTEX_SHADER, v.vertex), compile(gl.FRAGMENT_SHADER, `#version 300 es
 precision highp float; uniform sampler2D uT; in vec2 vUV; out vec4 o;
 vec3 tm2(vec3 x){x=(x*(2.51*x+.03))/(x*(2.43*x+.59)+.14);return pow(clamp(x,0.,1.),vec3(1./2.2));}
-void main(){ o=vec4(tm2(texture(uT,vUV).rgb),1.); }`));
+vec3 tmP(vec3 x){const vec3 L=vec3(.2126,.7152,.0722);float l=dot(x,L);if(l<=1e-6)return x*(.03/.14);
+float t=clamp((l*(2.51*l+.03))/(l*(2.43*l+.59)+.14),0.,1.);vec3 c=x*(t/l);float m=max(c.r,max(c.g,c.b));
+if(m>1.)c=vec3(t)+(c-vec3(t))*((1.-t)/(m-t));return clamp(c,0.,1.);}
+vec3 srgb(vec3 s){return mix(1.055*pow(s,vec3(1./2.4))-.055,s*12.92,vec3(lessThanEqual(s,vec3(.0031308))));}
+void main(){ vec3 c=texture(uT,vUV).rgb; o=vec4(${tonemap === 'present' ? 'srgb(tmP(c))' : 'tm2(c)'},1.); }`));
   } catch (e) {
     // a failed compile with no info log at all is a context being lost before the loss is
     // reported (CORE-2623), not a shader error
