@@ -109,11 +109,7 @@ fn main() -> ExitCode {
     } else {
         Vec::new()
     };
-    let mut rgba_cache = if o.pix_fmt == PixFmt::Rgba {
-        vec![0u8; o.width * o.height * 4]
-    } else {
-        Vec::new()
-    };
+    let mut rgba_cache = Vec::new();
     let mut out = io::stdout().lock();
     // Once the last pack is on screen, time runs on for the stage easing, then stops.
     let mut hold: Option<i64> = None;
@@ -148,7 +144,7 @@ fn main() -> ExitCode {
             match o.pix_fmt {
                 PixFmt::Rgba => {
                     if settled {
-                        rgba_cache.copy_from_slice(rgba);
+                        rgba_cache = rgba.to_vec();
                         &rgba_cache
                     } else {
                         rgba
@@ -216,7 +212,7 @@ fn rgba_to_yuv420p(rgba: &[u8], width: usize, height: usize, yuv: &mut [u8]) {
                 + 2)
                 >> 2;
             let idx = out_row + cx;
-            u_plane[idx] = (128 + ((-26 * r - 87 * g + 112 * b + 128) >> 8)).clamp(16, 240) as u8;
+            u_plane[idx] = (128 + ((-26 * r - 86 * g + 112 * b + 128) >> 8)).clamp(16, 240) as u8;
             v_plane[idx] = (128 + ((112 * r - 102 * g - 10 * b + 128) >> 8)).clamp(16, 240) as u8;
         }
     }
@@ -299,7 +295,7 @@ mod tests {
         rgba.fill(255);
         rgba_to_yuv420p(&rgba, w, h, &mut yuv);
         assert!(yuv[..8].iter().all(|&y| y == 235));
-        assert!(yuv[8..].iter().all(|&uv| (127..=129).contains(&uv)));
+        assert!(yuv[8..].iter().all(|&uv| uv == 128));
     }
 
     #[test]
@@ -311,7 +307,9 @@ mod tests {
         let mut p1 = Presenter::new(w, h).unwrap();
         let mut p2 = Presenter::new(w, h).unwrap();
         let f_hold1 = p1.present(&decoder, EASE_MS).to_vec();
+        let f_hold1_again = p1.present(&decoder, EASE_MS).to_vec();
         let f_hold2 = p2.present(&decoder, EASE_MS).to_vec();
+        assert_eq!(f_hold1, f_hold1_again);
         assert_eq!(f_hold1, f_hold2);
 
         let mut y1 = vec![0u8; w * h * 3 / 2];
