@@ -252,14 +252,28 @@ class Model:
             return min(int(n), bpb - 1)
 
         f = self.follower
-        resync = f is None or self.resync or t < f[0] or t - f[0] > 500.0
+        resync = (
+            f is None
+            or self.resync
+            or f[0] - t > 100.0
+            or t - f[0] > 500.0
+            or (self.reanchor and t < f[0])
+        )
         self.resync = False
+        held = not resync and t < f[0]
         reanchor, self.reanchor = self.reanchor, False
         if resync:
             target = r.beats_at(t)
-            beats = target if absolute else (math.floor(f[1]) if f else 0) + frac(target)
+            if absolute or f is None:
+                beats = target if absolute else frac(target)
+            else:
+                reached = f[1] + (t - f[0] if t > f[0] else 0.0) * f[5]
+                phase = frac(target)
+                beats = phase + math.floor(reached - phase + 0.5)
+                if beats < f[1]:
+                    beats += 1.0
             f = [t, beats, bar_index(r.bar_at(t), frac(beats)), False, False, r.per_ms(), 0.0]
-        else:
+        elif not held:
             dt = t - f[0]
             reference = r.beats_at(t)
             if reanchor and absolute:
@@ -473,6 +487,30 @@ def seek_and_reset():
     return s
 
 
+def jitter_and_dropout():
+    """Small backward jitter holds the beat output; >100 ms seeks and dropouts stay monotonic."""
+    s = Scenario("jitter-and-dropout", output_latency_ms=12.5)
+    lag = s.config["analysis_latency_ms"]
+    t = 0.0
+    for k in range(181):
+        m = k * 10.0
+        in_dropout = 500.0 <= m < 900.0
+        values, beat = tracked_hop(m, lag, 120.0, 200.0)
+        if in_dropout:
+            beat = {"tempo_bpm": 0.0, "beat_phase": 0.0, "bar_phase": 0.0,
+                    "confidence": 0.0, "beat_in_bar": 0}
+        assert s.push(m, values, beat=beat) == "ok"
+        jittered = m - (15.0 if k % 2 else 0.0)
+        s.sample(jittered)
+        t = jittered
+    # Two held samples below watermark, exact 100 ms hold boundary, then >100 ms backward resync.
+    s.sample(t - 40.0)
+    s.sample(t - 20.0)
+    s.sample(t - 100.0)
+    s.sample(t - 100.5)
+    return s
+
+
 def tempo_changes():
     s = Scenario("tempo-changes", phase_lock_gain=0.25)
     lag = s.config["analysis_latency_ms"]
@@ -597,6 +635,7 @@ def build():
                 phase_lock_gain=0.0, capacity=4096),
         host_clock(),
         seek_and_reset(),
+        jitter_and_dropout(),
         tempo_changes(),
         early_onsets(),
         refusals(),

@@ -74,10 +74,13 @@ Otherwise the tracker reference with the lock offset added to `beats` and `bar_b
 
 **Beat.** Without a reference: set the resync flag and leave every beat output 0 (`locked` 0). With one, `p = tempo / 60000`, bar length `B`,
 `bar_index(bb, ph) = min(k mod B, B - 1)` with `k = floor(bb - ph + 0.5)` (mod into `[0, B)`).
-The follower resyncs when there is none, the flag is set, `t < last_t` or `t - last_t > 500`; the
-flag is then cleared. Storing a clock sets a re-anchor flag, which every sample clears. Resync: `beats = beats_at(t)` in absolute mode, else
-`floor(previous follower beats, or 0) + frac(beats_at(t))`; `in_bar = bar_index(bar_at(t),
-frac(beats))`; `rate = p`, `corr = 0`; not pulsed. Otherwise with `dt = t - last_t`:
+Storing a clock sets a re-anchor flag, which every sample clears. The follower resyncs when there is
+none, the resync flag is set, `last_t - t > 100`, `t - last_t > 500`, or the re-anchor flag is
+set with `t < last_t`; the resync flag is then cleared. When not resyncing and `t < last_t` (a
+backward step of at most `100` ms), the follower state stays held. Resync: `beats = beats_at(t)`
+in absolute mode; in tracker mode, `phase = frac(beats_at(t))`, `beats = phase` when there was no
+previous follower, or `phase + floor(reached - phase + 0.5)` with `reached = prev_beats + max(t - prev_last_t, 0) * prev_rate`
+(plus `1` if `beats < prev_beats`); `in_bar = bar_index(bar_at(t), frac(beats))`; `rate = p`, `corr = 0`; not pulsed. Otherwise with `dt = t - last_t`:
 `R = beats_at(t)`; in absolute mode with the re-anchor flag set, `rate = p` and
 `beats += floor(R - (beats + dt * rate) + 0.5)`; `rate += (p - rate) * (1 - exp(-dt / 1000))`; `err = wrap(R - (beats + dt * rate))`,
 `corr += (clamp(err / (500 * rate), -0.15, 0.15) - corr) * (1 - exp(-dt / 250))` (target 0 when
@@ -99,6 +102,6 @@ and `sample` (time and either `invalid` or every output, the number of queued ho
 when the scenario carries spectra, the 64 bins). Non-finite inputs are the strings `NaN`,
 `Infinity` and `-Infinity`. The scenarios cover tracked click trains at 30, 60 and 120 Hz with
 output, display and render-ahead latency, the phase lock, a host clock and its replacement and
-removal, seeks back and forward, reset, tempo changes, a zero-tempo beat, beats without a
-tracker output, bar-length inference and fallback, onset latency below analysis latency,
-interpolated spectra, equal hop times and every refusal.
+removal, seeks back and forward, small backward jitter hold, tracker dropout resync, reset, tempo
+changes, a zero-tempo beat, beats without a tracker output, bar-length inference and fallback,
+onset latency below analysis latency, interpolated spectra, equal hop times and every refusal.

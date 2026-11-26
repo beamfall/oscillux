@@ -29,8 +29,12 @@
 //!   over [`RATE_SLEW_MS`], and the phase error is closed by a correction of at most
 //!   [`PHASE_CORRECTION`] of that rate, itself slewed over [`CORRECTION_SLEW_MS`], so a
 //!   wavering tracker tempo bends the output's speed rather than racing and stalling it. It
-//!   snaps to the reference on the first sample, after [`ReactionSampler::reset`] and when the
-//!   target moves back or more than [`RESYNC_MS`] forward.
+//!   snaps to the reference on the first sample, after [`ReactionSampler::reset`], when a newly
+//!   set host clock's target is earlier than the follower's last sample, and when the target
+//!   moves more than [`HOLD_BACK_MS`] back or more than [`RESYNC_MS`] forward (holding the
+//!   follower output across smaller steps back). On a tracker-mode resync from an existing
+//!   follower state it keeps the tracker's phase and lands on the whole beat nearest the position
+//!   the output would have reached at its previous rate, never behind the previous output.
 //! - The beat pulse peaks at the output wrap, the beat's photon time: a Gaussian rise of width
 //!   `pulse_rise` before it and an exponential decay of `pulse_decay` after it.
 //!
@@ -47,6 +51,9 @@ use crate::mapping::{
     Mapped, AMPLITUDE, BASS, BASS_IMPACT, CENTROID, FLUX, LEVEL, MID, ONSET, SPECTRUM_BINS, TREBLE,
 };
 
+/// A step back of the target up to this, in milliseconds, holds the beat output instead of
+/// resynchronising (audio-clock jitter across frames). Larger steps back resynchronise.
+pub const HOLD_BACK_MS: f64 = 100.0;
 /// A forward move of the target larger than this, in milliseconds, resynchronises the beat
 /// phase instead of slewing it (a seek or a stall).
 pub const RESYNC_MS: f64 = 500.0;
@@ -737,17 +744,35 @@ impl ReactionSampler {
         };
         let resync = match &self.follower {
             None => true,
-            Some(f) => self.resync || t < f.last_t || t - f.last_t > RESYNC_MS,
+            Some(f) => {
+                self.resync
+                    || f.last_t - t > HOLD_BACK_MS
+                    || t - f.last_t > RESYNC_MS
+                    || (self.reanchor && t < f.last_t)
+            }
         };
         self.resync = false;
+        let held = !resync && self.follower.is_some_and(|f| t < f.last_t);
         let reanchor = core::mem::take(&mut self.reanchor);
         let mut f = if resync {
             let target = r.beats_at(t);
             let beats = if absolute {
                 target
+            } else if let Some(prev) = self.follower {
+                let reached = prev.beats
+                    + if t > prev.last_t {
+                        (t - prev.last_t) * prev.rate
+                    } else {
+                        0.0
+                    };
+                let phase = frac(target);
+                let mut beats = phase + libm::floor(reached - phase + 0.5);
+                if beats < prev.beats {
+                    beats += 1.0;
+                }
+                beats
             } else {
-                let count = self.follower.map_or(0.0, |f| libm::floor(f.beats));
-                count + frac(target)
+                frac(target)
             };
             Follower {
                 last_t: t,
@@ -758,6 +783,11 @@ impl ReactionSampler {
                 pulsed: false,
                 pulsed_down: false,
             }
+        } else if held {
+            let Some(f) = self.follower else {
+                return;
+            };
+            f
         } else {
             let Some(mut f) = self.follower else {
                 return;
@@ -1091,5 +1121,73 @@ mod tests {
         // Tempo 0 drops the reference.
         s.push(2_000.0, &Mapped::ZERO, Some(&Beat::ZERO)).unwrap();
         assert_eq!(s.sample(2_000.0).unwrap().locked, 0);
+    }
+
+    #[test]
+    fn a_tracker_resync_and_a_small_step_back_never_move_the_output_back() {
+        let mut s = sampler(ReactionConfig {
+            phase_lock_gain: 0.0,
+            ..plain()
+        });
+        let beat = |phase: f64| Beat {
+            tempo_bpm: 120.0,
+            beat_phase: phase,
+            bar_phase: phase / 4.0,
+            confidence: 0.8,
+            ..Beat::ZERO
+        };
+        let mut prev_pos: Option<f64> = None;
+        for k in 0..300 {
+            let media = k as f64 * 10.0;
+            let in_dropout = (media % 1500.0) >= 500.0 && (media % 1500.0) < 900.0;
+            let b = if in_dropout {
+                Beat::ZERO
+            } else {
+                beat((media / 500.0) % 1.0)
+            };
+            s.push(media, &Mapped::ZERO, Some(&b)).unwrap();
+            let jittered = media - ((k % 2) as f64) * 15.0;
+            let r = s.sample(jittered).unwrap();
+            if r.locked != 0 {
+                let pos = r.beat_count as f64 + r.beat_phase;
+                if let Some(prev) = prev_pos {
+                    assert!(
+                        pos >= prev,
+                        "output moved backwards at k={k}: {pos} < {prev}"
+                    );
+                }
+                prev_pos = Some(pos);
+            }
+        }
+        assert!(prev_pos.unwrap() > 5.0);
+
+        // Verify small backward hold vs larger backward seek / forward resync / host clock reanchor.
+        let mut s2 = sampler(plain());
+        s2.set_beat_clock(Some(&clock(60.0))).unwrap();
+        s2.sample(0.0).unwrap();
+        let steady = s2.sample(5_000.0).unwrap();
+        assert_eq!(steady.beat_count, 5);
+        assert!(steady.beat_phase.abs() < 1e-12);
+
+        // Exactly 100 ms back is held at 5.0.
+        let held = s2.sample(4_900.0).unwrap();
+        assert_eq!(held.beat_count, 5);
+        assert!(held.beat_phase.abs() < 1e-12);
+
+        // Over 100 ms back resyncs to 4.899.
+        let seek_back = s2.sample(4_899.0).unwrap();
+        assert_eq!(seek_back.beat_count, 4);
+        assert!((seek_back.beat_phase - 0.899).abs() < 1e-12);
+
+        // Forward jump over 500 ms resyncs cleanly.
+        let jump_fwd = s2.sample(5_450.0).unwrap();
+        assert_eq!(jump_fwd.beat_count, 5);
+        assert!((jump_fwd.beat_phase - 0.45).abs() < 1e-12);
+
+        // A newly set host clock with target < last_t resyncs instead of holding the old clock.
+        s2.set_beat_clock(Some(&clock(120.0))).unwrap();
+        let new_clock_back = s2.sample(5_440.0).unwrap();
+        assert_eq!(new_clock_back.beat_count, 10);
+        assert!((new_clock_back.beat_phase - 0.88).abs() < 1e-12);
     }
 }

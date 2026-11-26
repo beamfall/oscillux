@@ -10,6 +10,14 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+### Changed
+
+- `ReactionSampler` holds the beat follower across backward sample-time jitter up to
+  `HOLD_BACK_MS` (`100` ms) unless a resync flag is active or a newly set host `BeatClock`
+  targets an earlier time, and tracker-mode resynchronisations land on the whole beat nearest
+  the reached position rather than `floor(prev) + frac(target)` so beat position never steps
+  backwards (CORE-3277, openspec/changes/beat-follower-continuous/).
+
 ## [0.2.22] - 2026-11-24
 
 ### Added
