@@ -15,4 +15,4 @@
 
 ## 3. Verify & Land
 
-- [ ] 3.1 Pass `openspec validate --all --strict`, `make gate`, and Codex read-only review against `origin/main`
+- [x] 3.1 Pass `openspec validate --all --strict`, `make gate`, and Codex read-only review against `origin/main`
