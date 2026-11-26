@@ -10,6 +10,13 @@ addition below kept ABI version 1: no existing signature, struct layout or statu
 
 ## [Unreleased]
 
+## [0.2.23] - 2026-11-26
+
+### Added
+
+- `oscillux-cdg-render` adds `--pix-fmt yuv420p`, static-frame caching after hold, the
+  neutral-gray U chroma fix, and lazy `rgba_cache` allocation (commits `caa6137`, `53f1098`).
+
 ### Changed
 
 - `ReactionSampler` holds the beat follower across backward sample-time jitter up to
